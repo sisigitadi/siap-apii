@@ -1,0 +1,116 @@
+// Sumber kebenaran skema database (lihat DESIGN.md §4).
+// Konvensi: tabel & kolom snake_case via @@map/@map; enum mengikuti DESIGN.md §5.1.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// 13 peran bertingkat (DESIGN.md §5.1)
+enum UserRole {
+  SUPERADMIN
+  KETUA_UMUM
+  SEKRETARIS
+  BENDAHARA
+  DEWAN_PENGAWAS
+  DIV_HUMAS
+  DIV_LITBANG
+  DIV_SOSMED
+  DIV_DAKWAH
+  DIV_INVESTASI
+  DIV_HUKUM
+  DIV_UMUM
+  PUBLIK_ANGGOTA
+}
+
+/// 7 divisi operasional (DESIGN.md §5.1). Hanya untuk role DIV_*.
+enum Division {
+  DIV_HUMAS
+  DIV_LITBANG
+  DIV_SOSMED
+  DIV_DAKWAH
+  DIV_INVESTASI
+  DIV_HUKUM
+  DIV_UMUM
+}
+
+/// Aksi yang dicatat ke audit_logs (DESIGN.md §5.3 & §7.2)
+enum AuditAction {
+  LOGIN_SUCCESS
+  LOGIN_DENIED
+  LOGOUT
+  CROSS_DIVISION_DENIED
+  ROLE_CHANGED
+  DELEGATION_TOGGLED
+  USER_INVITED
+  USER_ACTIVATED
+}
+
+/// Pengguna & delegasi (DESIGN.md §4.1)
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique @db.VarChar(255)
+  full_name String   @db.VarChar(255)
+  role      UserRole
+  division  Division?
+  /// Soft-disable akun (tidak bisa login)
+  is_active Boolean  @default(true) @map("is_active")
+  /// Flag delegasi: pimpinan bisa mengundang & mengelola anggota tanpa IT
+  can_manage_users Boolean @default(false) @map("can_manage_users")
+  /// Diturunkan saat login Google pertama (bisa diubah di profil)
+  profile_picture_url String? @map("profile_picture_url")
+  /// Siapa yang mengundang akun ini (null = di-seed langsung)
+  invited_by_id String? @map("invited_by_id")
+  invited_at  DateTime? @map("invited_at") @db.Timestamptz
+  last_login_at DateTime? @map("last_login_at") @db.Timestamptz
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updated_at DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  refresh_sessions RefreshSession[]
+  audit_logs       AuditLog[] @relation("AuditActor")
+
+  @@map("users")
+}
+
+/// Refresh token (jti) — DESIGN.md §4.5; blacklist jti di Redis
+model RefreshSession {
+  id        String   @id @default(uuid())
+  jti       String   @unique
+  user_id   String   @map("user_id")
+  user_agent String? @map("user_agent")
+  ip_address String? @map("ip_address")
+  revoked   Boolean  @default(false)
+  expires_at DateTime @map("expires_at") @db.Timestamptz
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("refresh_sessions")
+}
+
+/// Jejak audit keamanan (DESIGN.md §4.5 & §5.3)
+model AuditLog {
+  id         String   @id @default(uuid())
+  action     AuditAction
+  /// Pelaku aksi (null = aksi sistem/anonim)
+  actor_id   String?  @map("actor_id")
+  /// Subjek yang dikenai aksi (mis. id user yang diubah perannya)
+  target_id  String?  @map("target_id")
+  /// Endpoint atau resource terkait (mis. /api/v1/letters)
+  resource   String?
+  ip_address String?  @map("ip_address")
+  user_agent String?  @map("user_agent")
+  metadata   Json     @default("[]")
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  actor User? @relation("AuditActor", fields: [actor_id], references: [id], onDelete: SetNull)
+
+  @@index([actor_id])
+  @@index([action])
+  @@map("audit_logs")
+}

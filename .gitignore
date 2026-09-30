@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+*.tsbuildinfo
+
+# Environment (jangan pernah commit kredensial)
+.env
+.env.*
+!.env.example
+
+# Kunci RS256 (lihat DESIGN.md §11.4)
+keys/
+
+# Coverage & cache
+coverage/
+.eslintcache
+
+# Prisma lokal (seeds besar / data debug)
+*.db
+*.db-journal
+
+# Infrastruktur dev (docker volumes)
+.postgres-data/
+.redis-data/
+.minio-data/
+
+# Mockup desain sumber Stitch (23 MB, bukan bagian kode — lihat README §Struktur Folder)
+Dokumen Sumber/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
