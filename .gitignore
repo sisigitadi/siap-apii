@@ -26,6 +26,9 @@ coverage/
 .redis-data/
 .minio-data/
 
+# Bukti unggahan runtime (ditulis oleh uploader service & pengujian)
+storage/
+
 # Mockup desain sumber Stitch (23 MB, bukan bagian kode — lihat README §Struktur Folder)
 Dokumen Sumber/
 

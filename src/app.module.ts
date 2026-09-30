@@ -14,6 +14,10 @@ import { HttpExceptionFilter } from '@/common/filters/http-exception.filter';
 import { ResponseInterceptor } from '@/common/interceptors/response.interceptor';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { UsersModule } from '@/modules/users/users.module';
+import { LettersModule } from '@/modules/letters/letters.module';
+import { FinanceModule } from '@/modules/finance/finance.module';
+import { DivisionsModule } from '@/modules/divisions/divisions.module';
+import { UploaderModule } from '@/modules/uploader/uploader.module';
 
 /**
  * Urutan APP_GUARD menentukan urutan eksekusi: JwtAuthGuard (isi request.user)
@@ -30,6 +34,10 @@ import { UsersModule } from '@/modules/users/users.module';
     AuditModule,
     AuthModule,
     UsersModule,
+    LettersModule,
+    FinanceModule,
+    DivisionsModule,
+    UploaderModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },
