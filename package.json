@@ -22,7 +22,8 @@
     "migrate:deploy": "prisma migrate deploy",
     "seed": "ts-node -r tsconfig-paths/register prisma/seed.ts",
     "studio": "prisma studio",
-    "keys": "node scripts/generate-keys.mjs"
+    "keys": "node scripts/generate-keys.mjs",
+    "migrate:validate": "node scripts/validate-migration.mjs prisma/migrations"
   },
   "prisma": {
     "seed": "ts-node -r tsconfig-paths/register prisma/seed.ts"
