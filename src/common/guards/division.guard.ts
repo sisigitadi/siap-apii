@@ -11,16 +11,19 @@ import type { Request } from 'express';
 import { CROSS_DIVISION_ROLES } from '@/common/constants/user-role.constant';
 import { DIVISION_KEY } from '@/common/decorators/division.decorator';
 import { AuditService } from '@/infrastructure/audit/audit.service';
+import { EventsBusService } from '@/infrastructure/websocket/events-bus.service';
 
 /**
  * Isolasi divisi mutlak (DESIGN.md §5.3). Setiap penolakan wajib memicu
- * SecurityAuditEvent → audit_logs + Redis stream.
+ * SecurityAuditEvent → audit_logs + Redis stream + event real-time
+ * `AUDIT_SECURITY` ke room superadmin & dewan pengawas (DESIGN.md §7.2).
  */
 @Injectable()
 export class DivisionGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly audit: AuditService,
+    private readonly eventsBus: EventsBusService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -57,6 +60,11 @@ export class DivisionGuard implements CanActivate {
         userDivision: user.division,
         userRole: user.role,
       },
+    });
+    await this.eventsBus.emitAuditSecurity({
+      userId: user.sub,
+      endpoint: request.originalUrl,
+      timestamp: new Date().toISOString(),
     });
     throw new ForbiddenException('Akses divisi ditolak');
   }

@@ -157,9 +157,9 @@ CORS_ORIGINS=https://app.apii.sigitadi.id                    # asal frontend yan
 
 ## 🗺️ Roadmap
 
-- **Fase 1 — Fondasi:** scaffold, Prisma + migrasi + seed, OAuth PKCE + JWT RS256, RBAC Guards, OpenAPI.
-- **Fase 2 — Core:** persuratan + PDF engine, keuangan dual-approval, workflow 7 divisi.
-- **Fase 3 — Realtime & Portal:** WebSocket event bus, portal publik & e-KTA.
+- **Fase 1 — Fondasi:** ✅ scaffold, Prisma + migrasi + seed, OAuth PKCE + JWT RS256, RBAC Guards, OpenAPI.
+- **Fase 2 — Core:** ✅ persuratan + PDF engine, keuangan dual-approval, workflow 7 divisi.
+- **Fase 3 — Realtime & Portal:** ✅ WebSocket event bus (`/v1/stream/events`, room multiplexing + Redis pub/sub), portal publik (feed, verifikasi SHA-256, jadwal) & e-KTA 5 tahun.
 - **Fase 4 — Ship:** konfigurasi deploy Vercel (`vercel.json` + env produksi), docker-compose final untuk dev, e2e test, panduan deploy.
 
 **Ditangguhkan ke Fase 2+** (lihat `DESIGN.md`): scan ClamAV, transkoding HLS video, OCR kwitansi, PostgreSQL RLS, chunked WebSocket upload, antrian worker terpisah.

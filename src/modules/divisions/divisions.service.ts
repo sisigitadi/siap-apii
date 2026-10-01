@@ -7,7 +7,7 @@ import {
 import { Division, DivisionSubmission, Prisma, SubmissionStatus } from '@prisma/client';
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
 import { AuditService } from '@/infrastructure/audit/audit.service';
-import { RedisService } from '@/infrastructure/redis/redis.service';
+import { EventsBusService } from '@/infrastructure/websocket/events-bus.service';
 import {
   CreateSubmissionDto,
   RejectSubmissionDto,
@@ -51,7 +51,7 @@ export class DivisionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    private readonly redis: RedisService,
+    private readonly eventsBus: EventsBusService,
   ) {}
 
   /**
@@ -254,12 +254,11 @@ export class DivisionsService {
       },
     });
 
-    await this.redis.xAdd('audit:security', {
-      event: 'PROGRAM_APPROVED',
+    // Event real-time ke room `public` + `division:<x>` (DESIGN.md §7.2)
+    await this.eventsBus.emitProgramApproved({
       trackingId: updated.tracking_id,
       division: updated.division,
       title: updated.program_title,
-      timestamp: new Date().toISOString(),
     });
 
     return updated;

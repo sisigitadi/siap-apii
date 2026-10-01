@@ -50,9 +50,22 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return (await this.client.exists(key)) === 1;
   }
 
-  /** Pub/sub WebSocket event bus (dipakai penuh di Fase 3) */
+  /** Pub/sub WebSocket event bus (DESIGN.md §7.1) */
   async publish(channel: string, message: string): Promise<void> {
     await this.client.publish(channel, message);
+  }
+
+  /**
+   * Berlangganan channel pub/sub memakai client duplikat (ioredis melarang
+   * subscribe pada client yang juga dipakai untuk perintah biasa). Client
+   * duplikat di-return agar pemanggil bisa memutusnya saat modulen dihancurkan.
+   */
+  async subscribe(channel: string, onMessage: (message: string) => void): Promise<Redis> {
+    const subscriber = this.client.duplicate();
+    await subscriber.connect();
+    await subscriber.subscribe(channel);
+    subscriber.on('message', (_channel: string, message: string) => onMessage(message));
+    return subscriber;
   }
 
   /** Tambahkan entry ke Redis stream (mis. audit keamanan, DESIGN.md §5.3) */

@@ -4,7 +4,7 @@ import { AccountCategory, CashFlowStatus, CashFlowType, Prisma, UserRole } from 
 import { FinanceService } from './finance.service';
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
 import { AuditService } from '@/infrastructure/audit/audit.service';
-import { RedisService } from '@/infrastructure/redis/redis.service';
+import { EventsBusService } from '@/infrastructure/websocket/events-bus.service';
 
 describe('FinanceService', () => {
   let service: FinanceService;
@@ -21,7 +21,9 @@ describe('FinanceService', () => {
   };
 
   const mockAudit = { log: jest.fn().mockResolvedValue(undefined) };
-  const mockRedis = { xAdd: jest.fn().mockResolvedValue(undefined) };
+  const mockEventsBus = {
+    emitCashbookMutated: jest.fn().mockResolvedValue(undefined),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -31,7 +33,7 @@ describe('FinanceService', () => {
         FinanceService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
-        { provide: RedisService, useValue: mockRedis },
+        { provide: EventsBusService, useValue: mockEventsBus },
       ],
     }).compile();
 
@@ -115,10 +117,11 @@ describe('FinanceService', () => {
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'CASH_FLOW_VERIFIED_KETUM' }),
       );
-      expect(mockRedis.xAdd).toHaveBeenCalledWith(
-        'audit:security',
-        expect.objectContaining({ event: 'CASHBOOK_MUTATED' }),
-      );
+      expect(mockEventsBus.emitCashbookMutated).toHaveBeenCalledWith({
+        voucherNumber: '001/KEU-APII/JABO/III/2025',
+        type: CashFlowType.INFLOW,
+        account: AccountCategory.BSI_GIRO,
+      });
     });
 
     it('should reject if voucher has not been verified by Bendahara first', async () => {

@@ -2,6 +2,7 @@ import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { AuditService } from '@/infrastructure/audit/audit.service';
+import { EventsBusService } from '@/infrastructure/websocket/events-bus.service';
 import type { AccessTokenClaims } from '@/infrastructure/jwt/jwt.service';
 import { DivisionGuard } from './division.guard';
 
@@ -43,12 +44,17 @@ describe('DivisionGuard', () => {
   let guard: DivisionGuard;
   let reflector: Reflector;
   let auditLog: jest.Mock;
+  let emitAuditSecurity: jest.Mock;
 
   beforeEach(() => {
     reflector = new Reflector();
     auditLog = jest.fn().mockResolvedValue(undefined);
+    emitAuditSecurity = jest.fn().mockResolvedValue(undefined);
     const audit = { log: auditLog } as unknown as AuditService;
-    guard = new DivisionGuard(reflector, audit);
+    const eventsBus = {
+      emitAuditSecurity,
+    } as unknown as EventsBusService;
+    guard = new DivisionGuard(reflector, audit, eventsBus);
   });
 
   function setRequiredDivision(division: string | undefined): void {
@@ -61,6 +67,7 @@ describe('DivisionGuard', () => {
       guard.canActivate(makeExecutionContext(makeClaims('DIV_HUMAS', 'DIV_HUMAS'))),
     ).resolves.toBe(true);
     expect(auditLog).not.toHaveBeenCalled();
+    expect(emitAuditSecurity).not.toHaveBeenCalled();
   });
 
   it('mengizinkan peran tingkat wilaya melintasi divisi', async () => {
@@ -69,6 +76,7 @@ describe('DivisionGuard', () => {
       guard.canActivate(makeExecutionContext(makeClaims('SEKRETARIS', null))),
     ).resolves.toBe(true);
     expect(auditLog).not.toHaveBeenCalled();
+    expect(emitAuditSecurity).not.toHaveBeenCalled();
   });
 
   it('mengizinkan admin divisi yang divisinya cocok', async () => {
@@ -98,6 +106,11 @@ describe('DivisionGuard', () => {
         userDivision: 'DIV_HUMAS',
         userRole: 'DIV_HUMAS',
       },
+    });
+    expect(emitAuditSecurity).toHaveBeenCalledWith({
+      userId: claims.sub,
+      endpoint: '/api/v1/letters?division=DIV_LITBANG',
+      timestamp: expect.any(String),
     });
   });
 

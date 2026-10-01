@@ -7,6 +7,7 @@ import { PrismaModule } from '@/infrastructure/prisma/prisma.module';
 import { RedisModule } from '@/infrastructure/redis/redis.module';
 import { JwtModule } from '@/infrastructure/jwt/jwt.module';
 import { AuditModule } from '@/infrastructure/audit/audit.module';
+import { WebsocketModule } from '@/infrastructure/websocket/websocket.module';
 import { DivisionGuard } from '@/common/guards/division.guard';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
@@ -17,6 +18,7 @@ import { UsersModule } from '@/modules/users/users.module';
 import { LettersModule } from '@/modules/letters/letters.module';
 import { FinanceModule } from '@/modules/finance/finance.module';
 import { DivisionsModule } from '@/modules/divisions/divisions.module';
+import { PublicPortalModule } from '@/modules/public-portal/public-portal.module';
 import { UploaderModule } from '@/modules/uploader/uploader.module';
 
 /**
@@ -32,11 +34,13 @@ import { UploaderModule } from '@/modules/uploader/uploader.module';
     RedisModule,
     JwtModule,
     AuditModule,
+    WebsocketModule,
     AuthModule,
     UsersModule,
     LettersModule,
     FinanceModule,
     DivisionsModule,
+    PublicPortalModule,
     UploaderModule,
   ],
   providers: [

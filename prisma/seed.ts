@@ -56,8 +56,23 @@ async function main(): Promise<void> {
     },
   });
 
-  console.log('Seed selesai — 4 akun inti:');
-  for (const user of [superadmin, ketua, sekretaris, bendahara]) {
+  // Anggota publik contoh — memperagakan e-KTA 5 tahun (FR-PUBLIC-02)
+  const anggota = await prisma.user.upsert({
+    where: { email: 'anggota@siap-apii.local' },
+    update: {},
+    create: {
+      email: 'anggota@siap-apii.local',
+      full_name: 'Anggota Contoh',
+      role: 'PUBLIK_ANGGOTA',
+      is_active: true,
+      member_number: 'APII-JABO-0001',
+      member_since: new Date('2025-01-01T00:00:00Z'),
+      card_issued_at: new Date('2025-01-01T00:00:00Z'),
+    },
+  });
+
+  console.log('Seed selesai — 5 akun (4 inti + 1 anggota contoh):');
+  for (const user of [superadmin, ketua, sekretaris, bendahara, anggota]) {
     console.log(`  [${user.role}] ${user.email} — ${user.full_name}`);
   }
 }

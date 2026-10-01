@@ -118,8 +118,10 @@ Setiap aksi berikut **wajib** memicu `SecurityAuditEvent` (Redis stream `audit:s
 | `GET /api/v1/divisions/submissions` | `JwtAuthGuard` + `DivisionGuard` (divisi sendiri) atau `Roles(KETUA_UMUM, SUPERADMIN, DEWAN_PENGAWAS)` |
 | `POST /api/v1/divisions/submissions/:id/approve` | `JwtAuthGuard` + `Roles(KETUA_UMUM)` |
 | `GET /api/v1/public/feed` | (publik) |
+| `GET /api/v1/public/schedules` | (publik) |
 | `GET /api/v1/public/verify/:sha256` | (publik) |
 | `GET /api/v1/public/members/me/e-kta` | `JwtAuthGuard` + `Roles(PUBLIK_ANGGOTA)` |
+| `WS /v1/stream/events` | JWT di handshake socket.io (room: `public`, `role:<x>`, `division:<x>`) |
 | `POST /api/v1/uploads` | `JwtAuthGuard` (divisi hanya untuk lampiran own-scope) |
 
 ---

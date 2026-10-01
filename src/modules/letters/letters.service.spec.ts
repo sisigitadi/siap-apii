@@ -4,7 +4,7 @@ import { LetterStatus, LetterType } from '@prisma/client';
 import { LettersService } from './letters.service';
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
 import { AuditService } from '@/infrastructure/audit/audit.service';
-import { RedisService } from '@/infrastructure/redis/redis.service';
+import { EventsBusService } from '@/infrastructure/websocket/events-bus.service';
 import { appConfigToken } from '@/config/app.config';
 
 describe('LettersService', () => {
@@ -22,7 +22,9 @@ describe('LettersService', () => {
   };
 
   const mockAudit = { log: jest.fn().mockResolvedValue(undefined) };
-  const mockRedis = { xAdd: jest.fn().mockResolvedValue(undefined) };
+  const mockEventsBus = {
+    emitDocumentPublished: jest.fn().mockResolvedValue(undefined),
+  };
   const mockConfig = {
     PUBLIC_VERIFY_BASE_URL: 'https://app.apii.sigitadi.id/verify',
   };
@@ -35,7 +37,7 @@ describe('LettersService', () => {
         LettersService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
-        { provide: RedisService, useValue: mockRedis },
+        { provide: EventsBusService, useValue: mockEventsBus },
         { provide: appConfigToken, useValue: mockConfig },
       ],
     }).compile();

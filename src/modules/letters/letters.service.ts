@@ -10,7 +10,7 @@ import { LetterStatus, LetterType, OfficialLetter, Prisma } from '@prisma/client
 import { appConfigToken, type AppConfig } from '@/config/app.config';
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
 import { AuditService } from '@/infrastructure/audit/audit.service';
-import { RedisService } from '@/infrastructure/redis/redis.service';
+import { EventsBusService } from '@/infrastructure/websocket/events-bus.service';
 import { CreateLetterDto, LetterQueryDto, RejectLetterDto, UpdateLetterDto } from './letters.dto';
 
 /** Shape relasi `created_by` / `approved_by` yang di-`select` pada query surat. */
@@ -50,7 +50,7 @@ export class LettersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    private readonly redis: RedisService,
+    private readonly eventsBus: EventsBusService,
     @Inject(appConfigToken) private readonly config: AppConfig,
   ) {}
 
@@ -391,12 +391,11 @@ export class LettersService {
       },
     });
 
-    await this.redis.xAdd('audit:security', {
-      event: 'DOCUMENT_PUBLISHED',
+    // Event real-time ke room `public` (DESIGN.md §7.2)
+    await this.eventsBus.emitDocumentPublished({
       letterNumber: published.letter_number,
       title: published.title,
       sha256: published.sha256_hash,
-      publishedAt: published.published_at?.toISOString() ?? new Date().toISOString(),
     });
 
     return published;

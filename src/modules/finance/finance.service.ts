@@ -9,7 +9,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
 import { AuditService } from '@/infrastructure/audit/audit.service';
-import { RedisService } from '@/infrastructure/redis/redis.service';
+import { EventsBusService } from '@/infrastructure/websocket/events-bus.service';
 import {
   CashFlowQueryDto,
   CreateCashFlowDto,
@@ -57,7 +57,7 @@ export class FinanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    private readonly redis: RedisService,
+    private readonly eventsBus: EventsBusService,
   ) {}
 
   async generateVoucherNumber(date = new Date()): Promise<string> {
@@ -198,13 +198,11 @@ export class FinanceService {
       },
     });
 
-    await this.redis.xAdd('audit:security', {
-      event: 'CASHBOOK_MUTATED',
+    // Event real-time ke room bendahara + dewan pengawas (DESIGN.md §7.2)
+    await this.eventsBus.emitCashbookMutated({
       voucherNumber: updated.voucher_number,
       type: updated.type,
       account: updated.account_category,
-      amount: updated.amount.toString(),
-      timestamp: new Date().toISOString(),
     });
 
     return updated;

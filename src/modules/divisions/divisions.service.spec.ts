@@ -4,7 +4,7 @@ import { Division, Prisma, SubmissionStatus } from '@prisma/client';
 import { DivisionsService } from './divisions.service';
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
 import { AuditService } from '@/infrastructure/audit/audit.service';
-import { RedisService } from '@/infrastructure/redis/redis.service';
+import { EventsBusService } from '@/infrastructure/websocket/events-bus.service';
 
 describe('DivisionsService', () => {
   let service: DivisionsService;
@@ -21,7 +21,9 @@ describe('DivisionsService', () => {
   };
 
   const mockAudit = { log: jest.fn().mockResolvedValue(undefined) };
-  const mockRedis = { xAdd: jest.fn().mockResolvedValue(undefined) };
+  const mockEventsBus = {
+    emitProgramApproved: jest.fn().mockResolvedValue(undefined),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -31,7 +33,7 @@ describe('DivisionsService', () => {
         DivisionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
-        { provide: RedisService, useValue: mockRedis },
+        { provide: EventsBusService, useValue: mockEventsBus },
       ],
     }).compile();
 
@@ -216,10 +218,11 @@ describe('DivisionsService', () => {
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'SUBMISSION_APPROVED' }),
       );
-      expect(mockRedis.xAdd).toHaveBeenCalledWith(
-        'audit:security',
-        expect.objectContaining({ event: 'PROGRAM_APPROVED' }),
-      );
+      expect(mockEventsBus.emitProgramApproved).toHaveBeenCalledWith({
+        trackingId: '#REQ-2025-001',
+        division: Division.DIV_DAKWAH,
+        title: 'Safari Dakwah',
+      });
     });
 
     it('should throw NotFoundException when submission does not exist', async () => {

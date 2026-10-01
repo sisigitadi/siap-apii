@@ -140,6 +140,14 @@ model User {
   can_manage_users Boolean @default(false) @map("can_manage_users")
   /// Diturunkan saat login Google pertama (bisa diubah di profil)
   profile_picture_url String? @map("profile_picture_url")
+  /// Nomor anggota resmi untuk e-KTA (FR-PUBLIC-02)
+  member_number     String?  @unique @map("member_number") @db.VarChar(50)
+  /// Tanggal mulai menjadi anggota (dasar masa berlaku e-KTA)
+  member_since      DateTime? @map("member_since") @db.Timestamptz
+  /// Tanggal terbit e-KTA (nomor kartu cetak/digital)
+  card_issued_at    DateTime? @map("card_issued_at") @db.Timestamptz
+  /// Masa berlaku e-KTA (5 tahun sejak terbit; FR-PUBLIC-02)
+  card_expires_at   DateTime? @map("card_expires_at") @db.Timestamptz
   /// Siapa yang mengundang akun ini (null = di-seed langsung)
   invited_by_id String? @map("invited_by_id")
   invited_at  DateTime? @map("invited_at") @db.Timestamptz
@@ -206,7 +214,7 @@ model OfficialLetter {
   content_payload Json         @map("content_payload")
   kop_config      Json         @map("kop_config")
   signatories     Json         @map("signatories")
-  sha256_hash     String       @map("sha256_hash") @db.VarChar(64)
+  sha256_hash     String       @unique @map("sha256_hash") @db.VarChar(64)
   qr_verify_url   String       @map("qr_verify_url")
   status          LetterStatus @default(DRAFT)
   rejection_note  String?      @map("rejection_note")
