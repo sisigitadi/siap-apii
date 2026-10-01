@@ -1,0 +1,1526 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/auth/google": {
+      "get": {
+        "operationId": "AuthController_getGoogleAuthUrl",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "URL untuk redirect ke Google",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationUrlDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Otentikasi diperlukan atau token tidak valid"
+          },
+          "403": {
+            "description": "Akses ditolak (mis. email belum terdaftar)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Dapatkan URL otorisasi Google (memulai PKCE)",
+        "tags": [
+          "Autentikasi"
+        ]
+      }
+    },
+    "/api/v1/auth/google/callback": {
+      "get": {
+        "operationId": "AuthController_googleCallback",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Otentikasi diperlukan atau token tidak valid"
+          },
+          "403": {
+            "description": "Akses ditolak (mis. email belum terdaftar)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Callback Google — terima token, set cookie, redirect ke frontend",
+        "tags": [
+          "Autentikasi"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Pasangan token baru",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPairDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Otentikasi diperlukan atau token tidak valid"
+          },
+          "403": {
+            "description": "Akses ditolak (mis. email belum terdaftar)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Perbarui sesi (rotasi refresh token)",
+        "tags": [
+          "Autentikasi"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResultDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Otentikasi diperlukan atau token tidak valid"
+          },
+          "403": {
+            "description": "Akses ditolak (mis. email belum terdaftar)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Logout dari perangkat ini",
+        "tags": [
+          "Autentikasi"
+        ]
+      }
+    },
+    "/api/v1/auth/logout-all": {
+      "post": {
+        "operationId": "AuthController_logoutAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResultDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Otentikasi diperlukan atau token tidak valid"
+          },
+          "403": {
+            "description": "Akses ditolak (mis. email belum terdaftar)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Logout dari semua perangkat (FR-AUTH-02)",
+        "tags": [
+          "Autentikasi"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Otentikasi diperlukan atau token tidak valid"
+          },
+          "403": {
+            "description": "Akses ditolak (mis. email belum terdaftar)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Profil pengguna yang sedang login",
+        "tags": [
+          "Autentikasi"
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "operationId": "UsersController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Daftar pengguna terpaginasi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Peran tidak diizinkan atau tidak punya delegasi"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Daftar pengguna dengan paginasi & filter",
+        "tags": [
+          "Pengguna"
+        ]
+      }
+    },
+    "/api/v1/users/invite": {
+      "post": {
+        "operationId": "UsersController_invite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Peran tidak diizinkan atau tidak punya delegasi"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Undang pengurus baru via email Google (FR-AUTH-04)",
+        "tags": [
+          "Pengguna"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/role": {
+      "patch": {
+        "operationId": "UsersController_updateRole",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Peran tidak diizinkan atau tidak punya delegasi"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ubah peran & divisi pengguna (FR-AUTH-07)",
+        "tags": [
+          "Pengguna"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/delegation": {
+      "patch": {
+        "operationId": "UsersController_updateDelegation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDelegationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Peran tidak diizinkan atau tidak punya delegasi"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Atur delegasi pengelolaan anggota (FR-AUTH-03)",
+        "tags": [
+          "Pengguna"
+        ]
+      }
+    },
+    "/api/v1/official-letters": {
+      "post": {
+        "operationId": "LettersController_createLetter",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLetterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Buat draf surat resmi baru",
+        "tags": [
+          "letters"
+        ]
+      },
+      "get": {
+        "operationId": "LettersController_findAllLetters",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Daftar surat resmi terfilter & terpaginasi",
+        "tags": [
+          "letters"
+        ]
+      }
+    },
+    "/api/v1/official-letters/{id}": {
+      "get": {
+        "operationId": "LettersController_findLetterById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Detail surat resmi beserta status integritas SHA-256",
+        "tags": [
+          "letters"
+        ]
+      },
+      "patch": {
+        "operationId": "LettersController_updateLetter",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLetterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Perbarui draf surat resmi",
+        "tags": [
+          "letters"
+        ]
+      }
+    },
+    "/api/v1/official-letters/{id}/render-html": {
+      "get": {
+        "operationId": "LettersController_renderHtml",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Render pratinjau HTML A4 dokumen resmi ber-kop dan ber-stempel",
+        "tags": [
+          "letters"
+        ]
+      }
+    },
+    "/api/v1/official-letters/{id}/submit": {
+      "post": {
+        "operationId": "LettersController_submitLetter",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ajukan draf surat ke pimpinan (PENDING_APPROVAL)",
+        "tags": [
+          "letters"
+        ]
+      }
+    },
+    "/api/v1/official-letters/{id}/approve-and-publish": {
+      "post": {
+        "operationId": "LettersController_approveAndPublishLetter",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Setujui dan rilis surat resmi ke publik (PUBLISHED)",
+        "tags": [
+          "letters"
+        ]
+      }
+    },
+    "/api/v1/official-letters/{id}/reject": {
+      "post": {
+        "operationId": "LettersController_rejectLetter",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectLetterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Tolak surat resmi dengan catatan revisi (REJECTED)",
+        "tags": [
+          "letters"
+        ]
+      }
+    },
+    "/api/v1/official-letters/{id}/archive": {
+      "post": {
+        "operationId": "LettersController_archiveLetter",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Arsipkan surat resmi yang telah rilis",
+        "tags": [
+          "letters"
+        ]
+      }
+    },
+    "/api/v1/incoming-letters": {
+      "post": {
+        "operationId": "IncomingLettersController_createIncoming",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateIncomingLetterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Catat agenda surat masuk baru",
+        "tags": [
+          "letters"
+        ]
+      },
+      "get": {
+        "operationId": "IncomingLettersController_findAllIncoming",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Daftar agenda surat masuk & status disposisi",
+        "tags": [
+          "letters"
+        ]
+      }
+    },
+    "/api/v1/incoming-letters/{id}": {
+      "get": {
+        "operationId": "IncomingLettersController_findIncomingById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Detail agenda surat masuk",
+        "tags": [
+          "letters"
+        ]
+      }
+    },
+    "/api/v1/incoming-letters/{id}/dispose": {
+      "post": {
+        "operationId": "IncomingLettersController_disposeIncoming",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisposeIncomingLetterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Berikan instruksi disposisi surat masuk ke divisi",
+        "tags": [
+          "letters"
+        ]
+      }
+    },
+    "/api/v1/finance/vouchers": {
+      "post": {
+        "operationId": "FinanceController_createVoucher",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCashFlowDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Buat voucher kas baru (otomatis bernomor resmi)",
+        "tags": [
+          "finance"
+        ]
+      },
+      "get": {
+        "operationId": "FinanceController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Daftar voucher kas terfilter & terpaginasi",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/v1/finance/balances": {
+      "get": {
+        "operationId": "FinanceController_getBalances",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Saldo kas berjalan real-time per rekening resmi yayasan",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/v1/finance/reports/monthly": {
+      "get": {
+        "operationId": "FinanceController_getMonthlyReport",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Laporan rekapitulasi kas bulanan resmi",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/v1/finance/vouchers/{id}": {
+      "get": {
+        "operationId": "FinanceController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Detail voucher kas dan status dual-approval",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/v1/finance/vouchers/{id}/verify-bendahara": {
+      "post": {
+        "operationId": "FinanceController_verifyByBendahara",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Verifikasi voucher oleh Bendahara",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/v1/finance/vouchers/{id}/verify-ketum": {
+      "post": {
+        "operationId": "FinanceController_verifyByKetum",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Persetujuan akhir voucher oleh Ketua Umum (masuk buku kas resmi)",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/v1/finance/vouchers/{id}/reject": {
+      "post": {
+        "operationId": "FinanceController_rejectVoucher",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectVoucherDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Tolak voucher keuangan dengan alasan tertulis",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/v1/divisions/submissions": {
+      "post": {
+        "operationId": "DivisionsController_createSubmission",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubmissionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Buat draf usulan program kerja baru",
+        "tags": [
+          "divisions"
+        ]
+      },
+      "get": {
+        "operationId": "DivisionsController_findAllSubmissions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Daftar usulan program kerja (terisolasi per divisi bagi pengurus divisi)",
+        "tags": [
+          "divisions"
+        ]
+      }
+    },
+    "/api/v1/divisions/dashboard/aggregate": {
+      "get": {
+        "operationId": "DivisionsController_getAggregateDashboard",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Dasbor agregat usulan program 7 divisi untuk pimpinan",
+        "tags": [
+          "divisions"
+        ]
+      }
+    },
+    "/api/v1/divisions/submissions/{id}": {
+      "get": {
+        "operationId": "DivisionsController_findSubmissionById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Detail usulan program kerja",
+        "tags": [
+          "divisions"
+        ]
+      },
+      "patch": {
+        "operationId": "DivisionsController_updateSubmission",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSubmissionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Perbarui usulan program (hanya DRAFT atau REJECTED)",
+        "tags": [
+          "divisions"
+        ]
+      }
+    },
+    "/api/v1/divisions/submissions/{id}/submit": {
+      "post": {
+        "operationId": "DivisionsController_submitForApproval",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ajukan usulan program ke Ketua Umum (PENDING_APPROVAL)",
+        "tags": [
+          "divisions"
+        ]
+      }
+    },
+    "/api/v1/divisions/submissions/{id}/approve": {
+      "post": {
+        "operationId": "DivisionsController_approveSubmission",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewSubmissionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Approval Board: Setujui usulan program kerja oleh Ketua Umum",
+        "tags": [
+          "divisions"
+        ]
+      }
+    },
+    "/api/v1/divisions/submissions/{id}/reject": {
+      "post": {
+        "operationId": "DivisionsController_rejectSubmission",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectSubmissionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Tolak usulan program kerja dengan catatan revisi",
+        "tags": [
+          "divisions"
+        ]
+      }
+    },
+    "/api/v1/divisions/submissions/{id}/publish": {
+      "post": {
+        "operationId": "DivisionsController_publishSubmission",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Publikasi program terlaksana ke portal publik",
+        "tags": [
+          "divisions"
+        ]
+      }
+    },
+    "/api/v1/public/verify/{sha256}": {
+      "get": {
+        "operationId": "PublicPortalController_verifyDocument",
+        "parameters": [
+          {
+            "name": "sha256",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hasil verifikasi dokumen",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationResultDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Otentikasi diperlukan untuk endpoint anggota"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Verifikasi keaslian dokumen via sidik jari SHA-256 (publik)",
+        "tags": [
+          "Portal Publik"
+        ]
+      }
+    },
+    "/api/v1/public/feed": {
+      "get": {
+        "operationId": "PublicPortalController_findPublicFeed",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Daftar surat berstatus PUBLISHED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicFeedListDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Otentikasi diperlukan untuk endpoint anggota"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Feed informasi resmi yang sudah dirilis (publik)",
+        "tags": [
+          "Portal Publik"
+        ]
+      }
+    },
+    "/api/v1/public/schedules": {
+      "get": {
+        "operationId": "PublicPortalController_findPublicSchedules",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Daftar program berstatus PUBLISHED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicScheduleListDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Otentikasi diperlukan untuk endpoint anggota"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Jadwal kajian & program resmi yang dipublikasi (publik)",
+        "tags": [
+          "Portal Publik"
+        ]
+      }
+    },
+    "/api/v1/public/members/me/e-kta": {
+      "get": {
+        "operationId": "PublicPortalController_getMyMemberCard",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Kartu anggota digital 5 tahun",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberCardDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Otentikasi diperlukan untuk endpoint anggota"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "e-KTA digital anggota (hanya PUBLIK_ANGGOTA, data sendiri)",
+        "tags": [
+          "Portal Publik"
+        ]
+      }
+    },
+    "/api/v1/uploads": {
+      "post": {
+        "operationId": "UploaderController_uploadFile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Unggah berkas pendukung (PDF, Gambar, Dokumen; maks 10 MB)",
+        "tags": [
+          "uploader"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "SIAP APII",
+    "description": "Backend API SIAP APII — Yayasan APII DPW Jabodetabek",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "AuthorizationUrlDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TokenPairDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "LogoutResultDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UserDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UserListDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "InviteUserDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateUserRoleDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateDelegationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateLetterDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateLetterDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RejectLetterDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateIncomingLetterDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "DisposeIncomingLetterDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateCashFlowDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RejectVoucherDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateSubmissionDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateSubmissionDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReviewSubmissionDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RejectSubmissionDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "VerificationResultDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "PublicFeedListDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "PublicScheduleListDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "MemberCardDto": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  }
+}

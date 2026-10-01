@@ -24,5 +24,11 @@
       "@infrastructure/*": ["src/infrastructure/*"],
       "@modules/*": ["src/modules/*"]
     }
+  },
+  "files": ["src/common/types/express.d.ts"],
+  "include": ["src/**/*", "scripts/**/*", "test/**/*", "prisma/**/*"],
+  "ts-node": {
+    "transpileOnly": true
   }
 }
+

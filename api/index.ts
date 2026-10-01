@@ -6,7 +6,6 @@ import 'reflect-metadata';
 import cookieParser from 'cookie-parser';
 import express, { Express, Request, Response } from 'express';
 import helmet from 'helmet';
-import { patchNestJsSwagger } from 'nestjs-zod';
 import { AppModule } from '../src/app.module';
 import { appConfigToken, type AppConfig } from '../src/config/app.config';
 
@@ -34,7 +33,6 @@ async function bootstrapServer(): Promise<void> {
     credentials: true,
   });
 
-  patchNestJsSwagger();
   const documentConfig = new DocumentBuilder()
     .setTitle('SIAP APII')
     .setDescription('Backend API SIAP APII — Yayasan APII DPW Jabodetabek')
@@ -57,3 +55,4 @@ export default async function handler(req: Request, res: Response): Promise<void
   }
   server(req, res);
 }
+

@@ -23,7 +23,8 @@
     "seed": "ts-node -r tsconfig-paths/register prisma/seed.ts",
     "studio": "prisma studio",
     "keys": "node scripts/generate-keys.mjs",
-    "migrate:validate": "node scripts/validate-migration.mjs prisma/migrations"
+    "migrate:validate": "node scripts/validate-migration.mjs prisma/migrations",
+    "openapi:export": "ts-node -r tsconfig-paths/register scripts/export-openapi.ts"
   },
   "prisma": {
     "seed": "ts-node -r tsconfig-paths/register prisma/seed.ts"

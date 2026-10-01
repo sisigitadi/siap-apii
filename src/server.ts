@@ -5,7 +5,6 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import 'reflect-metadata';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import { patchNestJsSwagger } from 'nestjs-zod';
 import { AppModule } from './app.module';
 import { appConfigToken, type AppConfig } from './config/app.config';
 
@@ -32,9 +31,6 @@ async function bootstrap(): Promise<void> {
     credentials: true,
   });
 
-  // OpenAPI: patchNestJsSwagger() wajib dipanggil sebelum createDocument
-  // agar skema Zod (nestjs-zod) dirender dengan benar di swagger.json.
-  patchNestJsSwagger();
   const documentConfig = new DocumentBuilder()
     .setTitle('SIAP APII')
     .setDescription('Backend API SIAP APII — Yayasan APII DPW Jabodetabek')
