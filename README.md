@@ -153,6 +153,8 @@ CORS_ORIGINS=https://app.apii.sigitadi.id                    # asal frontend yan
 - **[PROJECT_RULES.md](./docs/PROJECT_RULES.md)** — Aturan kode, keamanan, alur git, Definition of Done
 - **[docs/rbac-matrix.md](./docs/rbac-matrix.md)** — Matriks izin 13 peran × modul
 - **[docs/deploy.md](./docs/deploy.md)** — Panduan deployment produksi (Vercel, Neon PITR, Upstash, R2, Zero-Downtime)
+- **[docs/frontend-integration.md](./docs/frontend-integration.md)** — Panduan integrasi Frontend SPA, WebSocket, format envelope, dan generate TypeScript types dari OpenAPI
+
 
 ---
 
