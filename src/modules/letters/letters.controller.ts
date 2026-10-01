@@ -26,7 +26,7 @@ import { LettersPdfService, type RenderableLetter } from './letters-pdf.service'
 @ApiTags('letters')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('api/v1/official-letters')
+@Controller('official-letters')
 export class LettersController {
   constructor(
     private readonly lettersService: LettersService,

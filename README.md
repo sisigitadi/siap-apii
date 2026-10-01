@@ -152,6 +152,7 @@ CORS_ORIGINS=https://app.apii.sigitadi.id                    # asal frontend yan
 - **[DESIGN.md](./docs/DESIGN.md)** — Arsitektur, model data, alur dokumen, keputusan desain
 - **[PROJECT_RULES.md](./docs/PROJECT_RULES.md)** — Aturan kode, keamanan, alur git, Definition of Done
 - **[docs/rbac-matrix.md](./docs/rbac-matrix.md)** — Matriks izin 13 peran × modul
+- **[docs/deploy.md](./docs/deploy.md)** — Panduan deployment produksi (Vercel, Neon PITR, Upstash, R2, Zero-Downtime)
 
 ---
 
@@ -160,7 +161,7 @@ CORS_ORIGINS=https://app.apii.sigitadi.id                    # asal frontend yan
 - **Fase 1 — Fondasi:** ✅ scaffold, Prisma + migrasi + seed, OAuth PKCE + JWT RS256, RBAC Guards, OpenAPI.
 - **Fase 2 — Core:** ✅ persuratan + PDF engine, keuangan dual-approval, workflow 7 divisi.
 - **Fase 3 — Realtime & Portal:** ✅ WebSocket event bus (`/v1/stream/events`, room multiplexing + Redis pub/sub), portal publik (feed, verifikasi SHA-256, jadwal) & e-KTA 5 tahun.
-- **Fase 4 — Ship:** konfigurasi deploy Vercel (`vercel.json` + env produksi), docker-compose final untuk dev, e2e test, panduan deploy.
+- **Fase 4 — Ship:** ✅ konfigurasi deploy Vercel (`vercel.json` + `api/index.ts` + env produksi), docker-compose final untuk dev, e2e test suite lengkap, panduan deploy (`docs/deploy.md`).
 
 **Ditangguhkan ke Fase 2+** (lihat `DESIGN.md`): scan ClamAV, transkoding HLS video, OCR kwitansi, PostgreSQL RLS, chunked WebSocket upload, antrian worker terpisah.
 
@@ -168,7 +169,7 @@ CORS_ORIGINS=https://app.apii.sigitadi.id                    # asal frontend yan
 
 ## 🚢 Deployment
 
-Target produksi: **Vercel** (project `siap-apii`), domain **`apii.sigitadi.id`**, repo `github.com/sisigitadi/siap-apii`. Detail lengkap (alasan pilih Vercel, layanan managed eksternal, batasan platform, catatan teknis) ada di **[DESIGN.md §11](./docs/DESIGN.md#11-deployment--infrastruktur)**.
+Target produksi: **Vercel** (project `siap-apii`), domain **`apii.sigitadi.id`**, repo `github.com/sisigitadi/siap-apii`. Detail lengkap deployment, migrasi database, dan strategi pemulihan ada di **[docs/deploy.md](./docs/deploy.md)** serta **[DESIGN.md §11](./docs/DESIGN.md#11-deployment--infrastruktur)**.
 
 **Ringkasnya:**
 

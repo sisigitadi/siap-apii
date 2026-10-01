@@ -31,7 +31,7 @@ import { PublicPortalService } from './public-portal.service';
 @ApiTags('Portal Publik')
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: 'Otentikasi diperlukan untuk endpoint anggota' })
-@Controller('api/v1/public')
+@Controller('public')
 export class PublicPortalController {
   constructor(private readonly publicPortal: PublicPortalService) {}
 

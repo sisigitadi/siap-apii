@@ -10,7 +10,7 @@ import { UploaderService } from './uploader.service';
 @ApiTags('uploader')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('api/v1/uploads')
+@Controller('uploads')
 export class UploaderController {
   constructor(private readonly uploaderService: UploaderService) {}
 

@@ -36,7 +36,7 @@ import type {
 @ApiTags('divisions')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('api/v1/divisions')
+@Controller('divisions')
 export class DivisionsController {
   constructor(private readonly divisionsService: DivisionsService) {}
 

@@ -18,7 +18,7 @@ import type { IncomingLetterList } from './incoming-letters.service';
 @ApiTags('letters')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('api/v1/incoming-letters')
+@Controller('incoming-letters')
 export class IncomingLettersController {
   constructor(private readonly incomingService: IncomingLettersService) {}
 

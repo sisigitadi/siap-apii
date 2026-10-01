@@ -19,7 +19,7 @@ import type { CashBalances, CashFlowList, MonthlyReport, VoucherDetail } from '.
 @ApiTags('finance')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('api/v1/finance')
+@Controller('finance')
 export class FinanceController {
   constructor(private readonly financeService: FinanceService) {}
 
