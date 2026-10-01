@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AccountCategory, CashFlowStatus, CashFlowType, Prisma, UserRole } from '@prisma/client';
 import { FinanceService } from './finance.service';
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
@@ -131,6 +131,12 @@ describe('FinanceService', () => {
         BadRequestException,
       );
     });
+
+    it('should throw NotFoundException when voucher does not exist', async () => {
+      mockPrisma.cashFlow.findUnique.mockResolvedValue(null);
+
+      await expect(service.verifyByKetum('missing', 'ketum-id')).rejects.toThrow(NotFoundException);
+    });
   });
 
   describe('getBalances', () => {
@@ -159,6 +165,203 @@ describe('FinanceService', () => {
       expect(result.accounts[AccountCategory.BRANKAS_KAS_KECIL]).toBe(1000000);
       expect(result.accounts[AccountCategory.MANDIRI_WAKAF]).toBe(0);
       expect(result.total_balance).toBe(9000000);
+    });
+  });
+
+  describe('verifyByBendahara', () => {
+    it('should transition PENDING to VERIFIED_BENDAHARA', async () => {
+      mockPrisma.cashFlow.findUnique.mockResolvedValue({
+        id: 'voucher-1',
+        voucher_number: '001/KEU-APII/JABO/III/2025',
+        status: CashFlowStatus.PENDING,
+      });
+      mockPrisma.cashFlow.update.mockResolvedValue({
+        id: 'voucher-1',
+        status: CashFlowStatus.VERIFIED_BENDAHARA,
+      });
+
+      const updated = await service.verifyByBendahara('voucher-1', 'bendahara-id');
+
+      expect(updated.status).toBe(CashFlowStatus.VERIFIED_BENDAHARA);
+      expect(mockAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'CASH_FLOW_VERIFIED_BENDAHARA' }),
+      );
+    });
+
+    it('should throw NotFoundException when voucher does not exist', async () => {
+      mockPrisma.cashFlow.findUnique.mockResolvedValue(null);
+
+      await expect(service.verifyByBendahara('missing', 'bendahara-id')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw BadRequestException when voucher is not PENDING', async () => {
+      mockPrisma.cashFlow.findUnique.mockResolvedValue({
+        id: 'voucher-1',
+        status: CashFlowStatus.REJECTED,
+      });
+
+      await expect(service.verifyByBendahara('voucher-1', 'bendahara-id')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('rejectVoucher', () => {
+    it('should set status to REJECTED with a note', async () => {
+      mockPrisma.cashFlow.findUnique.mockResolvedValue({
+        id: 'voucher-1',
+        voucher_number: '001/KEU-APII/JABO/III/2025',
+        status: CashFlowStatus.PENDING,
+      });
+      mockPrisma.cashFlow.update.mockResolvedValue({
+        id: 'voucher-1',
+        status: CashFlowStatus.REJECTED,
+        rejection_note: 'Kwitansi tidak dapat dibuktikan',
+      });
+
+      const rejected = await service.rejectVoucher('voucher-1', 'ketum-id', {
+        rejection_note: 'Kwitansi tidak dapat dibuktikan',
+      });
+
+      expect(rejected.status).toBe(CashFlowStatus.REJECTED);
+      expect(mockAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'CASH_FLOW_REJECTED' }),
+      );
+    });
+
+    it('should throw BadRequestException when voucher is already VERIFIED_KETUM', async () => {
+      mockPrisma.cashFlow.findUnique.mockResolvedValue({
+        id: 'voucher-1',
+        status: CashFlowStatus.VERIFIED_KETUM,
+      });
+
+      await expect(
+        service.rejectVoucher('voucher-1', 'ketum-id', { rejection_note: 'Alasan' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw NotFoundException when voucher does not exist', async () => {
+      mockPrisma.cashFlow.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.rejectVoucher('missing', 'ketum-id', { rejection_note: 'Alasan' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findAll', () => {
+    it('should paginate vouchers and build totalPages', async () => {
+      mockPrisma.cashFlow.findMany.mockResolvedValue([{ id: 'voucher-1' }]);
+      mockPrisma.cashFlow.count.mockResolvedValue(25);
+
+      const result = await service.findAll({ page: 2, limit: 10 });
+
+      expect(result.page).toBe(2);
+      expect(result.totalPages).toBe(3);
+      expect(mockPrisma.cashFlow.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 10 }),
+      );
+    });
+
+    it('should apply type, account, status, and date range filters', async () => {
+      mockPrisma.cashFlow.findMany.mockResolvedValue([]);
+      mockPrisma.cashFlow.count.mockResolvedValue(0);
+
+      await service.findAll({
+        page: 1,
+        limit: 10,
+        type: CashFlowType.INFLOW,
+        account_category: AccountCategory.BSI_GIRO,
+        status: CashFlowStatus.VERIFIED_KETUM,
+        start_date: '2025-01-01',
+        end_date: '2025-12-31',
+      });
+
+      expect(mockPrisma.cashFlow.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            type: CashFlowType.INFLOW,
+            account_category: AccountCategory.BSI_GIRO,
+            status: CashFlowStatus.VERIFIED_KETUM,
+            transaction_date: { gte: new Date('2025-01-01'), lte: new Date('2025-12-31') },
+          },
+        }),
+      );
+    });
+  });
+
+  describe('findById', () => {
+    it('should throw NotFoundException when voucher does not exist', async () => {
+      mockPrisma.cashFlow.findUnique.mockResolvedValue(null);
+
+      await expect(service.findById('missing')).rejects.toThrow(NotFoundException);
+    });
+
+    it('should return voucher with creator detail when found', async () => {
+      const voucher = {
+        id: 'voucher-1',
+        voucher_number: '001/KEU-APII/JABO/III/2025',
+        amount: new Prisma.Decimal(5_000_000),
+        created_by: {
+          id: 'user-1',
+          full_name: 'Bendahara',
+          email: 'b@apii.id',
+          role: UserRole.BENDAHARA,
+        },
+      };
+      mockPrisma.cashFlow.findUnique.mockResolvedValue(voucher);
+
+      const found = await service.findById('voucher-1');
+
+      expect(found.voucher_number).toBe('001/KEU-APII/JABO/III/2025');
+      expect(found.created_by.full_name).toBe('Bendahara');
+    });
+  });
+
+  describe('getMonthlyReport', () => {
+    it('should compute opening balance, monthly flow, and closing balance', async () => {
+      mockPrisma.cashFlow.findMany
+        .mockResolvedValueOnce([
+          {
+            type: CashFlowType.INFLOW,
+            account_category: AccountCategory.BSI_GIRO,
+            amount: new Prisma.Decimal(10_000_000),
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: 'voucher-1',
+            voucher_number: '001/KEU-APII/JABO/III/2025',
+            transaction_date: new Date(2025, 2, 10),
+            type: CashFlowType.INFLOW,
+            account_category: AccountCategory.BSI_GIRO,
+            amount: new Prisma.Decimal(4_000_000),
+            description: 'Infaq donatur',
+            status: CashFlowStatus.VERIFIED_KETUM,
+          },
+          {
+            id: 'voucher-2',
+            voucher_number: '002/KEU-APII/JABO/III/2025',
+            transaction_date: new Date(2025, 2, 15),
+            type: CashFlowType.OUTFLOW,
+            account_category: AccountCategory.BRANKAS_KAS_KECIL,
+            amount: new Prisma.Decimal(1_500_000),
+            description: 'Konsumsi rapat pengurus',
+            status: CashFlowStatus.VERIFIED_KETUM,
+          },
+        ]);
+
+      const report = await service.getMonthlyReport({ year: 2025, month: 3 });
+
+      expect(report.opening_balance).toBe(10_000_000);
+      expect(report.total_inflow).toBe(4_000_000);
+      expect(report.total_outflow).toBe(1_500_000);
+      expect(report.closing_balance).toBe(12_500_000);
+      expect(report.accounts[AccountCategory.BSI_GIRO].inflow).toBe(4_000_000);
+      expect(report.accounts[AccountCategory.BRANKAS_KAS_KECIL].outflow).toBe(1_500_000);
+      expect(report.transactions).toHaveLength(2);
     });
   });
 });

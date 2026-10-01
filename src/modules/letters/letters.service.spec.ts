@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { LetterStatus, LetterType } from '@prisma/client';
 import { LettersService } from './letters.service';
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
@@ -152,6 +152,72 @@ describe('LettersService', () => {
           service.updateLetter('letter-1', 'user-1', { title: 'Judul Baru' }),
         ).rejects.toThrow(BadRequestException);
       });
+
+      it('should throw NotFoundException when letter does not exist', async () => {
+        mockPrisma.officialLetter.findUnique.mockResolvedValue(null);
+
+        await expect(
+          service.updateLetter('missing', 'user-1', { title: 'Judul Baru' }),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it('should recompute hash and QR url when letter number changes', async () => {
+        const letter = {
+          id: 'letter-1',
+          status: LetterStatus.DRAFT,
+          letter_number: '001/SK-DPW/APII-JABO/I/2025',
+          title: 'Judul Lama',
+          letter_type: LetterType.SK,
+          content_payload: { body_text: 'Isi' },
+          kop_config: { authority_text: 'DPW JABODETABEK' },
+          signatories: [{ role_title: 'Ketua Umum', name: 'Ketum', has_stamp: true }],
+        };
+        mockPrisma.officialLetter.findUnique.mockImplementation(({ where }) => {
+          // Pemanggilan pertama mengambil surat berdasarkan ID; pemanggilan kedua
+          // memeriksa ketersediaan nomor surat baru (wajib belum digunakan).
+          if (where.letter_number) return Promise.resolve(null);
+          return Promise.resolve(letter);
+        });
+        mockPrisma.officialLetter.update.mockImplementation(({ data }) =>
+          Promise.resolve({ ...letter, ...data }),
+        );
+
+        const updated = await service.updateLetter('letter-1', 'user-1', {
+          letter_number: '099/SK-DPW/APII-JABO/I/2025',
+        });
+        const expectedHash = service.computeCanonicalHash({
+          letter_number: '099/SK-DPW/APII-JABO/I/2025',
+          title: letter.title,
+          letter_type: LetterType.SK,
+          content_payload: letter.content_payload,
+          kop_config: letter.kop_config,
+          signatories: letter.signatories,
+        });
+
+        expect(updated.sha256_hash).toBe(expectedHash);
+        expect(updated.qr_verify_url).toBe(`https://app.apii.sigitadi.id/verify/${expectedHash}`);
+      });
+
+      it('should throw ConflictException when new letter number is already taken', async () => {
+        mockPrisma.officialLetter.findUnique
+          .mockResolvedValueOnce({
+            id: 'letter-1',
+            status: LetterStatus.DRAFT,
+            letter_number: '001/SK-DPW/APII-JABO/I/2025',
+            title: 'Judul',
+            letter_type: LetterType.SK,
+            content_payload: {},
+            kop_config: {},
+            signatories: [],
+          })
+          .mockResolvedValueOnce({ id: 'letter-2' });
+
+        await expect(
+          service.updateLetter('letter-1', 'user-1', {
+            letter_number: '002/SK-DPW/APII-JABO/I/2025',
+          }),
+        ).rejects.toThrow(ConflictException);
+      });
     });
 
     describe('submitLetter', () => {
@@ -171,6 +237,24 @@ describe('LettersService', () => {
         expect(submitted.status).toBe(LetterStatus.PENDING_APPROVAL);
         expect(mockAudit.log).toHaveBeenCalledWith(
           expect.objectContaining({ action: 'LETTER_SUBMITTED' }),
+        );
+      });
+
+      it('should throw NotFoundException when letter does not exist', async () => {
+        mockPrisma.officialLetter.findUnique.mockResolvedValue(null);
+
+        await expect(service.submitLetter('missing', 'user-1')).rejects.toThrow(NotFoundException);
+      });
+
+      it('should throw BadRequestException when letter is not in DRAFT or REJECTED status', async () => {
+        mockPrisma.officialLetter.findUnique.mockResolvedValue({
+          id: 'letter-1',
+          status: LetterStatus.PUBLISHED,
+          letter_number: '001/SK-DPW/APII-JABO/I/2025',
+        });
+
+        await expect(service.submitLetter('letter-1', 'user-1')).rejects.toThrow(
+          BadRequestException,
         );
       });
     });
@@ -232,6 +316,25 @@ describe('LettersService', () => {
           ConflictException,
         );
       });
+
+      it('should throw NotFoundException when letter does not exist', async () => {
+        mockPrisma.officialLetter.findUnique.mockResolvedValue(null);
+
+        await expect(service.approveAndPublishLetter('missing', 'ketum-1')).rejects.toThrow(
+          NotFoundException,
+        );
+      });
+
+      it('should throw BadRequestException when letter is not PENDING_APPROVAL', async () => {
+        mockPrisma.officialLetter.findUnique.mockResolvedValue({
+          id: 'letter-1',
+          status: LetterStatus.DRAFT,
+        });
+
+        await expect(service.approveAndPublishLetter('letter-1', 'ketum-1')).rejects.toThrow(
+          BadRequestException,
+        );
+      });
     });
 
     describe('rejectLetter', () => {
@@ -255,6 +358,163 @@ describe('LettersService', () => {
         expect(mockAudit.log).toHaveBeenCalledWith(
           expect.objectContaining({ action: 'LETTER_REJECTED' }),
         );
+      });
+
+      it('should throw NotFoundException when letter does not exist', async () => {
+        mockPrisma.officialLetter.findUnique.mockResolvedValue(null);
+
+        await expect(
+          service.rejectLetter('missing', 'ketum-1', { rejection_note: 'Alasan' }),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it('should throw BadRequestException when letter is not PENDING_APPROVAL', async () => {
+        mockPrisma.officialLetter.findUnique.mockResolvedValue({
+          id: 'letter-1',
+          status: LetterStatus.PUBLISHED,
+          letter_number: '001/SK-DPW/APII-JABO/I/2025',
+        });
+
+        await expect(
+          service.rejectLetter('letter-1', 'ketum-1', { rejection_note: 'Alasan' }),
+        ).rejects.toThrow(BadRequestException);
+      });
+    });
+
+    describe('archiveLetter', () => {
+      it('should transition PUBLISHED to ARCHIVED', async () => {
+        mockPrisma.officialLetter.findUnique.mockResolvedValue({
+          id: 'letter-1',
+          status: LetterStatus.PUBLISHED,
+          letter_number: '001/SK-DPW/APII-JABO/I/2025',
+        });
+        mockPrisma.officialLetter.update.mockResolvedValue({
+          id: 'letter-1',
+          status: LetterStatus.ARCHIVED,
+        });
+
+        const archived = await service.archiveLetter('letter-1', 'ketum-1');
+
+        expect(archived.status).toBe(LetterStatus.ARCHIVED);
+        expect(mockAudit.log).toHaveBeenCalledWith(
+          expect.objectContaining({ action: 'LETTER_ARCHIVED' }),
+        );
+      });
+
+      it('should throw BadRequestException when letter is not PUBLISHED', async () => {
+        mockPrisma.officialLetter.findUnique.mockResolvedValue({
+          id: 'letter-1',
+          status: LetterStatus.DRAFT,
+          letter_number: '001/SK-DPW/APII-JABO/I/2025',
+        });
+
+        await expect(service.archiveLetter('letter-1', 'ketum-1')).rejects.toThrow(
+          BadRequestException,
+        );
+      });
+
+      it('should throw NotFoundException when letter does not exist', async () => {
+        mockPrisma.officialLetter.findUnique.mockResolvedValue(null);
+
+        await expect(service.archiveLetter('missing', 'ketum-1')).rejects.toThrow(
+          NotFoundException,
+        );
+      });
+    });
+
+    describe('findAllLetters', () => {
+      it('should paginate letters and build totalPages', async () => {
+        mockPrisma.officialLetter.findMany.mockResolvedValue([{ id: 'letter-1' }]);
+        mockPrisma.officialLetter.count.mockResolvedValue(11);
+
+        const result = await service.findAllLetters({ page: 1, limit: 10 });
+
+        expect(result.total).toBe(11);
+        expect(result.totalPages).toBe(2);
+        expect(mockPrisma.officialLetter.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({ skip: 0, take: 10 }),
+        );
+      });
+
+      it('should apply letter type, status, search, and year filters', async () => {
+        mockPrisma.officialLetter.findMany.mockResolvedValue([]);
+        mockPrisma.officialLetter.count.mockResolvedValue(0);
+
+        await service.findAllLetters({
+          page: 1,
+          limit: 10,
+          letter_type: LetterType.SK,
+          status: LetterStatus.PUBLISHED,
+          search: 'pengesahan',
+          year: 2025,
+        });
+
+        expect(mockPrisma.officialLetter.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: {
+              letter_type: LetterType.SK,
+              status: LetterStatus.PUBLISHED,
+              OR: [
+                { title: { contains: 'pengesahan', mode: 'insensitive' } },
+                { letter_number: { contains: 'pengesahan', mode: 'insensitive' } },
+              ],
+              created_at: { gte: expect.any(Date), lte: expect.any(Date) },
+            },
+          }),
+        );
+      });
+    });
+
+    describe('findLetterById', () => {
+      it('should report integrity_verified true when stored hash matches recomputed hash', async () => {
+        const payload = {
+          letter_number: '001/SK-DPW/APII-JABO/I/2025',
+          title: 'Judul SK',
+          letter_type: LetterType.SK,
+          content_payload: { body_text: 'Isi SK' },
+          kop_config: { authority_text: 'DPW JABODETABEK' },
+          signatories: [{ role_title: 'Ketua Umum', name: 'Ketum', has_stamp: true }],
+        };
+        const validHash = service.computeCanonicalHash(payload);
+
+        mockPrisma.officialLetter.findUnique.mockResolvedValue({
+          id: 'letter-1',
+          status: LetterStatus.PUBLISHED,
+          sha256_hash: validHash,
+          ...payload,
+        });
+
+        const detail = await service.findLetterById('letter-1');
+
+        expect(detail.integrity_verified).toBe(true);
+      });
+
+      it('should report integrity_verified false when content drifted from stored hash', async () => {
+        const payload = {
+          letter_number: '001/SK-DPW/APII-JABO/I/2025',
+          title: 'Judul SK Diubah',
+          letter_type: LetterType.SK,
+          content_payload: { body_text: 'Isi yang telah diubah' },
+          kop_config: { authority_text: 'DPW JABODETABEK' },
+          signatories: [{ role_title: 'Ketua Umum', name: 'Ketum', has_stamp: true }],
+        };
+
+        mockPrisma.officialLetter.findUnique.mockResolvedValue({
+          id: 'letter-1',
+          status: LetterStatus.PUBLISHED,
+          sha256_hash: 'stale-hash-tidak-sesuai',
+          ...payload,
+        });
+
+        const detail = await service.findLetterById('letter-1');
+
+        expect(detail.integrity_verified).toBe(false);
+      });
+
+      it('should throw NotFoundException when letter does not exist', async () => {
+        mockPrisma.officialLetter.findUnique.mockResolvedValue(null);
+
+        await expect(service.findLetterById('missing')).rejects.toThrow(NotFoundException);
       });
     });
   });

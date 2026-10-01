@@ -106,4 +106,65 @@ describe('IncomingLettersService', () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('findAll', () => {
+    it('should paginate incoming letters and build totalPages', async () => {
+      mockPrisma.incomingLetter.findMany.mockResolvedValue([{ id: 'inc-1' }]);
+      mockPrisma.incomingLetter.count.mockResolvedValue(15);
+
+      const result = await service.findAll({ page: 2, limit: 10 });
+
+      expect(result.page).toBe(2);
+      expect(result.totalPages).toBe(2);
+      expect(mockPrisma.incomingLetter.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 10 }),
+      );
+    });
+
+    it('should apply status and search filters', async () => {
+      mockPrisma.incomingLetter.findMany.mockResolvedValue([]);
+      mockPrisma.incomingLetter.count.mockResolvedValue(0);
+
+      await service.findAll({
+        page: 1,
+        limit: 10,
+        status: IncomingLetterStatus.DISPOSED,
+        search: 'undangan',
+      });
+
+      expect(mockPrisma.incomingLetter.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: IncomingLetterStatus.DISPOSED,
+            OR: [
+              { subject: { contains: 'undangan', mode: 'insensitive' } },
+              { source_institution: { contains: 'undangan', mode: 'insensitive' } },
+              { letter_number: { contains: 'undangan', mode: 'insensitive' } },
+              { agenda_number: { contains: 'undangan', mode: 'insensitive' } },
+            ],
+          },
+        }),
+      );
+    });
+  });
+
+  describe('findById', () => {
+    it('should return the incoming letter when found', async () => {
+      mockPrisma.incomingLetter.findUnique.mockResolvedValue({
+        id: 'inc-1',
+        agenda_number: 'AG-2025-001',
+        status: IncomingLetterStatus.RECEIVED,
+      });
+
+      const item = await service.findById('inc-1');
+
+      expect(item.agenda_number).toBe('AG-2025-001');
+    });
+
+    it('should throw NotFoundException when incoming letter does not exist', async () => {
+      mockPrisma.incomingLetter.findUnique.mockResolvedValue(null);
+
+      await expect(service.findById('missing')).rejects.toThrow(NotFoundException);
+    });
+  });
 });
