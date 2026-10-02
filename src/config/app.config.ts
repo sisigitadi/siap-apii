@@ -27,6 +27,12 @@ const envSchema = z
     JWT_REFRESH_TTL: z.string().regex(TTL_PATTERN).default('7d'),
     PUBLIC_VERIFY_BASE_URL: z.string().url(),
     CORS_ORIGINS: z.string().default(''),
+    /**
+     * Path absolut ke binary Chromium/Chrome untuk render PDF (puppeteer-core).
+     * Opsional: di production serverless pakai @sparticuz/chromium; di Windows/macOS
+     * development biasanya diisi path Chrome/Edge yang sudah terinstal.
+     */
+    CHROME_EXECUTABLE_PATH: z.string().optional(),
   })
   .superRefine((env, ctx) => {
     if (!env.JWT_PRIVATE_KEY && !env.JWT_PRIVATE_KEY_PATH) {

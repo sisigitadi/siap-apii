@@ -4,7 +4,7 @@ import { toPublicUser, type PublicUser } from '@/common/dto/user.dto';
 import { AuditService } from '@/infrastructure/audit/audit.service';
 import { JwtService } from '@/infrastructure/jwt/jwt.service';
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
-import type { TokenPair } from './auth.dto';
+import type { TokenPair, UpdateProfileInput } from './auth.dto';
 import { GoogleOAuthService } from './google-oauth.service';
 
 interface ClientMeta {
@@ -118,6 +118,43 @@ export class AuthService {
       throw new UnauthorizedException('Pengguna tidak ditemukan');
     }
     return toPublicUser(user);
+  }
+
+  /**
+   * Pembaruan profil mandiri: nama tampilan & foto (FR-AUTH-08).
+   * Email & peran tidak boleh diubah sendiri — melalui superadmin (FR-AUTH-07).
+   */
+  async updateProfile(
+    userId: string,
+    input: UpdateProfileInput,
+    meta: ClientMeta,
+  ): Promise<PublicUser> {
+    const existing = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!existing) {
+      throw new UnauthorizedException('Pengguna tidak ditemukan');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        full_name: input.full_name.trim(),
+        ...(input.profile_picture_url ? { profile_picture_url: input.profile_picture_url } : {}),
+      },
+    });
+
+    await this.audit.log({
+      action: 'PROFILE_UPDATED',
+      actorId: userId,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      metadata: {
+        previousFullName: existing.full_name,
+        newFullName: updated.full_name,
+        pictureChanged: input.profile_picture_url !== undefined,
+      },
+    });
+
+    return toPublicUser(updated);
   }
 
   private async issueTokens(user: User, meta: ClientMeta): Promise<TokenPair> {

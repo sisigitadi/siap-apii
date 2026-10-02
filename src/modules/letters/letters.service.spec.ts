@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { LetterStatus, LetterType } from '@prisma/client';
 import { LettersService } from './letters.service';
+import { LettersPdfService } from './letters-pdf.service';
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
 import { AuditService } from '@/infrastructure/audit/audit.service';
 import { EventsBusService } from '@/infrastructure/websocket/events-bus.service';
@@ -25,8 +26,16 @@ describe('LettersService', () => {
   const mockEventsBus = {
     emitDocumentPublished: jest.fn().mockResolvedValue(undefined),
   };
+  // PDF rendering di-mock — unit test tidak boleh menjalankan Chromium (lihat
+  // LettersPdfService.renderLetterPdf yang memakai puppeteer-core).
+  const mockPdfService = {
+    persistLetterPdf: jest.fn().mockResolvedValue(null),
+    renderLetterPdf: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4 mock')),
+    pdfStoragePath: jest.fn().mockReturnValue('/tmp/mock.pdf'),
+  };
   const mockConfig = {
     PUBLIC_VERIFY_BASE_URL: 'https://app.apii.sigitadi.id/verify',
+    FRONTEND_URL: 'http://localhost:5173',
   };
 
   beforeEach(async () => {
@@ -38,6 +47,7 @@ describe('LettersService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
         { provide: EventsBusService, useValue: mockEventsBus },
+        { provide: LettersPdfService, useValue: mockPdfService },
         { provide: appConfigToken, useValue: mockConfig },
       ],
     }).compile();

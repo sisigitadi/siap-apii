@@ -1,7 +1,9 @@
 import {
+  Body,
   Controller,
   Get,
   Inject,
+  Patch,
   Post,
   Query,
   Req,
@@ -23,7 +25,13 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public.decorator';
 import { REFRESH_COOKIE, clearAuthCookies, setAuthCookies } from '@/common/utils/cookies.util';
 import type { AccessTokenClaims } from '@/infrastructure/jwt/jwt.service';
-import { AuthorizationUrlDto, LogoutResultDto, TokenPairDto, type TokenPair } from './auth.dto';
+import {
+  AuthorizationUrlDto,
+  LogoutResultDto,
+  TokenPairDto,
+  UpdateProfileDto,
+  type TokenPair,
+} from './auth.dto';
 import { AuthService, type ClientMeta } from './auth.service';
 
 type CookieRequest = Request & { cookies?: Record<string, string | undefined> };
@@ -136,5 +144,16 @@ export class AuthController {
   @ApiOkResponse({ type: UserDto })
   async me(@CurrentUser() user: AccessTokenClaims): Promise<TokenPair['user']> {
     return this.auth.getProfile(user.sub);
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Perbarui nama tampilan & foto profil sendiri (FR-AUTH-08)' })
+  @ApiOkResponse({ type: UserDto, description: 'Profil yang sudah diperbarui' })
+  async updateMe(
+    @CurrentUser() user: AccessTokenClaims,
+    @Body() dto: UpdateProfileDto,
+    @Req() req: Request,
+  ): Promise<TokenPair['user']> {
+    return this.auth.updateProfile(user.sub, dto, AuthController.meta(req));
   }
 }

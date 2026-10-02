@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { join } from 'node:path';
 import 'reflect-metadata';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -26,6 +27,12 @@ async function bootstrap(): Promise<void> {
   app.use(helmet());
   app.use(cookieParser());
   app.setGlobalPrefix('api/v1');
+
+  // Sajikan folder `storage` secara statis (lampiran upload & PDF final surat).
+  // Di production Vercel, folder ini read-only — gunakan CDN/storage eksternal
+  // (DESIGN.md §11); di development ini cukup.
+  app.useStaticAssets(join(process.cwd(), 'storage'));
+
   app.enableCors({
     origin: config.corsOrigins.length > 0 ? config.corsOrigins : true,
     credentials: true,

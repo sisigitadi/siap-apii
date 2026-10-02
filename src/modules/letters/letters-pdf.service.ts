@@ -1,5 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import QRCode from 'qrcode';
+import { access, mkdir, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { appConfigToken, type AppConfig } from '@/config/app.config';
+
 export interface RenderableLetter {
+  id: string;
   title: string;
   letter_number: string;
   sha256_hash: string;
@@ -25,11 +31,32 @@ export interface RenderableLetter {
 
 @Injectable()
 export class LettersPdfService {
+  private readonly logger = new Logger(LettersPdfService.name);
+
+  constructor(@Inject(appConfigToken) private readonly config: AppConfig) {}
+
+  /**
+   * Menghasilkan gambar QR Code (data URL PNG) yang merujuk ke halaman verifikasi
+   * publik SHA-256 (DESIGN.md §8.1). Pakai errorCorrectionLevel 'H' supaya tetap
+   * dapat dipindai walau ada stempel/logo di atasnya.
+   */
+  async generateQrDataUrl(verifyUrl: string): Promise<string> {
+    return QRCode.toDataURL(verifyUrl, {
+      errorCorrectionLevel: 'H',
+      margin: 1,
+      width: 240,
+      color: { dark: '#0d1c2f', light: '#ffffff' },
+    });
+  }
+
   /**
    * Menghasilkan HTML otentik berformat A4 dengan Kop Surat Emas, Logo DPW,
    * stempel basah, tanda tangan, dan QR Code verifikasi SHA-256 (DESIGN.md §8.1).
+   *
+   * `qrDataUrl` opsional: bila disertakan, QR asli ditanam sebagai gambar;
+   * bila tidak, ditampilkan penanda teks (mode pratinjau cepat tanpa render QR).
    */
-  renderLetterHtml(letter: RenderableLetter): string {
+  renderLetterHtml(letter: RenderableLetter, qrDataUrl?: string): string {
     const kop = letter.kop_config;
     const content = letter.content_payload;
     const signatories = letter.signatories;
@@ -186,7 +213,11 @@ export class LettersPdfService {
     <div class="qr-box">
       <div style="font-weight: bold; margin-bottom: 4px;">Verifikasi Digital</div>
       <div style="padding: 6px; background: white; display: inline-block;">
-        <span style="font-size: 11px;">[QR SHA-256]</span>
+        ${
+          qrDataUrl
+            ? `<img src="${qrDataUrl}" alt="QR Verifikasi SHA-256" style="width: 96px; height: 96px; display: block;" />`
+            : `<span style="font-size: 11px;">[QR SHA-256]</span>`
+        }
       </div>
       <div class="hash-text">${letter.sha256_hash.slice(0, 24)}...</div>
       <div style="margin-top: 4px;"><a href="${letter.qr_verify_url}" target="_blank">Cek Keaslian</a></div>
@@ -198,5 +229,122 @@ export class LettersPdfService {
   </div>
 </body>
 </html>`;
+  }
+
+  /**
+   * Path absolut tempat PDF final disimpan (storage lokal; lihat persistLetterPdf).
+   * Format: `<cwd>/storage/pdfs/letters/<letterId>.pdf`.
+   */
+  pdfStoragePath(letterId: string): string {
+    return join(process.cwd(), 'storage', 'pdfs', 'letters', `${letterId}.pdf`);
+  }
+
+  /**
+   * Render HTML A4 menjadi PDF biner via Chromium headless (puppeteer-core +
+   * @sparticuz/chromium — kombinasi yang kompatibel dengan Vercel, DESIGN.md §11.4.1).
+   * QR Code asli ditanam sebelum konversi.
+   */
+  async renderLetterPdf(letter: RenderableLetter): Promise<Buffer> {
+    const qrDataUrl = await this.generateQrDataUrl(letter.qr_verify_url);
+    const html = this.renderLetterHtml(letter, qrDataUrl);
+
+    // Lazy import: puppeteer-core & @sparticuz/chromium hanya ESM; dimuat
+    // sekali saat render pertama (mempertahankan cold-start cepat & kompatibilitas CJS).
+    const [{ default: puppeteer }, { default: chromium }] = await Promise.all([
+      import('puppeteer-core'),
+      import('@sparticuz/chromium'),
+    ]);
+
+    let browser;
+    try {
+      browser = await puppeteer.launch({
+        args: [...chromium.args, '--hide-scrollbars', '--disable-font-subsetting'],
+        defaultViewport: { width: 794, height: 1123 },
+        executablePath: await this.resolveChromiumExecutable(chromium),
+        headless: true,
+      });
+
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'load' });
+      // Beri waktu render font & gambar tanda tangan sebelum konversi PDF.
+      await page.evaluate(() => document.fonts?.ready);
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '0', right: '0', bottom: '0', left: '0' },
+        preferCSSPageSize: true,
+      });
+      return Buffer.from(pdf);
+    } finally {
+      if (browser) {
+        await browser.close();
+      }
+    }
+  }
+
+  /**
+   * Resolusi binary Chromium yang portabel:
+   * 1. Env `CHROME_EXECUTABLE_PATH` eksplisit (paling diandalkan),
+   * 2. Instalasi Chrome/Edge lokal yang umum (Windows/macOS development),
+   * 3. `@sparticuz/chromium` (Linux — Vercel/Lambda, binary di-download saat deploy).
+   */
+  private async resolveChromiumExecutable(chromium: {
+    executablePath: () => Promise<string>;
+  }): Promise<string> {
+    if (this.config.CHROME_EXECUTABLE_PATH) {
+      return this.config.CHROME_EXECUTABLE_PATH;
+    }
+
+    const platform = process.platform;
+    const localCandidates: string[] = [];
+    if (platform === 'win32') {
+      const programFiles = process.env['ProgramFiles'] ?? 'C:\\Program Files';
+      const programFilesX86 = process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)';
+      localCandidates.push(
+        `${programFiles}\\Google\\Chrome\\Application\\chrome.exe`,
+        `${programFilesX86}\\Google\\Chrome\\Application\\chrome.exe`,
+        `${programFilesX86}\\Microsoft\\Edge\\Application\\msedge.exe`,
+        `${programFiles}\\Microsoft\\Edge\\Application\\msedge.exe`,
+      );
+    } else if (platform === 'darwin') {
+      localCandidates.push(
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+      );
+    }
+
+    for (const candidate of localCandidates) {
+      try {
+        await access(candidate);
+        return candidate;
+      } catch {
+        // lanjut ke kandidat berikutnya
+      }
+    }
+
+    // Fallback: @sparticuz/chromium (serverless Linux).
+    return chromium.executablePath();
+  }
+
+  /**
+   * Simpan PDF final ke storage lokal saat surat dirilis (FR-LETTER-09).
+   * Mengembalikan URL publik (disajikan statis dari folder `storage`) bila berhasil,
+   * atau `null` bila filesystem read-only (mis. serverless) — pemanggil tetap dapat
+   * memanggil `renderLetterPdf` saat diminta.
+   */
+  async persistLetterPdf(letter: RenderableLetter): Promise<string | null> {
+    try {
+      const absolutePath = this.pdfStoragePath(letter.id);
+      const pdf = await this.renderLetterPdf(letter);
+      await mkdir(dirname(absolutePath), { recursive: true });
+      await writeFile(absolutePath, pdf);
+      const publicUrl = `${this.config.FRONTEND_URL}/pdfs/letters/${letter.id}.pdf`;
+      this.logger.log(`PDF final tersimpan: ${absolutePath}`);
+      return publicUrl;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown error';
+      this.logger.warn(`Gagal menyimpan PDF final ke storage lokal (${message}); akan dirender on-demand.`);
+      return null;
+    }
   }
 }

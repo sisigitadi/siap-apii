@@ -6,12 +6,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { LetterStatus, LetterType, OfficialLetter, Prisma } from '@prisma/client';
 import { appConfigToken, type AppConfig } from '@/config/app.config';
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
 import { AuditService } from '@/infrastructure/audit/audit.service';
 import { EventsBusService } from '@/infrastructure/websocket/events-bus.service';
 import { CreateLetterDto, LetterQueryDto, RejectLetterDto, UpdateLetterDto } from './letters.dto';
+import { LettersPdfService } from './letters-pdf.service';
 
 /** Shape relasi `created_by` / `approved_by` yang di-`select` pada query surat. */
 type LetterActorSelect = { select: { id: true; full_name: true; email: true; role: true } };
@@ -45,12 +47,35 @@ const LETTER_TYPE_CODES: Record<LetterType, string> = {
 
 const ROMAN_MONTHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
+/**
+ * Serialisasi kanonik rekursif: urutkan key setiap objek (termasuk nested)
+ * secara abjad supaya SHA-256 stabil walau driver/Postgres jsonb menyusun ulang
+ * urutan key (FR-LETTER-05 — integritas harus diverifikasi setelah round-trip DB).
+ * Array dipertahankan urutannya (urutan penandatangan & konsiderans bermakna).
+ */
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => canonicalize(item));
+  }
+  if (value !== null && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return Object.keys(record)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = canonicalize(record[key]);
+        return acc;
+      }, {});
+  }
+  return value;
+}
+
 @Injectable()
 export class LettersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly eventsBus: EventsBusService,
+    private readonly pdfService: LettersPdfService,
     @Inject(appConfigToken) private readonly config: AppConfig,
   ) {}
 
@@ -80,12 +105,7 @@ export class LettersService {
     kop_config: unknown;
     signatories: unknown;
   }): string {
-    const sortedKeys = Object.keys(payload).sort() as (keyof typeof payload)[];
-    const canonicalObject: Record<string, unknown> = {};
-    for (const key of sortedKeys) {
-      canonicalObject[key] = payload[key];
-    }
-    return createHash('sha256').update(JSON.stringify(canonicalObject)).digest('hex');
+    return createHash('sha256').update(JSON.stringify(canonicalize(payload))).digest('hex');
   }
 
   async createLetter(
@@ -398,6 +418,17 @@ export class LettersService {
       sha256: published.sha256_hash,
     });
 
+    // FR-LETTER-09: arsipkan PDF immutable sekali saat rilis (best-effort).
+    // Gagal simpan (FS read-only/serverless) tidak membatalkan rilis — endpoint
+    // /download akan merender ulang dengan hash yang sama (tetap immutable).
+    const pdfUrl = await this.pdfService.persistLetterPdf(
+      published as unknown as import('./letters-pdf.service').RenderableLetter,
+    );
+    if (pdfUrl) {
+      await this.recordPdfStorageUrl(id, pdfUrl);
+      return { ...published, pdf_storage_url: pdfUrl };
+    }
+
     return published;
   }
 
@@ -474,5 +505,36 @@ export class LettersService {
     });
 
     return updated;
+  }
+
+  /**
+   * Catat URL penyimpanan PDF final setelah arsip-arsip berhasil ditulis (FR-LETTER-09).
+   */
+  async recordPdfStorageUrl(id: string, pdfStorageUrl: string): Promise<void> {
+    await this.prisma.officialLetter.update({
+      where: { id },
+      data: { pdf_storage_url: pdfStorageUrl },
+    });
+  }
+
+  /**
+   * Baca PDF final yang sudah diarsipkan di storage lokal. Mengembalikan `null`
+   * bila berkas tidak ada (mis. filesystem read-only) — pemanggil fallback ke render on-demand.
+   */
+  async readStoredPdf(letter: {
+    id: string;
+    letter_number: string;
+    title: string;
+    sha256_hash: string;
+    qr_verify_url: string;
+    kop_config: unknown;
+    content_payload: unknown;
+    signatories: unknown;
+  }): Promise<Buffer | null> {
+    try {
+      return await readFile(this.pdfService.pdfStoragePath(letter.id));
+    } catch {
+      return null;
+    }
   }
 }

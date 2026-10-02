@@ -29,6 +29,10 @@ coverage/
 # Bukti unggahan runtime (ditulis oleh uploader service & pengujian)
 storage/
 
+# Log runtime dev (backend watcher, firewall WSL)
+.backend-dev.log
+scripts/.wsl-firewall.log
+
 # Mockup desain sumber Stitch (23 MB, bukan bagian kode — lihat README §Struktur Folder)
 Dokumen Sumber/
 

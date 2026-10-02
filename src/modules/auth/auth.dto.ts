@@ -23,3 +23,19 @@ export const logoutResultSchema = z.object({
 });
 
 export class LogoutResultDto extends createZodDto(logoutResultSchema) {}
+
+export const updateProfileSchema = z.object({
+  full_name: z
+    .string()
+    .min(1, 'Nama lengkap wajib diisi')
+    .max(100, 'Nama lengkap maksimal 100 karakter')
+    .describe('Nama tampilan baru'),
+  profile_picture_url: z
+    .string()
+    .url()
+    .optional()
+    .describe('URL foto profil baru (opsional)'),
+});
+export class UpdateProfileDto extends createZodDto(updateProfileSchema) {}
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

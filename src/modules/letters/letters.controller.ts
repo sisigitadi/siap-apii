@@ -8,10 +8,11 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { OfficialLetter, UserRole } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Roles } from '@/common/decorators/roles.decorator';
@@ -67,7 +68,50 @@ export class LettersController {
   @ApiOperation({ summary: 'Render pratinjau HTML A4 dokumen resmi ber-kop dan ber-stempel' })
   async renderHtml(@Param('id') id: string): Promise<string> {
     const letter = await this.lettersService.findLetterById(id);
-    return this.pdfService.renderLetterHtml(letter as unknown as RenderableLetter);
+    const renderable = letter as unknown as RenderableLetter;
+    const qrDataUrl = await this.pdfService.generateQrDataUrl(letter.qr_verify_url);
+    return this.pdfService.renderLetterHtml(renderable, qrDataUrl);
+  }
+
+  @Get(':id/render-pdf')
+  @Roles(UserRole.SEKRETARIS, UserRole.KETUA_UMUM, UserRole.SUPERADMIN, UserRole.DEWAN_PENGAWAS)
+  @ApiOperation({ summary: 'Render dokumen resmi ke PDF (FR-LETTER-04/05/06)' })
+  async renderPdf(@Param('id') id: string, @Res() res: Response): Promise<void> {
+    const letter = await this.lettersService.findLetterById(id);
+    const pdf = await this.pdfService.renderLetterPdf(letter as unknown as RenderableLetter);
+    res.set('Content-Type', 'application/pdf');
+    res.send(pdf);
+  }
+
+  @Get(':id/download')
+  @Roles(UserRole.SEKRETARIS, UserRole.KETUA_UMUM, UserRole.SUPERADMIN, UserRole.DEWAN_PENGAWAS)
+  @ApiOperation({ summary: 'Unduh PDF immutable surat resmi (FR-LETTER-09)' })
+  async downloadPdf(@Param('id') id: string, @Res() res: Response): Promise<void> {
+    const letter = await this.lettersService.findLetterById(id);
+    const renderable = letter as unknown as RenderableLetter;
+    const filename = `${letter.letter_number.replace(/[^a-zA-Z0-9._-]/g, '-')}.pdf`;
+
+    // FR-LETTER-09: arsipkan PDF sekali saat unduh pertama, lalu sajikan hasilnya.
+    if (!letter.pdf_storage_url) {
+      const publicUrl = await this.pdfService.persistLetterPdf(renderable);
+      if (publicUrl) {
+        await this.lettersService.recordPdfStorageUrl(id, publicUrl);
+      }
+    }
+
+    const stored = await this.lettersService.readStoredPdf(renderable);
+    if (stored) {
+      res.set('Content-Type', 'application/pdf');
+      res.set('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(stored);
+      return;
+    }
+
+    // Fallback: render on-demand (filesystem read-only / serverless).
+    const pdf = await this.pdfService.renderLetterPdf(renderable);
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdf);
   }
 
   @Patch(':id')

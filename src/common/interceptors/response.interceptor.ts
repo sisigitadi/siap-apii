@@ -12,22 +12,33 @@ export interface EnvelopeResponse<T> {
 /**
  * Bungkus setiap response sukses dengan envelope standar (DESIGN.md §8.2).
  * `meta.timestamp` = epoch detik UTC.
+ *
+ * Catatan: response biner (Buffer — mis. PDF hasil render) dilewatkan apa adanya
+ * tanpa envelope; membungkusnya sebagai JSON merusak byte stream (FR-LETTER-04/09).
  */
 @Injectable()
-export class ResponseInterceptor<T> implements NestInterceptor<T, EnvelopeResponse<T>> {
-  intercept(context: ExecutionContext, next: CallHandler<T>): Observable<EnvelopeResponse<T>> {
+export class ResponseInterceptor<T> implements NestInterceptor<T, EnvelopeResponse<T> | Buffer> {
+  intercept(
+    context: ExecutionContext,
+    next: CallHandler<T>,
+  ): Observable<EnvelopeResponse<T> | Buffer> {
     const httpContext = context.switchToHttp();
     const method = httpContext.getRequest<{ method: string }>().method;
     const statusCode = httpContext.getResponse<{ statusCode: number }>().statusCode;
 
     return next.handle().pipe(
-      map((data) => ({
-        success: true as const,
-        code: statusCode,
-        message: defaultMessage(method),
-        data: data ?? null,
-        meta: { timestamp: Math.floor(Date.now() / 1000) },
-      })),
+      map((data) => {
+        if (Buffer.isBuffer(data)) {
+          return data;
+        }
+        return {
+          success: true as const,
+          code: statusCode,
+          message: defaultMessage(method),
+          data: data ?? null,
+          meta: { timestamp: Math.floor(Date.now() / 1000) },
+        };
+      }),
     );
   }
 }
