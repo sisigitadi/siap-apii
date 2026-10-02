@@ -33,6 +33,9 @@ storage/
 .backend-dev.log
 scripts/.wsl-firewall.log
 
+# Laporan hasil `npm run sprint1:verify` (ditulis ulang setiap run)
+sprint1-report.txt
+
 # Mockup desain sumber Stitch (23 MB, bukan bagian kode — lihat README §Struktur Folder)
 Dokumen Sumber/
 
