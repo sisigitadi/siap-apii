@@ -102,21 +102,34 @@ Setiap aksi berikut **wajib** memicu `SecurityAuditEvent` (Redis stream `audit:s
 
 ## Contoh Endpoint → Guard (Fase 1-2)
 
+> Catatan: path berikut mencerminkan kode nyata di `src/modules/*` (auto-sync
+> Sprint 1). Sebelumnya tabel ini memakai path placeholder yang tidak pernah
+> ada implementasinya (`/auth/google/login`, `/letters/:id/render-pdf`) — sudah
+> dikoreksi.
+
 | Endpoint | Guard yang dipasang |
 |---|---|
-| `POST /api/v1/auth/google/login` | (publik) |
-| `GET /api/v1/auth/session` | `JwtAuthGuard` |
-| `POST /api/v1/auth/delegation/init` | `JwtAuthGuard` + `Roles(SUPERADMIN)` |
+| `GET /api/v1/auth/google` | (publik) — URL otorisasi Google (PKCE) |
+| `GET /api/v1/auth/google/callback` | (publik) — set cookie, redirect ke frontend |
+| `POST /api/v1/auth/refresh` | (publik, butuh refresh cookie) |
+| `GET /api/v1/auth/me` | `JwtAuthGuard` |
+| `PATCH /api/v1/auth/me` | `JwtAuthGuard` — ubah nama/foto profil sendiri (FR-AUTH-08) |
+| `POST /api/v1/auth/logout` · `/logout-all` | `JwtAuthGuard` |
 | `POST /api/v1/users/invite` | `JwtAuthGuard` + `Roles(SUPERADMIN, KETUA_UMUM, SEKRETARIS, BENDAHARA)` + cek `can_manage_users` |
+| `PATCH /api/v1/users/:id/role` | `JwtAuthGuard` + `Roles(SUPERADMIN)` |
 | `GET /api/v1/official-letters` | `JwtAuthGuard` + `Roles(SEKRETARIS, KETUA_UMUM, SUPERADMIN, DEWAN_PENGAWAS)` |
-| `POST /api/v1/official-letters` | `JwtAuthGuard` + `Roles(SEKRETARIS)` |
-| `POST /api/v1/official-letters/:id/publish` | `JwtAuthGuard` + `Roles(KETUA_UMUM, SUPERADMIN)` |
-| `GET /api/v1/letters/:id/render-pdf` | `JwtAuthGuard` + `Roles(SEKRETARIS, KETUA_UMUM)` |
+| `POST /api/v1/official-letters` | `JwtAuthGuard` + `Roles(SEKRETARIS, SUPERADMIN)` |
+| `POST /api/v1/official-letters/:id/submit` | `JwtAuthGuard` + `Roles(SEKRETARIS, SUPERADMIN)` |
+| `POST /api/v1/official-letters/:id/approve-and-publish` | `JwtAuthGuard` + `Roles(KETUA_UMUM, SUPERADMIN)` |
+| `POST /api/v1/official-letters/:id/reject` | `JwtAuthGuard` + `Roles(KETUA_UMUM, SUPERADMIN)` |
+| `GET /api/v1/official-letters/:id/render-html` | `JwtAuthGuard` + `Roles(SEKRETARIS, KETUA_UMUM, SUPERADMIN, DEWAN_PENGAWAS)` |
+| `GET /api/v1/official-letters/:id/render-pdf` | `JwtAuthGuard` + `Roles(SEKRETARIS, KETUA_UMUM, SUPERADMIN, DEWAN_PENGAWAS)` — PDF on-demand (FR-LETTER-04/05/06) |
+| `GET /api/v1/official-letters/:id/download` | `JwtAuthGuard` + `Roles(SEKRETARIS, KETUA_UMUM, SUPERADMIN, DEWAN_PENGAWAS)` — unduh PDF immutable (FR-LETTER-09) |
 | `GET /api/v1/finance/vouchers` | `JwtAuthGuard` + `Roles(BENDAHARA, KETUA_UMUM, DEWAN_PENGAWAS)` |
 | `POST /api/v1/finance/vouchers` | `JwtAuthGuard` + `Roles(BENDAHARA)` |
 | `POST /api/v1/finance/vouchers/:id/verify-ketum` | `JwtAuthGuard` + `Roles(KETUA_UMUM)` |
 | `GET /api/v1/divisions/submissions` | `JwtAuthGuard` + `DivisionGuard` (divisi sendiri) atau `Roles(KETUA_UMUM, SUPERADMIN, DEWAN_PENGAWAS)` |
-| `POST /api/v1/divisions/submissions/:id/approve` | `JwtAuthGuard` + `Roles(KETUA_UMUM)` |
+| `POST /api/v1/divisions/submissions/:id/approve` | `JwtAuthGuard` + `Roles(KETUA_UMUM, SUPERADMIN)` |
 | `GET /api/v1/public/feed` | (publik) |
 | `GET /api/v1/public/schedules` | (publik) |
 | `GET /api/v1/public/verify/:sha256` | (publik) |

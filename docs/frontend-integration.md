@@ -79,8 +79,12 @@ Koneksi real-time digunakan untuk notifikasi approval program, mutasi kas, publi
 ```typescript
 import { io, Socket } from 'socket.io-client';
 
-const socket: Socket = io('https://apii.sigitadi.id', {
-  path: '/v1/stream/events',
+// Namespace `/v1/stream/events` diberikan lewat URL (bukan opsi `path`) —
+// transport socket.io tetap di `/socket.io` agar cocok dengan backend
+// (@WebSocketGateway({ namespace: '/v1/stream/events' })), sehingga endpoint
+// sesungguhnya adalah `/socket.io/v1/stream/events`. Jangan pakai
+// `path: '/v1/stream/events'` — itu malah mengganti path transport.
+const socket: Socket = io('https://apii.sigitadi.id/v1/stream/events', {
   auth: {
     token: accessToken, // RS256 Bearer Token
   },
