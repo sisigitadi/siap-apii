@@ -112,7 +112,7 @@ export class DivisionsController {
 
   @Post('submissions/:id/submit')
   @Roles(...DIVISION_ROLES, UserRole.SUPERADMIN)
-  @ApiOperation({ summary: 'Ajukan usulan program ke Ketua Umum (PENDING_APPROVAL)' })
+  @ApiOperation({ summary: 'Ajukan usulan program ke Ketua (PENDING_APPROVAL)' })
   async submitForApproval(
     @Param('id') id: string,
     @CurrentUser() user: AccessTokenClaims,
@@ -128,8 +128,8 @@ export class DivisionsController {
   }
 
   @Post('submissions/:id/approve')
-  @Roles(UserRole.KETUA_UMUM, UserRole.SUPERADMIN)
-  @ApiOperation({ summary: 'Approval Board: Setujui usulan program kerja oleh Ketua Umum' })
+  @Roles(UserRole.KETUA, UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Approval Board: Setujui usulan program kerja oleh Ketua' })
   async approveSubmission(
     @Param('id') id: string,
     @CurrentUser() user: AccessTokenClaims,
@@ -143,7 +143,7 @@ export class DivisionsController {
   }
 
   @Post('submissions/:id/reject')
-  @Roles(UserRole.KETUA_UMUM, UserRole.SUPERADMIN)
+  @Roles(UserRole.KETUA, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Tolak usulan program kerja dengan catatan revisi' })
   async rejectSubmission(
     @Param('id') id: string,
@@ -158,7 +158,7 @@ export class DivisionsController {
   }
 
   @Post('submissions/:id/publish')
-  @Roles(UserRole.KETUA_UMUM, UserRole.SUPERADMIN)
+  @Roles(UserRole.KETUA, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Publikasi program terlaksana ke portal publik' })
   async publishSubmission(
     @Param('id') id: string,

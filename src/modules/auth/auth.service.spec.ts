@@ -11,7 +11,7 @@ const seededUser: User = {
   id: '22222222-2222-2222-2222-222222222222',
   email: 'ketum@apii-jabo.id',
   full_name: '',
-  role: 'KETUA_UMUM',
+  role: 'KETUA',
   division: null,
   is_active: true,
   can_manage_users: true,

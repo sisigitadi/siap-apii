@@ -49,21 +49,21 @@ export class LettersController {
   }
 
   @Get()
-  @Roles(UserRole.SEKRETARIS, UserRole.KETUA_UMUM, UserRole.SUPERADMIN, UserRole.DEWAN_PENGAWAS)
+  @Roles(UserRole.SEKRETARIS, UserRole.KETUA, UserRole.SUPERADMIN, UserRole.PEMBINA, UserRole.PENGAWAS)
   @ApiOperation({ summary: 'Daftar surat resmi terfilter & terpaginasi' })
   async findAllLetters(@Query() query: LetterQueryDto): Promise<LetterList> {
     return this.lettersService.findAllLetters(query);
   }
 
   @Get(':id')
-  @Roles(UserRole.SEKRETARIS, UserRole.KETUA_UMUM, UserRole.SUPERADMIN, UserRole.DEWAN_PENGAWAS)
+  @Roles(UserRole.SEKRETARIS, UserRole.KETUA, UserRole.SUPERADMIN, UserRole.PEMBINA, UserRole.PENGAWAS)
   @ApiOperation({ summary: 'Detail surat resmi beserta status integritas SHA-256' })
   async findLetterById(@Param('id') id: string): Promise<LetterDetail> {
     return this.lettersService.findLetterById(id);
   }
 
   @Get(':id/render-html')
-  @Roles(UserRole.SEKRETARIS, UserRole.KETUA_UMUM, UserRole.SUPERADMIN, UserRole.DEWAN_PENGAWAS)
+  @Roles(UserRole.SEKRETARIS, UserRole.KETUA, UserRole.SUPERADMIN, UserRole.PEMBINA, UserRole.PENGAWAS)
   @Header('Content-Type', 'text/html; charset=utf-8')
   @ApiOperation({ summary: 'Render pratinjau HTML A4 dokumen resmi ber-kop dan ber-stempel' })
   async renderHtml(@Param('id') id: string): Promise<string> {
@@ -74,7 +74,7 @@ export class LettersController {
   }
 
   @Get(':id/render-pdf')
-  @Roles(UserRole.SEKRETARIS, UserRole.KETUA_UMUM, UserRole.SUPERADMIN, UserRole.DEWAN_PENGAWAS)
+  @Roles(UserRole.SEKRETARIS, UserRole.KETUA, UserRole.SUPERADMIN, UserRole.PEMBINA, UserRole.PENGAWAS)
   @ApiOperation({ summary: 'Render dokumen resmi ke PDF (FR-LETTER-04/05/06)' })
   async renderPdf(@Param('id') id: string, @Res() res: Response): Promise<void> {
     const letter = await this.lettersService.findLetterById(id);
@@ -84,7 +84,7 @@ export class LettersController {
   }
 
   @Get(':id/download')
-  @Roles(UserRole.SEKRETARIS, UserRole.KETUA_UMUM, UserRole.SUPERADMIN, UserRole.DEWAN_PENGAWAS)
+  @Roles(UserRole.SEKRETARIS, UserRole.KETUA, UserRole.SUPERADMIN, UserRole.PEMBINA, UserRole.PENGAWAS)
   @ApiOperation({ summary: 'Unduh PDF immutable surat resmi (FR-LETTER-09)' })
   async downloadPdf(@Param('id') id: string, @Res() res: Response): Promise<void> {
     const letter = await this.lettersService.findLetterById(id);
@@ -144,7 +144,7 @@ export class LettersController {
   }
 
   @Post(':id/approve-and-publish')
-  @Roles(UserRole.KETUA_UMUM, UserRole.SUPERADMIN)
+  @Roles(UserRole.KETUA, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Setujui dan rilis surat resmi ke publik (PUBLISHED)' })
   async approveAndPublishLetter(
     @Param('id') id: string,
@@ -158,7 +158,7 @@ export class LettersController {
   }
 
   @Post(':id/reject')
-  @Roles(UserRole.KETUA_UMUM, UserRole.SUPERADMIN)
+  @Roles(UserRole.KETUA, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Tolak surat resmi dengan catatan revisi (REJECTED)' })
   async rejectLetter(
     @Param('id') id: string,
@@ -173,7 +173,7 @@ export class LettersController {
   }
 
   @Post(':id/archive')
-  @Roles(UserRole.SEKRETARIS, UserRole.KETUA_UMUM, UserRole.SUPERADMIN)
+  @Roles(UserRole.SEKRETARIS, UserRole.KETUA, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Arsipkan surat resmi yang telah rilis' })
   async archiveLetter(
     @Param('id') id: string,

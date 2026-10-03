@@ -22,7 +22,7 @@ describe('UploaderService', () => {
   const mockUser: AccessTokenClaims = {
     sub: 'user-1',
     email: 'user@apii.local',
-    role: UserRole.DIV_HUMAS,
+    role: UserRole.KETUA_DIVISI,
     division: Division.DIV_HUMAS,
     jti: 'jti-1',
     iat: 1234567,

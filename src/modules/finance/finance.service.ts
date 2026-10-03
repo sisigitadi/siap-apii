@@ -171,7 +171,7 @@ export class FinanceService {
 
     if (voucher.status !== CashFlowStatus.VERIFIED_BENDAHARA) {
       throw new BadRequestException(
-        `Voucher harus diverifikasi oleh Bendahara terlebih dahulu sebelum disetujui Ketua Umum (status saat ini: ${voucher.status}).`,
+        `Voucher harus diverifikasi oleh Bendahara terlebih dahulu sebelum disetujui Ketua (status saat ini: ${voucher.status}).`,
       );
     }
 
@@ -198,7 +198,7 @@ export class FinanceService {
       },
     });
 
-    // Event real-time ke room bendahara + dewan pengawas (DESIGN.md §7.2)
+    // Event real-time ke room bendahara + pengawas (DESIGN.md §7.2)
     await this.eventsBus.emitCashbookMutated({
       voucherNumber: updated.voucher_number,
       type: updated.type,

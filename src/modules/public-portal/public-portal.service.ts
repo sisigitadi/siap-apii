@@ -173,7 +173,7 @@ export class PublicPortalService {
     };
   }
 
-  /** e-KTA digital anggota (FR-PUBLIC-02) — hanya untuk PUBLIK_ANGGOTA sendiri */
+  /** e-KTA digital anggota (FR-PUBLIC-02) — hanya untuk ANGGOTA_BIASA sendiri */
   async getMyMemberCard(userId: string): Promise<{
     member_number: string | null;
     full_name: string;

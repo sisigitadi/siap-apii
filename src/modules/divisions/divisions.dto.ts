@@ -37,7 +37,7 @@ export const reviewSubmissionSchema = z.object({
     .string()
     .max(1000)
     .optional()
-    .describe('Catatan persetujuan atau arahan dari Ketua Umum'),
+    .describe('Catatan persetujuan atau arahan dari Ketua'),
 });
 export class ReviewSubmissionDto extends createZodDto(reviewSubmissionSchema) {}
 
@@ -46,7 +46,7 @@ export const rejectSubmissionSchema = z.object({
     .string()
     .min(3, 'Alasan penolakan / revisi minimal 3 karakter')
     .max(1000)
-    .describe('Catatan revisi / alasan penolakan dari Ketua Umum'),
+    .describe('Catatan revisi / alasan penolakan dari Ketua'),
 });
 export class RejectSubmissionDto extends createZodDto(rejectSubmissionSchema) {}
 

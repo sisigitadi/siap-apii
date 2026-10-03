@@ -38,28 +38,28 @@ export class FinanceController {
   }
 
   @Get('vouchers')
-  @Roles(UserRole.BENDAHARA, UserRole.KETUA_UMUM, UserRole.SUPERADMIN, UserRole.DEWAN_PENGAWAS)
+  @Roles(UserRole.BENDAHARA, UserRole.KETUA, UserRole.SUPERADMIN, UserRole.PEMBINA, UserRole.PENGAWAS)
   @ApiOperation({ summary: 'Daftar voucher kas terfilter & terpaginasi' })
   async findAll(@Query() query: CashFlowQueryDto): Promise<CashFlowList> {
     return this.financeService.findAll(query);
   }
 
   @Get('balances')
-  @Roles(UserRole.BENDAHARA, UserRole.KETUA_UMUM, UserRole.SUPERADMIN, UserRole.DEWAN_PENGAWAS)
+  @Roles(UserRole.BENDAHARA, UserRole.KETUA, UserRole.SUPERADMIN, UserRole.PEMBINA, UserRole.PENGAWAS)
   @ApiOperation({ summary: 'Saldo kas berjalan real-time per rekening resmi yayasan' })
   async getBalances(): Promise<CashBalances> {
     return this.financeService.getBalances();
   }
 
   @Get('reports/monthly')
-  @Roles(UserRole.BENDAHARA, UserRole.KETUA_UMUM, UserRole.SUPERADMIN, UserRole.DEWAN_PENGAWAS)
+  @Roles(UserRole.BENDAHARA, UserRole.KETUA, UserRole.SUPERADMIN, UserRole.PEMBINA, UserRole.PENGAWAS)
   @ApiOperation({ summary: 'Laporan rekapitulasi kas bulanan resmi' })
   async getMonthlyReport(@Query() query: MonthlyReportQueryDto): Promise<MonthlyReport> {
     return this.financeService.getMonthlyReport(query);
   }
 
   @Get('vouchers/:id')
-  @Roles(UserRole.BENDAHARA, UserRole.KETUA_UMUM, UserRole.SUPERADMIN, UserRole.DEWAN_PENGAWAS)
+  @Roles(UserRole.BENDAHARA, UserRole.KETUA, UserRole.SUPERADMIN, UserRole.PEMBINA, UserRole.PENGAWAS)
   @ApiOperation({ summary: 'Detail voucher kas dan status dual-approval' })
   async findById(@Param('id') id: string): Promise<VoucherDetail> {
     return this.financeService.findById(id);
@@ -80,8 +80,8 @@ export class FinanceController {
   }
 
   @Post('vouchers/:id/verify-ketum')
-  @Roles(UserRole.KETUA_UMUM, UserRole.SUPERADMIN)
-  @ApiOperation({ summary: 'Persetujuan akhir voucher oleh Ketua Umum (masuk buku kas resmi)' })
+  @Roles(UserRole.KETUA, UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Persetujuan akhir voucher oleh Ketua (masuk buku kas resmi)' })
   async verifyByKetum(
     @Param('id') id: string,
     @CurrentUser() user: AccessTokenClaims,
@@ -94,7 +94,7 @@ export class FinanceController {
   }
 
   @Post('vouchers/:id/reject')
-  @Roles(UserRole.BENDAHARA, UserRole.KETUA_UMUM, UserRole.SUPERADMIN)
+  @Roles(UserRole.BENDAHARA, UserRole.KETUA, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Tolak voucher keuangan dengan alasan tertulis' })
   async rejectVoucher(
     @Param('id') id: string,

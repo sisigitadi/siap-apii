@@ -37,21 +37,21 @@ export class IncomingLettersController {
   }
 
   @Get()
-  @Roles(UserRole.SEKRETARIS, UserRole.KETUA_UMUM, UserRole.SUPERADMIN, UserRole.DEWAN_PENGAWAS)
+  @Roles(UserRole.SEKRETARIS, UserRole.KETUA, UserRole.SUPERADMIN, UserRole.PEMBINA, UserRole.PENGAWAS)
   @ApiOperation({ summary: 'Daftar agenda surat masuk & status disposisi' })
   async findAllIncoming(@Query() query: IncomingLetterQueryDto): Promise<IncomingLetterList> {
     return this.incomingService.findAll(query);
   }
 
   @Get(':id')
-  @Roles(UserRole.SEKRETARIS, UserRole.KETUA_UMUM, UserRole.SUPERADMIN, UserRole.DEWAN_PENGAWAS)
+  @Roles(UserRole.SEKRETARIS, UserRole.KETUA, UserRole.SUPERADMIN, UserRole.PEMBINA, UserRole.PENGAWAS)
   @ApiOperation({ summary: 'Detail agenda surat masuk' })
   async findIncomingById(@Param('id') id: string): Promise<IncomingLetter> {
     return this.incomingService.findById(id);
   }
 
   @Post(':id/dispose')
-  @Roles(UserRole.KETUA_UMUM, UserRole.SUPERADMIN)
+  @Roles(UserRole.KETUA, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Berikan instruksi disposisi surat masuk ke divisi' })
   async disposeIncoming(
     @Param('id') id: string,

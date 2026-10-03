@@ -399,7 +399,7 @@ describe('DivisionsService', () => {
           id: 'user-1',
           full_name: 'Pengurus',
           email: 'p@apii.id',
-          role: 'PUBLIK_ANGGOTA',
+          role: 'KETUA_DIVISI',
         },
       };
       mockPrisma.divisionSubmission.findUnique.mockResolvedValue(submission);

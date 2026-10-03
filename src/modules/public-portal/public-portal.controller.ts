@@ -62,9 +62,9 @@ export class PublicPortalController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.PUBLIK_ANGGOTA)
+  @Roles(UserRole.ANGGOTA_BIASA)
   @Get('members/me/e-kta')
-  @ApiOperation({ summary: 'e-KTA digital anggota (hanya PUBLIK_ANGGOTA, data sendiri)' })
+  @ApiOperation({ summary: 'e-KTA digital anggota (hanya ANGGOTA_BIASA, data sendiri)' })
   @ApiOkResponse({ type: MemberCardDto, description: 'Kartu anggota digital 5 tahun' })
   async getMyMemberCard(@CurrentUser() user: AccessTokenClaims): Promise<MemberCardDto> {
     return this.publicPortal.getMyMemberCard(user.sub);
