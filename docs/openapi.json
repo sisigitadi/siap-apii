@@ -931,7 +931,7 @@
             "bearer": []
           }
         ],
-        "summary": "Persetujuan akhir voucher oleh Ketua Umum (masuk buku kas resmi)",
+        "summary": "Persetujuan akhir voucher oleh Ketua (masuk buku kas resmi)",
         "tags": [
           "finance"
         ]
@@ -1133,7 +1133,7 @@
             "bearer": []
           }
         ],
-        "summary": "Ajukan usulan program ke Ketua Umum (PENDING_APPROVAL)",
+        "summary": "Ajukan usulan program ke Ketua (PENDING_APPROVAL)",
         "tags": [
           "divisions"
         ]
@@ -1172,7 +1172,7 @@
             "bearer": []
           }
         ],
-        "summary": "Approval Board: Setujui usulan program kerja oleh Ketua Umum",
+        "summary": "Approval Board: Setujui usulan program kerja oleh Ketua",
         "tags": [
           "divisions"
         ]
@@ -1369,7 +1369,7 @@
             "bearer": []
           }
         ],
-        "summary": "e-KTA digital anggota (hanya PUBLIK_ANGGOTA, data sendiri)",
+        "summary": "e-KTA digital anggota (hanya ANGGOTA_BIASA, data sendiri)",
         "tags": [
           "Portal Publik"
         ]

@@ -24,5 +24,5 @@ assignees: ''
 
 ## 🌐 Lingkungan
 - Endpoint/URL: [misal: Localhost / Vercel Preview / Production apii.sigitadi.id]
-- Role Pengguna: [misal: SUPERADMIN / DIV_HUMAS / PUBLIK_ANGGOTA]
+- Role Pengguna: [misal: SUPERADMIN / KETUA_DIVISI / ANGGOTA_BIASA]
 - Versi Node.js: 20+

@@ -13,7 +13,7 @@ assignees: ''
 <!-- Jelaskan solusi atau alur fitur yang diharapkan -->
 
 ## 👥 Persona & Peran Pengguna Terdampak
-- Peran RBAC: [misal: KETUA_UMUM, BENDAHARA, KETUA_DIVISI, ANGGOTA]
+- Peran RBAC: [misal: KETUA, BENDAHARA, KETUA_DIVISI, PEMBINA]
 - Modul Terdampak: [Auth / Letters / Finance / Divisions / Public Portal / Uploader]
 
 ## 📋 Dampak pada Skema Data (Prisma) & API

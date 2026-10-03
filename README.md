@@ -25,7 +25,7 @@ Backend REST API + WebSocket yang menjadi fondasi reaktif untuk Single Page Appl
 
 ## ✨ Fitur Inti
 
-- **RBAC 13 peran bertingkat** + delegasi manajemen anggota ke pimpinan (tanpa campur tangan IT).
+- **RBAC 9 peran bertingkat** + delegasi manajemen anggota ke pimpinan (tanpa campur tangan IT).
 - **Isolasi divisi mutlak** — akses lintas divisi selalu ditolak (`403`) + dicatat sebagai event audit keamanan.
 - **Persuratan resmi** — nomor surat otomatis, draf kolaboratif, render PDF A4 dengan Logo DPW, Stempel Basah, dan QR verifikasi SHA-256.
 - **Keuangan dual-approval** — voucher dibukukan Bendahara, diverifikasi Bendahara + Ketua Umum; buku kas & laporan bersetempel.
@@ -151,7 +151,7 @@ CORS_ORIGINS=https://app.apii.sigitadi.id                    # asal frontend yan
 - **[PRD.md](./docs/PRD.md)** — Product Requirements: persona, kebutuhan fungsi (`FR-*`), user story, metrik sukses, risiko
 - **[DESIGN.md](./docs/DESIGN.md)** — Arsitektur, model data, alur dokumen, keputusan desain
 - **[PROJECT_RULES.md](./docs/PROJECT_RULES.md)** — Aturan kode, keamanan, alur git, Definition of Done
-- **[docs/rbac-matrix.md](./docs/rbac-matrix.md)** — Matriks izin 13 peran × modul
+- **[docs/rbac-matrix.md](./docs/rbac-matrix.md)** — Matriks izin 9 peran × modul
 - **[docs/deploy.md](./docs/deploy.md)** — Panduan deployment produksi (Vercel, Neon PITR, Upstash, R2, Zero-Downtime)
 - **[docs/frontend-integration.md](./docs/frontend-integration.md)** — Panduan integrasi Frontend SPA, WebSocket, format envelope, dan generate TypeScript types dari OpenAPI
 

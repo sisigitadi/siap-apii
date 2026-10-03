@@ -23,16 +23,16 @@ const checks = [
     expectedStatus: 200,
     validate: (res, body) => {
       const json = typeof body === 'string' ? JSON.parse(body) : body;
-      return json.success === true && json.code === 200 && Array.isArray(json.data);
+      return json.success === true && json.code === 200 && Array.isArray(json.data?.items);
     },
   },
   {
     name: '3. Public Kajian & Event Schedule Endpoint',
-    path: '/api/v1/public/schedule',
+    path: '/api/v1/public/schedules',
     expectedStatus: 200,
     validate: (res, body) => {
       const json = typeof body === 'string' ? JSON.parse(body) : body;
-      return json.success === true && json.code === 200 && Array.isArray(json.data);
+      return json.success === true && json.code === 200 && Array.isArray(json.data?.items);
     },
   },
   {
@@ -41,7 +41,7 @@ const checks = [
     expectedStatus: 200,
     validate: (res, body) => {
       const json = typeof body === 'string' ? JSON.parse(body) : body;
-      return json.success === true && json.code === 200 && json.data?.isValid === false;
+      return json.success === true && json.code === 200 && json.data?.verified === false;
     },
   },
   {

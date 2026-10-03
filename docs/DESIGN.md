@@ -77,11 +77,11 @@ Master prompt awal mensyaratkan banyak *enterprise machinery*. Setelah audit ter
 | 4 | PostgreSQL Row-Level Security (RLS) | **RBAC level aplikasi (Guards)** saja | RLS sulit di-debug & dimigrasi. Isolasi tetap 100% via `DivisionGuard` + audit event. |
 | 5 | 2 proses (API + Worker) + Redis sebagai queue | **1 proses**; Redis hanya cache + pub/sub | Satu hal yang dijalankan; cocok tim kecil. |
 | 6 | Google OAuth 2.0 PKCE + JWT RS256 keypair | **DIPERTAHANKAN** | Ini inti keamanan & delegasi Gmail — bukan kompleksitas, tapi kebutuhan. |
-| 7 | Dual-approval Bendahara + Ketua Umum | **DIPERTAHANKAN** (2 flag + 1 status) | Sudah sederhana; ini kontrol kepercayaan yang diminta. |
+| 7 | Dual-approval Bendahara + Ketua | **DIPERTAHANKAN** (2 flag + 1 status) | Sudah sederhana; ini kontrol kepercayaan yang diminta. |
 | 8 | Sub-layer berlapis per modul | **Modul datar**: controller → service → prisma | Mudah dibaca anggota tim baru. |
 | 9 | OpenAPI 3.1 auto-sync untuk Orval | **DIPERTAHANKAN** — `nestjs-zod` + `@nestjs/swagger` | Justru menghemat pengetikan manual di frontend. |
 
-**Yang tetap utuh:** RBAC 13 peran + delegasi Gmail + isolasi divisi (403 + audit), persuratan + render PDF Kop/Logo/Stempel/QR SHA-256, finance dual-approval + laporan bersetempel, 7-tab workflow divisi, portal publik (verifikasi SK + jadwal + e-KTA), notifikasi real-time.
+**Yang tetap utuh:** RBAC 9 peran + delegasi Gmail + isolasi divisi (403 + audit), persuratan + render PDF Kop/Logo/Stempel/QR SHA-256, finance dual-approval + laporan bersetempel, 7-tab workflow divisi, portal publik (verifikasi SK + jadwal + e-KTA), notifikasi real-time.
 
 
 ---
@@ -96,8 +96,8 @@ Didefinisikan di `prisma/schema.prisma`. Field JSONB **tetap divalidasi Zod** di
 | `id` | UUID | Primary key |
 | `email` | varchar(255) | Unik; email Google/Workspace terdaftar |
 | `full_name` | varchar(255) | Nama lengkap |
-| `role` | enum `UserRole` | 13 peran (lihat §5) |
-| `division` | enum `Division?` | Hanya untuk role `DIV_*` |
+| `role` | enum `UserRole` | 9 peran (lihat §5.1) |
+| `division` | enum `Division?` | Hanya untuk role `KETUA_DIVISI` / `ANGGOTA_DIVISI` |
 | `is_active` | boolean | Soft-disable akun |
 | `can_manage_users` | boolean | **Flag delegasi** pimpinan (invite tanpa IT) |
 | `created_at` / `updated_at` | timestamptz | Audit |
@@ -145,7 +145,7 @@ Didefinisikan di `prisma/schema.prisma`. Field JSONB **tetap divalidasi Zod** di
 | `submission_data` | JSONB | Skema dinamis per divisi (7 Zod schema) |
 | `attachments` | JSONB | `[]` default; daftar URL S3 |
 | `status` | enum | `DRAFT` · `PENDING_APPROVAL` · `APPROVED` · `REJECTED` · `PUBLISHED` |
-| `approval_notes` | text? | Catatan Ketua Umum |
+| `approval_notes` | text? | Catatan Ketua |
 | `reviewed_at` | timestamptz? | Timestamp review |
 
 ### 4.5 Tabel Pendukung
@@ -167,24 +167,20 @@ Didefinisikan di `prisma/schema.prisma`. Field JSONB **tetap divalidasi Zod** di
 | Role | Cakupan Wewenang |
 |---|---|
 | `SUPERADMIN` | Infrastruktur, rilis/migrasi DB, delegasi awal, konfigurasi sistem |
-| `KETUA_UMUM` | Veto, persetujuan tunggal (Approval Board), rilis SK resmi |
+| `KETUA` | Veto, persetujuan tunggal (Approval Board), rilis SK resmi |
 | `SEKRETARIS` | Surat masuk/keluar, editor Kop & SK, verifikasi berkas |
 | `BENDAHARA` | Arus kas, voucher, rekonsiliasi BSI, laporan keuangan |
-| `DEWAN_PENGAWAS` | **Read-only**: audit trail, live ledger, form usulan sanksi/SP |
-| `DIV_HUMAS` | Relasi eksternal, MoU, proposal mitra |
-| `DIV_LITBANG` | Pelatihan SDM, silabus da'i, evaluasi |
-| `DIV_SOSMED` | Kalender konten publikasi, asset grafis |
-| `DIV_DAKWAH` | Penjadwalan safari dakwah, direktori asatidz |
-| `DIV_INVESTASI` | Unit usaha wakaf, kaderisasi |
-| `DIV_HUKUM` | Arsip legalitas, advokasi |
-| `DIV_UMUM` | Pengadaan inventaris gedung |
-| `PUBLIK_ANGGOTA` | **Read-only**: e-KTA, maklumat sah, jadwal kajian |
+| `PEMBINA` | **Read-only**: arah strategis, bimbingan kepengurusan, akses seluruh dokumen & laporan |
+| `PENGAWAS` | **Read-only**: audit trail, live ledger, form usulan sanksi/SP |
+| `KETUA_DIVISI` | Memimpin divisi kerja; wajib field `division` (mis. `DIV_HUMAS`) |
+| `ANGGOTA_DIVISI` | Anggota divisi kerja; wajib field `division` |
+| `ANGGOTA_BIASA` | **Read-only**: e-KTA, maklumat sah, jadwal kajian |
 
 > Matriks izin **per endpoint-group** ada di **[rbac-matrix.md](./rbac-matrix.md)** — single source of truth yang bisa direview tanpa membaca kode.
 
 ### 5.2 Mekanisme Delegasi Akun Gmail
 1. **Inisialisasi (sekali):** Superadmin mendaftarkan domain/email Google via `POST /api/v1/auth/delegation/init`.
-2. **Delegasi wewenang:** Superadmin men-toggle `can_manage_users = true` pada Ketua Umum / Sekretaris / Bendahara → mereka dapat **mengundang pengurus baru** (`POST /api/v1/users/invite`) **tanpa campur tangan IT**.
+2. **Delegasi wewenang:** Superadmin men-toggle `can_manage_users = true` pada Ketua / Sekretaris / Bendahara → mereka dapat **mengundang pengurus baru** (`POST /api/v1/users/invite`) **tanpa campur tangan IT**.
 3. **Audit:** setiap perubahan delegasi & undangan dicatat ke `audit_logs`.
 
 ### 5.3 Isolasi Divisi Mutlak (Zero Cross-Dashboard)
@@ -222,7 +218,7 @@ DRAFT ──submit──▶ PENDING_APPROVAL ──approve──▶ PUBLISHED �
 ```
 - `DRAFT` & `PENDING_APPROVAL` hanya terlihat Sekretaris/Ketua/Superadmin.
 - `PUBLISHED` muncul di portal publik & QR dapat diverifikasi.
-- Transisi `PENDING_APPROVAL → PUBLISHED` **hanya** oleh KETUA_UMUM (atau SUPERADMIN), memicu event `DOCUMENT_PUBLISHED`.
+- Transisi `PENDING_APPROVAL → PUBLISHED` **hanya** oleh KETUA (atau SUPERADMIN), memicu event `DOCUMENT_PUBLISHED`.
 
 ### 6.4 State Machine Voucher (`cash_flow`)
 ```
@@ -230,7 +226,7 @@ DRAFT ──submit──▶ PENDING_APPROVAL ──approve──▶ PUBLISHED �
       │                    │
       │          verify_by_bendahara (BENDAHARA)
       │                    ▼
-      │          verify_by_ketum (KETUA_UMUM)  ▶  TERVERIFIKASI (masuk buku kas)
+      │          verify_by_ketum (KETUA)  ▶  TERVERIFIKASI (masuk buku kas)
       │
       └─ reject ▶ DITOLAK
 ```
@@ -239,8 +235,8 @@ DRAFT ──submit──▶ PENDING_APPROVAL ──approve──▶ PUBLISHED �
 ### 6.5 Workflow Usulan Divisi (`division_submissions`)
 - **Aturan ketat: 0 publikasi langsung.** Divisi hanya bisa:
   - `Simpan Draf` → `DRAFT`
-  - `Ajukan ke Ketua Umum` → `PENDING_APPROVAL`
-- Persetujuan/reject **hanya** melalui Approval Board KETUA_UMUM → `APPROVED` / `REJECTED`.
+  - `Ajukan ke Ketua DPW` → `PENDING_APPROVAL`
+- Persetujuan/reject **hanya** melalui Approval Board KETUA → `APPROVED` / `REJECTED`.
 - `PUBLISHED` (muncul di portal) hanya untuk program yang sudah terlaksana & dilaporkan.
 
 ---
@@ -253,9 +249,9 @@ DRAFT ──submit──▶ PENDING_APPROVAL ──approve──▶ PUBLISHED �
 | Room | Anggota |
 |---|---|
 | `public` | Semua koneksi (termasuk portal publik) |
-| `role:ketua_umum` | Hanya Ketua Umum |
+| `role:ketua` | Hanya Ketua |
 | `role:bendahara` | Hanya Bendahara |
-| `role:dewan_pengawas` | Hanya Dewan Pengawas |
+| `role:pengawas` | Hanya Pengawas |
 | `division:<DIVISI>` | Anggota divisi tersebut |
 
 Server memakai **Redis pub/sub** sehingga beberapa instance API tetap konsisten — ini **wajib** saat deploy ke Vercel, karena setiap koneksi WebSocket ter-pin ke satu instance function (lihat §11.3).
@@ -265,8 +261,8 @@ Server memakai **Redis pub/sub** sehingga beberapa instance API tetap konsisten 
 |---|---|---|---|
 | `PROGRAM_APPROVED` | Ketua setujui usulan divisi | `public` + `division:<x>` | `trackingId`, `division`, `title` |
 | `DOCUMENT_PUBLISHED` | SK dipublikasi | `public` | `letterNumber`, `title`, `sha256` |
-| `CASHBOOK_MUTATED` | Buku kas berubah | `role:bendahara` + `role:dewan_pengawas` | `voucherNumber`, `type`, `account` |
-| `AUDIT_SECURITY` | 403 cross-division | `role:superadmin` + `role:dewan_pengawas` | `userId`, `endpoint`, `timestamp` |
+| `CASHBOOK_MUTATED` | Buku kas berubah | `role:bendahara` + `role:pengawas` | `voucherNumber`, `type`, `account` |
+| `AUDIT_SECURITY` | 403 cross-division | `role:superadmin` + `role:pengawas` | `userId`, `endpoint`, `timestamp` |
 
 > Frontend memakai event ini untuk **refetch** data terkait (mis. live ledger), bukan untuk mutasi.
 
@@ -275,7 +271,7 @@ Server memakai **Redis pub/sub** sehingga beberapa instance API tetap konsisten 
 ## 8. PDF Engine & Konvensi API
 
 ### 8.1 Generator Dokumen Otentik
-**Endpoint:** `GET /api/v1/letters/:id/render-pdf` (SEKRETARIS / KETUA_UMUM)
+**Endpoint:** `GET /api/v1/letters/:id/render-pdf` (SEKRETARIS / KETUA / SUPERADMIN / PEMBINA / PENGAWAS)
 
 Pipeline sinkron:
 1. Ambil surat + `kop_config` + `signatories`.

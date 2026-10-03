@@ -34,7 +34,7 @@ Karena pengguna sebagian besar **belum terbiasa administrasi digital**, produk i
 4. **Terpercaya & dapat diverifikasi.** Setiap dokumen resmi dapat dicek keasliannya publik via QR/SHA-256.
 
 ### 1.4 Solusi Singkat
-Sebuah backend REST + WebSocket (NestJS, monolith sederhana) dengan 6 modul fungsional yang melayani **13 peran bertingkat** di bawah isolasi divisi ketat. Detail teknis lihat `DESIGN.md`; dokumen ini berfokus pada **kebutuhan pengguna dan produk**.
+Sebuah backend REST + WebSocket (NestJS, monolith sederhana) dengan 6 modul fungsional yang melayani **9 peran bertingkat** di bawah isolasi divisi ketat. Detail teknis lihat `DESIGN.md`; dokumen ini berfokus pada **kebutuhan pengguna dan produk**.
 
 ---
 
@@ -44,7 +44,7 @@ Sebuah backend REST + WebSocket (NestJS, monolith sederhana) dengan 6 modul fung
 | # | Tujuan | Bagaimana Diukur |
 |---|---|---|
 | G1 | Mengakhiri penomoran surat manual yang kacau | 100% surat resmi memakai nomor otomatis berurutan |
-| G2 | Membuat keuangan transparan & terverifikasi ganda | Setiap transaksi > Rp 0 memiliki tanda tangan Bendahara **dan** Ketua Umum |
+| G2 | Membuat keuangan transparan & terverifikasi ganda | Setiap transaksi > Rp 0 memiliki tanda tangan Bendahara **dan** Ketua |
 | G3 | Menghilangkan kebingungan status usulan divisi | Pengurus bisa lihat status real-time 100% usulan |
 | G4 | Memberi kepastian keaslian dokumen | Verifikasi publik QR/SHA-256 aktif untuk semua SK yang dirilis |
 | G5 | Onboarding pengurus baru tanpa drama | Delegasi undang akun oleh pimpinan, tanpa menunggu IT |
@@ -67,7 +67,7 @@ Sebuah backend REST + WebSocket (NestJS, monolith sederhana) dengan 6 modul fung
 
 ## 3. Pengguna Target (Personas)
 
-Karena ada 13 peran teknis (lihat `rbac-matrix.md`), di sini dikelompokkan menjadi **5 persona produk** agar kebutuhannya jelas.
+Karena ada 9 peran teknis (lihat `rbac-matrix.md`), di sini dikelompokkan menjadi **5 persona produk** agar kebutuhannya jelas.
 
 ### 3.1 Persona A — "Pengurus Inti" (Ketua Umum, Wakil, Sekretaris, Bendahara, Kabid Kajian)
 - **Profil:** Pengurus harian yayasan. Usia 35–60 tahun. Menggunakan WhatsApp & email Gmail setiap hari, tapi **jarang sekali** memakai aplikasi administrasi web.

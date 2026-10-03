@@ -117,4 +117,4 @@ Frontend dapat menghasilkan tipe TypeScript dan fetch client secara otomatis men
 npx openapi-typescript ../siap-apii/docs/openapi.json -o ./src/types/api.d.ts
 ```
 
-Dengan langkah ini, seluruh tipe data DTO, enum 13 peran, divisi, status dokumen, dan respons envelope terjamin sinkron 100% dengan backend.
+Dengan langkah ini, seluruh tipe data DTO, enum 9 peran, divisi, status dokumen, dan respons envelope terjamin sinkron 100% dengan backend.
