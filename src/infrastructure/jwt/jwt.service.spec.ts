@@ -26,7 +26,7 @@ function makeConfig(overrides: Partial<AppConfig> = {}): AppConfig {
 const user = {
   id: '11111111-1111-1111-1111-111111111111',
   email: 'ketum@apii-jabo.id',
-  role: 'KETUA_UMUM',
+  role: 'KETUA',
   division: null,
 } as const;
 

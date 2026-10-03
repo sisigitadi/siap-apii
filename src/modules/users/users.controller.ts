@@ -28,7 +28,7 @@ export class UsersController {
   constructor(private readonly users: UsersService) {}
 
   @Get()
-  @Roles('SUPERADMIN', 'KETUA_UMUM', 'SEKRETARIS', 'BENDAHARA', 'DEWAN_PENGAWAS')
+  @Roles('SUPERADMIN', 'KETUA', 'SEKRETARIS', 'BENDAHARA', 'PEMBINA', 'PENGAWAS')
   @ApiOperation({ summary: 'Daftar pengguna dengan paginasi & filter' })
   @ApiOkResponse({ type: UserListDto, description: 'Daftar pengguna terpaginasi' })
   async list(@Query() query: ListUsersQueryDto): Promise<UserList> {
@@ -36,7 +36,7 @@ export class UsersController {
   }
 
   @Post('invite')
-  @Roles('SUPERADMIN', 'KETUA_UMUM', 'SEKRETARIS', 'BENDAHARA')
+  @Roles('SUPERADMIN', 'KETUA', 'SEKRETARIS', 'BENDAHARA')
   @ApiOperation({ summary: 'Undang pengurus baru via email Google (FR-AUTH-04)' })
   @ApiOkResponse({ type: UserDto })
   async invite(

@@ -26,7 +26,7 @@ import { formatDateIndo } from '@/utils/formatters';
 export const LetterDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isSekretaris, isKetum } = useAuth();
+  const { isSekretaris, isKetua } = useAuth();
   const { success, error: showError } = useToast();
 
   const [letter, setLetter] = useState<OfficialLetter | null>(null);
@@ -139,8 +139,8 @@ export const LetterDetailPage: React.FC = () => {
 
   const canEdit = isSekretaris && (letter.status === 'DRAFT' || letter.status === 'REJECTED');
   const canSubmit = isSekretaris && (letter.status === 'DRAFT' || letter.status === 'REJECTED');
-  const canApprove = isKetum && letter.status === 'PENDING_APPROVAL';
-  const canArchive = (isSekretaris || isKetum) && letter.status === 'PUBLISHED';
+  const canApprove = isKetua && letter.status === 'PENDING_APPROVAL';
+  const canArchive = (isSekretaris || isKetua) && letter.status === 'PUBLISHED';
 
   return (
     <div className="space-y-5">

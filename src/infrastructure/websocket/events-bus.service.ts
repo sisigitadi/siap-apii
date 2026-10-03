@@ -25,7 +25,7 @@ import {
 export class EventsBusService {
   constructor(private readonly redis: RedisService) {}
 
-  /** Ketua Umum menyetujui usulan divisi → `public` + `division:<x>` */
+  /** Ketua menyetujui usulan divisi → `public` + `division:<x>` */
   async emitProgramApproved(payload: ProgramApprovedPayload): Promise<void> {
     await this.publish(
       WsEvent.PROGRAM_APPROVED,
@@ -39,20 +39,20 @@ export class EventsBusService {
     await this.publish(WsEvent.DOCUMENT_PUBLISHED, [PUBLIC_ROOM], payload);
   }
 
-  /** Buku kas terverifikasi (masuk buku kas) → bendahara + dewan pengawas */
+  /** Buku kas terverifikasi (masuk buku kas) → bendahara + pengawas */
   async emitCashbookMutated(payload: CashbookMutatedPayload): Promise<void> {
     await this.publish(
       WsEvent.CASHBOOK_MUTATED,
-      [roleRoom('BENDAHARA'), roleRoom('DEWAN_PENGAWAS')],
+      [roleRoom('BENDAHARA'), roleRoom('PENGAWAS')],
       payload,
     );
   }
 
-  /** Pelanggaran keamanan (mis. 403 lintas divisi) → superadmin + dewan pengawas */
+  /** Pelanggaran keamanan (mis. 403 lintas divisi) → superadmin + pengawas */
   async emitAuditSecurity(payload: AuditSecurityPayload): Promise<void> {
     await this.publish(
       WsEvent.AUDIT_SECURITY,
-      [roleRoom('SUPERADMIN'), roleRoom('DEWAN_PENGAWAS')],
+      [roleRoom('SUPERADMIN'), roleRoom('PENGAWAS')],
       payload,
     );
   }

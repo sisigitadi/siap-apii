@@ -37,12 +37,21 @@ describe('Auth & RBAC (e2e)', () => {
     updated_at: new Date('2026-01-01T00:00:00Z'),
   };
 
-  const ketuaUmum: UserRecord = {
+  const ketua: UserRecord = {
     ...bendahara,
     id: crypto.randomUUID(),
     email: 'ketum@example.com',
-    full_name: 'Ketua Umum',
-    role: UserRole.KETUA_UMUM,
+    full_name: 'Ketua',
+    role: UserRole.KETUA,
+    division: null,
+  };
+
+  const pembina: UserRecord = {
+    ...bendahara,
+    id: crypto.randomUUID(),
+    email: 'pembina@example.com',
+    full_name: 'Pembina',
+    role: UserRole.PEMBINA,
     division: null,
   };
 
@@ -51,7 +60,8 @@ describe('Auth & RBAC (e2e)', () => {
     app = setup.app;
     jwt = app.get(JwtService);
     setup.prisma.users.set(bendahara.id, bendahara);
-    setup.prisma.users.set(ketuaUmum.id, ketuaUmum);
+    setup.prisma.users.set(ketua.id, ketua);
+    setup.prisma.users.set(pembina.id, pembina);
   });
 
   afterAll(async () => {
@@ -116,13 +126,14 @@ describe('Auth & RBAC (e2e)', () => {
   });
 
   describe('GET /api/v1/users (Roles)', () => {
-    it('DIV_HUMAS → 403 (hanya peran pimpinan)', async () => {
+    it('KETUA_DIVISI → 403 (hanya peran pimpinan)', async () => {
       const humas: UserRecord = {
         ...bendahara,
         id: crypto.randomUUID(),
         email: 'humas@example.com',
-        full_name: 'Humas Divisi',
-        role: UserRole.DIV_HUMAS,
+        full_name: 'Ketua Divisi Humas',
+        role: UserRole.KETUA_DIVISI,
+        division: Division.DIV_HUMAS,
       };
       setup.prisma.users.set(humas.id, humas);
       const response = await setup.request
@@ -132,13 +143,62 @@ describe('Auth & RBAC (e2e)', () => {
       expect(response.status).toBe(403);
     });
 
-    it('KETUA_UMUM → 200', async () => {
+    it('KETUA → 200', async () => {
       const response = await setup.request
         .get('/api/v1/users')
-        .set('Authorization', bearer(tokenFor(ketuaUmum)));
+        .set('Authorization', bearer(tokenFor(ketua)));
 
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+
+    it('PEMBINA → 200 (akses read-only atas seluruh dokumen & laporan organisasi)', async () => {
+      const response = await setup.request
+        .get('/api/v1/users')
+        .set('Authorization', bearer(tokenFor(pembina)));
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+  });
+
+  describe('Oversight read-only PEMBINA (DESIGN §5.1 — read-only atas dokumen & laporan)', () => {
+    it('PEMBINA dapat melihat daftar surat resmi (GET /official-letters → 200)', async () => {
+      const response = await setup.request
+        .get('/api/v1/official-letters')
+        .set('Authorization', bearer(tokenFor(pembina)));
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+
+    it('PEMBINA dapat melihat buku kas & voucher (GET /finance/vouchers → 200)', async () => {
+      const response = await setup.request
+        .get('/api/v1/finance/vouchers')
+        .set('Authorization', bearer(tokenFor(pembina)));
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data.items)).toBe(true);
+    });
+
+    it('PEMBINA dilarang membuat surat (POST /official-letters → 403)', async () => {
+      const response = await setup.request
+        .post('/api/v1/official-letters')
+        .set('Authorization', bearer(tokenFor(pembina)))
+        .send({ letter_type: 'INTERNAL', title: 'x', body: 'x', recipient_name: 'x' });
+
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
+    });
+
+    it('PEMBINA dilarang membuat voucher kas (POST /finance/vouchers → 403)', async () => {
+      const response = await setup.request
+        .post('/api/v1/finance/vouchers')
+        .set('Authorization', bearer(tokenFor(pembina)))
+        .send({ flow_type: 'OUT', amount: 1000, description: 'x' });
+
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
     });
   });
 });

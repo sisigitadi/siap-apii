@@ -25,7 +25,7 @@ const LETTER_TYPES = Object.keys(LETTER_TYPE_LABELS) as LetterType[];
 
 const DEFAULT_SIGNATORIES: LetterSignatory[] = [
   { role: 'SEKRETARIS', name: 'Muhammad Rizki, S.T.', title: 'Sekretaris Wilayah DPW APII', position: 'left' },
-  { role: 'KETUA_UMUM', name: 'Dr. H. Ahmad Fauzi', title: 'Ketua DPW APII Jabodetabek', position: 'right' },
+  { role: 'KETUA', name: 'Dr. H. Ahmad Fauzi', title: 'Ketua DPW APII Jabodetabek', position: 'right' },
 ];
 
 export const LetterCreatePage: React.FC = () => {
@@ -261,7 +261,7 @@ export const LetterCreatePage: React.FC = () => {
             {signatories.map((sig, idx) => (
               <div key={idx} className="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
                 <span className="text-[10px] font-bold text-[#0e3b6f] bg-white border border-slate-200 rounded px-2 py-1 shrink-0">
-                  {sig.role === 'KETUA_UMUM' ? 'Ketua DPW' : sig.role === 'SEKRETARIS' ? 'Sekretaris' : 'Bendahara'}
+                  {sig.role === 'KETUA' ? 'Ketua' : sig.role === 'SEKRETARIS' ? 'Sekretaris' : 'Bendahara'}
                 </span>
                 <input
                   type="text"

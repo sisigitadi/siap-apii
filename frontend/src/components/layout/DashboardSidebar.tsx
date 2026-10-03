@@ -1,12 +1,19 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, Wallet, Users, Layers, FolderOpen, UserCog } from 'lucide-react';
+import { LayoutDashboard, FileText, Wallet, Users, Layers, FolderOpen, UserCog, Sparkles } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { DIVISION_LABELS } from '@/utils/constants';
 import { Division } from '@/api/types';
 
-export const DashboardSidebar: React.FC = () => {
-  const { user, isLeadership, isSekretaris, isBendahara, canManageUsers, canAccessDivision } = useAuth();
+type DashboardSidebarProps = {
+  /** Apakah drawer mobile sedang terbuka (di layar >= lg selalu tampil) */
+  isOpen: boolean;
+  /** Menutup drawer mobile setelah sebuah menu dipilih */
+  onClose: () => void;
+};
+
+export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ isOpen, onClose }) => {
+  const { user, isLeadership, isSekretaris, isBendahara, canManageUsers, canAccessDivision, isKetuaDivisi, isAnggotaDivisi, isAnggotaBiasa } = useAuth();
 
   const allDivisions: Division[] = [
     'DIV_HUMAS',
@@ -18,79 +25,75 @@ export const DashboardSidebar: React.FC = () => {
     'DIV_UMUM',
   ];
 
+  // Halaman beranda per-jabatan: ketua divisi & anggota divisi berbagi tempat
+  const roleHomePath = user
+    ? isKetuaDivisi || isAnggotaDivisi
+      ? '/dashboard/divisi'
+      : isAnggotaBiasa
+      ? '/dashboard/anggota'
+      : ['KETUA', 'SEKRETARIS', 'BENDAHARA', 'PEMBINA', 'PENGAWAS'].includes(user.role)
+      ? `/dashboard/${user.role.toLowerCase()}`
+      : '/dashboard'
+    : '/dashboard';
+
+  const linkClass = ({ isActive }: { isActive: boolean }) =>
+    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+      isActive ? 'bg-[#0e3b6f] text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+    }`;
+
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 min-h-[calc(100vh-4rem)] flex flex-col shrink-0 border-r border-slate-800">
-      <div className="p-4 flex-1 space-y-6">
+    <aside
+      className={[
+        'w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 border-r border-slate-800',
+        // Mobile: drawer fixed di sisi kiri, geser keluar saat ditutup.
+        // Desktop (lg+): selalu tampil sebagai kolom statis.
+        'fixed inset-y-0 left-0 z-40 transition-transform duration-200 ease-in-out lg:static',
+        isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full',
+        'lg:translate-x-0 lg:shadow-none',
+      ].join(' ')}
+      aria-label="Menu samping dashboard"
+      aria-hidden={!isOpen}
+    >
+      <div className="p-4 flex-1 space-y-6 overflow-y-auto">
         <div>
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider px-3 mb-2">
             Menu Utama
           </div>
           <nav className="space-y-1">
-            <NavLink
-              to="/dashboard"
-              end
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive ? 'bg-[#0e3b6f] text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                }`
-              }
-            >
+            <NavLink to={roleHomePath} className={linkClass} onClick={onClose}>
               <LayoutDashboard className="w-4 h-4" />
-              <span>Ringkasan Dasbor</span>
+              <span>Beranda Jabatan</span>
             </NavLink>
 
             {(isSekretaris || isLeadership) && (
-              <NavLink
-                to="/dashboard/letters"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive ? 'bg-[#0e3b6f] text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`
-                }
-              >
+              <NavLink to="/dashboard/letters" className={linkClass} onClick={onClose}>
                 <FileText className="w-4 h-4 text-sky-400" />
                 <span>Persuratan Resmi</span>
               </NavLink>
             )}
 
             {(isBendahara || isLeadership) && (
-              <NavLink
-                to="/dashboard/finance"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive ? 'bg-[#0e3b6f] text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`
-                }
-              >
+              <NavLink to="/dashboard/finance" className={linkClass} onClick={onClose}>
                 <Wallet className="w-4 h-4 text-emerald-400" />
-                <span>Buku Kas & Voucher</span>
+                <span>Buku Kas &amp; Voucher</span>
               </NavLink>
             )}
 
             {canManageUsers && (
-              <NavLink
-                to="/dashboard/users"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive ? 'bg-[#0e3b6f] text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`
-                }
-              >
+              <NavLink to="/dashboard/users" className={linkClass} onClick={onClose}>
                 <Users className="w-4 h-4 text-amber-400" />
                 <span>Kelola Pengurus</span>
               </NavLink>
             )}
 
-            <NavLink
-              to="/dashboard/profile"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive ? 'bg-[#0e3b6f] text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                }`
-              }
-            >
+            <NavLink to="/dashboard/profile" className={linkClass} onClick={onClose}>
               <UserCog className="w-4 h-4 text-slate-300" />
               <span>Profil Saya</span>
+            </NavLink>
+
+            <NavLink to="/demo" className={linkClass} onClick={onClose}>
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>Mode Demo</span>
             </NavLink>
           </nav>
         </div>
@@ -120,6 +123,8 @@ export const DashboardSidebar: React.FC = () => {
                     if (!hasAccess) {
                       e.preventDefault();
                       alert('Akses Dibatasi: Anda hanya dapat membuka workspace divisi Anda sendiri.');
+                    } else {
+                      onClose();
                     }
                   }}
                 >

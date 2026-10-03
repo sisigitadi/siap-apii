@@ -37,7 +37,7 @@ export const VerifyDocumentPage: React.FC = () => {
               status: 'PUBLISHED',
               signatories: [
                 { role: 'SEKRETARIS', name: 'Muhammad Rizki, S.T.', title: 'Sekretaris Wilayah', position: 'left' },
-                { role: 'KETUA_UMUM', name: 'Dr. H. Ahmad Fauzi', title: 'Ketua DPW APII', position: 'right' },
+                { role: 'KETUA', name: 'Dr. H. Ahmad Fauzi', title: 'Ketua DPW APII', position: 'right' },
               ],
             });
           } else {

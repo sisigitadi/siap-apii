@@ -26,7 +26,7 @@ export enum WsEvent {
   AUDIT_SECURITY = 'AUDIT_SECURITY',
 }
 
-/** Nama room role: `role:ketua_umum` (DESIGN.md §7.1) */
+/** Nama room role: `role:ketua` (DESIGN.md §7.1) */
 export function roleRoom(role: UserRole): string {
   return `role:${role.toLowerCase()}`;
 }

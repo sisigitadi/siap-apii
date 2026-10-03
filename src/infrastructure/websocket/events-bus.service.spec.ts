@@ -65,7 +65,7 @@ describe('EventsBusService', () => {
   });
 
   describe('emitCashbookMutated', () => {
-    it('should publish to bendahara + dewan pengawas rooms', async () => {
+    it('should publish to bendahara + pengawas rooms', async () => {
       await service.emitCashbookMutated({
         voucherNumber: '088/KEU-APII/JABO/II/2025',
         type: 'OUTFLOW',
@@ -74,13 +74,13 @@ describe('EventsBusService', () => {
 
       const envelope = lastEnvelope<{ voucherNumber: string }>();
       expect(envelope.event).toBe('CASHBOOK_MUTATED');
-      expect(envelope.rooms).toEqual(['role:bendahara', 'role:dewan_pengawas']);
+      expect(envelope.rooms).toEqual(['role:bendahara', 'role:pengawas']);
       expect(envelope.payload.voucherNumber).toBe('088/KEU-APII/JABO/II/2025');
     });
   });
 
   describe('emitAuditSecurity', () => {
-    it('should publish to superadmin + dewan pengawas rooms', async () => {
+    it('should publish to superadmin + pengawas rooms', async () => {
       await service.emitAuditSecurity({
         userId: 'user-1',
         endpoint: '/api/v1/divisions/submissions',
@@ -89,7 +89,7 @@ describe('EventsBusService', () => {
 
       const envelope = lastEnvelope<{ userId: string }>();
       expect(envelope.event).toBe('AUDIT_SECURITY');
-      expect(envelope.rooms).toEqual(['role:superadmin', 'role:dewan_pengawas']);
+      expect(envelope.rooms).toEqual(['role:superadmin', 'role:pengawas']);
       expect(envelope.payload.userId).toBe('user-1');
     });
   });

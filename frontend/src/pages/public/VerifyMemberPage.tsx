@@ -21,7 +21,7 @@ export const VerifyMemberPage: React.FC = () => {
           phone: '+62 812-3456-7890',
           city: 'Jakarta Selatan',
           division: 'DIV_LITBANG',
-          role: 'PUBLIK_ANGGOTA',
+          role: 'ANGGOTA_BIASA',
           status: 'ACTIVE',
           joined_at: '2026-01-01T00:00:00.000Z',
           expires_at: '2031-01-01T00:00:00.000Z',

@@ -57,6 +57,23 @@ export interface OfficialLetterRecord {
   updated_at: Date;
 }
 
+export interface CashFlowRecord {
+  id: string;
+  voucher_number: string;
+  type: string;
+  account_category: string;
+  amount: Prisma.Decimal;
+  description: string;
+  transaction_date: Date;
+  status: string;
+  receipt_photo_url: string | null;
+  verified_by_bendahara_at: Date | null;
+  verified_by_ketum_at: Date | null;
+  created_by_id: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
 export interface DivisionSubmissionRecord {
   id: string;
   tracking_id: string;
@@ -141,6 +158,7 @@ export class InMemoryPrisma {
   readonly users = new Map<string, UserRecord>();
   readonly officialLetters = new Map<string, OfficialLetterRecord>();
   readonly divisionSubmissions = new Map<string, DivisionSubmissionRecord>();
+  readonly cashFlows = new Map<string, CashFlowRecord>();
   readonly submissionSequences = new Map<number, number>();
   readonly auditLogs: AuditLogRecord[] = [];
   readonly refreshSessions = new Map<string, RefreshSessionRecord>();
@@ -275,6 +293,68 @@ export class InMemoryPrisma {
       const next = current + 1;
       this.submissionSequences.set(where.year, next);
       return { year: where.year, current_number: next };
+    },
+  };
+
+  cashFlow = {
+    findUnique: async ({
+      where,
+      include,
+    }: {
+      where: { id: string };
+      include?: { created_by?: { select?: Record<string, boolean> } };
+    }): Promise<(CashFlowRecord & { created_by?: Partial<UserRecord> }) | null> => {
+      const flow = this.cashFlows.get(where.id);
+      if (!flow) return null;
+      let created_by: Partial<UserRecord> | undefined;
+      if (include?.created_by) {
+        const user = this.users.get(flow.created_by_id);
+        created_by = user ? selectFields(user, include.created_by.select) : undefined;
+      }
+      return { ...flow, ...(created_by ? { created_by } : {}) } as never;
+    },
+    findMany: async ({
+      where,
+      skip = 0,
+      take,
+      orderBy,
+      include,
+    }: {
+      where?: WhereFilter;
+      skip?: number;
+      take?: number;
+      orderBy?: Array<Record<string, 'asc' | 'desc'>>;
+      include?: { created_by?: { select?: Record<string, boolean> } };
+    }): Promise<Array<CashFlowRecord & { created_by?: Partial<UserRecord> }>> => {
+      let rows = [...this.cashFlows.values()].filter((flow) => matches(flow, where as never));
+      if (orderBy?.some((o) => o.transaction_date)) {
+        rows = rows.sort((left, right) => {
+          const leftTime = left.transaction_date?.getTime() ?? 0;
+          const rightTime = right.transaction_date?.getTime() ?? 0;
+          return orderBy.some((o) => o.transaction_date === 'asc')
+            ? leftTime - rightTime
+            : rightTime - leftTime;
+        });
+      } else if (orderBy?.some((o) => o.created_at)) {
+        rows = rows.sort((left, right) => {
+          const leftTime = left.created_at?.getTime() ?? 0;
+          const rightTime = right.created_at?.getTime() ?? 0;
+          return orderBy.some((o) => o.created_at === 'asc')
+            ? leftTime - rightTime
+            : rightTime - leftTime;
+        });
+      }
+      return rows.slice(skip, take ? skip + take : undefined).map((flow) => {
+        let created_by: Partial<UserRecord> | undefined;
+        if (include?.created_by) {
+          const user = this.users.get(flow.created_by_id);
+          created_by = user ? selectFields(user, include.created_by.select) : undefined;
+        }
+        return { ...flow, ...(created_by ? { created_by } : {}) } as never;
+      });
+    },
+    count: async ({ where }: { where?: WhereFilter }): Promise<number> => {
+      return [...this.cashFlows.values()].filter((flow) => matches(flow, where as never)).length;
     },
   };
 
@@ -433,6 +513,7 @@ export class InMemoryPrisma {
     this.users.clear();
     this.officialLetters.clear();
     this.divisionSubmissions.clear();
+    this.cashFlows.clear();
     this.submissionSequences.clear();
     this.auditLogs.length = 0;
     this.refreshSessions.clear();

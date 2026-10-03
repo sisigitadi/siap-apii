@@ -103,14 +103,14 @@ describe('EventsGateway', () => {
       onMessage?.(
         JSON.stringify({
           event: WsEvent.DOCUMENT_PUBLISHED,
-          rooms: [PUBLIC_ROOM, 'role:ketua_umum'],
+          rooms: [PUBLIC_ROOM, 'role:ketua'],
           payload: { letterNumber: '042/SK-DPW/APII-JABO/III/2025' },
         }),
       );
 
       expect(server.to).toHaveBeenCalledTimes(2);
       expect(server.to).toHaveBeenCalledWith(PUBLIC_ROOM);
-      expect(server.to).toHaveBeenCalledWith('role:ketua_umum');
+      expect(server.to).toHaveBeenCalledWith('role:ketua');
       expect(server.to(PUBLIC_ROOM).emit).toHaveBeenCalledWith(
         WsEvent.DOCUMENT_PUBLISHED,
         expect.objectContaining({ letterNumber: '042/SK-DPW/APII-JABO/III/2025' }),
@@ -136,14 +136,14 @@ describe('EventsGateway', () => {
     });
 
     it('should join public, role, and division rooms with a valid token', async () => {
-      verifyAccessToken.mockReturnValue(makeClaims('DIV_DAKWAH', 'DIV_DAKWAH'));
+      verifyAccessToken.mockReturnValue(makeClaims('KETUA_DIVISI', 'DIV_DAKWAH'));
       const socket = makeSocket({ handshake: { auth: { token: 'valid' }, headers: {} } });
 
       await gateway.handleConnection(socket as unknown as Socket);
 
       expect(socket.join).toHaveBeenCalledWith([
         PUBLIC_ROOM,
-        'role:div_dakwah',
+        'role:ketua_divisi',
         'division:DIV_DAKWAH',
       ]);
       expect(socket.emit).toHaveBeenCalledWith(
@@ -163,12 +163,12 @@ describe('EventsGateway', () => {
     });
 
     it('should accept token from handshake query as fallback', async () => {
-      verifyAccessToken.mockReturnValue(makeClaims('KETUA_UMUM', null));
+      verifyAccessToken.mockReturnValue(makeClaims('KETUA', null));
       const socket = makeSocket({ handshake: { query: { token: 'valid' }, headers: {} } });
 
       await gateway.handleConnection(socket as unknown as Socket);
 
-      expect(socket.join).toHaveBeenCalledWith([PUBLIC_ROOM, 'role:ketua_umum']);
+      expect(socket.join).toHaveBeenCalledWith([PUBLIC_ROOM, 'role:ketua']);
     });
 
     it('should reject a connection without a token', async () => {
@@ -199,7 +199,7 @@ describe('EventsGateway', () => {
 
     it('should reject a connection from a disallowed origin', async () => {
       corsOrigins.push('https://app.apii.sigitadi.id');
-      verifyAccessToken.mockReturnValue(makeClaims('KETUA_UMUM', null));
+      verifyAccessToken.mockReturnValue(makeClaims('KETUA', null));
       const socket = makeSocket({
         handshake: { auth: { token: 'valid' }, headers: { origin: 'https://evil.example' } },
       });
@@ -215,7 +215,7 @@ describe('EventsGateway', () => {
 
     it('should allow an allowed origin', async () => {
       corsOrigins.push('https://app.apii.sigitadi.id');
-      verifyAccessToken.mockReturnValue(makeClaims('KETUA_UMUM', null));
+      verifyAccessToken.mockReturnValue(makeClaims('KETUA', null));
       const socket = makeSocket({
         handshake: {
           auth: { token: 'valid' },

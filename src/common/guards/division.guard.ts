@@ -16,7 +16,7 @@ import { EventsBusService } from '@/infrastructure/websocket/events-bus.service'
 /**
  * Isolasi divisi mutlak (DESIGN.md §5.3). Setiap penolakan wajib memicu
  * SecurityAuditEvent → audit_logs + Redis stream + event real-time
- * `AUDIT_SECURITY` ke room superadmin & dewan pengawas (DESIGN.md §7.2).
+ * `AUDIT_SECURITY` ke room superadmin & pengawas (DESIGN.md §7.2).
  */
 @Injectable()
 export class DivisionGuard implements CanActivate {

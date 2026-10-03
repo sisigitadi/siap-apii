@@ -39,7 +39,7 @@ const STATUS_FILTERS: { value: '' | SubmissionStatus; label: string }[] = [
 export const DivisionDetailPage: React.FC = () => {
   const { division } = useParams<{ division: string }>();
   const navigate = useNavigate();
-  const { user, isKetum, canAccessDivision, isLeadership } = useAuth();
+  const { user, isKetua, canAccessDivision, isLeadership } = useAuth();
   const { success, error: showError } = useToast();
 
   const divisionKey = division as Division;
@@ -344,7 +344,7 @@ export const DivisionDetailPage: React.FC = () => {
                       {actionLoading === sub.id ? '...' : 'Ajukan'}
                     </button>
                   )}
-                  {sub.status === 'PENDING_APPROVAL' && isKetum && (
+                  {sub.status === 'PENDING_APPROVAL' && isKetua && (
                     <>
                       <button
                         onClick={() => {
@@ -368,7 +368,7 @@ export const DivisionDetailPage: React.FC = () => {
                       </button>
                     </>
                   )}
-                  {sub.status === 'APPROVED' && isKetum && (
+                  {sub.status === 'APPROVED' && isKetua && (
                     <button
                       onClick={() => handlePublish(sub.id)}
                       disabled={actionLoading !== null}

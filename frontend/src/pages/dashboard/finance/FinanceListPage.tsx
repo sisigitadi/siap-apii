@@ -26,7 +26,7 @@ const ACCOUNT_KEYS = Object.keys(CASH_ACCOUNTS) as CashAccount[];
 const CATEGORY_KEYS = Object.keys(CASH_CATEGORIES) as CashCategory[];
 
 export const FinanceListPage: React.FC = () => {
-  const { isBendahara, isKetum } = useAuth();
+  const { isBendahara, isKetua } = useAuth();
   const { success, error: showError } = useToast();
   const [balances, setBalances] = useState<CashBalances | null>(null);
   const [vouchers, setVouchers] = useState<CashFlow[]>([]);
@@ -296,7 +296,7 @@ export const FinanceListPage: React.FC = () => {
                             {actionLoading === voucher.id ? '...' : 'Verifikasi'}
                           </button>
                         )}
-                        {voucher.status === 'PENDING_KETUA' && isKetum && (
+                        {voucher.status === 'PENDING_KETUA' && isKetua && (
                           <button
                             onClick={() => handleVerifyKetum(voucher.id)}
                             disabled={actionLoading !== null}
@@ -306,7 +306,7 @@ export const FinanceListPage: React.FC = () => {
                           </button>
                         )}
                         {(voucher.status === 'PENDING_BENDAHARA' || voucher.status === 'PENDING_KETUA') &&
-                          (isBendahara || isKetum) && (
+                          (isBendahara || isKetua) && (
                             <button
                               onClick={() => {
                                 setRejectTargetId(voucher.id);

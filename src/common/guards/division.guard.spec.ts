@@ -64,7 +64,7 @@ describe('DivisionGuard', () => {
   it('mengizinkan tanpa metadata @Division', async () => {
     setRequiredDivision(undefined);
     await expect(
-      guard.canActivate(makeExecutionContext(makeClaims('DIV_HUMAS', 'DIV_HUMAS'))),
+      guard.canActivate(makeExecutionContext(makeClaims('KETUA_DIVISI', 'DIV_HUMAS'))),
     ).resolves.toBe(true);
     expect(auditLog).not.toHaveBeenCalled();
     expect(emitAuditSecurity).not.toHaveBeenCalled();
@@ -82,13 +82,13 @@ describe('DivisionGuard', () => {
   it('mengizinkan admin divisi yang divisinya cocok', async () => {
     setRequiredDivision('DIV_HUMAS');
     await expect(
-      guard.canActivate(makeExecutionContext(makeClaims('DIV_HUMAS', 'DIV_HUMAS'))),
+      guard.canActivate(makeExecutionContext(makeClaims('KETUA_DIVISI', 'DIV_HUMAS'))),
     ).resolves.toBe(true);
   });
 
   it('menolak admin divisi lain & mencatat CROSS_DIVISION_DENIED', async () => {
     setRequiredDivision('DIV_LITBANG');
-    const claims = makeClaims('DIV_HUMAS', 'DIV_HUMAS');
+    const claims = makeClaims('KETUA_DIVISI', 'DIV_HUMAS');
 
     await expect(guard.canActivate(makeExecutionContext(claims))).rejects.toThrow(
       ForbiddenException,
@@ -104,7 +104,7 @@ describe('DivisionGuard', () => {
       metadata: {
         requiredDivision: 'DIV_LITBANG',
         userDivision: 'DIV_HUMAS',
-        userRole: 'DIV_HUMAS',
+        userRole: 'KETUA_DIVISI',
       },
     });
     expect(emitAuditSecurity).toHaveBeenCalledWith({
@@ -116,7 +116,7 @@ describe('DivisionGuard', () => {
 
   it('menolak anggota publik tanpa divisi & mencatat audit', async () => {
     setRequiredDivision('DIV_HUMAS');
-    const claims = makeClaims('PUBLIK_ANGGOTA', null);
+    const claims = makeClaims('ANGGOTA_BIASA', null);
 
     await expect(guard.canActivate(makeExecutionContext(claims))).rejects.toThrow(
       'Akses divisi ditolak',

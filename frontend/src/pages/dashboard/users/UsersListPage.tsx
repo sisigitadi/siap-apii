@@ -27,11 +27,11 @@ export const UsersListPage: React.FC = () => {
   const [inviteForm, setInviteForm] = useState({
     email: '',
     fullName: '',
-    role: 'ANGGOTA_HUMAS' as UserRole,
+    role: 'ANGGOTA_DIVISI' as UserRole,
     division: 'DIV_HUMAS' as Division | null,
   });
   const [roleForm, setRoleForm] = useState<{ role: UserRole; division: Division | null }>({
-    role: 'ANGGOTA_HUMAS',
+    role: 'ANGGOTA_DIVISI',
     division: null,
   });
   const [inviting, setInviting] = useState(false);

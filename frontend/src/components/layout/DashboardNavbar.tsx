@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, LogOut, Radio, ExternalLink, ChevronDown, Sparkles } from 'lucide-react';
+import { Bell, LogOut, Radio, ExternalLink, ChevronDown, Sparkles, Menu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRealtime } from '@/context/RealtimeContext';
 import { ROLE_LABELS, DIVISION_LABELS } from '@/utils/constants';
 import { UserRole, Division } from '@/api/types';
 
-export const DashboardNavbar: React.FC = () => {
+type DashboardNavbarProps = {
+  /** Membuka/menutup drawer sidebar di layar mobile */
+  onToggleSidebar?: () => void;
+};
+
+export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({ onToggleSidebar }) => {
   const { user, logout, devSwitchRole } = useAuth();
   const { isConnected, liveNotifications, clearNotifications } = useRealtime();
   const navigate = useNavigate();
@@ -15,16 +20,27 @@ export const DashboardNavbar: React.FC = () => {
 
   const devRoles: { role: UserRole; division?: Division; label: string }[] = [
     { role: 'SUPERADMIN', label: 'Superadmin' },
-    { role: 'KETUA_UMUM', label: 'Ketua DPW' },
+    { role: 'KETUA', label: 'Ketua' },
     { role: 'SEKRETARIS', label: 'Sekretaris' },
     { role: 'BENDAHARA', label: 'Bendahara' },
-    { role: 'KADIV_HUMAS', division: 'DIV_HUMAS', label: 'Kadiv Humas' },
-    { role: 'KADIV_DAKWAH', division: 'DIV_DAKWAH', label: 'Kadiv Dakwah' },
+    { role: 'PEMBINA', label: 'Pembina' },
+    { role: 'PENGAWAS', label: 'Pengawas' },
+    { role: 'KETUA_DIVISI', division: 'DIV_HUMAS', label: 'Ketua Divisi' },
+    { role: 'ANGGOTA_DIVISI', division: 'DIV_HUMAS', label: 'Anggota Divisi' },
+    { role: 'ANGGOTA_BIASA', label: 'Anggota Biasa' },
   ];
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6 bg-white border-b border-slate-200">
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          aria-label="Buka menu sidebar"
+          className="lg:hidden p-2 -ml-1 text-slate-600 hover:bg-slate-100 rounded-lg"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
         <Link to="/dashboard" className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-[#0e3b6f] flex items-center justify-center text-white font-bold text-xs">
             APII

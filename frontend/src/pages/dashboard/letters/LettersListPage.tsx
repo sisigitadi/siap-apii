@@ -21,7 +21,7 @@ const STATUS_FILTERS: { value: '' | LetterStatus; label: string }[] = [
 ];
 
 export const LettersListPage: React.FC = () => {
-  const { isSekretaris, isKetum } = useAuth();
+  const { isSekretaris, isKetua } = useAuth();
   const { error: showError } = useToast();
   const [letters, setLetters] = useState<OfficialLetter[]>([]);
   const [loading, setLoading] = useState(true);
@@ -195,7 +195,7 @@ export const LettersListPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 align-top">
                         <StatusBadge status={letter.status} />
-                        {letter.status === 'PUBLISHED' && isKetum && (
+                        {letter.status === 'PUBLISHED' && isKetua && (
                           <p className="text-[9px] text-teal-600 font-semibold mt-1 flex items-center gap-0.5">
                             <FileSignature className="w-2.5 h-2.5" /> Ditandatangani
                           </p>

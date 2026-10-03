@@ -49,7 +49,7 @@ describe('PublicPortal (e2e)', () => {
     id: crypto.randomUUID(),
     email: 'anggota@example.com',
     full_name: 'Budi Anggota',
-    role: UserRole.PUBLIK_ANGGOTA,
+    role: UserRole.ANGGOTA_BIASA,
     division: null,
     is_active: true,
     can_manage_users: false,
@@ -156,7 +156,7 @@ describe('PublicPortal (e2e)', () => {
       expect(response.body).toMatchObject({ success: false, code: 401, data: null });
     });
 
-    it('token PUBLIK_ANGGOTA → kartu dengan masa berlaku 5 tahun', async () => {
+    it('token ANGGOTA_BIASA → kartu dengan masa berlaku 5 tahun', async () => {
       setup.prisma.users.set(member.id, member);
       const accessToken = jwt.signAccessToken({
         id: member.id,

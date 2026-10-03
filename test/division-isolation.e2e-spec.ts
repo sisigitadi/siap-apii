@@ -16,8 +16,8 @@ describe('Division Isolation (e2e)', () => {
   const humasUser: UserRecord = {
     id: crypto.randomUUID(),
     email: 'humas@apii-jabo.id',
-    full_name: 'Pengurus Humas',
-    role: UserRole.DIV_HUMAS,
+    full_name: 'Ketua Divisi Humas',
+    role: UserRole.KETUA_DIVISI,
     division: Division.DIV_HUMAS,
     is_active: true,
     can_manage_users: false,
@@ -36,8 +36,8 @@ describe('Division Isolation (e2e)', () => {
   const litbangUser: UserRecord = {
     id: crypto.randomUUID(),
     email: 'litbang@apii-jabo.id',
-    full_name: 'Pengurus Litbang',
-    role: UserRole.DIV_LITBANG,
+    full_name: 'Ketua Divisi Litbang',
+    role: UserRole.KETUA_DIVISI,
     division: Division.DIV_LITBANG,
     is_active: true,
     can_manage_users: false,
@@ -56,8 +56,8 @@ describe('Division Isolation (e2e)', () => {
   const ketumUser: UserRecord = {
     id: crypto.randomUUID(),
     email: 'ketum@apii-jabo.id',
-    full_name: 'Ketua Umum',
-    role: UserRole.KETUA_UMUM,
+    full_name: 'Ketua',
+    role: UserRole.KETUA,
     division: null,
     is_active: true,
     can_manage_users: true,
@@ -134,7 +134,7 @@ describe('Division Isolation (e2e)', () => {
   });
 
   describe('GET /api/v1/divisions/submissions', () => {
-    it('pengurus DIV_HUMAS hanya melihat usulan divisi Humas', async () => {
+    it('Ketua Divisi Humas hanya melihat usulan divisi Humas', async () => {
       const token = jwt.signAccessToken({
         id: humasUser.id,
         email: humasUser.email,
@@ -153,7 +153,7 @@ describe('Division Isolation (e2e)', () => {
       expect(res.body.data.items[0].division).toBe(Division.DIV_HUMAS);
     });
 
-    it('Ketua Umum (CROSS_DIVISION_ROLES) dapat melihat seluruh usulan dari semua divisi', async () => {
+    it('Ketua (CROSS_DIVISION_ROLES) dapat melihat seluruh usulan dari semua divisi', async () => {
       const token = jwt.signAccessToken({
         id: ketumUser.id,
         email: ketumUser.email,
@@ -171,7 +171,7 @@ describe('Division Isolation (e2e)', () => {
   });
 
   describe('GET /api/v1/divisions/submissions/:id', () => {
-    it('pengurus DIV_HUMAS dapat membaca usulan milik divisinya sendiri', async () => {
+    it('Ketua Divisi Humas dapat membaca usulan milik divisinya sendiri', async () => {
       const token = jwt.signAccessToken({
         id: humasUser.id,
         email: humasUser.email,
@@ -187,7 +187,7 @@ describe('Division Isolation (e2e)', () => {
       expect(res.body.data.id).toBe(humasSubmission.id);
     });
 
-    it('pengurus DIV_HUMAS dilarang membaca usulan milik DIV_LITBANG (403 Forbidden)', async () => {
+    it('Ketua Divisi Humas dilarang membaca usulan milik DIV_LITBANG (403 Forbidden)', async () => {
       const token = jwt.signAccessToken({
         id: humasUser.id,
         email: humasUser.email,
@@ -250,7 +250,7 @@ describe('Division Isolation (e2e)', () => {
       expect(res.body.success).toBe(false);
     });
 
-    it('Ketua Umum dapat mengakses statistik agregat 7 divisi', async () => {
+    it('Ketua dapat mengakses statistik agregat 7 divisi', async () => {
       const token = jwt.signAccessToken({
         id: ketumUser.id,
         email: ketumUser.email,
