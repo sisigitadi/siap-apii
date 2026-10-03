@@ -12,6 +12,7 @@ import { appConfigToken, type AppConfig } from '@/config/app.config';
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
 import { AuditService } from '@/infrastructure/audit/audit.service';
 import { EventsBusService } from '@/infrastructure/websocket/events-bus.service';
+import { computeLetterHash, type LetterHashPayload } from './letter-hash.util';
 import { CreateLetterDto, LetterQueryDto, RejectLetterDto, UpdateLetterDto } from './letters.dto';
 import { LettersPdfService } from './letters-pdf.service';
 
@@ -47,28 +48,6 @@ const LETTER_TYPE_CODES: Record<LetterType, string> = {
 
 const ROMAN_MONTHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
-/**
- * Serialisasi kanonik rekursif: urutkan key setiap objek (termasuk nested)
- * secara abjad supaya SHA-256 stabil walau driver/Postgres jsonb menyusun ulang
- * urutan key (FR-LETTER-05 — integritas harus diverifikasi setelah round-trip DB).
- * Array dipertahankan urutannya (urutan penandatangan & konsiderans bermakna).
- */
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item) => canonicalize(item));
-  }
-  if (value !== null && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    return Object.keys(record)
-      .sort()
-      .reduce<Record<string, unknown>>((acc, key) => {
-        acc[key] = canonicalize(record[key]);
-        return acc;
-      }, {});
-  }
-  return value;
-}
-
 @Injectable()
 export class LettersService {
   constructor(
@@ -97,15 +76,10 @@ export class LettersService {
     return `${sequencePadded}/${code}/${romanMonth}/${year}`;
   }
 
-  computeCanonicalHash(payload: {
-    letter_number: string;
-    title: string;
-    letter_type: string;
-    content_payload: unknown;
-    kop_config: unknown;
-    signatories: unknown;
-  }): string {
-    return createHash('sha256').update(JSON.stringify(canonicalize(payload))).digest('hex');
+  computeCanonicalHash(payload: LetterHashPayload): string {
+    return computeLetterHash(payload, (data) =>
+      createHash('sha256').update(data).digest('hex'),
+    );
   }
 
   async createLetter(
