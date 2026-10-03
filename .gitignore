@@ -29,10 +29,16 @@ coverage/
 # Bukti unggahan runtime (ditulis oleh uploader service & pengujian)
 storage/
 
-# Log runtime dev (backend & frontend watcher, firewall WSL)
+# Log runtime dev (backend & frontend watcher, firewall WSL, capture terminal)
 .backend-dev.log
 .frontend-dev.log
+backend-dev-out.txt
+backend-dev-err.txt
+frontend-dev-out.txt
+frontend-dev-err.txt
+gitout.txt
 scripts/.wsl-firewall.log
+scripts/art-raw.txt
 
 # Laporan hasil `npm run sprint1:verify` (ditulis ulang setiap run)
 sprint1-report.txt
