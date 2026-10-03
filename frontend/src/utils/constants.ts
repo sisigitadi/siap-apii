@@ -1,7 +1,8 @@
 import { Division, LetterStatus, LetterType, UserRole, VoucherStatus, SubmissionStatus, CashCategory, CashAccount } from '@/api/types';
 
 export const APP_NAME = 'SIAP APII';
-export const ORG_NAME = 'Asosiasi Pengembang Infrastruktur Indonesia';
+export const ORG_NAME = 'Yayasan Apologet Islam Indonesia';
+export const ORG_SHORT_NAME = 'APII';
 export const DPW_NAME = 'DPW Jabodetabek';
 
 export const DIVISION_LABELS: Record<Division, string> = {
@@ -15,27 +16,97 @@ export const DIVISION_LABELS: Record<Division, string> = {
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-  SUPERADMIN: 'Super Administrator',
-  KETUA_UMUM: 'Ketua DPW',
-  SEKRETARIS: 'Sekretaris Wilayah',
-  BENDAHARA: 'Bendahara Wilayah',
-  DEWAN_PENGAWAS: 'Dewan Pengawas',
-  KADIV_HUMAS: 'Ketua Divisi Humas',
-  ANGGOTA_HUMAS: 'Anggota Divisi Humas',
-  KADIV_SOSMED: 'Ketua Divisi Medsos',
-  ANGGOTA_SOSMED: 'Anggota Divisi Medsos',
-  KADIV_DAKWAH: 'Ketua Divisi Dakwah',
-  ANGGOTA_DAKWAH: 'Anggota Divisi Dakwah',
-  KADIV_LITBANG: 'Ketua Divisi Litbang',
-  ANGGOTA_LITBANG: 'Anggota Divisi Litbang',
-  KADIV_INVESTASI: 'Ketua Divisi Investasi',
-  ANGGOTA_INVESTASI: 'Anggota Divisi Investasi',
-  KADIV_HUKUM: 'Ketua Divisi Hukum',
-  ANGGOTA_HUKUM: 'Anggota Divisi Hukum',
-  KADIV_UMUM: 'Ketua Divisi Umum',
-  ANGGOTA_UMUM: 'Anggota Divisi Umum',
-  PUBLIK_ANGGOTA: 'Anggota Terdaftar',
+  SUPERADMIN: 'Superadmin',
+  KETUA: 'Ketua',
+  SEKRETARIS: 'Sekretaris',
+  BENDAHARA: 'Bendahara',
+  PEMBINA: 'Pembina',
+  PENGAWAS: 'Pengawas',
+  KETUA_DIVISI: 'Ketua Divisi',
+  ANGGOTA_DIVISI: 'Anggota Divisi',
+  ANGGOTA_BIASA: 'Anggota Biasa',
 };
+
+/**
+ * Tugas & tanggung jawab tiap jabatan.
+ *
+ * Catatan: ART APII (Dokumen Sumber/3.) adalah dokumen pindaan yang teksnya
+ * tidak bisa diekstrak secara mesin, sehingga uraian di bawah dirangkum dari
+ * DESIGN.md §5.1 + master prompt + konvensi tata kelola yayasan.
+ */
+export const ROLE_DUTIES: Record<UserRole, string[]> = {
+  SUPERADMIN: [
+    'Infrastruktur & konfigurasi sistem, rilis serta migrasi basis data',
+    'Delegasi awal hak kelola anggota kepada pimpinan',
+  ],
+  KETUA: [
+    'Memimpin penyelenggaraan organisasi dan memutuskan kebijakan strategis',
+    'Persetujuan tunggal (veto) pada Approval Board: SK, voucher kas, & program kerja',
+    'Merilis SK resmi setelah diverifikasi Sekretaris dan Bendahara',
+  ],
+  SEKRETARIS: [
+    'Mengelola surat masuk/keluar, draf SK, dan penomoran surat resmi',
+    'Editor kop surat & stempel, verifikasi berkas persyaratan',
+    'Mengarsipkan dokumen yang telah dirilis',
+  ],
+  BENDAHARA: [
+    'Mengelola arus kas, input voucher, dan rekonsiliasi rekening BSI',
+    'Menandatangani voucher kas sebelum diajukan ke Ketua',
+    'Menyusun laporan keuangan bersetempel',
+  ],
+  PEMBINA: [
+    'Memberikan arah, bimbingan strategis, dan masukan kebijakan kepada pengurus',
+    'Mengawal visi, misi, dan program kerja jangka panjang yayasan',
+    'Akses read-only atas seluruh dokumen dan laporan organisasi',
+  ],
+  PENGAWAS: [
+    'Mengawasi jalannya kepengurusan dan kepatuhan terhadap ART/ADRT',
+    'Memeriksa audit trail, buku kas, dan surat resmi (read-only)',
+    'Mengusulkan sanksi/SP bila ditemukan pelanggaran kebijakan',
+  ],
+  KETUA_DIVISI: [
+    'Memimpin divisi kerja dan mengajukan usulan program kerja & anggaran',
+    'Mengunggah berkas pendukung (proposal, surat undangan, laporan)',
+    'Berkoordinasi dengan Ketua untuk persetujuan & publikasi program',
+  ],
+  ANGGOTA_DIVISI: [
+    'Menjalankan tugas harian divisi sesuai pembagian Ketua Divisi',
+    'Mengunggah dokumen pendukung kegiatan divisi',
+    'Melihat progres usulan program divisi sendiri',
+  ],
+  ANGGOTA_BIASA: [
+    'Mengakses e-KTA 5 tahun dan memperbarui data keanggotaan',
+    'Melihat jadwal kajian, maklumat resmi, dan feed informasi publik',
+  ],
+};
+
+/** Peran pengurus inti (lintas divisi) — dipakai sidebar & proteksi rute */
+export const LEADERSHIP_ROLES: UserRole[] = [
+  'SUPERADMIN',
+  'KETUA',
+  'SEKRETARIS',
+  'BENDAHARA',
+  'PEMBINA',
+  'PENGAWAS',
+];
+
+/** Peran pengurus divisi — wajib punya divisi */
+export const DIVISION_ROLES: UserRole[] = ['KETUA_DIVISI', 'ANGGOTA_DIVISI'];
+
+/** Peran yang hanya boleh melihat (read-only) — tidak ada tombol mutasi */
+export const READONLY_ROLES: UserRole[] = ['PEMBINA', 'PENGAWAS', 'ANGGOTA_BIASA'];
+
+/** Jabatan organisasi (8) — SUPERADMIN dikeluarkan karena ia peran infrastruktur */
+export const ORGANIZATION_ROLES: UserRole[] = [
+  'KETUA',
+  'SEKRETARIS',
+  'BENDAHARA',
+  'PEMBINA',
+  'PENGAWAS',
+  'KETUA_DIVISI',
+  'ANGGOTA_DIVISI',
+  'ANGGOTA_BIASA',
+];
 
 export const LETTER_TYPE_LABELS: Record<LetterType, string> = {
   SURAT_KEPUTUSAN: 'Surat Keputusan (SK)',
@@ -79,5 +150,3 @@ export const CASH_ACCOUNTS: Record<CashAccount, string> = {
   BCA_PROGRAM: 'BCA - Program & Donasi',
   KAS_TUNAI_SEKRETARIAT: 'Kas Tunai / Brankas Sekretariat',
 };
-
-export const LEADERSHIP_ROLES: UserRole[] = ['SUPERADMIN', 'KETUA_UMUM', 'SEKRETARIS', 'BENDAHARA', 'DEWAN_PENGAWAS'];

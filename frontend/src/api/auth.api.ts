@@ -39,14 +39,15 @@ export const authApi = {
   // Mock login for development and testing if backend is offline or for rapid UI evaluation
   async devLoginAs(role: string, email: string): Promise<User> {
     // In dev, simulated user session can be used for quick role switching
+    const isDivisionRole = role === 'KETUA_DIVISI' || role === 'ANGGOTA_DIVISI';
     const mockUser: User = {
       id: 'dev-user-123',
       email,
-      fullName: role === 'SUPERADMIN' ? 'Sigit Adi (Superadmin)' : role === 'KETUA_UMUM' ? 'Ketua DPW APII' : 'Pengurus DPW APII',
+      fullName: role === 'SUPERADMIN' ? 'Sigit Adi (Superadmin)' : role === 'KETUA' ? 'Ketua DPW APII' : 'Pengurus DPW APII',
       role: role as User['role'],
-      division: role.includes('HUMAS') ? 'DIV_HUMAS' : role.includes('DAKWAH') ? 'DIV_DAKWAH' : null,
+      division: isDivisionRole ? 'DIV_HUMAS' : null,
       status: 'ACTIVE',
-      canManageUsers: role === 'SUPERADMIN' || role === 'KETUA_UMUM',
+      canManageUsers: role === 'SUPERADMIN' || role === 'KETUA',
     };
     return mockUser;
   }

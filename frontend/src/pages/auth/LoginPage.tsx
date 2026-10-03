@@ -10,12 +10,14 @@ export const LoginPage: React.FC = () => {
 
   const devRoles: { role: UserRole; label: string; desc: string }[] = [
     { role: 'SUPERADMIN', label: 'Super Administrator', desc: 'Akses penuh seluruh modul, role management & delegasi' },
-    { role: 'KETUA_UMUM', label: 'Ketua DPW Jabodetabek', desc: 'Persetujuan akhir surat resmi, voucher kas, program kerja' },
+    { role: 'KETUA', label: 'Ketua DPW Jabodetabek', desc: 'Persetujuan akhir surat resmi, voucher kas, program kerja' },
     { role: 'SEKRETARIS', label: 'Sekretaris Wilayah', desc: 'Pembuatan draf surat resmi, penomoran otomatis, arsip' },
     { role: 'BENDAHARA', label: 'Bendahara Wilayah', desc: 'Pengelolaan buku kas, input voucher, verifikasi keuangan' },
-    { role: 'KADIV_HUMAS', label: 'Kadiv Humas & Antar Lembaga', desc: 'Pengajuan program divisi, upload berkas, isolasi divisi' },
-    { role: 'KADIV_DAKWAH', label: 'Kadiv Dakwah & Muallaf', desc: 'Pengajuan kajian, pembinaan muallaf, isolasi divisi' },
-    { role: 'PUBLIK_ANGGOTA', label: 'Anggota Terdaftar', desc: 'Akses e-KTA 5 Tahun & jadwal kegiatan' },
+    { role: 'PEMBINA', label: 'Pembina', desc: 'Arah strategis & bimbingan kepengurusan (read-only)' },
+    { role: 'PENGAWAS', label: 'Pengawas', desc: 'Audit trail, buku kas, & usulan sanksi (read-only)' },
+    { role: 'KETUA_DIVISI', label: 'Ketua Divisi Humas', desc: 'Pengajuan program divisi, upload berkas, isolasi divisi' },
+    { role: 'ANGGOTA_DIVISI', label: 'Anggota Divisi Humas', desc: 'Tugas harian divisi & upload dokumen pendukung' },
+    { role: 'ANGGOTA_BIASA', label: 'Anggota Biasa', desc: 'Akses e-KTA 5 Tahun & jadwal kegiatan' },
   ];
 
   return (

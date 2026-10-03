@@ -1,25 +1,18 @@
 // Enums & Roles
+//
+// SUPERADMIN adalah peran infrastruktur teknis (bukan jabatan organisasi).
+// 8 jabatan organisasi: Ketua, Sekretaris, Bendahara, Pembina, Pengawas,
+// Ketua Divisi, Anggota Divisi, Anggota Biasa.
 export type UserRole =
   | 'SUPERADMIN'
-  | 'KETUA_UMUM'
+  | 'KETUA'
   | 'SEKRETARIS'
   | 'BENDAHARA'
-  | 'DEWAN_PENGAWAS'
-  | 'KADIV_HUMAS'
-  | 'ANGGOTA_HUMAS'
-  | 'KADIV_SOSMED'
-  | 'ANGGOTA_SOSMED'
-  | 'KADIV_DAKWAH'
-  | 'ANGGOTA_DAKWAH'
-  | 'KADIV_LITBANG'
-  | 'ANGGOTA_LITBANG'
-  | 'KADIV_INVESTASI'
-  | 'ANGGOTA_INVESTASI'
-  | 'KADIV_HUKUM'
-  | 'ANGGOTA_HUKUM'
-  | 'KADIV_UMUM'
-  | 'ANGGOTA_UMUM'
-  | 'PUBLIK_ANGGOTA';
+  | 'PEMBINA'
+  | 'PENGAWAS'
+  | 'KETUA_DIVISI'
+  | 'ANGGOTA_DIVISI'
+  | 'ANGGOTA_BIASA';
 
 export type Division =
   | 'DIV_HUMAS'
@@ -82,7 +75,7 @@ export type LetterType =
 export type LetterStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'REJECTED' | 'ARCHIVED';
 
 export interface LetterSignatory {
-  role: 'KETUA_UMUM' | 'SEKRETARIS' | 'BENDAHARA';
+  role: 'KETUA' | 'SEKRETARIS' | 'BENDAHARA';
   name: string;
   title: string;
   position: 'left' | 'right' | 'center';

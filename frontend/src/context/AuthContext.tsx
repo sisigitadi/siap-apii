@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { User, UserRole, Division } from '@/api/types';
 import { authApi } from '@/api/auth.api';
 import { apiClient } from '@/api/client';
-import { LEADERSHIP_ROLES } from '@/utils/constants';
+import { LEADERSHIP_ROLES, DIVISION_ROLES, READONLY_ROLES, ROLE_LABELS } from '@/utils/constants';
 
 interface AuthContextType {
   user: User | null;
@@ -14,9 +14,15 @@ interface AuthContextType {
   hasRole: (...roles: UserRole[]) => boolean;
   isLeadership: boolean;
   isSuperadmin: boolean;
-  isKetum: boolean;
+  isKetua: boolean;
   isSekretaris: boolean;
   isBendahara: boolean;
+  isPembina: boolean;
+  isPengawas: boolean;
+  isKetuaDivisi: boolean;
+  isAnggotaDivisi: boolean;
+  isAnggotaBiasa: boolean;
+  isReadonly: boolean;
   canAccessDivision: (division: Division) => boolean;
   canManageUsers: boolean;
 }
@@ -54,20 +60,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const devSwitchRole = (role: UserRole, division: Division | null = null) => {
-    const defaultDivision = division || (role.includes('HUMAS') ? 'DIV_HUMAS' : role.includes('DAKWAH') ? 'DIV_DAKWAH' : null);
+    const defaultDivision = division ?? (DIVISION_ROLES.includes(role) ? 'DIV_HUMAS' : null);
+    const label = ROLE_LABELS[role];
     const mockUser: User = {
       id: `dev-${role.toLowerCase()}`,
-      email: `${role.toLowerCase()}@apii.org`,
+      email: `${role.toLowerCase()}@apii-jabodetabek.or.id`,
       fullName:
         role === 'SUPERADMIN'
-          ? 'Superadmin APII'
-          : role === 'KETUA_UMUM'
-          ? 'Dr. H. Ahmad Fauzi (Ketua DPW)'
+          ? 'Sigit Adi (Superadmin)'
+          : role === 'KETUA'
+          ? 'Dr. H. Ahmad Fauzi (Ketua)'
           : role === 'SEKRETARIS'
           ? 'Muhammad Rizki, S.T. (Sekretaris)'
           : role === 'BENDAHARA'
           ? 'Hj. Siti Aminah, S.E. (Bendahara)'
-          : `Pengurus ${role}`,
+          : role === 'PEMBINA'
+          ? 'Prof. H. Ridwan Hakim, Lc. (Pembina)'
+          : role === 'PENGAWAS'
+          ? 'H. Abdul Karim, M.M. (Pengawas)'
+          : role === 'KETUA_DIVISI'
+          ? `Ust. Ahmad Sahid (Ketua Divisi Humas)`
+          : role === 'ANGGOTA_DIVISI'
+          ? 'Fatimah Az-Zahra (Anggota Divisi Humas)'
+          : `Budi Anggota (${label})`,
       role,
       division: defaultDivision,
       status: 'ACTIVE',
@@ -97,9 +112,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isLeadership = user ? LEADERSHIP_ROLES.includes(user.role) : false;
   const isSuperadmin = user?.role === 'SUPERADMIN';
-  const isKetum = user?.role === 'KETUA_UMUM' || isSuperadmin;
+  const isKetua = user?.role === 'KETUA' || isSuperadmin;
   const isSekretaris = user?.role === 'SEKRETARIS' || isSuperadmin;
   const isBendahara = user?.role === 'BENDAHARA' || isSuperadmin;
+  const isPembina = user?.role === 'PEMBINA';
+  const isPengawas = user?.role === 'PENGAWAS';
+  const isKetuaDivisi = user?.role === 'KETUA_DIVISI';
+  const isAnggotaDivisi = user?.role === 'ANGGOTA_DIVISI';
+  const isAnggotaBiasa = user?.role === 'ANGGOTA_BIASA';
+  const isReadonly = user ? READONLY_ROLES.includes(user.role) : false;
 
   const canAccessDivision = (targetDivision: Division): boolean => {
     if (!user) return false;
@@ -107,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return user.division === targetDivision;
   };
 
-  const canManageUsers = Boolean(user && (user.canManageUsers || isSuperadmin || user.role === 'KETUA_UMUM'));
+  const canManageUsers = Boolean(user && (user.canManageUsers || isSuperadmin || user.role === 'KETUA'));
 
   return (
     <AuthContext.Provider
@@ -121,9 +142,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hasRole,
         isLeadership,
         isSuperadmin,
-        isKetum,
+        isKetua,
         isSekretaris,
         isBendahara,
+        isPembina,
+        isPengawas,
+        isKetuaDivisi,
+        isAnggotaDivisi,
+        isAnggotaBiasa,
+        isReadonly,
         canAccessDivision,
         canManageUsers,
       }}
