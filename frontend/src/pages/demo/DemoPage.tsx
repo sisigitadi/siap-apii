@@ -43,8 +43,10 @@ export const DemoPage: React.FC = () => {
     { label: 'Jadwal Kajian', desc: 'Agenda kajian & program resmi', to: '/schedule' },
   ];
 
-  const handleSwitch = (role: UserRole) => {
-    devSwitchRole(role);
+  const handleSwitch = async (role: UserRole) => {
+    // Tunggu sampai token JWT benar-benar tersimpan sebelum navigasi, agar
+    // halaman dashboard langsung bisa memanggil API terotentikasi (Fase D).
+    await devSwitchRole(role);
     if (role === 'ANGGOTA_BIASA') {
       navigate('/dashboard/anggota');
     } else if (role === 'KETUA_DIVISI' || role === 'ANGGOTA_DIVISI') {

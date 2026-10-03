@@ -18,6 +18,11 @@ export const authorizationUrlSchema = z.object({
 
 export class AuthorizationUrlDto extends createZodDto(authorizationUrlSchema) {}
 
+export const devLoginSchema = z.object({
+  email: z.string().email().describe('Email akun demo yang akan dimasuki (lihat seed demo)'),
+});
+export class DevLoginDto extends createZodDto(devLoginSchema) {}
+
 export const logoutResultSchema = z.object({
   revoked: z.boolean().describe('Apakah sesi berhasil dicabut'),
 });

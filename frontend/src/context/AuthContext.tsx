@@ -2,13 +2,13 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { User, UserRole, Division } from '@/api/types';
 import { authApi } from '@/api/auth.api';
 import { apiClient } from '@/api/client';
-import { LEADERSHIP_ROLES, DIVISION_ROLES, READONLY_ROLES, ROLE_LABELS } from '@/utils/constants';
+import { LEADERSHIP_ROLES, DIVISION_ROLES, READONLY_ROLES, ROLE_LABELS, DEMO_EMAILS } from '@/utils/constants';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   loginWithGoogle: () => Promise<void>;
-  devSwitchRole: (role: UserRole, division?: Division | null) => void;
+  devSwitchRole: (role: UserRole, division?: Division | null) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   hasRole: (...roles: UserRole[]) => boolean;
@@ -59,38 +59,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.location.href = authorizationUrl;
   };
 
-  const devSwitchRole = (role: UserRole, division: Division | null = null) => {
-    const defaultDivision = division ?? (DIVISION_ROLES.includes(role) ? 'DIV_HUMAS' : null);
-    const label = ROLE_LABELS[role];
-    const mockUser: User = {
-      id: `dev-${role.toLowerCase()}`,
-      email: `${role.toLowerCase()}@apii-jabodetabek.or.id`,
-      fullName:
-        role === 'SUPERADMIN'
-          ? 'Sigit Adi (Superadmin)'
-          : role === 'KETUA'
-          ? 'Dr. H. Ahmad Fauzi (Ketua)'
-          : role === 'SEKRETARIS'
-          ? 'Muhammad Rizki, S.T. (Sekretaris)'
-          : role === 'BENDAHARA'
-          ? 'Hj. Siti Aminah, S.E. (Bendahara)'
-          : role === 'PEMBINA'
-          ? 'Prof. H. Ridwan Hakim, Lc. (Pembina)'
-          : role === 'PENGAWAS'
-          ? 'H. Abdul Karim, M.M. (Pengawas)'
-          : role === 'KETUA_DIVISI'
-          ? `Ust. Ahmad Sahid (Ketua Divisi Humas)`
-          : role === 'ANGGOTA_DIVISI'
-          ? 'Fatimah Az-Zahra (Anggota Divisi Humas)'
-          : `Budi Anggota (${label})`,
-      role,
-      division: defaultDivision,
-      status: 'ACTIVE',
-      canManageUsers: LEADERSHIP_ROLES.includes(role),
-    };
-    setUser(mockUser);
-    localStorage.setItem('siap_dev_user', JSON.stringify(mockUser));
-  };
+  const devSwitchRole = useCallback(
+    async (role: UserRole, division: Division | null = null) => {
+      const defaultDivision = division ?? (DIVISION_ROLES.includes(role) ? 'DIV_HUMAS' : null);
+
+      try {
+        // Login demo NYATA: menerbitkan JWT asli untuk akun seed (Fase D) agar
+        // dashboard role dapat memanggil API terotentikasi.
+        const { user: backendUser } = await authApi.devLogin(DEMO_EMAILS[role]);
+        const appUser: User = {
+          id: backendUser.id,
+          email: backendUser.email,
+          fullName: backendUser.fullName,
+          role: backendUser.role,
+          division: backendUser.division ?? defaultDivision,
+          status: backendUser.isActive ? 'ACTIVE' : 'INACTIVE',
+          canManageUsers: backendUser.canManageUsers,
+        };
+        setUser(appUser);
+        localStorage.setItem('siap_dev_user', JSON.stringify(appUser));
+        return;
+      } catch {
+        // Backend tidak mengaktifkan mode demo (mis. production tanpa
+        // ENABLE_DEV_LOGIN) → fallback simulasi sisi klien. Tanpa JWT, halaman
+        // authenticated akan 401, tapi navigasi & UI publik tetap dapat dicoba.
+      }
+
+      const label = ROLE_LABELS[role];
+      const mockUser: User = {
+        id: `dev-${role.toLowerCase()}`,
+        email: `${role.toLowerCase()}@apii-jabodetabek.or.id`,
+        fullName:
+          role === 'SUPERADMIN'
+            ? 'Sigit Adi (Superadmin)'
+            : role === 'KETUA'
+            ? 'Dr. H. Ahmad Fauzi (Ketua)'
+            : role === 'SEKRETARIS'
+            ? 'Muhammad Rizki, S.T. (Sekretaris)'
+            : role === 'BENDAHARA'
+            ? 'Hj. Siti Aminah, S.E. (Bendahara)'
+            : role === 'PEMBINA'
+            ? 'Prof. H. Ridwan Hakim, Lc. (Pembina)'
+            : role === 'PENGAWAS'
+            ? 'H. Abdul Karim, M.M. (Pengawas)'
+            : role === 'KETUA_DIVISI'
+            ? `Ust. Ahmad Sahid (Ketua Divisi Humas)`
+            : role === 'ANGGOTA_DIVISI'
+            ? 'Fatimah Az-Zahra (Anggota Divisi Humas)'
+            : `Budi Anggota (${label})`,
+        role,
+        division: defaultDivision,
+        status: 'ACTIVE',
+        canManageUsers: LEADERSHIP_ROLES.includes(role),
+      };
+      setUser(mockUser);
+      localStorage.setItem('siap_dev_user', JSON.stringify(mockUser));
+    },
+    [],
+  );
 
   const logout = async () => {
     try {

@@ -28,6 +28,23 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 /**
+ * Email akun demo per jabatan — HARUS sama dengan JABATAN_SEED di
+ * prisma/seed-data.ts. Dipakai mode demo untuk menerbitkan token login asli
+ * lewat POST /api/v1/auth/dev-login (Fase D).
+ */
+export const DEMO_EMAILS: Record<UserRole, string> = {
+  SUPERADMIN: 'si.sigitadi@gmail.com',
+  KETUA: 'ketua@apii-jabodetabek.or.id',
+  SEKRETARIS: 'sekretaris@apii-jabodetabek.or.id',
+  BENDAHARA: 'bendahara@apii-jabodetabek.or.id',
+  PEMBINA: 'pembina@apii-jabodetabek.or.id',
+  PENGAWAS: 'pengawas@apii-jabodetabek.or.id',
+  KETUA_DIVISI: 'kadiv.humas@apii-jabodetabek.or.id',
+  ANGGOTA_DIVISI: 'anggota.humas@apii-jabodetabek.or.id',
+  ANGGOTA_BIASA: 'anggota@apii-jabodetabek.or.id',
+};
+
+/**
  * Tugas & tanggung jawab tiap jabatan.
  *
  * Catatan: ART APII (Dokumen Sumber/3.) adalah dokumen pindaan yang teksnya

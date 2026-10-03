@@ -75,6 +75,49 @@ export class AuthService {
     return this.issueTokens(user, meta);
   }
 
+  /**
+   * Login demo TANPA Google (Fase D). Menerbitkan token RS256 asli untuk akun
+   * demo yang sudah di-seed, agar seluruh dashboard peran dapat dievaluasi tanpa
+   * konfigurasi OAuth.
+   *
+   * KEAMANAN: endpoint pemanggil harus memastikan ini hanya aktif di luar
+   * production, atau saat flag ENABLE_DEV_LOGIN di-set secara eksplisit (lihat
+   * AuthController.devLogin). Jangan pernah mengekspos ini di produksi publik.
+   */
+  async devLogin(email: string, meta: ClientMeta): Promise<TokenPair> {
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (!existing) {
+      await this.audit.log({
+        action: 'LOGIN_DENIED',
+        resource: 'POST /api/v1/auth/dev-login',
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        metadata: { email, reason: 'email tidak terdaftar pada seed demo' },
+      });
+      throw new ForbiddenException(
+        'Email demo tidak terdaftar. Gunakan daftar akun di halaman mode demo.',
+      );
+    }
+    if (!existing.is_active) {
+      throw new ForbiddenException('Akun demo dinonaktifkan. Hubungi superadmin.');
+    }
+
+    await this.prisma.user.update({
+      where: { id: existing.id },
+      data: { last_login_at: new Date() },
+    });
+
+    await this.audit.log({
+      action: 'LOGIN_SUCCESS',
+      actorId: existing.id,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      metadata: { via: 'dev-login' },
+    });
+
+    return this.issueTokens(existing, meta);
+  }
+
   async refresh(refreshToken: string, meta: ClientMeta): Promise<TokenPair> {
     const rotated = await this.jwt.rotateRefreshSession(refreshToken, meta);
     const claims = this.jwt.verifyAccessToken(rotated.accessToken);

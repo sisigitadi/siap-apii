@@ -7,6 +7,26 @@ export interface AuthTokens {
   user: User;
 }
 
+/**
+ * Bentuk user yang dikembalikan backend (PublicUser, DESIGN.md §4.1). Berbeda
+ * dengan `User` frontend: backend memakai `isActive`, frontend memakai `status`.
+ */
+export interface BackendPublicUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: User['role'];
+  division: User['division'];
+  isActive: boolean;
+  canManageUsers: boolean;
+}
+
+export interface DevLoginResponse {
+  user: BackendPublicUser;
+  accessToken: string;
+  refreshToken: string;
+}
+
 export const authApi = {
   async getGoogleAuthUrl(): Promise<{ authorizationUrl: string }> {
     const res = await apiClient.get<{ authorizationUrl: string }>('/auth/google');
@@ -50,5 +70,20 @@ export const authApi = {
       canManageUsers: role === 'SUPERADMIN' || role === 'KETUA',
     };
     return mockUser;
-  }
+  },
+
+  /**
+   * Login demo NYATA ke backend (Fase D): menerbitkan JWT asli untuk akun seed
+   * via POST /api/v1/auth/dev-login. Hanya tersedia di non-production atau saat
+   * backend mengaktifkan ENABLE_DEV_LOGIN.
+   *
+   * Saat backend tidak mengaktifkan mode demo (404), pemanggil bisa fallback ke
+   * devLoginAs() yang hanya mensimulasikan peran di sisi klien.
+   */
+  async devLogin(email: string): Promise<DevLoginResponse> {
+    const res = await apiClient.post<DevLoginResponse>('/auth/dev-login', { email });
+    if (!res.success) throw new Error(res.error?.message || 'Login demo gagal');
+    apiClient.setAccessToken(res.data.accessToken);
+    return res.data;
+  },
 };

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Inject,
+  NotFoundException,
   Patch,
   Post,
   Query,
@@ -27,6 +28,7 @@ import { REFRESH_COOKIE, clearAuthCookies, setAuthCookies } from '@/common/utils
 import type { AccessTokenClaims } from '@/infrastructure/jwt/jwt.service';
 import {
   AuthorizationUrlDto,
+  DevLoginDto,
   LogoutResultDto,
   TokenPairDto,
   UpdateProfileDto,
@@ -90,6 +92,29 @@ export class AuthController {
       target.searchParams.set('message', message);
       await res.redirect(target.toString());
     }
+  }
+
+  @Public()
+  @Post('dev-login')
+  @ApiOperation({
+    summary: 'Login demo tanpa Google (hanya non-production atau ENABLE_DEV_LOGIN)',
+  })
+  @ApiOkResponse({ type: TokenPairDto, description: 'Pasangan token demo untuk akun seed' })
+  async devLogin(
+    @Body() dto: DevLoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<TokenPair> {
+    // Pintu keamanan: mode demo hanya boleh dibuka di development, atau saat
+    // flag ENABLE_DEV_LOGIN=true di-set sengaja di env (mis. untuk demo publik
+    // sementara). Di production normal harus 404 seakan endpoint tidak ada.
+    if (!this.config.isDevelopment && process.env.ENABLE_DEV_LOGIN !== 'true') {
+      throw new NotFoundException();
+    }
+
+    const tokens = await this.auth.devLogin(dto.email, AuthController.meta(req));
+    setAuthCookies(res, this.config, tokens.accessToken, tokens.refreshToken);
+    return tokens;
   }
 
   @Public()
