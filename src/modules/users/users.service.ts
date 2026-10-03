@@ -131,7 +131,7 @@ export class UsersService {
     }
     if (canManageUsers && !DELEGATABLE_ROLES.includes(target.role)) {
       throw new BadRequestException(
-        'Delegasi hanya bisa diberikan kepada Ketua Umum, Sekretaris, atau Bendahara',
+        'Delegasi hanya bisa diberikan kepada Ketua, Sekretaris, atau Bendahara',
       );
     }
 

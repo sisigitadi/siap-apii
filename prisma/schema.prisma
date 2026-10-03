@@ -10,24 +10,24 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// 13 peran bertingkat (DESIGN.md §5.1)
+/// 9 peran bertingkat (DESIGN.md §5.1). SUPERADMIN adalah peran infrastruktur
+/// teknis (tidak masuk daftar jabatan organisasi) — 8 jabatan organisasi:
+/// Ketua, Sekretaris, Bendahara, Pembina, Pengawas, Ketua Divisi,
+/// Anggota Divisi, Anggota Biasa.
 enum UserRole {
   SUPERADMIN
-  KETUA_UMUM
+  KETUA
   SEKRETARIS
   BENDAHARA
-  DEWAN_PENGAWAS
-  DIV_HUMAS
-  DIV_LITBANG
-  DIV_SOSMED
-  DIV_DAKWAH
-  DIV_INVESTASI
-  DIV_HUKUM
-  DIV_UMUM
-  PUBLIK_ANGGOTA
+  PEMBINA
+  PENGAWAS
+  KETUA_DIVISI
+  ANGGOTA_DIVISI
+  ANGGOTA_BIASA
 }
 
-/// 7 divisi operasional (DESIGN.md §5.1). Hanya untuk role DIV_*.
+/// 7 divisi operasional (DESIGN.md §5.1). Hanya untuk role KETUA_DIVISI
+/// dan ANGGOTA_DIVISI.
 enum Division {
   DIV_HUMAS
   DIV_LITBANG
