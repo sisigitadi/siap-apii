@@ -1,0 +1,21 @@
+fix(backend): rewrite namespace Modul.fn() ke global agar jalan di Apps Script
+
+Bug kritis: Apps Script tidak punya namespace antar-file .gs, jadi
+'Auth.login()' pasti error 'Auth is not defined'. Build-time rewrite
+sekarang menangani 92 referensi termasuk entri ROUTES tanpa kurung
+(handler: Auth.login -> handler: login), tanpa menyentuh identifier
+lain (visibleSurat.filter, nama file di komentar).
+
+Aset:
+- AsetLogo.gs 300px JPEG (~32K chars), AsetStempel.gs 400px JPEG
+  latar putih (~53K chars) dari Dokumen Sumber
+- logo.png 240x240 transparan disalin ke public/ & portal/
+
+Dokumen:
+- README: checklist 6 langkah sederhana (tidak ada Script Properties
+  manual; ID Spreadsheet tertanam di KONFIG)
+- docs/TROUBLESHOOTING.md: 8 kasus error umum + solusi
+
+Verifikasi: validate-apps-script.mjs (3 file OK) +
+smoke-backend.mjs (55/55 lulus: KONFIG, 28 route, 11 placeholder,
+fungsi generator, aset)

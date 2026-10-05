@@ -11,12 +11,13 @@ export const LandingPage: React.FC = () => {
 
   useEffect(() => {
     publicApi.getPublicFeed(1, 4).then((res) => setFeedItems(res.items)).catch(() => {
+      // Fallback hanya saat backend tidak terjangkau (mis. demo offline).
       setFeedItems([
         {
           id: 'mock-1',
-          letter_number: '001/SK/APII-JB/I/2026',
-          title: 'Surat Keputusan Pengesahan Struktur Pengurus DPW Jabodetabek',
-          type: 'SURAT_KEPUTUSAN',
+          letter_number: '001/SK-DPW/APII-JABO/I/2026',
+          title: 'SK Pengesahan Struktur Pengurus DPW APII Jabodetabek Periode 2026-2031',
+          letter_type: 'SK',
           published_at: new Date().toISOString(),
           sha256_hash: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
         },

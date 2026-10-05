@@ -21,20 +21,18 @@ export const MyKtaPage: React.FC = () => {
           setLoading(false);
         })
         .catch(() => {
-          // Demo fallback
+          // Fallback hanya saat backend tidak terjangkau (mis. demo offline).
+          const memberNumber = user.memberNumber || 'APII-JABO-0001';
           setCard({
-            id: user.id,
-            member_number: user.memberNumber || 'APII-JB-0089',
-            fullName: user.fullName || 'Anggota Terdaftar',
+            member_number: memberNumber,
+            full_name: user.fullName || 'Anggota Terdaftar',
             email: user.email,
-            phone: '+62 812-9876-5432',
-            city: 'DKI Jakarta',
-            division: user.division,
-            role: user.role,
-            status: 'ACTIVE',
-            joined_at: '2026-01-01T00:00:00.000Z',
+            photo_url: null,
+            member_since: '2026-01-01T00:00:00.000Z',
+            issued_at: '2026-01-01T00:00:00.000Z',
             expires_at: '2031-01-01T00:00:00.000Z',
-            qr_verify_url: `https://app.apii.sigitadi.id/verify/member/${user.memberNumber || 'APII-JB-0089'}`,
+            status: 'ACTIVE',
+            qr_verify_url: `https://app.apii.sigitadi.id/verify/member/${memberNumber}`,
           });
           setLoading(false);
         });

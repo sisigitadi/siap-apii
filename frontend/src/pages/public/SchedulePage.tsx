@@ -9,30 +9,38 @@ export const SchedulePage: React.FC = () => {
   const [schedules, setSchedules] = useState<PublicSchedule[]>([]);
 
   useEffect(() => {
-    publicApi.getPublicSchedules().then((res) => setSchedules(res.items)).catch(() => {
-      setSchedules([
-        {
-          id: 'sch-1',
-          title: 'Kajian Bulanan & Pembinaan Muallaf APII',
-          division: 'DIV_DAKWAH',
-          category: 'KAJIAN_RUTIN',
-          description: 'Tema: Membangun Etika & Profesionalisme dalam Pembangunan Infrastruktur.',
-          start_date: '2026-10-15T09:00:00.000Z',
-          end_date: '2026-10-15T12:00:00.000Z',
-          location: 'Aula Graha APII / Hybrid Zoom',
-        },
-        {
-          id: 'sch-2',
-          title: 'Workshop Sertifikasi Green Building & Smart Infrastructure',
-          division: 'DIV_LITBANG',
-          category: 'PELATIHAN_VOKASI',
-          description: 'Pelatihan teknis rekayasa infrastruktur ramah lingkungan bersama narasumber praktisi.',
-          start_date: '2026-10-22T08:30:00.000Z',
-          end_date: '2026-10-22T16:00:00.000Z',
-          location: 'Hotel Bidakara Jakarta',
-        },
-      ]);
-    });
+    publicApi
+      .getPublicSchedules()
+      .then((res) => setSchedules(res.items))
+      .catch(() => {
+        // Fallback hanya saat backend tidak terjangkau (mis. demo offline).
+        setSchedules([
+          {
+            id: 'sch-1',
+            tracking_id: '#REQ-2026-001',
+            program_title: 'Kajian Bulanan & Pembinaan Muallaf APII',
+            division: 'DIV_DAKWAH',
+            execution_date: '2026-10-15T09:00:00.000Z',
+            target_audience: 'Anggota & masyarakat umum',
+            category: 'KAJIAN_RUTIN',
+            description:
+              'Tema: Membangun Etika & Profesionalisme dalam Pembangunan Infrastruktur.',
+            location: 'Aula Graha APII / Hybrid Zoom',
+          },
+          {
+            id: 'sch-2',
+            tracking_id: '#REQ-2026-002',
+            program_title: 'Workshop Sertifikasi Green Building & Smart Infrastructure',
+            division: 'DIV_LITBANG',
+            execution_date: '2026-10-22T08:30:00.000Z',
+            target_audience: 'Anggota praktisi & konsultan',
+            category: 'PELATIHAN_VOKASI',
+            description:
+              'Pelatihan teknis rekayasa infrastruktur ramah lingkungan bersama narasumber praktisi.',
+            location: 'Hotel Bidakara Jakarta',
+          },
+        ]);
+      });
   }, []);
 
   return (
@@ -50,16 +58,18 @@ export const SchedulePage: React.FC = () => {
                 <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                   {DIVISION_LABELS[item.division]}
                 </span>
-                <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
-                  <Tag className="w-3 h-3" /> {item.category}
-                </span>
+                {item.category && (
+                  <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                    <Tag className="w-3 h-3" /> {item.category}
+                  </span>
+                )}
               </div>
-              <h3 className="text-base font-bold text-slate-900">{item.title}</h3>
-              <p className="text-xs text-slate-600 max-w-xl">{item.description}</p>
+              <h3 className="text-base font-bold text-slate-900">{item.program_title}</h3>
+              <p className="text-xs text-slate-600 max-w-xl">{item.description || item.target_audience || '-'}</p>
               <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 pt-1">
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-[#0e3b6f]" />
-                  {formatDateIndo(item.start_date, true)}
+                  {formatDateIndo(item.execution_date, true)}
                 </span>
                 {item.location && (
                   <span className="flex items-center gap-1">

@@ -1,399 +1,494 @@
 # DESIGN.md — Arsitektur & Keputusan Desain
 
-**Sistem Informasi & Administrasi Terpadu Yayasan APII DPW Jabodetabek — Backend API**
+**Sistem Informasi & Administrasi Terpadu Yayasan APII DPW Jabodetabek**
 
-> Dokumen ini adalah **sumber kebenatan arsitektur**. Setiap keputusan teknis di sini sudah dipertimbangkan; jika ingin mengubah, update dokumen ini dulu, baru kode.
+> Dokumen ini adalah **sumber kebenaran arsitektur**. Setiap keputusan teknis di sini sudah dipertimbangkan; jika ingin mengubah, update dokumen ini dulu, baru kode.
 
 ---
 
 ## 1. Pendahuluan
 
 ### 1.1 Untuk Siapa
-Pengguna akhir adalah **pengurus dan admin yayasan yang sebagian besar belum terbiasa dengan sistem administrasi digital**. Karena itu, backend ini dirancang dengan satu prinsip penggerak:
+Pengguna akhir adalah **pengurus dan admin yayasan yang sebagian besar belum terbiasa dengan sistem administrasi digital**. Karena itu sistem ini dirancang dengan satu prinsip penggerak:
 
 > **"Cukup untuk berjalan hari ini, mudah dibesarkan besok."**
 
 Setiap fitur dipertanyakan dulu: *apakah ini benar-benar menyelesaikan masalah pengguna, atau hanya menambah kesibukan?* Yang dipertahankan adalah **fungsi**, bukan **kemegahan teknis**.
 
 ### 1.2 Prinsip Desain
-1. **Monolith dulu, bukan microservices.** Satu proses NestJS, enam modul. Deploy = satu unit (detail di §11).
-2. **Tipe data pasti.** Tidak ada `any`. Zod sebagai kontrak tunggal: validasi + tipe + OpenAPI.
-3. **Keamanan adalah default, bukan add-on.** Setiap endpoint terlindungi guard; pelanggaran dicatat, bukan diam-diam ditolak.
-4. **Boros pada dokumentasi, pelit pada kompleksitas.** Komentar & docs murah; bug mahal.
-5. **Fase 2 eksplisit.** Hal yang belum dibutuhkan ditangguhkan dan **ditulis di sini** (§9), bukan dihilangkan begitu saja.
+1. **Tanpa server, tanpa biaya.** Seluruh backend berjalan di Google Apps Script; database di Google Sheets; file di Google Drive. Nol biaya infrastruktur dalam kuota Workspace.
+2. **Modular, bukan spaghetti.** Kode GAS dipecah per domain: `Code.gs` (routing), `Auth.gs`, `Surat.gs`, `Keuangan.gs`, `Divisi.gs`, `Database.gs` (wrapper), `Utils.gs` (helper).
+3. **Keamanan adalah default.** Setiap aksi dilindungi verifikasi sesi + RBAC di tabel router; pelanggaran dicatat, bukan diam-diam ditolak.
+4. **Frontend statis & ringan.** HTML + Vanilla JS + Tailwind CDN, tanpa build step, mudah dideploy ke hosting manapun.
+5. **Boros pada dokumentasi, pelit pada kompleksitas.** Komentar & docs murah; bug mahal.
 
 ---
 
 ## 2. Arsitektur Sistem
 
 ### 2.1 Diagram
-```
-        Frontend SPA (mockup sudah ada)
-              │  REST (JSON) + WebSocket /events
-              ▼
-   ┌───────────────────────────────────────────────┐
-   │      NESTJS MONOLITH  (1 proses, 6 modul)      │
-   │                                                │
-   │  ┌──────────────────────────────────────────┐  │
-   │  │ auth · letters · finance · divisions     │  │
-   │  │ public-portal · uploader                 │  │
-   │  └──────────────────────────────────────────┘  │
-   │  ┌──────────────────────────────────────────┐  │
-   │  │ common: JwtAuthGuard · DivisionGuard     │  │
-   │  │        RolesGuard · ZodValidationPipe    │  │
-   │  │        ResponseInterceptor (envelope)    │  │
-   │  │        HttpExceptionFilter · AuditLogger │  │
-   │  └──────────────────────────────────────────┘  │
-   └───────────────┬───────────────────────────────┘
-                   │
-   ┌───────────────┼───────────────────┬──────────────┐
-   ▼               ▼                   ▼              ▼
- PostgreSQL 16   Redis 7            Storage S3    Puppeteer
- (Prisma ORM)   cache + WS pub/sub  (MinIO/R2)    render PDF
-```
-> Pada produksi (deploy ke Vercel, §11), keempat komponen di bagian bawah dijalankan sebagai **managed service eksternal** — monolith NestJS-nya tetap satu unit.
 
-### 2.2 Mengapa Monolith, bukan Microservices
-| Kriteria | Monolith (dipilih) | Microservices |
+```
+   🌐 apii.sigit.id (publik)          🌐 siapii.sigitadi.id (portal pengurus)
+   public/index.html + app.js          portal/index.html + portal.js + auth.js
+            │  fetch JSON (CORS)                 │  fetch JSON + token
+            └───────────────┬────────────────────┘
+                            ▼
+        ┌─────────────────────────────────────────────────┐
+        │        GOOGLE APPS SCRIPT WEB APP                │
+        │        Code.gs  (doGet / doPost → router)        │
+        │                                                  │
+        │  ┌────────────────────────────────────────────┐  │
+        │  │ TABEL ROUTES (RBAC single source of truth) │  │
+        │  │ action → { auth, roles, handler }          │  │
+        │  └────────────────────────────────────────────┘  │
+        │  ┌────────────────────────────────────────────┐  │
+        │  │ Auth.gs · Surat.gs · Keuangan.gs · Divisi  │  │
+        │  │ Database.gs (wrapper) · Utils.gs (helper)  │  │
+        │  └────────────────────────────────────────────┘  │
+        └───────┬───────────────────┬───────────────────────┘
+                │                   │
+                ▼                   ▼
+        ┌───────────────┐   ┌───────────────┐
+        │ GOOGLE SHEETS │   │ GOOGLE DRIVE  │
+        │  (database)   │   │  (PDF, file)  │
+        │ 7 tab + header│   │               │
+        └───────────────┘   └───────────────┘
+                │
+                ▼
+        ┌───────────────────────────────┐
+        │ GOOGLE DOCS (template surat)  │
+        │  → ekspor PDF saat PUBLISHED  │
+        └───────────────────────────────┘
+```
+
+### 2.2 Mengapa Google Apps Script (bukan server sendiri)
+
+| Kriteria | Google Apps Script (dipilih) | Server tradisional |
 |---|---|---|
-| Tim kecil & baru | ✅ 1 hal untuk dipelihara | ❌ butuh DevOps khusus |
-| Latensi transaksi | ✅ 1 proses, tanpa network hop | ❌ RPC antar service |
-| Deploy | ✅ 1 unit (satu server function, §11) | ❌ koordinasi banyak service |
-| Skala ke depan | ⚠️ butuh refactor — **dijadwalkan** | ✅ |
+| Biaya | ✅ Rp 0 dalam kuota Workspace | ❌ VPS/biaya berulang |
+| Setup & deploy | ✅ Salin kode → deploy Web App | ❌ konfigurasi server, SSL, domain |
+| Tim kecil & baru | ✅ 1 hal untuk dipelihara | ❌ butuh DevOps |
+| Akses data yayasan | ✅ Sheets/Drive native | ❌ perlu integrasi manual |
+| Skala ke depan | ⚠️ ada batas kuota & 6 menit/runtime — **dipantau** | ✅ |
 
-Monolith NestJS modular **tetap membatasi modul agar tidak saling lepas** (lihat `PROJECT_RULES.md` §1.1), sehingga refactor ke microservices kelak bersifat "memindahkan", bukan "membongkar".
+> **Batasan yang disadari:** Apps Script cocok untuk volume administrasi yayasan (ribuan baris). Jika beban meledak, lapisan `Database.gs` dapat diganti implementasinya tanpa mengubah `Auth/Surat/Keuangan/Divisi` — itulah guna pola _wrapper/repository_.
+
+### 2.3 Alur Request (lengkap)
+
+```
+Frontend fetch(action, payload, token)
+   → doGet/doPost(e)               # Code.gs
+   → parse action + token + payload
+   → ROUTES[action] ditemukan?     # tidak → 404 "Aksi tidak dikenali"
+   → route.auth? → verifySession(token)   # Auth.gs, cek Sheet_Sessions + expired
+   → route.roles? → cek role user  # tidak match → audit + 403
+   → route.handler(ctx)            # Surat.gs / Keuangan.gs / Divisi.gs
+   → envelope { success, data, message }
+   → JSON (CORS *)
+```
 
 ---
 
 ## 3. Audit Kompleksitas: Rencana Awal → Versi Sederhana
 
-Master prompt awal mensyaratkan banyak *enterprise machinery*. Setelah audit terhadap **kebutuhan nyata pengguna awal**, berikut keputusannya:
-
 | # | Rencana Awal | **Versi Sederhana (dipilih)** | Alasan |
 |---|---|---|---|
-| 1 | WebSocket chunked upload gateway (SHA-256 per-chunk, reassembly, backpressure, resume) | **REST multipart upload** + progress bar di frontend | File awal = SK, kwitansi, foto (kecil). Chunking hanya pantas untuk file raksasa. Pengguna tak pernah melihat protokolnya. |
-| 2 | WebSocket `/events` untuk notifikasi real-time | **DIPERTAHANKAN** — room divisi & role | Nilai nyata: notifikasi "SK disetujui", "buku kas berubah" → kurangi refresh manual. |
-| 3 | Worker terpisah (BullMQ): PDF queue, ClamAV, ffprobe, transcode HLS | **PDF render on-demand sinkron**; **ClamAV/HLS/OCR → ditangguhkan (§9)** | Render SK < 2 detik; tak butuh antrian. Tak ada payload awal yang butuh antivirus/transcode. |
-| 4 | PostgreSQL Row-Level Security (RLS) | **RBAC level aplikasi (Guards)** saja | RLS sulit di-debug & dimigrasi. Isolasi tetap 100% via `DivisionGuard` + audit event. |
-| 5 | 2 proses (API + Worker) + Redis sebagai queue | **1 proses**; Redis hanya cache + pub/sub | Satu hal yang dijalankan; cocok tim kecil. |
-| 6 | Google OAuth 2.0 PKCE + JWT RS256 keypair | **DIPERTAHANKAN** | Ini inti keamanan & delegasi Gmail — bukan kompleksitas, tapi kebutuhan. |
-| 7 | Dual-approval Bendahara + Ketua | **DIPERTAHANKAN** (2 flag + 1 status) | Sudah sederhana; ini kontrol kepercayaan yang diminta. |
-| 8 | Sub-layer berlapis per modul | **Modul datar**: controller → service → prisma | Mudah dibaca anggota tim baru. |
-| 9 | OpenAPI 3.1 auto-sync untuk Orval | **DIPERTAHANKAN** — `nestjs-zod` + `@nestjs/swagger` | Justru menghemat pengetikan manual di frontend. |
+| 1 | Login Google OAuth + SSO | **Username + password + session token UUID** | Pengurus belum siap migrasi semua ke Google; login kustom lebih mudah didemokan. SSO tetap bisa ditambahkan nanti (lihat §12) |
+| 2 | Database relasional penuh | **Google Sheets (tab per domain)** | Cukup untuk volume yayasan; bisa dilihat langsung oleh pengurus; nol biaya |
+| 3 | WebSocket notifikasi real-time | **Polling manual / refresh halaman** | Apps Script tidak mendukung WebSocket. Notifikasi email (GmailApp) cadangan Fase 4 |
+| 4 | ORM & migrasi terstruktur | **Wrapper `Database.gs` + header tab sebagai skema** | Satu lapisan abstraksi; ganti backend data tinggal ubah 1 file |
+| 5 | Upload file multipart besar | **Ditangguhkan**; link Drive dicatat manual di field | File awal = PDF surat (generate sistem). Upload lampiran menyusul |
+| 6 | Dual-approval Bendahara + Ketua | **DIPERTAHANKAN** (2 status + 2 kolom verifikator) | Kontrol kepercayaan yang diminta; sudah sederhana |
+| 7 | State machine surat & divisi ketat | **DIPERTAHANKAN** | Inti kepercayaan dokumen; dijalankan di backend, frontend hanya menampilkan |
+| 8 | Generate PDF dengan library Chromium | **Template Google Docs → ekspor PDF** | Tidak butuh library; kop & formatting dijaga oleh template Docs |
 
-**Yang tetap utuh:** RBAC 9 peran + delegasi Gmail + isolasi divisi (403 + audit), persuratan + render PDF Kop/Logo/Stempel/QR SHA-256, finance dual-approval + laporan bersetempel, 7-tab workflow divisi, portal publik (verifikasi SK + jadwal + e-KTA), notifikasi real-time.
-
+**Yang tetap utuh:** RBAC 9 peran + isolasi divisi (tolak + audit), persuratan + nomor otomatis + PDF, keuangan dual-approval + saldo, workflow 7 divisi, portal publik + verifikasi surat, audit log.
 
 ---
 
-## 4. Model Data
+## 4. Model Data (Google Sheets)
 
-Didefinisikan di `prisma/schema.prisma`. Field JSONB **tetap divalidasi Zod** di lapisan aplikasi (PostgreSQL tidak memvalidasi isinya).
+### 4.1 Cara Kerja
+- Setiap tab = satu "tabel". **Baris 1 = header** (nama kolom), baris 2+ = data.
+- `Database.gs` membaca header lalu memetakan setiap baris menjadi objek `{ field: value, _row: <nomor baris> }`.
+- Field boolean disimpan sebagai string `"TRUE"` / `"FALSE"`.
+- Angka (amount, budget) disimpan sebagai number Google Sheets.
+- Tanggal disimpan sebagai ISO string (`yyyy-MM-dd`); `expired_at` sebagai epoch ms.
 
-### 4.1 `users` — Pengguna & Delegasi
-| Field | Tipe | Keterangan |
+### 4.2 `Sheet_Users` — Pengguna
+| Kolom | Tipe | Keterangan |
 |---|---|---|
-| `id` | UUID | Primary key |
-| `email` | varchar(255) | Unik; email Google/Workspace terdaftar |
-| `full_name` | varchar(255) | Nama lengkap |
-| `role` | enum `UserRole` | 9 peran (lihat §5.1) |
-| `division` | enum `Division?` | Hanya untuk role `KETUA_DIVISI` / `ANGGOTA_DIVISI` |
-| `is_active` | boolean | Soft-disable akun |
-| `can_manage_users` | boolean | **Flag delegasi** pimpinan (invite tanpa IT) |
-| `created_at` / `updated_at` | timestamptz | Audit |
+| `id` | string (UUID) | Primary key |
+| `username` | string | Unik, dipakai saat login |
+| `password_hash` | string | SHA-256(salt + password), hex 64 char |
+| `full_name` | string | Nama lengkap |
+| `email` | string | Email pengurus (opsional) |
+| `role` | enum | 9 peran (§5.1) |
+| `division` | enum | `DIV_*` — hanya untuk `KETUA_DIVISI` / `ANGGOTA_DIVISI` |
+| `is_active` | `"TRUE"`/`"FALSE"` | Nonaktifkan akun tanpa menghapus |
+| `can_manage_users` | `"TRUE"`/`"FALSE"` | Flag delegasi kelola anggota |
+| `created_at` | string | ISO timestamp |
+| `updated_at` | string | ISO timestamp |
 
-### 4.2 `official_letters` — Persuratan Resmi
-| Field | Tipe | Keterangan |
+### 4.3 `Sheet_Sessions` — Sesi Login
+| Kolom | Tipe | Keterangan |
 |---|---|---|
-| `id` | UUID | Primary key |
-| `letter_number` | varchar(100) | Unik; auto-generate (lihat §6.1) |
-| `title` | varchar(255) | Judul surat |
-| `letter_type` | enum | `SK` · `REKOMENDASI` · `MAKLUMAT` · `SURAT_TUGAS` |
-| `content_payload` | JSONB | Konsiderans: `Menimbang`, `Mengingat`, `Memutuskan` |
-| `kop_config` | JSONB | Posisi/skala logo, teks otoritas, margin |
-| `signatories` | JSONB | Array ketua/sekretaris + posisi stempel basah |
-| `sha256_hash` | varchar(64) | Checksum integritas dokumen |
-| `qr_verify_url` | text | `https://app.apii.sigitadi.id/verify/{sha256}` (dari `PUBLIC_VERIFY_BASE_URL`) |
-| `status` | enum | `DRAFT` · `PENDING_APPROVAL` · `PUBLISHED` · `ARCHIVED` |
-| `pdf_storage_url` | text? | URL S3 setelah render |
-| `created_by` | UUID → users | Akuntabilitas |
+| `token` | string (UUID) | Primary key; dikirim frontend di setiap request |
+| `user_id` | string (UUID) | FK → `Sheet_Users.id` |
+| `username` | string | Denormalisasi untuk audit |
+| `role` | enum | Snapshot peran saat login |
+| `division` | enum | Snapshot divisi saat login |
+| `created_at` | string | ISO timestamp |
+| `expired_at` | number | Epoch ms; default `created_at + 7 hari` |
 
-### 4.3 `cash_flow` — Arus Kas & Voucher (Dual-Approval)
-| Field | Tipe | Keterangan |
+> Implementasi: `Auth.gs` — token dibuang otomatis saat expired (lazy cleanup) maupun saat logout.
+
+### 4.4 `Sheet_Surat` — Persuratan Resmi
+| Kolom | Tipe | Keterangan |
 |---|---|---|
-| `id` | UUID | Primary key |
-| `voucher_number` | varchar(50) | Unik; auto-generate |
-| `transaction_date` | date | Tanggal transaksi |
-| `type` | enum | `INFLOW` · `OUTFLOW` |
-| `account_category` | enum | `BSI_GIRO` (BSI Giro Utama) · `BRANKAS_KAS_KECIL` (Kas Tunai Brankas) · `MANDIRI_WAKAF` (Mandiri Wakaf) |
-| `amount` | decimal(15,2) | Nominal |
-| `description` | text | Uraian |
-| `receipt_attachment_url` | text? | Bukti di S3 |
-| `verified_by_bendahara` | UUID → users? | Tanda tangan Bendahara |
-| `verified_by_ketum` | UUID → users? | Tanda tangan Ketua Umum |
+| `id` | string (UUID) | Primary key |
+| `letter_number` | string | Unik; auto-generate, bisa diedit saat DRAFT |
+| `title` | string | Judul / perihal |
+| `letter_type` | enum | `SK` · `UNDANGAN` · `PENGANTAR` · `KETERANGAN` · `TUGAS` · `REKOMENDASI` · `EDARAN` |
+| `content` | string (JSON) | `{ menimbang, mengingat, memutuskan }` |
+| `status` | enum | `DRAFT` · `PENDING_APPROVAL` · `PUBLISHED` · `REJECTED` |
+| `tanggal_surat` | string | ISO date; default hari ini |
+| `created_by` | string | Username pembuat |
+| `created_by_name` | string | Nama pembuat (denormalisasi) |
+| `created_at` | string | ISO timestamp |
+| `submitted_at` | string | Saat diajukan ke ketua |
+| `published_at` | string | Saat disetujui & PDF terbit |
+| `approved_by` | string | Username ketua penyetuju |
+| `rejection_notes` | string | Alasan penolakan (wajib saat REJECTED) |
+| `sha256_hash` | string | Checksum integritas dokumen |
+| `pdf_url` | string | Link Drive setelah generate PDF |
+| `qr_verify_url` | string | URL verifikasi publik |
 
-### 4.4 `division_submissions` — Usulan 7 Divisi
-| Field | Tipe | Keterangan |
+### 4.5 `Sheet_Keuangan` — Voucher & Buku Kas
+| Kolom | Tipe | Keterangan |
 |---|---|---|
-| `id` | UUID | Primary key |
-| `tracking_id` | varchar(50) | Unik; `#REQ-2025-089` |
-| `division` | enum `Division` | Divisi pengusul |
-| `program_title` | varchar(255) | Judul program |
-| `budget_estimate` | decimal(15,2) | Estimasi anggaran |
-| `target_audience` | text? | Sasaran |
-| `execution_date` | date? | Tanggal pelaksanaan |
-| `submission_data` | JSONB | Skema dinamis per divisi (7 Zod schema) |
-| `attachments` | JSONB | `[]` default; daftar URL S3 |
-| `status` | enum | `DRAFT` · `PENDING_APPROVAL` · `APPROVED` · `REJECTED` · `PUBLISHED` |
-| `approval_notes` | text? | Catatan Ketua |
-| `reviewed_at` | timestamptz? | Timestamp review |
+| `id` | string (UUID) | Primary key |
+| `voucher_number` | string | Unik; auto-generate (`088/KEU-APII/JABO/II/2026`) |
+| `type` | enum | `MASUK` · `KELUAR` |
+| `account` | enum | `KAS_BSI` · `BRANKAS` · `MANDIRI_WAKAF` |
+| `amount` | number | Nilai transaksi (Rupiah) |
+| `category` | string | Kategori (mis. "Operasional", "Kegiatan Divisi") |
+| `description` | string | Keterangan transaksi |
+| `transaction_date` | string | ISO date |
+| `status` | enum | `PENDING` · `VERIFIED_BY_BENDAHARA` · `VERIFIED_BY_KETUM` · `APPROVED` · `REJECTED` |
+| `verified_by_bendahara` | string | Username bendahara |
+| `verified_by_bendahara_at` | string | ISO timestamp |
+| `verified_by_ketum` | string | Username ketua |
+| `verified_by_ketum_at` | string | ISO timestamp |
+| `rejection_notes` | string | Alasan penolakan |
+| `created_by` | string | Username pembuat voucher |
+| `created_at` | string | ISO timestamp |
 
-### 4.5 Tabel Pendukung
-| Tabel | Kegunaan |
+### 4.6 `Sheet_Divisi` — Usulan Program Divisi
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| `id` | string (UUID) | Primary key |
+| `tracking_id` | string | Unik; `#REQ-2026-089` |
+| `division` | enum | `DIV_HUMAS` · `DIV_LITBANG` · `DIV_SOSMED` · `DIV_DAKWAH` · `DIV_INVESTASI` · `DIV_HUKUM` · `DIV_UMUM` |
+| `program_title` | string | Judul program |
+| `description` | string | Deskripsi program |
+| `budget_estimate` | number | Estimasi anggaran |
+| `target_audience` | string | Sasaran peserta |
+| `execution_date` | string | ISO date |
+| `status` | enum | `DRAFT` · `AJUKAN` · `DISETUJUI` · `DITOLAK` |
+| `submitted_by` | string | Username pengusul |
+| `submitted_by_name` | string | Nama pengusul |
+| `submitted_at` | string | ISO timestamp |
+| `reviewed_by` | string | Username ketua reviewer |
+| `reviewed_at` | string | ISO timestamp |
+| `approval_notes` | string | Catatan ketua (saat DISETUJUI/DITOLAK) |
+| `created_at` | string | ISO timestamp |
+
+### 4.7 Tab Pendukung
+| Tab | Kegunaan |
 |---|---|
-| `audit_logs` | Jejak audit: 403 cross-division, publish, approval, delegasi |
-| `refresh_sessions` | Refresh token (jti) + blacklist di Redis |
-| `letter_sequences` | Counter nomor surat per tahun (atomic increment) |
-| `member_cards` | e-KTA: masa berlaku 5 tahun, hash + QR |
-| `uploaded_files` | Metadata file S3 (tipe, ukuran, scan status) |
-| `division_forms` | Definisi field dinamis per divisi (opsional, untuk UI adaptif) |
-
+| `Sheet_AuditLogs` | Jejak audit: `timestamp`, `actor` (username), `action`, `detail`. Setiap penolakan akses & transisi status penting dicatat |
+| `Sheet_Sequences` | Counter nomor urut per tahun & jenis: `key` (mis. `SURAT:SK:2026`), `value` (counter). Increment terkunci via `LockService` agar tidak bentrok |
 
 ---
 
 ## 5. RBAC, Hierarki & Delegasi
 
-### 5.1 Daftar Peran (`UserRole`)
+### 5.1 Daftar Peran
 | Role | Cakupan Wewenang |
 |---|---|
-| `SUPERADMIN` | Infrastruktur, rilis/migrasi DB, delegasi awal, konfigurasi sistem |
-| `KETUA` | Veto, persetujuan tunggal (Approval Board), rilis SK resmi |
-| `SEKRETARIS` | Surat masuk/keluar, editor Kop & SK, verifikasi berkas |
-| `BENDAHARA` | Arus kas, voucher, rekonsiliasi BSI, laporan keuangan |
-| `PEMBINA` | **Read-only**: arah strategis, bimbingan kepengurusan, akses seluruh dokumen & laporan |
-| `PENGAWAS` | **Read-only**: audit trail, live ledger, form usulan sanksi/SP |
-| `KETUA_DIVISI` | Memimpin divisi kerja; wajib field `division` (mis. `DIV_HUMAS`) |
+| `SUPERADMIN` | Infrastruktur, konfigurasi sistem, kelola akun, lihat audit |
+| `KETUA` | Persetujuan tunggal (rilis surat, Approval Board divisi, verifikasi final voucher) |
+| `SEKRETARIS` | CRUD surat, mengajukan surat ke ketua |
+| `BENDAHARA` | Membuat voucher & verifikasi tahap 1, laporan keuangan |
+| `PEMBINA` | **Read-only mutlak** atas seluruh dokumen & laporan |
+| `PENGAWAS` | **Read-only mutlak** — audit trail, buku kas |
+| `KETUA_DIVISI` | Memimpin divisi kerja; wajib field `division` |
 | `ANGGOTA_DIVISI` | Anggota divisi kerja; wajib field `division` |
-| `ANGGOTA_BIASA` | **Read-only**: e-KTA, maklumat sah, jadwal kajian |
+| `ANGGOTA_BIASA` | Hanya portal publik + data sendiri |
 
-> Matriks izin **per endpoint-group** ada di **[rbac-matrix.md](./rbac-matrix.md)** — single source of truth yang bisa direview tanpa membaca kode.
+### 5.2 Penerapan di Kode
+- Tabel `ROUTES` di `Code.gs` = **single source of truth** izin: `action → { auth, roles, handler }`.
+- Handler menerima `ctx.user` hasil `verifySession()` — **tidak pernah** membaca role/divisi dari payload frontend.
+- Isolasi divisi: handler membandingkan `ctx.user.division` dengan divisi data. Tidak cocok → lempar error 403 + audit.
+- Pembina/Pengawas: `ROLES_READONLY` — frontend **tidak merender** tombol aksi; backend juga menolak aksi tulis meski dipanggil langsung.
 
-### 5.2 Mekanisme Delegasi Akun Gmail
-1. **Inisialisasi (sekali):** Superadmin mendaftarkan domain/email Google via `POST /api/v1/auth/delegation/init`.
-2. **Delegasi wewenang:** Superadmin men-toggle `can_manage_users = true` pada Ketua / Sekretaris / Bendahara → mereka dapat **mengundang pengurus baru** (`POST /api/v1/users/invite`) **tanpa campur tangan IT**.
-3. **Audit:** setiap perubahan delegasi & undangan dicatat ke `audit_logs`.
-
-### 5.3 Isolasi Divisi Mutlak (Zero Cross-Dashboard)
-- Endpoint milik divisi memakai decorator `@Division(DIV_DAKWAH)` + `DivisionGuard`.
-- `DivisionGuard` membandingkan `req.user.division` dengan divisi endpoint. **Tidak cocok → `403`**.
-- Setiap penolakan **wajib** memicu `SecurityAuditEvent`:
-  - ditulis ke **Redis stream** (`audit:security`) untuk konsumsi real-time, dan
-  - dipersistensi ke **`audit_logs`** (PostgreSQL) untuk pemeriksaan Dewan Pengawas.
-- Tidak ada jalan pintas: service layer **tidak** menerima `division` dari request — hanya dari token terautentikasi.
+### 5.3 Delegasi Kelola Anggota
+```
+SUPERADMIN ──toggle can_manage_users──▶ KETUA / SEKRETARIS / BENDAHARA
+                    │
+                    └──▶ kelola akun pengurus (tanpa campur tangan IT)
+```
+Setiap perubahan dicatat di `Sheet_AuditLogs`.
 
 ---
 
 ## 6. Alur Dokumen & Konvensi Penomoran
 
 ### 6.1 Nomor Surat Otomatis
-Format: `{nomor_urut}/{KODE}/{roman_bulan}/{tahun}`
-- Contoh SK: `042/SK-DPW/APII-JABO/III/2025`
-- Contoh Keuangan: `088/KEU-APII/JABO/II/2025`
+Format: `{nomor_urut}/{KODE}/{roman_bulan}/{tahun}` — contoh SK: `042/SK-DPW/APII-JABO/III/2026`
 
 Aturan:
-- `nomor_urut` = increment per-tahun dari tabel `letter_sequences` (atomic via transaksi).
-- `KODE` ditentukan oleh `letter_type` & modul.
-- `roman_bulan` = bulan `transaction_date`/`created_at` (I–XII).
-- Urutan reset tiap tahun baru.
-- **Sekretaris dapat mengedit `letter_number`** selama status masih `DRAFT` (mis. menyesuaikan penomoran khusus). Sistem tetap memvalidasi format & keunikan nomor. Setelah status berubah ke `PENDING_APPROVAL`/`PUBLISHED`, nomor **terkunci**.
+- `nomor_urut` = increment per-tahun dari `Sheet_Sequences` (key `SURAT:{TYPE}:{tahun}`), terkunci `LockService` agar tidak bentrok.
+- `KODE` per jenis surat: `SK` → `SK-DPW/APII-JABO`, `UNDANGAN` → `UND-DPW/APII-JABO`, dst.
+- `roman_bulan` = bulan dari `tanggal_surat` (I–XII).
+- Urutan **reset tiap tahun baru**.
+- **Sekretaris dapat mengedit `letter_number`** selama status `DRAFT`. Setelah `PENDING_APPROVAL`/`PUBLISHED`, nomor **terkunci**.
 
-### 6.2 Tracking ID Usulan Divisi
-Format: `#REQ-{tahun}-{nomor_urut}` — contoh `#REQ-2025-089`.
+### 6.2 Nomor Voucher
+Format: `{nomor_urut}/KEU-APII/JABO/{roman_bulan}/{tahun}` — contoh `088/KEU-APII/JABO/II/2026`. Counter dari `Sheet_Sequences` (key `KEU:{tahun}`), reset per tahun.
 
-### 6.3 State Machine Surat (`official_letters`)
-```
-DRAFT ──submit──▶ PENDING_APPROVAL ──approve──▶ PUBLISHED ──archive──▶ ARCHIVED
-                        │
-                        └──reject──▶ DRAFT (dengan catatan)
-```
-- `DRAFT` & `PENDING_APPROVAL` hanya terlihat Sekretaris/Ketua/Superadmin.
-- `PUBLISHED` muncul di portal publik & QR dapat diverifikasi.
-- Transisi `PENDING_APPROVAL → PUBLISHED` **hanya** oleh KETUA (atau SUPERADMIN), memicu event `DOCUMENT_PUBLISHED`.
+### 6.3 Tracking ID Usulan Divisi
+Format: `#REQ-{tahun}-{nomor_urut:3digit}` — contoh `#REQ-2026-089`.
 
-### 6.4 State Machine Voucher (`cash_flow`)
+### 6.4 State Machine Surat (`Sheet_Surat`)
 ```
-[Input Bendahara] ▶ MENUNGGU_VERIFIKASI
-      │                    │
-      │          verify_by_bendahara (BENDAHARA)
-      │                    ▼
-      │          verify_by_ketum (KETUA)  ▶  TERVERIFIKASI (masuk buku kas)
-      │
-      └─ reject ▶ DITOLAK
+DRAFT ──submit (SEKRETARIS)──▶ PENDING_APPROVAL ──approve (KETUA)──▶ PUBLISHED
+                                   │
+                                   └──reject (KETUA, wajib catatan)──▶ REJECTED
 ```
-- **Kedua** tanda tangan wajib ada sebelum masuk buku kas & memengaruhi saldo.
+- `DRAFT` & `PENDING_APPROVAL` hanya terlihat penulis + peran internal yang berhak.
+- `PUBLISHED`: bisa diverifikasi publik via nomor surat; PDF immutable (hash dicatat).
+- Transisi `PENDING_APPROVAL → PUBLISHED` **hanya** oleh `KETUA` (atau `SUPERADMIN`) + memicu generate PDF.
 
-### 6.5 Workflow Usulan Divisi (`division_submissions`)
-- **Aturan ketat: 0 publikasi langsung.** Divisi hanya bisa:
-  - `Simpan Draf` → `DRAFT`
-  - `Ajukan ke Ketua DPW` → `PENDING_APPROVAL`
-- Persetujuan/reject **hanya** melalui Approval Board KETUA → `APPROVED` / `REJECTED`.
-- `PUBLISHED` (muncul di portal) hanya untuk program yang sudah terlaksana & dilaporkan.
+### 6.5 State Machine Voucher (`Sheet_Keuangan`) — Dual Approval
+```
+PENDING ──verify (BENDAHARA)──▶ VERIFIED_BY_BENDAHARA ──verify (KETUA)──▶ VERIFIED_BY_KETUM ──▶ APPROVED
+   │                                                                                        ▲
+   └─────────────────────────── reject (KETUA/BENDAHARA) ──▶ REJECTED                         │
+   └──────────────────────────────────────────────────────────────────────────────────────────┘
+                        (saat KETUA verifikasi, jika kedua tanda tangan lengkap → langsung APPROVED)
+```
+- **Kedua** tanda tangan wajib ada sebelum voucher memengaruhi saldo.
+- Hanya voucher `APPROVED` yang dihitung di saldo buku kas.
+
+### 6.6 Workflow Usulan Divisi (`Sheet_Divisi`)
+```
+DRAFT ──ajukan──▶ AJUKAN ──setujui (KETUA)──▶ DISETUJUI
+                     │
+                     └──tolak (KETUA, wajib catatan)──▶ DITOLAK
+```
+- **Aturan ketat: 0 publikasi langsung.** Divisi hanya bisa `Simpan Draf` / `Ajukan ke Ketua`.
+- Persetujuan/penolakan **hanya** melalui Approval Board `KETUA`.
+- Divisi **hanya melihat & mengusulkan divisinya sendiri** (divisi diambil dari `user.division`, bukan payload).
 
 ---
 
-## 7. Real-time: WebSocket Event Bus
+## 7. Session & Keamanan
 
-**Endpoint:** `wss://<host>/v1/stream/events` (socket.io, otentikasi via JWT di handshake).
+### 7.1 Sistem Login Kustom (alur)
+```
+[Frontend] POST action=login { username, password }
+   → Auth.gs: cari user di Sheet_Users (username)
+   → cek is_active == TRUE dan password_hash == SHA-256(salt + password)
+   → gagal? audit "LOGIN_FAILED" + 401 "Username atau password salah"
+   → berhasil? generate token UUID → tulis Sheet_Sessions { token, user_id, expired_at: now+7h }
+   → kembalikan { token, user, expired_at }
+[Frontend] simpan token ke localStorage("siapii_token")
+[Frontend] setiap fetch: GET ?action=...&token=...  atau  POST { action, token, payload }
+   → Auth.gs: verifySession(token) → cek ada di Sheet_Sessions, expired_at > now, user masih aktif
+   → tidak valid? 401 "Sesi berakhir, silakan login kembali" (frontend auto-logout)
+```
 
-### 7.1 Room Multiplexing
-| Room | Anggota |
-|---|---|
-| `public` | Semua koneksi (termasuk portal publik) |
-| `role:ketua` | Hanya Ketua |
-| `role:bendahara` | Hanya Bendahara |
-| `role:pengawas` | Hanya Pengawas |
-| `division:<DIVISI>` | Anggota divisi tersebut |
+> **Kenapa token di query/body, bukan header `Authorization`?** Web App Apps Script **tidak** menyertakan request header di objek event `doGet`/`doPost`. Cara andal mengirim token adalah via query parameter (GET) atau body JSON (POST).
 
-Server memakai **Redis pub/sub** sehingga beberapa instance API tetap konsisten — ini **wajib** saat deploy ke Vercel, karena setiap koneksi WebSocket ter-pin ke satu instance function (lihat §11.3).
+### 7.2 Password Hashing
+`hash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, SALT + password)` → hex. Salt di Script Properties (`PASSWORD_SALT`), tidak pernah di-commit.
 
-### 7.2 Event yang Dipancarkan
-| Event | Pemicu | Tujuan (room) | Payload ringkas |
-|---|---|---|---|
-| `PROGRAM_APPROVED` | Ketua setujui usulan divisi | `public` + `division:<x>` | `trackingId`, `division`, `title` |
-| `DOCUMENT_PUBLISHED` | SK dipublikasi | `public` | `letterNumber`, `title`, `sha256` |
-| `CASHBOOK_MUTATED` | Buku kas berubah | `role:bendahara` + `role:pengawas` | `voucherNumber`, `type`, `account` |
-| `AUDIT_SECURITY` | 403 cross-division | `role:superadmin` + `role:pengawas` | `userId`, `endpoint`, `timestamp` |
+### 7.3 Audit Log
+`Utils.audit(actor, action, detail)` menulis ke `Sheet_AuditLogs`:
+- `LOGIN_SUCCESS`, `LOGIN_FAILED`, `LOGOUT`
+- `FORBIDDEN` (setiap aksi ditolak RBAC/isolasi divisi)
+- `SURAT_SUBMIT`, `SURAT_PUBLISHED`, `SURAT_REJECTED`
+- `KEU_VERIFY_BENDAHARA`, `KEU_VERIFY_KETUM`, `KEU_REJECTED`
+- `DIVISI_AJUKAN`, `DIVISI_SETUJU`, `DIVISI_TOLAK`
+- `USER_CREATE`, `USER_UPDATE`
 
-> Frontend memakai event ini untuk **refetch** data terkait (mis. live ledger), bukan untuk mutasi.
+### 7.4 CORS & Akses
+Response JSON dari Apps Script otomatis menyertakan `Access-Control-Allow-Origin: *`, sehingga fetch dari kedua domain frontend berjalan tanpa konfigurasi tambahan.
 
 ---
 
-## 8. PDF Engine & Konvensi API
+## 8. PDF Engine (Template Google Docs)
 
-### 8.1 Generator Dokumen Otentik
-**Endpoint:** `GET /api/v1/letters/:id/render-pdf` (SEKRETARIS / KETUA / SUPERADMIN / PEMBINA / PENGAWAS)
+### 8.1 Cara Kerja
+1. Buat satu Google Docs sebagai **template surat** (bagian header: kop + `logo.png` placeholder; badan berisi placeholder).
+2. Salin ID template dari URL → simpan di Script Properties `TEMPLATE_DOC_ID`.
+3. Saat surat di-approve (`PENDING_APPROVAL → PUBLISHED`), `Surat.gs`:
+   - `DriveApp.getFileById(TEMPLATE_DOC_ID).makeCopy(namaFile)` → salinan sementara.
+   - Buka dengan `DocumentApp.openById()`, ganti placeholder di seluruh body + header/footer:
+     - `{{NOMOR}}`, `{{JUDUL}}`, `{{TANGGAL}}`, `{{JENIS}}`
+     - `{{MENIMBANG}}`, `{{MENGINGAT}}`, `{{MEMUTUSKAN}}`
+     - `{{KETUA}}`, `{{SEKRETARIS}}`, `{{TAHUN}}`
+   - Ekspor PDF: `UrlFetchApp.fetch('https://docs.google.com/document/d/<id>/export?format=pdf', { Authorization: Bearer <oauthToken> })` → `Blob`.
+   - Simpan Blob ke folder Drive (`DRIVE_FOLDER_ID`), set sharing `ANYONE_WITH_LINK`/`VIEW` → dapat URL publik.
+   - Hapus salinan Docs sementara (`setTrashed(true)`).
+   - Tulis `pdf_url` + `sha256_hash` (dari canonical payload) + `qr_verify_url` ke `Sheet_Surat`.
 
-Pipeline sinkron:
-1. Ambil surat + `kop_config` + `signatories`.
-2. **Validasi integritas**: recompute SHA-256 dari canonical payload; cocokkan dengan `sha256_hash`. Jika mismatch → `409 Conflict` (dokumen diubah tanpa seizin).
-3. Render HTML A4 (Puppeteer, headless Chromium) dengan:
-   - **Logo DPW Emas** di kop (`Logo DPW Jabodetabek 1.jpg`),
-   - **Teks Otoritas** "Dewan Pimpinan Wilayah Jabodetabek",
-   - **Tanda tangan digital** pimpinan,
-   - **Stempel Bulat Biru APII** (PNG transparan) overlay di atas tanda tangan (`Stempel APII Jabo.png`),
-   - **QR Code** pojok bawah → `https://app.apii.sigitadi.id/verify/{sha256}` (frontend SPA).
-4. Upload PDF ke storage S3 (MinIO lokal / Cloudflare R2 produksi) → simpan `pdf_storage_url`.
-5. Kembalikan response (PDF stream atau presigned URL).
+### 8.2 Keunggulan
+- **Kop & layout dijaga desainer** — cukup edit template Docs, tidak sentuh kode.
+- Tanpa library eksternal, tanpa batasan ukuran bundle.
+- Hasil PDF konsisten untuk setiap jenis surat.
 
-### 8.2 Response Envelope
-Semua response JSON (sukses & error) memakai bentuk standar:
+---
+
+## 9. Kontrak API
+
+### 9.1 Envelope (satu format untuk semua response)
 ```json
-{
-  "success": true,
-  "code": 200,
-  "message": "Resource successfully fetched",
-  "data": {},
-  "meta": { "timestamp": 1741584000 }
-}
+{ "success": true,  "message": "Daftar surat berhasil dimuat.", "data": { ... } }
+{ "success": false, "message": "Anda tidak memiliki izin untuk aksi ini.", "data": null }
 ```
-- `data` selalu bertipe DTO (tidak pernah `any`).
-- `meta.timestamp` = epoch detik UTC.
-- Daftar kode error: `400` (validasi), `401` (belum login), `403` (ditolak/ lintas divisi), `404`, `409` (konflik integritas), `500`.
+> Apps Script selalu mengembalikan HTTP 200 untuk `ContentService`; kode error dibawa di field `message` + `data=null`. Frontend **hanya** mengecek `response.success`.
 
-### 8.3 OpenAPI 3.1 Contract-First
-- Schema **Zod** → `@nestjs/swagger` + `nestjs-zod` → `swagger.json` ter-generate otomatis.
-- Frontend memakai **Orval** / `@openapi-typescript/codegen` → typed client **tanpa pengetikan manual**.
-- `GET /api/v1/swagger.json` (publik untuk codegen) & `/api/v1/docs` (Swagger UI).
+### 9.2 Cara Memanggil
+- **GET** (baca): `GET <URL_EXEC>?action=<aksi>&token=<TOKEN>&limit=20&page=1`
+- **POST** (tulis): `POST <URL_EXEC>` body `application/json`:
+  ```json
+  { "action": "createSurat", "token": "<TOKEN>", "payload": { "title": "...", "letter_type": "SK" } }
+  ```
 
-### 8.4 Upload File (Sederhana)
-- **REST multipart** `POST /api/v1/uploads` → validasi ekstensi + MIME + ukuran → simpan ke storage S3 (MinIO lokal / Cloudflare R2 produksi) → kembalikan `fileId` + URL.
-- Frontend menampilkan progress bar native (XHR/fetch progress).
-- Metadata tersimpan di `uploaded_files`.
+### 9.3 Daftar Aksi (Ringkasan)
 
----
-
-## 9. Yang Ditangguhkan (Fase 2+)
-
-Berikut **sengaja belum dibangun**. Saat dibutuhkan, pasang sebagai modul baru tanpa membongkar yang ada:
-
-| Fitur | Picu Aktifasi | Catatan |
-|---|---|---|
-| **ClamAV scan** PDF | Saat ada lampiran dari pihak luar | Jalankan sebagai sidecar container |
-| **Transkoding HLS** video | Saat video kajian > 100 MB | FFmpeg; simpan ke storage S3 |
-| **ffprobe metadata** audio | Saat podcast dipublikasi | Pelengkap katalog konten |
-| **OCR kwitansi** | Saat voucher > 500/bulan | Untuk auto-fill `description` |
-| **PostgreSQL RLS** | Saat ada banyak tenant DPW | Defense-in-depth di atas Guards |
-| **Chunked WS upload** | Saat file > 500 MB rutin | Baru pertimbangkan SHA-256 per-chunk |
-| **Antrian worker (BullMQ)** | Saat render PDF > 5 detik | Pindahkan render ke worker |
-| **Audit stream dashboard** | Saat Dewan Pengawas minta live audit | Konsumsi Redis stream |
-
----
-
-## 10. Roadmap Pengiriman
-
-| Fase | Lingkup | Kriteria Selesai |
-|---|---|---|
-| **1 — Fondasi** | Scaffold NestJS, Prisma + migrasi + seed, Google OAuth PKCE + JWT RS256, Guards (RBAC/Division), envelope + filter, OpenAPI | `migrate` + `seed` jalan; login Google berhasil; 403 cross-division tercatat di audit |
-| **2 — Core** | Modul letters + PDF engine, finance dual-approval + laporan bersetempel, divisions 7-tab workflow | Render 1 SK dengan stempel + QR; voucher lewat 2-tier approve |
-| **3 — Realtime & Portal** | WebSocket event bus, public-portal (feed, verify, jadwal, e-KTA) | Event sampai ke room benar; verifikasi SHA-256 publik |
-| **4 — Ship** | Konfigurasi deploy Vercel (`vercel.json` + env produksi), docker-compose final untuk dev, e2e test, panduan deploy | Deploy ke `apii.sigitadi.id` menyala penuh; `docker compose up` (dev) jalan dari nol |
-
----
-
-## 11. Deployment & Infrastruktur
-
-### 11.1 Target Deployment
-
-| Item | Keterangan |
-|---|---|
-| **Repository** | `https://github.com/sisigitadi/siap-apii` (GitHub) — sumber kode, CI, dan rilis |
-| **Platform** | **Vercel** (project `siap-apii`, deploy otomatis dari repo GitHub) — SSL, CDN global, dan auto-scale jadi tanggung jawab platform |
-| **Domain API** | `https://apii.sigitadi.id` (sudah ditentukan) |
-| **Frontend SPA** | `https://app.apii.sigitadi.id` — Vercel project terpisah (sudah ditentukan, lihat PRD §11 Q8) |
-| **SSL** | Otomatis dikelola Vercel |
-
-**Model:** NestJS berjalan sebagai **satu server function** — Vercel mendeteksi entrypoint `src/server.ts` yang memanggil `app.listen()`, lalu merute seluruh request ke sana. Satu unit deploy = satu function = **tetap monolith** (lihat §2.2).
-
-### 11.2 Mengapa Vercel, bukan VPS Sendiri
-
-Tim kita kecil dan baru; setiap jam yang dihabiskan untuk patch OS, urus SSL, konfigurasi nginx, dan restart saat crash adalah jam yang tidak ambil dari membangun fitur. Vercel menghapus beban operasional itu.
-
-Dua alasan yang dulu mendorong ke arah VPS — **WebSocket** dan **Chromium** — kini sudah didukung Vercel:
-- **WebSocket:** Public Beta di semua plan; `socket.io` jalan normal (koneksi ter-pin per instance, lihat §11.3).
-- **Chromium:** bisa di-bundle dalam batas ukuran function memakai `puppeteer-core` + `@sparticuz/chromium` (varian ringan untuk serverless).
-
-**Konsekuensi yang wajib dipahami:** Vercel hanya menjalankan *compute*. Tiga dependensi stateful kita harus dipindahkan ke **managed service eksternal**:
-
-| Komponen | Lokal (development) | Produksi (Vercel) | Catatan |
+| Aksi | Method | Peran yang Diizinkan | Keterangan |
 |---|---|---|---|
-| **PostgreSQL 16** | `docker compose` | **Neon** (serverless Postgres) | Skema `JSONB`/`timestamptz`/enum tetap utuh — tidak ada perubahan kode |
-| **Redis 7** | `docker compose` | **Upstash** (serverless Redis) | Cache + pub/sub WebSocket; tetap satu `REDIS_URL` |
-| **Storage S3** | MinIO (`docker compose`) | **Cloudflare R2** (S3-compatible, gratis egress) | Kode tak berubah — hanya beda `S3_ENDPOINT` |
-| **Chromium** | Puppeteer lokal | `puppeteer-core` + `@sparticuz/chromium` | Render PDF di dalam function |
+| `login` | POST | publik | `{ username, password }` → `{ token, user }` |
+| `logout` | POST | login | Hapus sesi |
+| `me` | GET | login | Info user dari token |
+| `getListSurat` | GET | SURAT_READ | Daftar + filter status/q + paginasi |
+| `createSurat` | POST | `SUPERADMIN, SEKRETARIS` | Buat draft |
+| `updateSurat` | POST | `SUPERADMIN, SEKRETARIS` | Hanya jika status `DRAFT` |
+| `submitSurat` | POST | `SUPERADMIN, SEKRETARIS` | `DRAFT → PENDING_APPROVAL` |
+| `approveSurat` | POST | `SUPERADMIN, KETUA` | `PENDING_APPROVAL → PUBLISHED` + PDF |
+| `rejectSurat` | POST | `SUPERADMIN, KETUA` | `PENDING_APPROVAL → REJECTED` (wajib catatan) |
+| `verifySurat` | GET/POST | publik | Cek nomor/SHA-256 → status keaslian |
+| `getListKeuangan` | GET | KEUANGAN_READ | Daftar voucher |
+| `getSaldo` | GET | KEUANGAN_READ | Total saldo kas |
+| `createVoucher` | POST | `SUPERADMIN, BENDAHARA` | Buat voucher `PENDING` |
+| `verifyVoucherBendahara` | POST | `SUPERADMIN, BENDAHARA` | `PENDING → VERIFIED_BY_BENDAHARA` |
+| `verifyVoucherKetum` | POST | `SUPERADMIN, KETUA` | `VERIFIED_BY_BENDAHARA → APPROVED` |
+| `rejectVoucher` | POST | `SUPERADMIN, KETUA` | `→ REJECTED` (wajib catatan) |
+| `getListDivisi` | GET | login | Isolasi: divisi hanya lihat sendiri |
+| `createSubmission` | POST | `SUPERADMIN, KETUA_DIVISI, ANGGOTA_DIVISI` | Divisi dari `user.division` |
+| `ajukanSubmission` | POST | idem | `DRAFT → AJUKAN` |
+| `approveSubmission` | POST | `SUPERADMIN, KETUA` | `AJUKAN → DISETUJUI` |
+| `rejectSubmission` | POST | `SUPERADMIN, KETUA` | `AJUKAN → DITOLAK` |
+| `getListPengguna` | GET | `SUPERADMIN` | Kelola akun |
+| `createPengguna` | POST | `SUPERADMIN` | Buat akun |
+| `updatePengguna` | POST | `SUPERADMIN` | Ubah peran/status/password |
+| `getDashboard` | GET | login | Ringkasan statistik per peran |
+| `getAuditLogs` | GET | `SUPERADMIN` | Jejak audit |
 
-> **Pilihan provider Postgres: Neon.** Tiga alasannya: (1) *serverless native* — koneksi ditangani tanpa server yang harus dijaga; (2) fitur *branching* membuat DB preview untuk tiap Vercel preview deploy, jadi migrasi bisa diuji tanpa menyentuh data produksi; (3) free tier cukup untuk fase awal. Supabase/Railway tetap opsi cadangan jika kebutuhan berubah — kode tidak terikat provider (hanya `DATABASE_URL`).
+> Daftar lengkap + implementasi ada di `Code.gs` (tabel `ROUTES`). Matriks per peran di `rbac-matrix.md`.
 
-> **Inti:** kode aplikasi **tidak berubah** antara lokal dan produksi — yang berbeda hanya environment variables. Prinsip "cukup untuk berjalan hari ini" tetap terjaga, dan beban operasional (backup, patch, SSL, restart) berpindah ke provider.
+---
 
-### 11.3 Batasan Platform (wajib tahu sebelum coding)
+## 10. Frontend — Design System "Amanah Modern Enterprise"
 
-| Batas | Nilai | Dampak ke kita |
+### 10.1 Identitas Visual
+Kesan: **Amanah · Bersih · Modern** (nuansa Islam-institusional, tidak murahan, tidak generik).
+
+| Elemen | Nilai |
+|---|---|
+| Warna utama | **Hijau Zamrud (Emerald)** `#047857` … `#022C22` |
+| Background | Putih / Off-White `#FFFFFF`, `#F7FAF7` |
+| Aksen | **Emas/Amber (Gold)** `#F59E0B`, `#FBBF24` |
+| Font | **Plus Jakarta Sans** (fallback Inter) via Google Fonts |
+| Logo | `<img src="logo.png">` di header publik & sidebar portal |
+| Sudut | `rounded-xl` / `rounded-2xl` (lembut, ramah) |
+| Bayangan | `shadow-sm` … `shadow-xl` halus, tidak keras |
+| Tekstur | Pola geometris Islam subtil (inline SVG, opacity rendah) di hero |
+
+### 10.2 Dua Domain Terpisah
+
+| Domain | Folder | Isi | Audiens |
+|---|---|---|---|
+| `apii.sigit.id` | `public/` | `index.html`, `app.js`, `style.css` | Masyarakat umum (tanpa login) |
+| `siapii.sigitadi.id` | `portal/` | `index.html`, `portal.js`, `auth.js`, `style.css` | Pengurus (login wajib) |
+
+### 10.3 Arsitektur Frontend (Vanilla JS, anti-spaghetti)
+Pola **Module (IIFE)** — setiap file satu tanggung jawab:
+
+- `auth.js` → modul `Auth`: simpan/baca token `localStorage`, `Auth.login()`, `Auth.logout()`, `Auth.fetch(action, payload)` (melampirkan token + parsing envelope), `Auth.hasRole([...])`, `Auth.isReadOnly()`.
+- `portal.js` → modul `App`: **state** (`state.user`, `state.view`, `state.data`), **router** (`App.navigate(view)`), dan **renderer** per view (`renderDashboard`, `renderSurat`, …) yang membangun DOM string. Menu & tombol aksi dirender hanya jika `Auth.hasRole()` diizinkan.
+- `app.js` (publik) → modul `Public`: smooth scroll, mobile nav, handler form verifikasi surat.
+
+> Pemisahan **State / API / DOM** ini membuat penambahan modul baru cukup menambah satu fungsi renderer + satu baris di router.
+
+### 10.4 Aturan Tampilan per Peran
+- Menu sidebar punya atribut `data-roles` — disembunyikan jika peran user tidak terdaftar.
+- Pembina & Pengawas (`ROLES_READONLY`): **tidak ada** tombol create/edit/approve yang dirender (bukan disabled — disembunyikan total).
+- Status dokumen selalu pakai **label Indonesia**: `DRAFT` → "Draf", `PENDING_APPROVAL` → "Menunggu Persetujuan", `PUBLISHED` → "Diterbitkan", `REJECTED` → "Ditolak", dll.
+
+---
+
+## 11. Deployment & Batasan Platform
+
+### 11.1 Komponen Produksi
+| Komponen | Produksi |
+|---|---|
+| Backend | Google Apps Script Web App (deploy "Me" + "Anyone") |
+| Database | Google Sheets (`DB-SIAP-APII`) |
+| File | Google Drive (folder khusus, sharing link) |
+| Template PDF | Google Docs (1 file template) |
+| Frontend publik | Hosting statis → `apii.sigit.id` |
+| Frontend portal | Hosting statis → `siapii.sigitadi.id` |
+| SSL | Otomatis oleh hosting statis |
+
+### 11.2 Batasan Google Apps Script (wajib tahu)
+
+| Batas | Dampak | Mitigasi |
 |---|---|---|
-| Ukuran function (uncompressed) | **250 MB** | Pakai `puppeteer-core` + `@sparticuz/chromium`; **jangan** pakai `puppeteer` full (bundle Chromium penuh menembus batas ini) |
-| Memory | Hobby **2 GB** / Pro **4 GB** | Satu render PDF ~300–500 MB — cukup; jangan render paralel di function yang sama |
-| Max duration | Hobby **300 s** / Pro **800 s** (max 1800 s extended beta) | Render SK < 2 detik — sangat aman |
-| Region default | `iad1` (Washington DC) | **Wajib ganti ke `sin1` (Singapura)** untuk latensi ke pengguna Indonesia |
-| WebSocket | Public Beta; koneksi **ter-pin per instance** | Redis pub/sub wajib untuk konsistensi antar-instance — sudah ada di §7.1 |
-| Cron | HTTP GET ke endpoint via `vercel.json` | Penjadwalan lewat endpoint aplikasi, bukan OS cron |
+| Eksekusi maksimal **6 menit** | Render PDF massal bisa timeout | Generate PDF satu per satu saat approve; batch job ditunda |
+| Kuota harian `UrlFetchApp` / email | Callout berlebihan terkena limit | Hanya fetch saat perlu; caching di frontend |
+| Web App tidak terima request header | Token tidak bisa lewat `Authorization` | Token via query param (GET) / body (POST) — sudah dirancang demikian |
+| Sheets ~10 juta sel | Batas data jangka panjang | Cukup untuk ribuan dokumen; arsip rutin |
+| Tidak ada WebSocket | Notifikasi real-time | Refresh manual / polling halaman; email notifikasi di Fase 4 |
+| `LockService` per script | Kunci konkurensi terbatas | Cukup untuk counter nomor surat |
 
-### 11.4 Catatan Teknis Deployment
+### 11.3 Catatan Deployment
+1. **Script Properties** wajib diset sebelum deploy (lihat `README.md` Tahap 2).
+2. Deploy Web App dengan **Execute as: Me** (agar bisa akses Sheets/Drive pemilik) + **Anyone** (agar frontend bisa panggil).
+3. Setiap perubahan kode GAS → **Deploy → Manage deployments → Edit → New version** (agar URL tetap, versi baru aktif).
+4. Frontend: ganti `API_BASE` lalu deploy ulang folder `public/` dan `portal/`.
 
-1. **Chromium ringan, bukan bundle penuh.** Install `puppeteer-core` + `@sparticuz/chromium`. **Jangan** `import 'puppeteer'` (menarik Chromium ~170 MB+ dan menembus batas 250 MB). Set `executablePath` dari `@sparticuz/chromium` dengan flag `--no-sandbox --disable-dev-shm-usage --single-process`.
-2. **Region `sin1`.** Default Vercel adalah `iad1` (AS Timur) → latensi ~250–300 ms dari Indonesia. Pilih `sin1` (Singapura) di pengaturan project. (Pro/Enterprise bisa multi-region; Fase 1 cukup satu region.)
-3. **WebSocket (§7) di Vercel:** setiap koneksi ter-pin ke satu instance function; Fluid compute memungkinkan satu instance memegang banyak koneksi sekaligus. Redis pub/sub tetap jadi perekat antar-instance — **desain §7.1 sudah memenuhi ini tanpa perubahan**. Karena fitur ini masih Beta, frontend wajib punya *fallback* ke polling jika upgrade gagal (ditangani di Fase 3).
-4. **Cold start.** Function "tidur" saat sepi → request pertama bisa lambat 1–3 detik. Mitigasi: jaga bundle tetap ramping. Jika terasa mengganggu di produksi, baru pertimbangkan pre-warming (Fase 4).
-5. **Backup database produksi** lewat fitur bawaan Neon (point-in-time restore), **bukan** `pg_dump` OS cron. `PROJECT_RULES.md` §8 memasukkan ini ke DoD Fase 4.
-6. **Scheduled jobs** (jika nanti perlu, mis. ringkasan harian): pakai Vercel Cron di `vercel.json` yang memicu endpoint HTTP di aplikasi.
-7. **Environment variables produksi** di-set di dashboard Vercel: `DATABASE_URL` (Neon), `REDIS_URL` (Upstash), `S3_ENDPOINT` + `S3_ACCESS_KEY` + `S3_SECRET_KEY` + `S3_BUCKET` (R2), `GOOGLE_*`, `JWT_*`, `PUBLIC_VERIFY_BASE_URL` (`https://app.apii.sigitadi.id/verify`), `CORS_ORIGINS` (`https://app.apii.sigitadi.id`). Untuk private key RS256: simpan sebagai **string satu baris** di env var, bukan path file — supaya kunci tidak pernah masuk repo dan tersedia di semua instance.
-8. **Database jangan diturunkan ke MySQL.** Skema memakai `JSONB`, `timestamptz`, dan enum PostgreSQL. Migrasi ke MySQL = penulisan ulang besar. Jika terpaksa, tunda dan dokumentasikan sebagai technical debt.
-9. **Frontend SPA** di-deploy sebagai Vercel project terpisah; backend hanya sajikan `swagger.json` + `/api/v1/docs`.
+---
+
+## 12. Roadmap & Item Ditangguhkan
+
+Ditangguhkan dengan pemicu aktivasi jelas (bukan dibuang):
+
+| Item | Kapan Diaktifkan |
+|---|---|
+| Login Google / SSO | Saat seluruh pengurus siap migrasi |
+| Notifikasi email (GmailApp) | Saat volume approval tinggi |
+| e-KTA digital anggota | Saat data anggota lengkap & terverifikasi |
+| Laporan keuangan bulanan PDF | Saat rekonsiliasi rutin |
+| Upload lampiran ke Drive | Saat divisi rutin lampirkan proposal/foto |
+| Import/export CSV massal | Saat migrasi data besar |
+| Scheduled job (Trigger time-driven) | Saat perlu ringkasan harian otomatis |
+
+---
+
+*Setiap keputusan teknis di dokumen ini sudah dipertimbangkan terhadap kebutuhan nyata pengurus. Jika akan mengubah arsitektur, update dokumen ini dulu, baru kode.*

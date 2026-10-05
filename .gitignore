@@ -52,3 +52,12 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/settings.json
+
+# Hasil build & preview sementara
+artifacts/
+apps-script/Backend.gs
+apps-script/AsetLogo.gs
+apps-script/AsetStempel.gs
+*.log
+backend-dev-err.txt
+backend-dev-out.txt

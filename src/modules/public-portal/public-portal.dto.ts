@@ -43,6 +43,15 @@ export const verificationResultSchema = z.object({
     .describe('Jenis surat (null bila tidak terverifikasi)'),
   published_at: z.date().nullable().describe('Tanggal rilis resmi (null bila tidak terverifikasi)'),
   sha256: z.string().describe('Sidik jari SHA-256 yang diperiksa'),
+  signatories: z
+    .array(
+      z.object({
+        name: z.string().describe('Nama lengkap penandatangan'),
+        role_title: z.string().describe('Jabatan penandatangan'),
+      }),
+    )
+    .nullable()
+    .describe('Daftar penandatangan resmi (null bila tidak terverifikasi)'),
 });
 export class VerificationResultDto extends createZodDto(verificationResultSchema) {}
 
@@ -52,6 +61,9 @@ export const publicFeedItemSchema = z.object({
   title: z.string().describe('Perihal surat'),
   letter_type: z.nativeEnum(LetterType).describe('Jenis surat'),
   published_at: z.date().describe('Tanggal rilis resmi'),
+  sha256_hash: z
+    .string()
+    .describe('Sidik jari untuk tautan verifikasi keaslian dokumen'),
 });
 export class PublicFeedItemDto extends createZodDto(publicFeedItemSchema) {}
 
@@ -71,6 +83,15 @@ export const publicScheduleItemSchema = z.object({
   division: z.nativeEnum(Division).describe('Divisi penyelenggara'),
   execution_date: z.date().describe('Tanggal pelaksanaan'),
   target_audience: z.string().nullable().describe('Sasaran peserta'),
+  category: z.string().nullable().describe('Kategori program (dari submission_data.kategori)'),
+  description: z
+    .string()
+    .nullable()
+    .describe('Uraian program (dari submission_data.deskripsi)'),
+  location: z
+    .string()
+    .nullable()
+    .describe('Lokasi penyelenggaraan (dari submission_data.lokasi)'),
 });
 export class PublicScheduleItemDto extends createZodDto(publicScheduleItemSchema) {}
 

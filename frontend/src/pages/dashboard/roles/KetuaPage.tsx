@@ -22,7 +22,7 @@ export const KetuaPage: React.FC = () => {
     if (!isKetua) return;
     Promise.allSettled([
       lettersApi.list({ status: 'PENDING_APPROVAL' }),
-      financeApi.listVouchers({ status: 'PENDING_KETUA' }),
+      financeApi.listVouchers({ status: 'VERIFIED_BENDAHARA' }),
     ]).then(([letters, vouchers]) => {
       if (letters.status === 'fulfilled') setPendingLetters(letters.value.items);
       if (vouchers.status === 'fulfilled') setPendingVouchers(vouchers.value.items);
@@ -48,7 +48,7 @@ export const KetuaPage: React.FC = () => {
           <p className="text-[10px] text-amber-600 font-semibold">Butuh persetujuan &amp; rilis</p>
         </Link>
 
-        <Link to="/dashboard/finance?status=PENDING_KETUA" className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs hover:border-[#0e3b6f] transition-colors">
+        <Link to="/dashboard/finance?status=VERIFIED_BENDAHARA" className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs hover:border-[#0e3b6f] transition-colors">
           <div className="flex justify-between items-center text-xs text-slate-500 font-bold uppercase">
             <span>Voucher Menunggu</span>
             <Wallet className="w-4 h-4 text-emerald-600" />

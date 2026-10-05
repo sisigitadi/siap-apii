@@ -10,21 +10,19 @@ export const VerifyMemberPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate lookup / verification
+    // TODO(Fase E): ganti ke endpoint publik verifikasi keanggotaan ketika ada.
+    // Sementara menampilkan data contoh agar UI verifikasi e-KTA dapat dievaluasi.
     setTimeout(() => {
       if (memberNumber) {
         setMember({
-          id: 'user-001',
           member_number: memberNumber,
-          fullName: 'Ir. Hendra Kusuma, M.T.',
+          full_name: 'Ir. Hendra Kusuma, M.T.',
           email: 'hendra.kusuma@member.apii.org',
-          phone: '+62 812-3456-7890',
-          city: 'Jakarta Selatan',
-          division: 'DIV_LITBANG',
-          role: 'ANGGOTA_BIASA',
-          status: 'ACTIVE',
-          joined_at: '2026-01-01T00:00:00.000Z',
+          photo_url: null,
+          member_since: '2026-01-01T00:00:00.000Z',
+          issued_at: '2026-01-01T00:00:00.000Z',
           expires_at: '2031-01-01T00:00:00.000Z',
+          status: 'ACTIVE',
           qr_verify_url: `https://app.apii.sigitadi.id/verify/member/${memberNumber}`,
         });
       }

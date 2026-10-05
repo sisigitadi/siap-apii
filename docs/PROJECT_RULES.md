@@ -1,159 +1,115 @@
-# PROJECT RULES — Aturan Pengembangan
+# PROJECT_RULES.md — Aturan Pengembangan
 
-**Yayasan APII DPW Jabodetabek — Backend API**
+**Yayasan APII DPW Jabodetabek — Sistem Informasi & Administrasi Terpadu**
 
-Dokumen ini adalah **kontrak tim**. Setiap kontribusi wajib mematuhi aturan di bawah. Tujuannya bukan membatasi, melainkan menjaga kode tetap **mudah dibaca, aman, dan konsisten** — terutama untuk anggota tim yang baru pertama kali terlibat.
+> Aturan main bersama. Dipatuhi sebelum kode ditulis, saat review, dan saat selesai.
 
 ---
 
-## 1. Aturan Struktur & Penamaan
+## 1. Struktur Kode
 
-### 1.1 Modul
-- Setiap modul berdiri sendiri di `src/modules/<nama-modul>/` dan **tidak boleh** mengimpor modul lain secara langsung (gunakan event/service bersama lewat `infrastructure/`).
-- Satu modul = satu tanggung jawab bisnis. Jika sebuah modul membawa 2 tanggung jawab, pecah.
-
-### 1.2 Penamaan berkas
-| Jenis | Pola | Contoh |
+### 1.1 Backend (Google Apps Script — folder `gas/`)
+| File | Tanggung Jawab | Dilarang |
 |---|---|---|
-| Controller | `<resource>.controller.ts` | `letters.controller.ts` |
-| Service | `<resource>.service.ts` | `letters.service.ts` |
-| DTO (Zod) | `<resource>.dto.ts` | `create-letter.dto.ts` |
-| Guard | `<nama>.guard.ts` | `division.guard.ts` |
-| Gateway WS | `<nama>.gateway.ts` | `events.gateway.ts` |
-| Enum/konstanta | `<nama>.constant.ts` | `user-role.constant.ts` |
+| `Code.gs` | `doGet`/`doPost`, parsing request, **tabel `ROUTES`**, dispatch, envelope response | menulis logika domain |
+| `Auth.gs` | login, hash password, buat/verifikasi/hapus sesi | mengakses Sheet selain Users/Sessions |
+| `Surat.gs` | logika surat + nomor surat + generate PDF | mengakses Sheet Keuangan/Divisi |
+| `Keuangan.gs` | logika voucher + dual-approval + saldo | mengakses Sheet Surat/Divisi |
+| `Divisi.gs` | logika usulan divisi + isolasi divisi | menerima `division` dari payload |
+| `Database.gs` | satu-satunya yang menyentuh `SpreadsheetApp` | dipanggil dari luar modul domain |
+| `Utils.gs` | audit log, format tanggal/Rupiah, helper umum | memegang state bisnis |
 
-- **File & variabel:** `kebab-case` untuk file, `camelCase` untuk variabel/fungsi, `PascalCase` untuk class/interface/type Zod.
-- **Tabel & kolom Prisma:** `snake_case` (mis. `official_letters`, `created_at`).
-- **Endpoint:** plural `kebab-case` (mis. `/api/v1/official-letters`).
+### 1.2 Frontend (folder `public/` & `portal/`)
+- Setiap file = satu modul IIFE (`Auth`, `App`, `Public`) — tidak ada variabel global liar.
+- **Pemisahan wajib:** State (`App.state`) / API (`Auth.fetch`) / DOM (fungsi `render*`).
+- Tidak ada inline `onclick` di HTML — binding event dilakukan setelah render.
+- Template HTML string dipakai untuk render; setelah render, lakukan `bindEvents()`.
 
 ---
 
-## 2. Aturan Kode & Tipe Data
+## 2. Konvensi Penamaan & Gaya
 
-### 2.1 DILARANG `any`
-- **Semua** input dan output wajib memiliki tipe eksplisit.
-- Validasi input memakai **Zod**; inference tipe via `z.infer<typeof X>`.
-- ESLint rule `@typescript-eslint/no-explicit-any` **disetel error**. Yang `any` lolos review = PR ditolak.
+- **Bahasa Indonesia** untuk: pesan error, label UI, status, komentar fungsi publik.
+- **Bahasa Inggris** untuk: nama fungsi, variabel, kolom Sheet, nama aksi router (`camelCase`).
+- Konstanta global di GAS: `UPPER_SNAKE_CASE` (`ROUTES`, `ROLES`, `DIVISIONS`).
+- Setiap fungsi GAS publik (handler) wajib komentar 1-3 baris: _apa, siapa yang boleh, output_.
+- Status enum: `UPPER_SNAKE_CASE` (`PENDING_APPROVAL`, `VERIFIED_BY_BENDAHARA`).
 
-### 2.2 DTO adalah kontrak tunggal
-- Satu file DTO Zod digunakan untuk **validasi request + dokumentasi OpenAPI + tipe response**. Tidak ada duplikasi definisi tipe.
-- Setiap field DTO wajib punya `describe()` untuk teks dokumentasi (muncul di Swagger UI).
+---
 
-### 2.3 Lapisan modul (jangan berlapis-lapis)
+## 3. Keamanan (Wajib)
+
+1. **Tidak pernah** percaya input frontend: role/divisi selalu dari `ctx.user` (hasil verifikasi token).
+2. Setiap aksi baru wajib daftar di tabel `ROUTES` dengan `auth` + `roles` — tidak ada handler "publik" yang menulis data.
+3. Setiap penolakan akses → `Utils.audit(..., 'FORBIDDEN', ...)` sebelum lempar error.
+4. Password: hanya hash SHA-256+salt; tidak pernah log/return plain-text.
+5. Secret (Spreadsheet ID, folder Drive, salt) **hanya** di Script Properties — tidak di-commit.
+6. Frontend: token di `localStorage`; saat `success === false` dengan pesan sesi → auto-logout.
+
+---
+
+## 4. Response Envelope
+
+Semua handler mengembalikan objek (router yang bungkus ke JSON):
+```js
+return { ok: true,  data: {...}, message: 'Surat berhasil dibuat.' };
+return { ok: false, data: null,  message: 'Nomor surat sudah digunakan.' };
 ```
-Controller  → terima request, validasi (ZodPipe), kirim response
-Service     → logika bisnis + transaksi database (Prisma)
-Gateway     → hanya untuk WebSocket event; tidak ada logika bisnis
-```
-- **Dilarang** membuat abstraction/interface tambahan sebelum ada 2+ implementasi. Hindari *over-abstraction*.
-
-### 2.4 Response envelope standar
-Selalu bungkus response sukses dengan interceptor global:
-```json
-{
-  "success": true,
-  "code": 200,
-  "message": "Resource successfully fetched",
-  "data": {},
-  "meta": { "timestamp": 1741584000 }
-}
-```
-- `data` wajib bertipe DTO. `meta.timestamp` = epoch detik UTC.
-
-### 2.5 Error
-- Gunakan **exception standar NestJS** (`BadRequestException`, `ForbiddenException`, `UnauthorizedException`, `NotFoundException`).
-- Global `HttpExceptionFilter` menerjemahkan ke envelope konsisten:
-```json
-{ "success": false, "code": 403, "message": "Akses divisi ditolak", "data": null, "meta": { "timestamp": 1741584000 } }
-```
+Router menulis `{ success, data, message }`. Frontend **hanya** cek `success`.
 
 ---
 
-## 3. Aturan Keamanan (Zero-Trust)
+## 5. Testing & Validasi
 
-1. **Setiap endpoint non-publik wajib memakai `@UseGuards`** — paling tidak `JwtAuthGuard`.
-2. **Isolasi divisi wajib**: endpoint milik divisi memakai `@Division(...)` decorator + `DivisionGuard`. Akses lintas divisi → `403` + **wajib** memicu `SecurityAuditEvent` (ditulis ke Redis stream + tabel `audit_logs`).
-3. **Jangan pernah log:**
-   - password / secret / token / keypair,
-   - data sensitif anggota (nomor KTP, nomor rekening) dalam plain text.
-4. **Integritas dokumen**: `sha256_hash` dihitung dari *canonical payload*; direcompute & dicocokkan saat publish. Hash tidak pernah dijadikan "rahasia" — fungsinya hanya integrity check.
-5. **File upload**: validasi ekstensi + MIME + ukuran maksimum di level aplikasi (tidak mempercayai klien).
-6. **Environment**: semua kredensial via `.env` (tidak pernah hardcode). `.env` **tidak** boleh di-commit (`.gitignore`).
-
----
-
-## 4. Aturan Database & Migrasi
-
-- `prisma/schema.prisma` adalah **sumber kebenaran**. Ubah skema → `npm run migrate --name <deskripsi>` → commit folder migrasi.
-- **Dilarang** mengedit file migrasi lama yang sudah di-apply.
-- Field JSONB (kop, signatories, submission_data) tetap divalidasi dengan Zod di lapisan aplikasi — PostgreSQL tidak memvalidasi isinya.
-- Transaksi multi-tulis (mis. voucher + jurnal) wajib memakai `prisma.$transaction`.
-
+- **Tidak ada framework test otomatis** (biaya setup melebihi manfaat untuk skala ini). Gantinya:
+  1. Setiap handler dieksekusi manual via "Test function" di editor Apps Script setelah diubah.
+  2. Setiap perubahan state machine diuji untuk **semua transisi ilegal** (mis. approve surat DRAFT → harus gagal + audit).
+  3. Setiap aksi RBAC diuji login sebagai peran yang ditolak → harus `success: false`.
+  4. Isolasi divisi diuji: ketua divisi A akses divisi B → harus `success: false` + `FORBIDDEN`.
+  5. Frontend: buka di Chrome + mobile viewport; cek menu disembunyikan sesuai peran.
+- **Wajib** jalankan `setup()` sekali di spreadsheet baru sebelum demo/aplikasi apapun.
 
 ---
 
-## 5. Aturan Git & Commit
+## 6. Workflow Git & Commit
 
-### 5.1 Branch
-- `main` = selalu bisa deploy.
-- Branch fitur: `feat/<modul>/<deskripsi-singkat>` (mis. `feat/letters/render-pdf`).
-- Branch perbaikan: `fix/<modul>/<deskripsi-singkat>`.
-
-### 5.2 Conventional Commits
-```
-feat: tambah render PDF SK dengan stempel basah
-fix: koreksi perhitungan saldo buku kas saat outflow
-docs: lengkapi matriks RBAC untuk divisi hukum
-refactor: sederhanakan validasi nomor surat
-test: tambah unit test dual-approval voucher
-chore: update dependency prisma
-```
-- Subjek imperatif, huruf kecil, tanpa titik akhir, maksimal 72 karakter.
-
-### 5.3 Pull Request
-- 1 PR = 1 perubahan fokus. Hindari PR raksasa.
-- PR wajib: `npm run lint` bersih, `npm run test` hijau, deskripsi memuat "apa & mengapa".
+- Commit pesan: `<tipe>: <deskripsi singkat>` — tipe: `feat`, `fix`, `docs`, `refactor`, `style`.
+- Contoh: `feat: tambah aksi rejectVoucher dengan catatan wajib`.
+- Satu commit = satu perubahan fokus. Jangan campur fitur baru dengan perbaikan typo massal.
+- Branch: `main` untuk siap-demo; kerja fitur besar di branch `feat/<nama>`.
 
 ---
 
-## 6. Aturan Bahasa
+## 7. Aturan Kompleksitas (Cegah Over-Engineering)
 
-- **Teks UI / pesan error / nama fitur**: **Bahasa Indonesia** (sesuai pengguna akhir).
-- **Nama variabel, fungsi, class, file, tabel**: **Bahasa Inggris** (menjaga konsistensi dengan ekosistem).
-- Komentar kode: Bahasa Indonesia singkat hanya saat logika non-obvious. Kode yang jelas tidak perlu komentar.
-
----
-
-## 7. Aturan Testing
-
-- **Service** yang mengandung logika bisnis penting wajib punya unit test.
-- **Guard** (RBAC & divisi) wajib diuji: kasus *diizinkan* & kasus *ditolak*.
-- Test file menempel di sisi: `letters.service.spec.ts`.
-- Nama test deskriptif dalam Bahasa Inggris.
+- **Sebelum** menambahkan sesuatu, tanya: apakah ini menyelesaikan masalah nyata pengurus hari ini?
+- Jika tidak, catat di bagian "Ditangguhkan" `DESIGN.md` §12 dengan pemicu aktivasi, lalu lanjut.
+- Dilarang: menambah library/dependency tanpa persetujuan; membuat abstraksi untuk dipakai sekali.
+- `Database.gs` adalah **satu-satunya** abstraksi yang dibayar mahal — karena memungkinkan ganti backend data tanpa sentuh domain.
 
 ---
 
-## 8. Definition of Done
+## 8. Checklist Selesai (Definition of Done)
 
-Sebuah tugas dianggap selesai jika **semua** terpenuhi:
-- [ ] Fitur berjalan sesuai `DESIGN.md`
-- [ ] Semua input/output bertipe eksplisit (tidak ada `any`)
-- [ ] Endpoint terlindungi guard + tercatat di matriks RBAC (`rbac-matrix.md`)
-- [ ] Endpoint didokumentasikan otomatis di Swagger (Zod → OpenAPI)
-- [ ] Event audit dipicu pada aksi sensitif (403 cross-division, publish, approval)
-- [ ] Unit test hijau, `npm run lint` bersih
-- [ ] Migrasi ter-commit & dapat dijalankan ulang dari nol (`migrate:reset` + `seed`)
-- [ ] Tidak ada kredensial yang ter-commit
-- [ ] **Fase 4 (ship) saja:** backup database produksi via Neon point-in-time restore + panduan deploy Vercel (`vercel.json`, env produksi) tersedia (lihat `DESIGN.md` §11)
+Sebelum sebuah fitur dianggap selesai:
+- [ ] Handler terdaftar di `ROUTES` + matriks `rbac-matrix.md` diupdate.
+- [ ] Isolasi divisi & read-only ditegakkan di backend (bukan cuma frontend).
+- [ ] Audit event dicatat untuk aksi penting & penolakan.
+- [ ] Frontend menyembunyikan menu/tombol sesuai peran.
+- [ ] Pesan error/sukses dalam Bahasa Indonesia dan jelas.
+- [ ] Diuji manual sesuai §5; `setup()` berjalan bersih di spreadsheet baru.
+- [ ] Tidak ada hardcoded ID/secret; semua via Script Properties.
 
 ---
 
-## 9. Aturan Review
+## 9. Aturan Dokumentasi
 
-Saat meninjau PR, tanyakan:
-1. Apakah ini menyelesaikan masalah pengguna akhir? (Jika hanya "keren tapi tidak terpakai" → tolak.)
-2. Apakah rekan tim baru bisa memahami kode ini dalam 10 menit? (Jika tidak → sederhanakan.)
-3. Apakah ada jalan pintas yang melewati guard/audit? (Jika ada → tolak.)
-4. Apakah penambahan ini sesuai roadmap `DESIGN.md`, atau malah menyusupkan kompleksitas yang ditangguhkan?
+- `README.md` — cara setup & deploy (pintu masuk).
+- `docs/PRD.md` — **APA** yang dibangun (kebutuhan, scope, user story).
+- `docs/DESIGN.md` — **BAGAIMANA** (arsitektur, skema, keputusan teknis).
+- `docs/rbac-matrix.md` — **SIAPA** boleh **APA**.
+- `docs/PROJECT_RULES.md` — aturan main (dokumen ini).
 
-> **Ingat:** Pengguna akhir ini adalah pengurus yayasan yang **belum terbiasa administrasi digital**. Setiap kompleksitas yang kita tambahkan adalah beban untuk mereka. Pilih selalu yang paling sederhana yang masih menyelesaikan pekerjaan.
+> Urutan baca baru join: `README` → `PRD` → `DESIGN` → `rbac-matrix` → `PROJECT_RULES`.
+
+*Aturan ini menjaga kualitas tanpa memperlambat. Jika sebuah aturan menghambat penyelesaian masalah pengguna, bicarakan — bukan diam-diam dilanggar.*

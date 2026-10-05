@@ -19,6 +19,7 @@ type VerificationResult = {
   letter_type: LetterType | null;
   published_at: Date | null;
   sha256: string;
+  signatories: { name: string; role_title: string }[] | null;
 };
 
 /** Item feed informasi publik (surat yang sudah dirilis) */
@@ -28,6 +29,7 @@ type PublicFeedItem = {
   title: string;
   letter_type: LetterType;
   published_at: Date;
+  sha256_hash: string;
 };
 
 /** Item jadwal program resmi yang dipublikasi divisi */
@@ -38,6 +40,9 @@ type PublicScheduleItem = {
   division: Division;
   execution_date: Date;
   target_audience: string | null;
+  category: string | null;
+  description: string | null;
+  location: string | null;
 };
 
 type Paginated<TItem> = {
@@ -86,8 +91,21 @@ export class PublicPortalService {
         letter_type: null,
         published_at: null,
         sha256,
+        signatories: null,
       };
     }
+
+    // Penandatangan disimpan sebagai JSONB dengan bentuk { name, role_title, ... }
+    // (lihat letters.dto.ts). Dipetakan ke bentuk publik yang ringkas.
+    const rawSignatories = Array.isArray(letter.signatories)
+      ? (letter.signatories as Array<Record<string, unknown>>)
+      : [];
+    const signatories = rawSignatories
+      .filter((sig) => typeof sig?.name === 'string')
+      .map((sig) => ({
+        name: String(sig.name),
+        role_title: typeof sig.role_title === 'string' ? sig.role_title : '',
+      }));
 
     return {
       verified: true,
@@ -97,6 +115,7 @@ export class PublicPortalService {
       letter_type: letter.letter_type,
       published_at: letter.published_at,
       sha256: letter.sha256_hash,
+      signatories,
     };
   }
 
@@ -118,6 +137,7 @@ export class PublicPortalService {
           title: true,
           letter_type: true,
           published_at: true,
+          sha256_hash: true,
         },
       }),
       this.prisma.officialLetter.count({ where }),
@@ -157,6 +177,7 @@ export class PublicPortalService {
           division: true,
           execution_date: true,
           target_audience: true,
+          submission_data: true,
         },
       }),
       this.prisma.divisionSubmission.count({ where }),
@@ -165,7 +186,18 @@ export class PublicPortalService {
     return {
       // execution_date di-filter `not null` di atas; Prisma tidak menyempitkan
       // tipe lewat klausa where, jadi ditegaskan di sini.
-      items: rows.map((row) => ({ ...row, execution_date: row.execution_date as Date })),
+      items: rows.map((row) => {
+        // Detail tambahan (kategori/deskripsi/lokasi) disimpan divisi di kolom
+        // JSONB submission_data; ambil bila ada, null bila tidak diisi.
+        const data = (row.submission_data ?? {}) as Record<string, unknown>;
+        return {
+          ...row,
+          execution_date: row.execution_date as Date,
+          category: typeof data.kategori === 'string' ? data.kategori : null,
+          description: typeof data.deskripsi === 'string' ? data.deskripsi : null,
+          location: typeof data.lokasi === 'string' ? data.lokasi : null,
+        };
+      }),
       total,
       page,
       limit,

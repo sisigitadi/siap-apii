@@ -1,153 +1,144 @@
 # Matriks RBAC — Izin per Peran
 
-**Yayasan APII DPW Jabodetabek — Backend API**
+**Yayasan APII DPW Jabodetabek — Sistem Informasi & Administrasi Terpadu**
 
-> Sumber kebenaran izin akses. Setiap endpoint baru **wajib** didaftarkan di sini saat dibuat.
+> Sumber kebenaran izin akses. Setiap aksi router baru **wajib** didaftarkan di sini dan di tabel `ROUTES` `Code.gs`.
 
 **Legenda:**
-- `✏️` = baca + tulis (create/update/delete)
+- `✏️` = baca + tulis (create/update)
 - `👁️` = read-only
 - `✅` = akses penuh (termasuk approve/publish)
-- `🚫` = tidak ada akses (403 + audit event)
-- `🔒` = hanya milik divisi sendiri (isolasi `DivisionGuard`)
+- `🚫` = tidak ada akses (ditolak + audit event `FORBIDDEN`)
+- `🔒` = hanya divisi sendiri (isolasi divisi)
 
 ---
 
 ## Matriks Utama: 9 Peran × Modul
 
-> Setelah restrukturisasi jabatan (migrasi `20261004000000_restrukturisasi_jabatan`):
-> `KETUA_UMUM` → `KETUA`, `DEWAN_PENGAWAS` → `PENGAWAS`,
-> `PUBLIK_ANGGOTA` → `ANGGOTA_BIASA`, `DIV_*` → `KETUA_DIVISI`/`ANGGOTA_DIVISI`,
-> dan jabatan baru `PEMBINA` (Dewan Pembina) ditambahkan.
-
-| Peran | auth | letters | finance | divisions | public-portal | uploader |
+| Peran | auth (kelola akun) | surat | keuangan | divisi | portal publik | audit log |
 |---|---|---|---|---|---|---|
-| `SUPERADMIN` | ✅ + delegasi awal | ✅ + konfigurasi kop | 👁️ + reset | ✅ semua divisi | 👁️ | ✅ |
-| `KETUA` | 👁️ | ✅ **approve & rilis SK** | ✅ **verify_by_ketum** | ✅ **Approval Board** | 👁️ | ✅ |
-| `SEKRETARIS` | 👁️ (jika didelegasikan) | ✏️ CRUD surat | 🚫 | 👁️ | 👁️ | ✅ |
-| `BENDAHARA` | 👁️ (jika didelegasikan) | 🚫 | ✅ voucher + `verify_by_bendahara` + laporan | 👁️ | 👁️ | ✅ |
-| `PEMBINA` | 🚫 | 👁️ | 👁️ | 👁️ | 👁️ | 🚫 |
-| `PENGAWAS` | 🚫 | 👁️ | 👁️ **live ledger** | 👁️ | 👁️ | 🚫 |
-| `KETUA_DIVISI` | 🚫 | 🚫 | 🚫 | 🔒 divisi sendiri | 👁️ | 🔒 |
-| `ANGGOTA_DIVISI` | 🚫 | 🚫 | 🚫 | 🔒 divisi sendiri | 👁️ | 🔒 |
-| `ANGGOTA_BIASA` | 👁️ sesi sendiri | 🚫 | 🚫 | 🚫 | 👁️ + e-KTA sendiri | 🚫 |
+| `SUPERADMIN` | ✅ kelola semua akun | ✏️ + konfigurasi template | 👁️ + reset | ✅ semua divisi | 👁️ | ✅ |
+| `KETUA` | 👁️ | ✅ **approve & rilis surat** | ✅ **verifikasi final voucher** | ✅ **Approval Board** | 👁️ | 👁️ |
+| `SEKRETARIS` | 👁️ | ✏️ **CRUD + ajukan surat** | 🚫 | 👁️ semua divisi | 👁️ | 🚫 |
+| `BENDAHARA` | 👁️ | 🚫 | ✏️ **voucher + verifikasi tahap 1** | 👁️ semua divisi | 👁️ | 🚫 |
+| `PEMBINA` | 🚫 | 👁️ | 👁️ | 👁️ semua divisi | 👁️ | 🚫 |
+| `PENGAWAS` | 🚫 | 👁️ | 👁️ | 👁️ semua divisi | 👁️ | 🚫 |
+| `KETUA_DIVISI` | 🚫 | 🚫 | 🚫 | 🔒 **divisi sendiri** (CRUD + ajukan) | 👁️ | 🚫 |
+| `ANGGOTA_DIVISI` | 🚫 | 🚫 | 🚫 | 🔒 **divisi sendiri** (create + ajukan) | 👁️ | 🚫 |
+| `ANGGOTA_BIASA` | 👁️ akun sendiri | 🚫 | 🚫 | 🚫 | 👁️ + verifikasi surat | 🚫 |
+
+---
+
+## Matriks Detail per Aksi Router
+
+### Modul Autentikasi (`Auth.gs`)
+| Aksi | SUPERADMIN | KETUA | SEKRETARIS | BENDAHARA | PEMBINA | PENGAWAS | KETUA_DIVISI | ANGGOTA_DIVISI | ANGGOTA_BIASA |
+|---|---|---|---|---|---|---|---|---|---|
+| `login` | ✅ publik | ✅ publik | ✅ publik | ✅ publik | ✅ publik | ✅ publik | ✅ publik | ✅ publik | ✅ publik |
+| `logout` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `me` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `getListPengguna` | ✅ | 👁️ | 👁️ | 👁️ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| `createPengguna` | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| `updatePengguna` | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| `getAuditLogs` | ✅ | 👁️ | 🚫 | 🚫 | 🚫 | 👁️ | 🚫 | 🚫 | 🚫 |
+
+### Modul Persuratan (`Surat.gs`)
+| Aksi | SUPERADMIN | KETUA | SEKRETARIS | BENDAHARA | PEMBINA | PENGAWAS | KETUA/ANGGOTA DIVISI | ANGGOTA_BIASA |
+|---|---|---|---|---|---|---|---|---|
+| `getListSurat` | ✅ | ✅ | ✅ | 👁️ | 👁️ | 👁️ | 🚫 | 🚫 |
+| `createSurat` | ✅ | 🚫 | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| `updateSurat` | ✅ (hanya DRAFT) | 🚫 | ✅ (hanya DRAFT) | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| `submitSurat` | ✅ | 🚫 | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| `approveSurat` | ✅ | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| `rejectSurat` | ✅ | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| `verifySurat` | ✅ publik | ✅ publik | ✅ publik | ✅ publik | ✅ publik | ✅ publik | ✅ publik | ✅ publik |
+
+### Modul Keuangan (`Keuangan.gs`)
+| Aksi | SUPERADMIN | KETUA | SEKRETARIS | BENDAHARA | PEMBINA | PENGAWAS | DIVISI | ANGGOTA_BIASA |
+|---|---|---|---|---|---|---|---|---|
+| `getListKeuangan` | ✅ | ✅ | 🚫 | ✅ | 👁️ | 👁️ | 🚫 | 🚫 |
+| `getSaldo` | ✅ | ✅ | 🚫 | ✅ | 👁️ | 👁️ | 🚫 | 🚫 |
+| `createVoucher` | ✅ | 🚫 | 🚫 | ✅ | 🚫 | 🚫 | 🚫 | 🚫 |
+| `verifyVoucherBendahara` | ✅ | 🚫 | 🚫 | ✅ | 🚫 | 🚫 | 🚫 | 🚫 |
+| `verifyVoucherKetum` | ✅ | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| `rejectVoucher` | ✅ | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+
+### Modul Divisi (`Divisi.gs`)
+| Aksi | SUPERADMIN | KETUA | SEKRETARIS | BENDAHARA | PEMBINA | PENGAWAS | KETUA_DIVISI | ANGGOTA_DIVISI | ANGGOTA_BIASA |
+|---|---|---|---|---|---|---|---|---|---|
+| `getListDivisi` | ✅ semua | ✅ semua | ✅ semua | ✅ semua | ✅ semua | ✅ semua | 🔒 sendiri | 🔒 sendiri | 🚫 |
+| `createSubmission` | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🔒 sendiri | 🔒 sendiri | 🚫 |
+| `updateSubmission` | ✅ (DRAFT) | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🔒 (DRAFT) | 🔒 (DRAFT) | 🚫 |
+| `ajukanSubmission` | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🔒 sendiri | 🔒 sendiri | 🚫 |
+| `approveSubmission` | ✅ | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| `rejectSubmission` | ✅ | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+
+### Dashboard
+| Aksi | Semua peran login |
+|---|---|
+| `getDashboard` | ✅ (statistik difilter otomatis sesuai peran & divisi) |
 
 ---
 
 ## Catatan Penting per Peran
 
 ### SUPERADMIN
-- Satu-satunya yang bisa `POST /auth/delegation/init` & toggle `can_manage_users`.
-- Bisa reset/migrasi database, tapi **tidak** menggantikan approve Ketua (pemisahan tugas).
-- Melihat semua audit event via `role:superadmin` room.
+- Satu-satunya yang bisa membuat/mengubah/mencabut akun + melihat `Sheet_AuditLogs`.
+- Bisa reset data, tapi **tidak boleh** menggantikan approve Ketua (pemisahan tugas — `approveSurat` tetap butuh peran KETUA/SUPERADMIN, namun secara operasional diserahkan ke Ketua).
 
 ### KETUA
-- **Persetujuan tunggal** untuk: rilis SK (`PENDING_APPROVAL → PUBLISHED`), Approval Board divisi, dan `verify_by_ketum` voucher.
-- Veto: bisa menolak dengan catatan (`approval_notes`).
+- **Persetujuan tunggal** untuk: rilis surat (`PENDING_APPROVAL → PUBLISHED` + PDF), Approval Board divisi, dan verifikasi final voucher (`VERIFIED_BY_BENDAHARA → APPROVED`).
+- Veto: bisa menolak dengan catatan wajib (`rejection_notes` / `approval_notes`).
 
 ### SEKRETARIS
-- Full CRUD surat, tapi **tidak bisa** mempublikasi sendiri (harus approval Ketua).
-- Verifikasi berkas lampiran (`ocr_verified` manual review di Fase 1).
+- Full CRUD surat, tapi **tidak bisa** mempublikasi sendiri (wajib approval Ketua).
+- Bisa edit nomor surat hanya saat status `DRAFT`.
 
 ### BENDAHARA
-- Hanya role yang bisa membuat voucher & melihat laporan bersetempel.
-- Dual-approval: Bendahara verify dulu, baru Ketua.
+- Hanya peran yang bisa membuat voucher & verifikasi tahap 1.
+- Dual-approval: Bendahara verify dulu, baru Ketua verifikasi final.
 
 ### PEMBINA
-- **Read-only mutlak** atas seluruh dokumen & laporan organisasi (surat resmi, buku kas, laporan bulanan, daftar pengurus) — tidak ada endpoint tulis.
-- Memberikan arah strategis & bimbingan kepengurusan; mengawal visi-misi dan program kerja jangka panjang.
+- **Read-only mutlak** atas seluruh dokumen & laporan (surat, buku kas, usulan divisi, daftar pengurus) — tidak ada aksi tulis.
+- Frontend **tidak merender** tombol aksi apa pun.
 
 ### PENGAWAS
-- **Read-only mutlak** — tidak ada endpoint tulis di modul apa pun.
-- Akses khusus: live ledger via room `role:pengawas` + audit trail.
-- Bisa mengajukan form usulan sanksi/SP (endpoint khusus, diproses Ketua).
+- **Read-only mutlak** — tidak ada aksi tulis di modul apa pun.
+- Bisa melihat jejak audit (`getAuditLogs`) untuk pengawasan.
 
 ### KETUA_DIVISI / ANGGOTA_DIVISI
-- **Hanya divisi sendiri.** Mencoba akses `/divisions/humas/*` dengan `DIV_DAKWAH` → **403 + audit event**.
-- Workflow ketat: `Simpan DRAFT` / `Ajukan PENDING_APPROVAL` saja — **0 publikasi langsung**.
+- **Hanya divisi sendiri.** Mencoba akses data divisi lain → **ditolak + audit event `FORBIDDEN`**.
+- Divisi diambil dari `user.division` (token), **bukan** dari payload frontend.
+- Workflow ketat: `Simpan DRAFT` / `Ajukan` saja — **0 publikasi langsung**.
 
 ### ANGGOTA_BIASA
-- Hanya portal publik + data e-KTA sendiri (berdasar `user.id` di token).
-- Tidak ada akses modul internal apa pun.
-
+- Hanya portal publik + verifikasi surat. Tidak ada akses modul internal.
 
 ---
 
-## Aturan Delegasi Manajemen Anggota
+## Audit Event per Aksi
 
-```
-SUPERADMIN ──toggle can_manage_users──▶ KETUA / SEKRETARIS / BENDAHARA
-                                        │
-                                        └──▶ POST /users/invite (tanpa campur tangan IT)
-                                                │
-                                                └──▶ audit_logs + event AUDIT_SECURITY (room superadmin)
-```
-
-- Delegasi **tidak** berlaku untuk role divisi (`KETUA_DIVISI` / `ANGGOTA_DIVISI`) atau `ANGGOTA_BIASA`.
-- Superadmin dapat mencabut delegasi kapan saja (semua perubahan tercatat di `audit_logs`).
-- Pengguna yang diundang menerima email Google OAuth; setelah login pertama, akun aktif dengan role/divisi yang ditentukan pengundang.
-
----
-
-## Aturan Audit Event
-
-Setiap aksi berikut **wajib** memicu `SecurityAuditEvent` (Redis stream `audit:security` + `audit_logs`):
-
-| Pemicu | severity | Terlihat oleh |
+| Aksi / Event | Audit Action | Pelaku tercatat |
 |---|---|---|
-| 403 cross-division | `WARNING` | superadmin, pengawas |
-| 403 role kurang | `WARNING` | superadmin, pengawas |
-| Perubahan delegasi | `CRITICAL` | superadmin |
-| Undangan pengurus baru | `INFO` | superadmin, pengundang |
-| Publikasi SK | `INFO` | semua (event `DOCUMENT_PUBLISHED`) |
-| Approval usulan divisi | `INFO` | divisi terkait |
-| Mutasi buku kas terverifikasi | `INFO` | bendahara, pengawas |
-
----
-
-## Contoh Endpoint → Guard (Fase 1-2)
-
-> Catatan: path berikut mencerminkan kode nyata di `src/modules/*` (auto-sync
-> Sprint 1). Sebelumnya tabel ini memakai path placeholder yang tidak pernah
-> ada implementasinya (`/auth/google/login`, `/letters/:id/render-pdf`) — sudah
-> dikoreksi.
-
-| Endpoint | Guard yang dipasang |
-|---|---|
-| `GET /api/v1/auth/google` | (publik) — URL otorisasi Google (PKCE) |
-| `GET /api/v1/auth/google/callback` | (publik) — set cookie, redirect ke frontend |
-| `POST /api/v1/auth/refresh` | (publik, butuh refresh cookie) |
-| `GET /api/v1/auth/me` | `JwtAuthGuard` |
-| `PATCH /api/v1/auth/me` | `JwtAuthGuard` — ubah nama/foto profil sendiri (FR-AUTH-08) |
-| `POST /api/v1/auth/logout` · `/logout-all` | `JwtAuthGuard` |
-| `POST /api/v1/users/invite` | `JwtAuthGuard` + `Roles(SUPERADMIN, KETUA, SEKRETARIS, BENDAHARA)` + cek `can_manage_users` |
-| `PATCH /api/v1/users/:id/role` | `JwtAuthGuard` + `Roles(SUPERADMIN)` |
-| `GET /api/v1/users` | `JwtAuthGuard` + `Roles(SUPERADMIN, KETUA, SEKRETARIS, BENDAHARA, PEMBINA, PENGAWAS)` |
-| `GET /api/v1/official-letters` | `JwtAuthGuard` + `Roles(SEKRETARIS, KETUA, SUPERADMIN, PEMBINA, PENGAWAS)` |
-| `POST /api/v1/official-letters` | `JwtAuthGuard` + `Roles(SEKRETARIS, SUPERADMIN)` |
-| `POST /api/v1/official-letters/:id/submit` | `JwtAuthGuard` + `Roles(SEKRETARIS, SUPERADMIN)` |
-| `POST /api/v1/official-letters/:id/approve-and-publish` | `JwtAuthGuard` + `Roles(KETUA, SUPERADMIN)` |
-| `POST /api/v1/official-letters/:id/reject` | `JwtAuthGuard` + `Roles(KETUA, SUPERADMIN)` |
-| `GET /api/v1/official-letters/:id/render-html` | `JwtAuthGuard` + `Roles(SEKRETARIS, KETUA, SUPERADMIN, PEMBINA, PENGAWAS)` |
-| `GET /api/v1/official-letters/:id/render-pdf` | `JwtAuthGuard` + `Roles(SEKRETARIS, KETUA, SUPERADMIN, PEMBINA, PENGAWAS)` — PDF on-demand (FR-LETTER-04/05/06) |
-| `GET /api/v1/official-letters/:id/download` | `JwtAuthGuard` + `Roles(SEKRETARIS, KETUA, SUPERADMIN, PEMBINA, PENGAWAS)` — unduh PDF immutable (FR-LETTER-09) |
-| `GET /api/v1/finance/vouchers` | `JwtAuthGuard` + `Roles(BENDAHARA, KETUA, SUPERADMIN, PEMBINA, PENGAWAS)` |
-| `POST /api/v1/finance/vouchers` | `JwtAuthGuard` + `Roles(BENDAHARA, SUPERADMIN)` |
-| `POST /api/v1/finance/vouchers/:id/verify-ketum` | `JwtAuthGuard` + `Roles(KETUA, SUPERADMIN)` |
-| `GET /api/v1/divisions/submissions` | `JwtAuthGuard` + `DivisionGuard` (divisi sendiri) atau `Roles(...CROSS_DIVISION_ROLES)` (SUPERADMIN, KETUA, SEKRETARIS, BENDAHARA, PEMBINA, PENGAWAS) |
-| `POST /api/v1/divisions/submissions/:id/approve` | `JwtAuthGuard` + `Roles(KETUA, SUPERADMIN)` |
-| `GET /api/v1/public/feed` | (publik) |
-| `GET /api/v1/public/schedules` | (publik) |
-| `GET /api/v1/public/verify/:sha256` | (publik) |
-| `GET /api/v1/public/members/me/e-kta` | `JwtAuthGuard` + `Roles(ANGGOTA_BIASA)` |
-| `WS /v1/stream/events` | JWT di handshake socket.io (room: `public`, `role:<x>`, `division:<x>`) |
-| `POST /api/v1/uploads` | `JwtAuthGuard` (divisi hanya untuk lampiran own-scope) |
+| Login berhasil | `LOGIN_SUCCESS` | username |
+| Login gagal | `LOGIN_FAILED` | username percobaan |
+| Akses ditolak (RBAC/isolasi) | `FORBIDDEN` | username + aksi |
+| Surat diajukan | `SURAT_SUBMIT` | sekretaris |
+| Surat dipublikasi | `SURAT_PUBLISHED` | ketua |
+| Surat ditolak | `SURAT_REJECTED` | ketua |
+| Voucher diverifikasi bendahara | `KEU_VERIFY_BENDAHARA` | bendahara |
+| Voucher diverifikasi ketua | `KEU_VERIFY_KETUM` | ketua |
+| Voucher ditolak | `KEU_REJECTED` | ketua |
+| Usulan diajukan | `DIVISI_AJUKAN` | anggota divisi |
+| Usulan disetujui | `DIVISI_SETUJU` | ketua |
+| Usulan ditolak | `DIVISI_TOLAK` | ketua |
+| Akun dibuat/diubah | `USER_CREATE` / `USER_UPDATE` | superadmin |
 
 ---
 
 ## Cara Menggunakan Matriks Ini (untuk Developer)
 
-1. **Saat membuat endpoint baru**, tentukan: butuh login? peran apa? divisi sendiri?
-2. Pasang decorator guard di controller, **lalu** tambahkan baris ke tabel di atas.
-3. Tulis unit test untuk **kedua** kasus: diizinkan & ditolak (403).
+1. **Saat membuat aksi router baru**, tentukan: butuh login? peran apa? divisi sendiri?
+2. Tambahkan baris ke tabel `ROUTES` di `Code.gs` **dan** ke matriks ini.
+3. Pastikan frontend menyembunyikan (bukan sekadar menonaktifkan) menu/tombol yang tidak diizinkan.
 4. Jika matriks & kode berbeda → **matriks yang menang** (fix kodenya).

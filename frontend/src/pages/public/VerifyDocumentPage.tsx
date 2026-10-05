@@ -21,28 +21,16 @@ export const VerifyDocumentPage: React.FC = () => {
       publicApi
         .verifyDocument(sha256)
         .then((res) => {
+          // Backend selalu 200: verified=false bila hash tidak terdaftar atau
+          // dokumen belum dirilis. Tampilkan pesan server apa adanya.
           setDoc(res);
+          if (!res.verified) {
+            setError(res.message || 'Sidik jari dokumen tidak terdaftar atau belum dirilis resmi.');
+          }
           setLoading(false);
         })
         .catch(() => {
-          if (sha256.length === 64) {
-            setDoc({
-              verified: true,
-              document_type: 'SURAT_KEPUTUSAN',
-              letter_number: '001/SK/APII-JB/I/2026',
-              title: 'Pengesahan Struktur Pengurus DPW Jabodetabek Periode 2026-2031',
-              recipient: 'Seluruh Anggota & Pengurus DPW APII Jabodetabek',
-              sha256_hash: sha256,
-              published_at: new Date().toISOString(),
-              status: 'PUBLISHED',
-              signatories: [
-                { role: 'SEKRETARIS', name: 'Muhammad Rizki, S.T.', title: 'Sekretaris Wilayah', position: 'left' },
-                { role: 'KETUA', name: 'Dr. H. Ahmad Fauzi', title: 'Ketua DPW APII', position: 'right' },
-              ],
-            });
-          } else {
-            setError('Sidik jari dokumen (SHA-256) tidak terdaftar atau tidak sah.');
-          }
+          setError('Gagal menghubungi server verifikasi. Coba beberapa saat lagi.');
           setLoading(false);
         });
     }
@@ -84,7 +72,7 @@ export const VerifyDocumentPage: React.FC = () => {
       {error && (
         <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center space-y-1">
           <ShieldAlert className="w-10 h-10 text-rose-600 mx-auto mb-1" />
-          <h3 className="text-sm font-bold text-rose-900">Dokumen Tidak Sah</h3>
+          <h3 className="text-sm font-bold text-rose-900">Dokumen Tidak Terverifikasi</h3>
           <p className="text-xs text-rose-700">{error}</p>
         </div>
       )}
@@ -103,34 +91,38 @@ export const VerifyDocumentPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="p-2.5 bg-slate-50 rounded-lg">
-              <span className="text-slate-500 block text-[10px]">Penerima:</span>
-              <span className="font-bold text-slate-800">{doc.recipient}</span>
+              <span className="text-slate-500 block text-[10px]">Jenis Surat:</span>
+              <span className="font-bold text-slate-800">{doc.letter_type || '-'}</span>
             </div>
             <div className="p-2.5 bg-slate-50 rounded-lg">
               <span className="text-slate-500 block text-[10px]">Tanggal Terbit:</span>
-              <span className="font-bold text-slate-800">{formatDateIndo(doc.published_at)}</span>
+              <span className="font-bold text-slate-800">
+                {doc.published_at ? formatDateIndo(doc.published_at) : '-'}
+              </span>
             </div>
           </div>
 
           <div className="bg-slate-900 text-white p-3 rounded-lg text-[10px] font-mono break-all">
             <span className="text-emerald-400 font-semibold block uppercase">Hash SHA-256:</span>
-            {doc.sha256_hash}
+            {doc.sha256}
           </div>
 
-          <div>
-            <h4 className="text-[11px] font-bold text-slate-600 uppercase mb-2">Penandatangan Resmi:</h4>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {doc.signatories.map((sig, idx) => (
-                <div key={idx} className="p-2 border rounded-lg flex items-center justify-between">
-                  <div>
-                    <p className="font-bold text-slate-900">{sig.name}</p>
-                    <p className="text-[10px] text-slate-500">{sig.title}</p>
+          {doc.signatories && doc.signatories.length > 0 && (
+            <div>
+              <h4 className="text-[11px] font-bold text-slate-600 uppercase mb-2">Penandatangan Resmi:</h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {doc.signatories.map((sig, idx) => (
+                  <div key={idx} className="p-2 border rounded-lg flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-slate-900">{sig.name}</p>
+                      <p className="text-[10px] text-slate-500">{sig.role_title}</p>
+                    </div>
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   </div>
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>

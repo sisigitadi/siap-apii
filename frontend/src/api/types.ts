@@ -130,7 +130,25 @@ export type CashCategory =
 
 export type CashAccount = 'BSI_OPERASIONAL' | 'BCA_PROGRAM' | 'KAS_TUNAI_SEKRETARIAT';
 
-export type VoucherStatus = 'PENDING_BENDAHARA' | 'PENDING_KETUA' | 'APPROVED' | 'REJECTED';
+/**
+ * Status voucher sesuai enum backend CashFlowStatus (schema.prisma). Nama enum
+ * ini BUKAN alias frontend lama (PENDING_KETUA dsb.) — memakai nama backend
+ * agar filter & badge langsung cocok dengan API.
+ */
+export type VoucherStatus = 'PENDING' | 'VERIFIED_BENDAHARA' | 'VERIFIED_KETUM' | 'REJECTED';
+
+/**
+ * Jenis surat resmi sesuai enum backend LetterType (schema.prisma), dipakai pada
+ * response API publik (feed & verifikasi). Berbeda dari `LetterType` lama.
+ */
+export type BackendLetterType =
+  | 'SK'
+  | 'SURAT_TUGAS'
+  | 'REKOMENDASI'
+  | 'MAKLUMAT'
+  | 'UNDANGAN'
+  | 'PENGANTAR'
+  | 'EDARAN';
 
 export interface CashFlow {
   id: string;
@@ -234,50 +252,51 @@ export interface SubmissionAggregate {
 }
 
 // Public Portal
+/**
+ * Hasil verifikasi dokumen sesuai kontrak backend (public-portal.dto.ts).
+ * Field `sha256` dan `signatories` mengikuti response server; jangan dipakai
+ * dengan alias lama (sha256_hash/signatories lama).
+ */
 export interface DocumentVerification {
   verified: boolean;
-  document_type: string;
-  letter_number: string;
-  title: string;
-  recipient: string;
-  sha256_hash: string;
-  published_at: string;
-  status: LetterStatus;
-  signatories: LetterSignatory[];
+  message?: string;
+  letter_number: string | null;
+  title: string | null;
+  letter_type: BackendLetterType | null;
+  published_at: string | null;
+  sha256: string;
+  signatories: { name: string; role_title: string }[] | null;
 }
 
 export interface MemberCard {
-  id: string;
-  member_number: string;
-  fullName: string;
+  member_number: string | null;
+  full_name: string;
   email: string;
-  phone?: string | null;
-  city?: string | null;
-  division?: Division | null;
-  role: UserRole;
-  status: UserStatus;
-  joined_at: string;
-  expires_at: string;
-  qr_verify_url: string;
+  photo_url: string | null;
+  member_since: string | null;
+  issued_at: string | null;
+  expires_at: string | null;
+  status: 'ACTIVE' | 'EXPIRED';
+  qr_verify_url: string | null;
 }
 
 export interface PublicSchedule {
   id: string;
-  title: string;
+  tracking_id: string;
+  program_title: string;
   division: Division;
-  category: SubmissionCategory;
-  description: string;
-  start_date: string;
-  end_date: string;
-  location?: string | null;
+  execution_date: string;
+  target_audience: string | null;
+  category: string | null;
+  description: string | null;
+  location: string | null;
 }
 
 export interface PublicFeedItem {
   id: string;
   letter_number: string;
   title: string;
-  type: LetterType;
-  division?: Division | null;
+  letter_type: BackendLetterType;
   published_at: string;
   sha256_hash: string;
 }

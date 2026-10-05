@@ -10,7 +10,9 @@ interface EKtaCardProps {
 }
 
 export const EKtaCard: React.FC<EKtaCardProps> = ({ card, onPrint }) => {
-  const isExpired = new Date(card.expires_at).getTime() < Date.now();
+  const isExpired = card.expires_at
+    ? new Date(card.expires_at).getTime() < Date.now()
+    : false;
 
   return (
     <div className="flex flex-col items-center">
@@ -47,7 +49,7 @@ export const EKtaCard: React.FC<EKtaCardProps> = ({ card, onPrint }) => {
         <div className="my-auto py-2 flex items-center justify-between relative z-10">
           <div>
             <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Nama Anggota</p>
-            <p className="text-base font-bold text-white tracking-wide">{card.fullName}</p>
+            <p className="text-base font-bold text-white tracking-wide">{card.full_name}</p>
             <p className="text-xs font-mono text-emerald-400 mt-0.5 tracking-wider font-semibold">
               {card.member_number || 'APII-JB-MEMBER'}
             </p>
