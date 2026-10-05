@@ -61,3 +61,11 @@ apps-script/AsetStempel.gs
 *.log
 backend-dev-err.txt
 backend-dev-out.txt
+.commit-msg.txt
+badges.txt
+c.txt
+fetsc2.txt
+flp.txt
+flp2.txt
+jestpp.txt
+tsc3.txt
