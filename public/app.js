@@ -31,8 +31,9 @@
     post: function (action, payload) {
       return fetch(window.API_BASE || '', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: action, payload: payload || {} })
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: action, payload: payload || {} }),
+        redirect: 'follow'
       }).then(function (r) { return r.json(); });
     },
 

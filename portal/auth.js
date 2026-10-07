@@ -82,9 +82,11 @@
         }
       }
 
-      var req = { method: method };
+      var req = { method: method, redirect: 'follow' };
       if (method === 'POST') {
-        req.headers = { 'Content-Type': 'application/json' };
+        // Gunakan text/plain untuk menghindari CORS Preflight (OPTIONS)
+        // yang tidak didukung oleh Web App Google Apps Script.
+        req.headers = { 'Content-Type': 'text/plain;charset=utf-8' };
         req.body = JSON.stringify({
           action: action,
           token: this.token || null,
@@ -93,13 +95,10 @@
       }
 
       return fetch(url, req).then(function (r) {
-        // Apps Script kadang kembalikan text bila error tak terduga.
-        var ct = r.headers.get('content-type') || '';
-        if (ct.indexOf('application/json') === -1) {
-          throw new Error('Respons server tidak valid (bukan JSON).');
-        }
         return r.json().then(function (body) {
           return { status: r.status, body: body || {} };
+        }).catch(function () {
+          throw new Error('Respons server tidak valid (bukan JSON).');
         });
       }).then(function (res) {
         var b = res.body;
