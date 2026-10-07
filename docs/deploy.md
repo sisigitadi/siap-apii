@@ -1,176 +1,168 @@
 # Panduan Deployment & Operasional Produksi (SIAP APII)
 
-**Sistem Informasi & Administrasi Terpadu Yayasan APII DPW Jabodetabek — Backend API**
+**Sistem Informasi & Administrasi Terpadu Yayasan APII DPW Jabodetabek**
 
-> Dokumen ini adalah panduan resmi deployment, manajemen infrastruktur cloud, strategi database, dan prosedur pemulihan bencana (disaster recovery) untuk backend SIAP APII.
+> Dokumen panduan resmi deployment, konfigurasi custom domain, sinkronisasi Google Apps Script, dan prosedur operasional produksi SIAP APII.
 
 ---
 
-## 1. Ringkasan Infrastruktur Produksi
+## 1. Ringkasan Infrastruktur Produksi (100% Serverless & Gratis)
 
-Backend SIAP APII dirancang dengan arsitektur **Serverless Monolith** di mana logika bisnis berjalan sebagai satu unit NestJS terpadu pada compute Vercel, didukung oleh layanan cloud terkelola (managed services):
+SIAP APII berjalan di atas arsitektur serverless modern tanpa memerlukan server VM berbayar. Seluruh beban komputasi backend, basis data, dan penyimpanan dokumen dikelola oleh infrastruktur Google Workspace/Google Cloud gratis selamanya dalam kuota yayasan, sedangkan frontend di-hosting pada Vercel Global Edge Network.
 
-| Komponen | Layanan / Provider | Region | Keterangan |
+| Komponen | Layanan / Provider | Endpoint / Target | Keterangan |
 |---|---|---|---|
-| **Compute (API)** | **Vercel** Serverless Functions | `sin1` (Singapura) | Auto-scaling, SSL terkelola, CDN global, HTTP/2 & HTTP/3 |
-| **Database** | **Neon** Serverless PostgreSQL 16 | `ap-southeast-1` (Singapura) | Connection pooling (PgBouncer), auto-suspend, branching, PITR |
-| **Cache & Event Bus** | **Upstash** Serverless Redis 7 | `ap-southeast-1` (Singapura) | Token blacklist, PKCE state, pub/sub WebSocket (`ws:events`), audit stream |
-| **Object Storage** | **Cloudflare R2** (S3 Compatible) | Global / APAC | Berkas lampiran usulan program, arsip surat, PDF SK & voucher |
-| **Domain API** | `https://apii.sigitadi.id` | Cloudflare DNS | Mengarah ke CNAME Vercel |
-| **Frontend SPA** | `https://app.apii.sigitadi.id` | Vercel Project Terpisah | SPA frontend yang mengonsumsi API ini |
+| **Portal Pengurus (SPA)** | **Vercel** Edge CDN (`sin1` SG) | `https://siapii.sigitadi.id` | Single Page Application pengurus (folder `portal/`) |
+| **Portal Publik** | **Nginx / Static Web** | `https://apii.sigitadi.id` | Landing page masyarakat & verifikasi surat resmi |
+| **Backend API** | **Google Apps Script** Web App | `https://script.google.com/macros/s/.../exec` | Router RESTful JSON, RBAC 9 peran, sesi token 7-hari |
+| **Database ACID** | **Google Sheets** | Spreadsheet ID: `1B0p0Jgb...` | 7 sheet: Users, Sessions, Surat, Keuangan, Divisi, Audit, Sequences |
+| **Document Storage** | **Google Drive** | `APII Jabo - PDF Surat Resmi` | Arsip PDF surat resmi, lampiran berkas, nota transaksi |
+| **Mesin Render PDF** | **Google Docs Template** | Auto-generated via `setup()` | Kop surat resmi, stempel basah, logo, nomor otomatis |
+| **Notifikasi Background** | **GmailApp / MailApp** | Otomatis via GAS | Email persetujuan surat, voucher kas, & usulan program |
+| **Notifikasi Interaktif** | **WhatsApp Web Link** | Click-to-Chat URI | Quick share dokumen, voucher, & permohonan ke WhatsApp |
 
 ---
 
-## 2. Checklist Environment Variables Produksi
+## 2. Struktur Domain & Routing
 
-Seluruh variabel lingkungan dikonfigurasi melalui menu **Settings → Environment Variables** pada project Vercel.
-
-| Nama Variabel | Wajib | Contoh Nilai Produksi | Keterangan |
-|---|:---:|---|---|
-| `NODE_ENV` | Ya | `production` | Mengaktifkan optimasi performa dan level log produksi |
-| `PORT` | Tidak | `3000` | Port listen default (Vercel menangani routing otomatis) |
-| `FRONTEND_URL` | Ya | `https://app.apii.sigitadi.id` | URL frontend untuk callback OAuth & tautan sistem |
-| `PUBLIC_VERIFY_BASE_URL` | Ya | `https://app.apii.sigitadi.id/verify` | Base URL QR code verifikasi surat publik & e-KTA |
-| `CORS_ORIGINS` | Ya | `https://app.apii.sigitadi.id` | Daftar origin CORS (pisahkan koma jika multi-domain) |
-| `DATABASE_URL` | Ya | `postgresql://user:pass@ep-xyz-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require` | Connection string PostgreSQL Neon (gunakan pooled connection) |
-| `DIRECT_URL` | Ya (CLI) | `postgresql://user:pass@ep-xyz.ap-southeast-1.aws.neon.tech/neondb?sslmode=require` | Direct connection Neon (khusus eksekusi `prisma migrate`) |
-| `REDIS_URL` | Ya | `rediss://default:token@singapore-redis.upstash.io:6379` | Connection string Upstash Redis dengan TLS (`rediss://`) |
-| `JWT_PRIVATE_KEY` | Ya | `"-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----"` | Kunci privat RS256 2048-bit (string satu baris dengan `\n`) |
-| `JWT_PUBLIC_KEY` | Ya | `"-----BEGIN PUBLIC KEY-----\nMIIB...\n-----END PUBLIC KEY-----"` | Kunci publik RS256 (string satu baris dengan `\n`) |
-| `GOOGLE_CLIENT_ID` | Ya | `123456789-abc.apps.googleusercontent.com` | Google Cloud OAuth 2.0 Web Client ID |
-| `GOOGLE_CLIENT_SECRET` | Ya | `GOCSPX-xxxxxxxxxxxxxxxx` | Google Cloud OAuth 2.0 Web Client Secret |
-| `GOOGLE_CALLBACK_URL` | Ya | `https://apii.sigitadi.id/api/v1/auth/google/callback` | URL callback OAuth terdaftar di Google Cloud Console |
-| `S3_ENDPOINT` | Opsional | `https://<account-id>.r2.cloudflarestorage.com` | Endpoint Cloudflare R2 |
-| `S3_REGION` | Opsional | `auto` | Region storage S3 |
-| `S3_ACCESS_KEY_ID` | Opsional | `xxxxxxxxxxxxxxxx` | Access key storage |
-| `S3_SECRET_ACCESS_KEY` | Opsional | `xxxxxxxxxxxxxxxx` | Secret key storage |
-| `S3_BUCKET_NAME` | Opsional | `apii-jabo-storage` | Nama bucket S3 penyimpanan berkas |
-
-### Panduan Pembuatan RSA Keypair RS256
-Jalankan utilitas pembuat kunci di lokal:
-```bash
-npm run keys
 ```
-Output yang dihasilkan dapat langsung disalin ke Environment Variables Vercel. Pastikan karakter baris baru tetap berupa `\n` atau disalin secara utuh.
+                          Internet / User
+                                 │
+           ┌─────────────────────┴─────────────────────┐
+           ▼                                           ▼
+   https://apii.sigitadi.id                 https://siapii.sigitadi.id
+   [Portal Publik APII]                     [Portal Pengurus SIAPII]
+   - Profil Yayasan & Kegiatan              - Unified Action Inbox
+   - Verifikasi Keaslian Surat              - Modul Persuratan (A4 Virtual)
+   - Transparansi Informasi                 - Buku Kas & Dual-Approval
+                                            - Usulan Divisi & LPJ 5-Tahap
+                                            - Manajemen Akun & Audit Log
+                                                       │
+                                                       ▼ (REST JSON HTTPS)
+                                            Google Apps Script Web App
+                                                       │
+                               ┌───────────────────────┴───────────────────────┐
+                               ▼                                               ▼
+                      Google Sheets (Database)                       Google Drive (Dokumen/PDF)
+```
+
+### Konfigurasi DNS Domain (`sigitadi.id`)
+Di dashboard DNS manajemen domain (Cloudflare / Registrar cPanel):
+- **Host / Subdomain:** `siapii`
+- **Tipe Record:** `CNAME`
+- **Target / Value:** `cname.vercel-dns.com`
+- **Proxy Status (Cloudflare):** DNS Only (atau Proxied dengan SSL Full/Strict)
+- **Status:** **TERVERIFIKASI AKTIF** (`3e8cffbb0e16a642.vercel-dns-017.com`)
 
 ---
 
-## 3. Langkah Deployment ke Vercel
+## 3. Langkah Deployment Frontend ke Vercel
 
-### 3.1 Setup Awal Project
-1. Masuk ke [Vercel Dashboard](https://vercel.com).
-2. Klik **Add New Project** dan impor repository GitHub `sisigitadi/siap-apii`.
-3. Pada **Project Settings**:
-   - **Framework Preset**: *Other*
-   - **Root Directory**: `./`
-   - **Build Command**: `prisma generate && nest build` (sudah tercantum di `vercel.json`)
-   - **Output Directory**: `dist`
-   - **Install Command**: `npm install`
-4. Masukkan seluruh variabel lingkungan dari checklist di atas ke bagian **Environment Variables**.
-5. Klik **Deploy**.
+### 3.1 Otomatisasi GitHub CI/CD (Rekomendasi Utama)
+Project Vercel telah terhubung langsung dengan repository GitHub:
+- **Repository:** `sisigitadi/siap-apii`
+- **Branch Produksi:** `main`
+- **Output Directory:** `portal` (dikonfigurasi pada `vercel.json` di root)
+- **Framework Preset:** `Other` (Static Site)
 
-### 3.2 Konfigurasi Domain
-1. Masuk ke menu **Settings → Domains**.
-2. Tambahkan domain `apii.sigitadi.id`.
-3. Tambahkan CNAME record di DNS management (Cloudflare / Registrar):
-   - `CNAME` `apii` → `cname.vercel-dns.com`
-4. Vercel akan otomatis menerbitkan sertifikat SSL Let's Encrypt / DigiCert.
+Setiap kali Anda melakukan perintah `git push origin main`, Vercel secara otomatis mendeteksi perubahan, mengompilasi aset, dan memperbarui deployment produksi di `https://siapii.sigitadi.id` dalam hitungan detik.
 
-
-
----
-
-## 4. Manajemen Database (Neon PostgreSQL)
-
-### 4.1 Menjalankan Migrasi Skema
-Jangan menjalankan `prisma migrate dev` di lingkungan produksi. Gunakan perintah deploy:
-
-```bash
-# Eksekusi dari mesin admin / deployment script
-npx prisma migrate deploy
-```
-*Catatan:* Pastikan `DATABASE_URL` atau `DIRECT_URL` mengarah ke direct connection Neon saat menjalankan migrasi (agar tidak terhalang batas connection pooling PgBouncer).
-
-### 4.2 Inisialisasi Data Awal (Superadmin Seeding)
-Setelah migrasi skema selesai pada basis data baru, jalankan seed untuk membuat akun Superadmin dan struktur awal:
-```bash
-npm run seed
-```
-
-### 4.3 Neon Branching untuk Preview Deployment
-Neon mendukung pencabangan basis data instan (*branching*):
-1. Setiap kali membuat Pull Request di GitHub, buat Neon database branch dari branch `main`.
-2. Pasang connection string branch tersebut pada Environment Variable *Preview* di Vercel.
-3. Uji coba migrasi baru di branch preview secara aman tanpa mempengaruhi basis data produksi.
-
-### 4.4 Pemulihan Bencana (Point-In-Time Recovery / PITR)
-Neon menyimpan histori log WAL transaksi basis data secara berkelanjutan:
-1. Buka dashboard project Neon di konsol web.
-2. Masuk ke tab **Branches** → **Restore**.
-3. Pilih waktu pemulihan hingga ke detik spesifik sebelum insiden terjadi (misalnya: *10 menit yang lalu*).
-4. Buat branch baru dari titik waktu tersebut dan arahkan `DATABASE_URL` ke branch baru untuk memulihkan operasional.
-
----
-
-## 5. Prosedur Rollback & Zero-Downtime
-
-### 5.1 Rollback Aplikasi (Vercel)
-Jika rilis backend mengalami galat kritis:
-1. Buka menu **Deployments** di Vercel Dashboard.
-2. Cari deployment stabil sebelumnya (status Ready).
-3. Klik titik tiga (`...`) → pilih **Instant Rollback**.
-4. Trafik akan dialihkan secara instan (< 1 detik) ke build sebelumnya.
-
-### 5.2 Rollback Migrasi Skema Database
-Sesuai aturan **PROJECT_RULES.md §4 (Prisma Integrity)**, setiap migrasi yang dibuat ke produksi wajib bersifat **backward compatible (expand-and-contract)**:
-- **Fase Tambah (Expand)**: Tambahkan kolom nullable atau tabel baru terlebih dahulu sebelum kode aplikasi dirilis.
-- **Fase Hapus (Contract)**: Hapus kolom lama hanya setelah kode lama tidak lagi aktif.
-Jika migrasi perlu dibatalkan:
-1. Tulis skema migrasi baru bertipe perbaikan (`add_column_back` atau `drop_failed_table`).
-2. Terapkan dengan `npx prisma migrate deploy`.
-
-### 5.3 Pembersihan Cache Redis
-Setelah rollback versi aplikasi, kosongkan cache yang berpotensi tidak kompatibel:
-```bash
-# Menggunakan redis-cli atau Upstash Console
-redis-cli -u $REDIS_URL FLUSHDB
-```
-
----
-
-## 6. Verifikasi & Pemantauan Pasca Deploy
-
-Setelah deployment selesai, verifikasi endpoint utama melalui terminal:
-
-```bash
-# 1. Periksa ketersediaan dokumentasi OpenAPI & Healthcheck
-curl -I https://apii.sigitadi.id/api/v1/docs
-
-# 2. Periksa respon envelope standar portal publik
-curl -s https://apii.sigitadi.id/api/v1/public/feed | jq .
-
-# 3. Periksa verifikasi dokumen SHA-256
-curl -s https://apii.sigitadi.id/api/v1/public/verify/0000000000000000000000000000000000000000000000000000000000000000 | jq .
-```
-
-Respon sukses harus mengembalikan format envelope standar:
+### 3.2 Konfigurasi `vercel.json`
+Konfigurasi `vercel.json` di root proyek:
 ```json
 {
-  "success": true,
-  "code": 200,
-  "message": "Resource successfully fetched",
-  "data": { ... },
-  "meta": { "timestamp": 1770000000 }
+  "version": 2,
+  "outputDirectory": "portal",
+  "cleanUrls": true,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" }
+      ]
+    }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
 ```
 
 ---
 
-## 7. Catatan Arsitektur Serverless Vercel
+## 4. Alur Pembaruan Backend (Google Apps Script)
 
-1. **Cold Starts**:
-   Vercel Functions akan dimatikan jika tidak ada lalu lintas. Instance pertama membutuhkan 1–2 detik untuk inisialisasi NestJS runtime. Bundle dijaga di bawah 250 MB untuk meminimalkan durasi cold start.
-2. **Koneksi WebSocket di Serverless**:
-   Koneksi WebSocket ter-pin pada instance function yang aktif. Multiplexing pesan lintas instance dijamin 100% konsisten melalui Redis pub/sub (`EventsBusService` pada channel `ws:events`).
-3. **Region Singapur (`sin1`)**:
-   Pengaturan `regions: ["sin1"]` pada `vercel.json` memastikan latensi terendah (~15-30ms) bagi seluruh pengguna di wilayah Jabodetabek dan Indonesia.
+Setiap kali terdapat pembaruan kode pada folder `gas/`:
+
+### Langkah 1 — Kompilasi Bundle Lokal
+Jalankan script bundler di terminal PowerShell:
+```powershell
+npm run build:gas
+# Atau:
+powershell -ExecutionPolicy Bypass -File scripts\build-apps-script.ps1
+```
+Script akan:
+1. Menggabungkan seluruh modul `.gs` secara terurut (`00-Konfig`, `Utils`, `Database`, `Auth`, `Surat`, `Keuangan`, `Divisi`, `Code`, `99-TemplateSurat`).
+2. Menghilangkan pola namespace `Modul.fn()` menjadi pemanggilan fungsi global Apps Script murni.
+3. Menghasilkan file siap-unggah:
+   - `apps-script/Backend.gs`
+   - `apps-script/AsetLogo.gs`
+   - `apps-script/AsetStempel.gs`
+
+### Langkah 2 — Uji Logika (Smoke Test)
+Pastikan seluruh 58 pengujian validasi logika backend lolos:
+```bash
+node scripts/smoke-backend.mjs
+```
+
+### Langkah 3 — Perbarui Kode di Google Apps Script
+1. Buka project Apps Script di browser: [script.google.com](https://script.google.com).
+2. Salin isi masing-masing file dari folder `apps-script/` ke editor Google Apps Script:
+   - Isi `apps-script/Backend.gs` $\to$ file `Backend.gs`
+   - Isi `apps-script/AsetLogo.gs` $\to$ file `AsetLogo.gs`
+   - Isi `apps-script/AsetStempel.gs` $\to$ file `AsetStempel.gs`
+3. Tekan **Save** (Ctrl+S / ikon 💾).
+
+### Langkah 4 — Perbarui Versi Web App (New Deployment)
+1. Klik tombol **Deploy** di pojok kanan atas editor Apps Script.
+2. Pilih **Manage deployments**.
+3. Klik ikon pensil (Edit) pada deployment aktif.
+4. Pada kolom **Version**, pilih **New version**.
+5. Isi deskripsi (contoh: *Update Tahap 4 - Bukti Kas & Siklus LPJ*).
+6. Klik **Deploy**.
+7. Salin URL Web App yang dihasilkan (format: `https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec`).
+8. Jika ID Deployment berubah, perbarui baris `window.API_BASE` pada:
+   - `portal/config.js`
+   - `public/config.js`
+   Lalu lakukan `git push origin main`.
+
+---
+
+## 5. Checklist Verifikasi Produksi (Health Check)
+
+| No | Parameter Pemeriksaan | Target Hasil | Metode Pengujian |
+|---|---|---|---|
+| 1 | **Konektivitas Portal** | HTTP 200 OK | Akses `https://siapii.sigitadi.id` di browser |
+| 2 | **Sertifikat SSL/TLS** | Valid (HTTPS Hijau) | Cek gembok SSL di peramban |
+| 3 | **Pemuatan Aset** | Semua file HTTP 200 | Periksa console: `portal.js`, `style.css`, `logo.png` |
+| 4 | **Autentikasi Pengurus** | Sesi token aktif | Login dengan salah satu akun pengurus |
+| 5 | **Action Inbox** | Render dokumen pending | Masuk ke dashboard dengan role Ketua/Bendahara |
+| 6 | **Kertas Virtual A4** | Modal A4 + Watermark | Buka detail surat di modul Persuratan |
+| 7 | **Quick Share WhatsApp** | Buka dialog kirim pesan | Klik ikon WhatsApp pada surat/voucher/usulan |
+| 8 | **Bukti Kas Drive** | Tautan terbuka di tab baru | Cek voucher dengan bukti di modul Keuangan |
+| 9 | **Siklus Usulan LPJ** | Stepper 5-tahap aktif | Buka detail usulan program di modul Divisi |
+| 10 | **Link Publik Balik** | Mengarah ke `apii.sigitadi.id` | Klik tautan "Kembali ke situs publik" |
+
+---
+
+## 6. Prosedur Pencadangan & Pemulihan Bencana (Disaster Recovery)
+
+1. **Pencadangan Basis Data:**
+   - Karena database berbasis **Google Sheets**, seluruh riwayat revisi baris data secara otomatis disimpan oleh Google (*Version History*).
+   - Pengurus dapat mengunduh salinan berkala (.xlsx / .csv) melalui menu **File $\to$ Download $\to$ Microsoft Excel (.xlsx)**.
+2. **Pencadangan Berkas PDF & Nota:**
+   - Seluruh PDF surat dan dokumen nota tersimpan rapi di Google Drive yayasan pada folder `APII Jabo - PDF Surat Resmi`.
+3. **Audit Trail Keamanan:**
+   - Seluruh aktivitas login, persetujuan surat, verifikasi kas, dan pengajuan program tercatat permanen di tab `Sheet_AuditLogs` dan dapat dipantau langsung oleh Superadmin, Ketua, dan Pengawas.

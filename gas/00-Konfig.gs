@@ -16,7 +16,7 @@ var KONFIG = {
   PASSWORD_SALT: 'apii-jabo-dpw-jabodetabek-2026',
 
   // Domain portal publik. Dipakai membuat URL verifikasi surat (QR/footer).
-  PUBLIC_URL: 'https://apii.sigit.id',
+  PUBLIC_URL: 'https://apii.sigitadi.id',
 
   // Nama folder Google Drive untuk menyimpan PDF surat (dibuat otomatis).
   DRIVE_FOLDER_NAME: 'APII Jabo - PDF Surat Resmi',

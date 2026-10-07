@@ -9,7 +9,7 @@
 window.API_BASE = 'https://script.google.com/macros/s/AKfycbzxV1_uYfNJdgDeWLHgfoGs6MNj41In9jpOlYuDqRH2SiVfq4CbhYTk2DIOPEkrO6NJdg/exec';
 
 // Domain portal publik (dipakai untuk link "Kembali ke situs publik").
-window.PUBLIC_URL = 'https://apii.sigit.id';
+window.PUBLIC_URL = 'https://apii.sigitadi.id';
 window.PORTAL_URL = 'https://siapii.sigitadi.id';
 
 // Nama aplikasi (dipakai di sidebar & judul halaman).
