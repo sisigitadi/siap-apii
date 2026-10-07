@@ -70,24 +70,24 @@
       <ul class="hidden lg:flex items-center gap-8 font-medium text-gray-700">
         <li><a href="#beranda" class="nav-link hover:text-emerald transition">Beranda</a></li>
         <li><a href="#informasi" class="nav-link hover:text-emerald transition">Informasi &amp; Keuangan</a></li>
-        <li><a href="#pendaftaran" class="nav-link hover:text-emerald transition">Pendaftaran Anggota</a></li>
         <li><a href="#kontak" class="nav-link hover:text-emerald transition">Kontak</a></li>
       </ul>
-      <a href="#pendaftaran"
-         class="hidden sm:inline-flex items-center gap-2 bg-gold hover:bg-gold-light text-emerald-dark px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-        Daftar Anggota DPW
-      </a>
-      <button id="mobileToggle" aria-label="Buka menu" class="lg:hidden p-2 rounded-lg text-emerald-dark hover:bg-emerald-light">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
-      </button>
+      <!-- Desktop Header Registration Control (Titik Kontrol Tunggal) -->
+      <div id="headerRegDesktop" class="hidden sm:flex items-center"></div>
+
+      <!-- Mobile Header Controls (Tombol Ringkas & Hamburger Menu) -->
+      <div class="flex items-center gap-2 lg:hidden">
+        <div id="headerRegMobile" class="flex sm:hidden items-center"></div>
+        <button id="mobileToggle" aria-label="Buka menu" class="p-2 rounded-lg text-emerald-dark hover:bg-emerald-light">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
+      </div>
     </nav>
     <div id="mobileMenu" class="hidden lg:hidden bg-white border-t border-emerald-100 px-4 py-4 space-y-3 font-medium text-gray-700 shadow-xl">
       <a href="#beranda" class="block py-2 mobile-link">Beranda</a>
       <a href="#informasi" class="block py-2 mobile-link">Informasi &amp; Keuangan</a>
-      <a href="#pendaftaran" class="block py-2 mobile-link font-bold text-emerald">Pendaftaran Anggota</a>
       <a href="#kontak" class="block py-2 mobile-link">Kontak</a>
-      <a href="#pendaftaran" class="block text-center bg-gold text-emerald-dark py-3 rounded-xl font-bold mt-2">Daftar Anggota Sekarang</a>
+      <div id="mobileMenuRegContainer" class="pt-2"></div>
     </div>
   </header>
 
@@ -116,12 +116,11 @@
           Wadah sinergi para ahli, akademisi, dan praktisi pengkaji Indonesia. Bergabunglah bersama kami untuk memajukan riset, pemberdayaan masyarakat, dan kemaslahatan umat.
         </p>
         <div class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
-          <a href="#pendaftaran" class="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-gold hover:bg-gold-light text-emerald-dark px-5 sm:px-7 py-3.5 sm:py-4 rounded-xl font-extrabold shadow-lg hover:shadow-xl transition text-sm sm:text-base text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-            <span>Formulir Pendaftaran Calon Anggota</span>
+          <a href="#informasi" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gold hover:bg-gold-light text-emerald-dark px-6 py-3.5 sm:py-4 rounded-xl font-extrabold shadow-lg hover:shadow-xl transition text-sm sm:text-base text-center">
+            <span>Info Dokumen &amp; Keuangan Kas →</span>
           </a>
-          <a href="#informasi" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 border-2 border-white/40 hover:bg-white/10 text-white px-5 sm:px-6 py-3.5 sm:py-4 rounded-xl font-semibold transition text-sm sm:text-base text-center">
-            <span>Info Surat &amp; Keuangan</span>
+          <a href="#kontak" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 border-2 border-white/40 hover:bg-white/10 text-white px-5 sm:px-6 py-3.5 sm:py-4 rounded-xl font-semibold transition text-sm sm:text-base text-center">
+            <span>Hubungi Sekretariat</span>
           </a>
         </div>
         <div class="grid grid-cols-3 gap-2 sm:gap-6 mt-10 sm:mt-12 pt-6 sm:pt-8 border-t border-white/20 text-center sm:text-left">
@@ -158,74 +157,70 @@
               <span><strong>Verifikasi Terpadu:</strong> Diperiksa oleh Sekretaris dan disahkan resmi oleh Ketua DPW.</span>
             </div>
           </div>
-          <div class="mt-6 pt-5 border-t border-gray-100">
-            <a href="#pendaftaran" class="w-full inline-flex items-center justify-center gap-2 bg-emerald hover:bg-emerald-dark text-white py-3.5 rounded-xl font-bold text-sm shadow transition">
-              Isi Formulir Pendaftaran Sekarang →
-            </a>
+          <div class="mt-6 pt-5 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+            <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald"></span>Sistem Terpadu DPW</span>
+            <a href="#informasi" class="font-bold text-emerald hover:underline">Pelajari Informasi →</a>
           </div>
         </div>
       </div>
     </div>
   </section>
-
-  <!-- ====================== PENDAFTARAN ANGGOTA ====================== -->
-  <section id="pendaftaran" class="py-24 bg-white relative">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="text-center mb-10">
-        <span class="inline-flex items-center gap-2 bg-emerald-light text-emerald font-bold text-xs uppercase px-3 py-1.5 rounded-full mb-3 tracking-wider">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-          Keanggotaan DPW Jabodetabek
-        </span>
-        <h2 class="text-3xl sm:text-4xl font-extrabold text-emerald-dark mb-4">Pendaftaran Calon Anggota</h2>
-        <p class="text-gray-600 text-base sm:text-lg max-w-2xl mx-auto">
-          Mari berkontribusi dalam pengkajian strategis dan pemberdayaan bersama APII DPW Jabodetabek.
-          Lengkapi data identitas Anda secara cermat.
-        </p>
-      </div>
-
-      <!-- UU PDP & Privacy Protection Card -->
-      <div class="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-2 border-emerald-200 rounded-2xl p-5 mb-8 flex items-start gap-4 shadow-sm">
-        <div class="h-10 w-10 bg-emerald text-white rounded-xl flex items-center justify-center flex-shrink-0 shadow">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-        </div>
-        <div class="text-sm">
-          <div class="font-extrabold text-emerald-dark flex flex-wrap items-center gap-2">
-            <span>Perlindungan Data Pribadi (UU PDP No. 27/2022)</span>
-            <span class="bg-emerald text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Watermark Otomatis</span>
+  <!-- ====================== MODAL FORMULIR PENDAFTARAN ANGGOTA ====================== -->
+  <div id="regModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="regModalTitle">
+    <div id="regModalDialog" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-3xl my-auto max-h-[92vh] flex flex-col overflow-hidden border border-emerald-100 animate-[fadeUp_0.3s_ease]">
+      <!-- Header Modal (Sticky Top) -->
+      <div class="bg-gradient-to-r from-emerald-dark via-emerald to-emerald-dark text-white p-4 sm:p-5 flex items-center justify-between flex-shrink-0 border-b border-emerald-700/50">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="h-10 w-10 sm:h-11 sm:w-11 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gold-light" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
           </div>
-          <p class="text-gray-600 mt-1 leading-relaxed">
-            Foto KTP yang Anda unggah akan <strong>diberi watermark digital anti-penyalahgunaan secara otomatis</strong> langsung pada peramban (browser) Anda sebelum dikirim ke server.
-            Kami menjamin kerahasiaan seluruh dokumen pendaftaran Anda.
-          </p>
+          <div class="min-w-0">
+            <h3 id="regModalTitle" class="text-base sm:text-lg font-extrabold tracking-tight truncate">Formulir Pendaftaran Calon Anggota</h3>
+            <p class="text-xs text-emerald-light/90 truncate">Yayasan APII DPW Jabodetabek • Kepatuhan UU PDP No. 27/2022</p>
+          </div>
         </div>
+        <button type="button" id="closeRegModalBtn" aria-label="Tutup Formulir" class="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition flex-shrink-0 cursor-pointer">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
       </div>
 
-      <!-- Registration Form -->
-      <div class="bg-white rounded-3xl shadow-xl border border-gray-200 p-6 sm:p-10">
-        <!-- Kotak jika pendaftaran ditutup sementara -->
-        <div id="regClosedStateBox" class="hidden text-center py-12 px-4 space-y-4">
-          <div class="h-16 w-16 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center mx-auto text-3xl shadow-sm">
+      <!-- Modal Body (Scrollable) -->
+      <div class="p-4 sm:p-6 md:p-8 space-y-6 overflow-y-auto flex-1">
+        <!-- UU PDP & Privacy Protection Card -->
+        <div class="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3.5 shadow-xs">
+          <div class="h-9 w-9 bg-emerald text-white rounded-xl flex items-center justify-center flex-shrink-0 shadow">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+          </div>
+          <div class="text-xs sm:text-sm">
+            <div class="font-extrabold text-emerald-dark flex flex-wrap items-center gap-1.5">
+              <span>Perlindungan Data Pribadi (UU PDP No. 27/2022)</span>
+              <span class="bg-emerald text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Watermark Otomatis</span>
+            </div>
+            <p class="text-gray-600 mt-1 text-xs leading-relaxed">
+              Foto KTP yang Anda unggah otomatis diberi <strong>watermark digital anti-penyalahgunaan</strong> langsung pada peramban (browser) sebelum dikirim ke server.
+            </p>
+          </div>
+        </div>
+
+        <!-- Kotak jika pendaftaran ditutup sementara (di dalam modal jika dipicu) -->
+        <div id="regClosedStateBox" class="hidden text-center py-8 px-4 space-y-4">
+          <div class="h-14 w-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-sm">
             🔒
           </div>
-          <h3 class="text-xl sm:text-2xl font-black text-gray-900 closed-title">Pendaftaran Anggota Sementara Ditutup</h3>
-          <p class="text-sm sm:text-base text-gray-600 max-w-lg mx-auto leading-relaxed closed-msg">
-            Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.
+          <h4 class="text-lg sm:text-xl font-black text-gray-900 closed-title">Pendaftaran Anggota Sementara Ditutup</h4>
+          <p class="text-xs sm:text-sm text-gray-600 max-w-md mx-auto leading-relaxed closed-msg">
+            Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota.
           </p>
-          <div class="pt-2">
-            <a href="#kontak" class="inline-flex items-center gap-2 bg-emerald text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow hover:bg-emerald-dark transition">
-              Hubungi Sekretariat Yayasan →
-            </a>
-          </div>
         </div>
 
         <form id="regMemberForm" class="space-y-6">
 
           <!-- Section 1: Data Diri -->
           <div>
-            <h3 class="text-lg font-extrabold text-gray-800 pb-2 mb-4 border-b border-gray-100 flex items-center gap-2">
+            <h4 class="text-sm sm:text-base font-extrabold text-gray-800 pb-2 mb-4 border-b border-gray-100 flex items-center gap-2">
               <span class="h-6 w-6 rounded-full bg-emerald-light text-emerald text-xs font-black flex items-center justify-center">1</span>
               Identitas Pribadi
-            </h3>
+            </h4>
             <div class="grid sm:grid-cols-2 gap-4 sm:gap-5">
               <div class="sm:col-span-2">
                 <label for="regFullName" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Nama Lengkap (sesuai KTP) <span class="text-red-500">*</span></label>
@@ -269,10 +264,10 @@
 
           <!-- Section 2: Kontak & Domisili -->
           <div>
-            <h3 class="text-lg font-extrabold text-gray-800 pb-2 mb-4 border-b border-gray-100 flex items-center gap-2">
+            <h4 class="text-sm sm:text-base font-extrabold text-gray-800 pb-2 mb-4 border-b border-gray-100 flex items-center gap-2">
               <span class="h-6 w-6 rounded-full bg-emerald-light text-emerald text-xs font-black flex items-center justify-center">2</span>
               Kontak &amp; Domisili
-            </h3>
+            </h4>
             <div class="grid sm:grid-cols-2 gap-4 sm:gap-5">
               <div>
                 <label for="regPhone" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Nomor WhatsApp / HP Aktif <span class="text-red-500">*</span></label>
@@ -319,10 +314,10 @@
 
           <!-- Section 3: Unggah Berkas & Watermark Digital -->
           <div>
-            <h3 class="text-lg font-extrabold text-gray-800 pb-2 mb-4 border-b border-gray-100 flex items-center gap-2">
+            <h4 class="text-sm sm:text-base font-extrabold text-gray-800 pb-2 mb-4 border-b border-gray-100 flex items-center gap-2">
               <span class="h-6 w-6 rounded-full bg-emerald-light text-emerald text-xs font-black flex items-center justify-center">3</span>
               Unggah Dokumen Verifikasi
-            </h3>
+            </h4>
 
             <div class="grid md:grid-cols-2 gap-6">
 
@@ -344,6 +339,7 @@
                 <canvas id="ktpCanvas" class="hidden"></canvas>
 
                 <!-- Preview Area -->
+                <div id="ktpPreviewBox" class="w-full mt-4 hidden">
                   <div class="relative rounded-xl overflow-hidden border-2 border-emerald shadow bg-black/5 flex items-center justify-center p-1">
                     <img id="ktpPreviewImg" src="" alt="Preview KTP Ter-watermark" class="max-w-full max-h-56 object-contain rounded-lg" />
                     <div class="absolute bottom-0 inset-x-0 bg-emerald/90 text-white text-[10px] font-bold py-1 px-2 flex items-center justify-center gap-1">
@@ -351,7 +347,7 @@
                       Watermark Digital Berhasil Disematkan
                     </div>
                   </div>
-                  <button type="button" id="btnHapusKtp" class="text-xs text-red-500 hover:text-red-700 font-semibold mt-2">Hapus &amp; Ganti Foto KTP</button>
+                  <button type="button" id="btnHapusKtp" class="text-xs text-red-500 hover:text-red-700 font-semibold mt-2 cursor-pointer">Hapus &amp; Ganti Foto KTP</button>
                 </div>
               </div>
 
@@ -374,7 +370,7 @@
                   <div class="flex justify-center">
                     <img id="selfiePreviewImg" src="" alt="Preview Selfie" class="h-28 w-28 sm:h-32 sm:w-32 object-cover rounded-full border-4 border-emerald shadow-lg" />
                   </div>
-                  <button type="button" id="btnHapusSelfie" class="text-xs text-red-500 hover:text-red-700 font-semibold mt-2">Hapus &amp; Ganti Pas Foto</button>
+                  <button type="button" id="btnHapusSelfie" class="text-xs text-red-500 hover:text-red-700 font-semibold mt-2 cursor-pointer">Hapus &amp; Ganti Pas Foto</button>
                 </div>
               </div>
 
@@ -398,11 +394,16 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                 Transmisi data terenkripsi SSL 256-bit
               </span>
-              <button type="submit" id="regSubmitBtn"
-                      class="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-emerald hover:bg-emerald-dark text-white px-8 py-4 rounded-2xl font-extrabold text-base shadow-lg hover:shadow-xl transition disabled:opacity-50">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <span>Kirim Formulir Pendaftaran</span>
-              </button>
+              <div class="flex items-center gap-3 w-full sm:w-auto">
+                <button type="button" id="cancelRegModalBtn" class="w-full sm:w-auto px-5 py-3 rounded-xl font-bold text-sm text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition cursor-pointer">
+                  Batal
+                </button>
+                <button type="submit" id="regSubmitBtn"
+                        class="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-emerald hover:bg-emerald-dark text-white px-7 py-3.5 rounded-xl font-extrabold text-sm sm:text-base shadow-lg hover:shadow-xl transition disabled:opacity-50 cursor-pointer">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <span>Kirim Formulir Pendaftaran</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -413,7 +414,7 @@
               <div class="leading-relaxed">
                 <strong class="block font-black text-amber-900 text-sm mb-1 inline-notice-title">Pengiriman Formulir Pendaftaran Dinonaktifkan</strong>
                 <p class="inline-notice-desc text-amber-800 text-xs">
-                  Tombol pengiriman formulir dan persetujuan keanggotaan dinonaktifkan karena pendaftaran saat ini sedang tidak dibuka (ditutup sementara / kuota terpenuhi / dalam tahap seleksi).
+                  Tombol pengiriman formulir dan persetujuan keanggotaan dinonaktifkan karena pendaftaran saat ini sedang tidak dibuka.
                 </p>
               </div>
             </div>
@@ -422,7 +423,7 @@
         </form>
       </div>
     </div>
-  </section>
+  </div>
 
   <!-- ====================== MODAL BUKTI PENDAFTARAN DIGITAL ====================== -->
   <div id="regReceiptModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4">

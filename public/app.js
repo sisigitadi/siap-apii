@@ -18,6 +18,7 @@
     init: function () {
       this.bindMobileNav();
       this.bindRegistrationForm();
+      this.bindRegistrationModal();
       this.loadPublicConfig();
       this.loadPublicSurat();
       this.loadPublicAccounts();
@@ -59,6 +60,181 @@
         body: JSON.stringify({ action: action, payload: payload || {} }),
         redirect: 'follow'
       }).then(function (r) { return r.json(); });
+    },
+
+    // ---------------------------------------------------------------
+    // MODAL FORMULIR PENDAFTARAN & STATUS HEADER
+    // ---------------------------------------------------------------
+    openRegModal: function () {
+      var regCfg = this.state.registration || {};
+      var rawStatus = regCfg.status || (regCfg.is_open === false ? 'DITUTUP' : 'BUKA');
+      if (rawStatus !== 'BUKA' || regCfg.is_open === false) {
+        alert(regCfg.closed_message || 'Pendaftaran anggota saat ini sedang tidak dibuka.');
+        return;
+      }
+      var modal = document.getElementById('regModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+      }
+    },
+
+    closeRegModal: function () {
+      var modal = document.getElementById('regModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+      }
+    },
+
+    bindRegistrationModal: function () {
+      var self = this;
+      var closeBtn = document.getElementById('closeRegModalBtn');
+      var cancelBtn = document.getElementById('cancelRegModalBtn');
+      var regModal = document.getElementById('regModal');
+      var receiptModal = document.getElementById('regReceiptModal');
+      var closeReceiptBtn = document.getElementById('closeReceiptBtn');
+
+      if (closeBtn) {
+        closeBtn.addEventListener('click', function () {
+          self.closeRegModal();
+        });
+      }
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', function () {
+          self.closeRegModal();
+        });
+      }
+      if (regModal) {
+        regModal.addEventListener('click', function (e) {
+          if (e.target === regModal) {
+            self.closeRegModal();
+          }
+        });
+      }
+      if (closeReceiptBtn && receiptModal) {
+        closeReceiptBtn.addEventListener('click', function () {
+          receiptModal.classList.add('hidden');
+          document.body.classList.remove('overflow-hidden');
+        });
+      }
+      if (receiptModal) {
+        receiptModal.addEventListener('click', function (e) {
+          if (e.target === receiptModal) {
+            receiptModal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+          }
+        });
+      }
+
+      // Tombol Esc menutup semua modal aktif
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' || e.key === 'Esc') {
+          self.closeRegModal();
+          if (receiptModal && !receiptModal.classList.contains('hidden')) {
+            receiptModal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+          }
+        }
+      });
+    },
+
+    updateHeaderRegStatus: function (status, reg) {
+      var self = this;
+      var deskBox = document.getElementById('headerRegDesktop');
+      var mobBox = document.getElementById('headerRegMobile');
+      var drawerBox = document.getElementById('mobileMenuRegContainer');
+      if (!deskBox && !mobBox && !drawerBox) return;
+
+      var isOpen = (status === 'BUKA' && (!reg || reg.is_open !== false));
+
+      if (isOpen) {
+        var deskHtml = '' +
+          '<button type="button" id="headerRegBtnDesktop" class="inline-flex items-center gap-2 bg-gold hover:bg-gold-light text-emerald-dark px-4 sm:px-5 py-2.5 rounded-xl font-extrabold text-sm shadow-md hover:shadow-lg transition cursor-pointer">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>' +
+            '<span>Daftar Anggota DPW</span>' +
+          '</button>';
+
+        var mobHtml = '' +
+          '<button type="button" id="headerRegBtnMobile" class="inline-flex items-center gap-1.5 bg-gold hover:bg-gold-light text-emerald-dark px-3 py-1.5 rounded-lg font-extrabold text-xs shadow transition cursor-pointer">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>' +
+            '<span>Daftar</span>' +
+          '</button>';
+
+        var drawerHtml = '' +
+          '<button type="button" id="headerRegBtnDrawer" class="w-full inline-flex items-center justify-center gap-2 bg-gold hover:bg-gold-light text-emerald-dark py-3 rounded-xl font-bold text-sm shadow transition cursor-pointer">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>' +
+            '<span>Daftar Anggota Sekarang</span>' +
+          '</button>';
+
+        if (deskBox) {
+          deskBox.innerHTML = deskHtml;
+          var btnD = document.getElementById('headerRegBtnDesktop');
+          if (btnD) btnD.addEventListener('click', function () { self.openRegModal(); });
+        }
+        if (mobBox) {
+          mobBox.innerHTML = mobHtml;
+          var btnM = document.getElementById('headerRegBtnMobile');
+          if (btnM) btnM.addEventListener('click', function () { self.openRegModal(); });
+        }
+        if (drawerBox) {
+          drawerBox.innerHTML = drawerHtml;
+          var btnDr = document.getElementById('headerRegBtnDrawer');
+          if (btnDr) btnDr.addEventListener('click', function () {
+            var menu = document.getElementById('mobileMenu');
+            if (menu) menu.classList.add('hidden');
+            self.openRegModal();
+          });
+        }
+      } else {
+        // SELAIN BUKA: Tampilkan Informasi Status yang Tidak Bisa Diklik
+        var badgeLabelDesk = 'Pendaftaran Ditutup';
+        var badgeLabelMob = 'Ditutup';
+        var badgeDrawer = '🔒 Pendaftaran Ditutup Sementara';
+        var icon = '🔒';
+        var badgeDeskClass = 'bg-amber-50 text-amber-800 border-amber-300';
+        var badgeMobClass = 'bg-amber-50 text-amber-800 border-amber-300';
+        var badgeDrawerClass = 'bg-amber-50 text-amber-800 border-amber-200';
+
+        if (status === 'PENUH') {
+          badgeLabelDesk = 'Kuota Penuh';
+          badgeLabelMob = 'Penuh';
+          badgeDrawer = '⛔ Kuota Pendaftaran Penuh';
+          icon = '⛔';
+          badgeDeskClass = 'bg-red-50 text-red-800 border-red-300';
+          badgeMobClass = 'bg-red-50 text-red-800 border-red-300';
+          badgeDrawerClass = 'bg-red-50 text-red-800 border-red-200';
+        } else if (status === 'SELEKSI') {
+          badgeLabelDesk = 'Tahap Seleksi';
+          badgeLabelMob = 'Seleksi';
+          badgeDrawer = '🔍 Tahap Seleksi & Verifikasi';
+          icon = '🔍';
+          badgeDeskClass = 'bg-blue-50 text-blue-800 border-blue-300';
+          badgeMobClass = 'bg-blue-50 text-blue-800 border-blue-300';
+          badgeDrawerClass = 'bg-blue-50 text-blue-800 border-blue-200';
+        }
+
+        var disabledDeskHtml = '' +
+          '<div class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border ' + badgeDeskClass + ' select-none cursor-not-allowed shadow-xs" title="' + self.esc(badgeLabelDesk) + '">' +
+            '<span>' + icon + '</span>' +
+            '<span>' + self.esc(badgeLabelDesk) + '</span>' +
+          '</div>';
+
+        var disabledMobHtml = '' +
+          '<div class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border ' + badgeMobClass + ' select-none cursor-not-allowed" title="' + self.esc(badgeLabelDesk) + '">' +
+            '<span>' + icon + '</span>' +
+            '<span>' + self.esc(badgeLabelMob) + '</span>' +
+          '</div>';
+
+        var disabledDrawerHtml = '' +
+          '<div class="w-full text-center py-2.5 px-3 rounded-xl text-xs font-bold border ' + badgeDrawerClass + ' select-none cursor-not-allowed">' +
+            self.esc(badgeDrawer) +
+          '</div>';
+
+        if (deskBox) deskBox.innerHTML = disabledDeskHtml;
+        if (mobBox) mobBox.innerHTML = disabledMobHtml;
+        if (drawerBox) drawerBox.innerHTML = disabledDrawerHtml;
+      }
     },
 
     // ---------------------------------------------------------------
@@ -317,6 +493,7 @@
           var receiptData = {};
           for (var k in payload) receiptData[k] = payload[k];
           if (res.data) { for (var k2 in res.data) receiptData[k2] = res.data[k2]; }
+          self.closeRegModal();
           self.showRegistrationReceipt(receiptData);
           document.getElementById('regMemberForm').reset();
           self.state.ktpBase64 = '';
@@ -418,16 +595,21 @@
           }
         }
 
-        // 2. Visibilitas Menu Pendaftaran Publik (RBAC)
+        // 2. Visibilitas Menu Pendaftaran Publik (RBAC) & Status Header Tunggal
+        var rawStatus = reg.status || (reg.is_open === false ? 'DITUTUP' : 'BUKA');
+
         if (d.config && d.config.show_registration === false) {
-          var pendaftarNav = document.querySelectorAll('a[href="#pendaftaran"]');
-          for (var i = 0; i < pendaftarNav.length; i++) {
-            pendaftarNav[i].classList.add('hidden');
-          }
-          var secPendaftaran = document.getElementById('pendaftaran');
-          if (secPendaftaran) secPendaftaran.classList.add('hidden');
+          var deskBox = document.getElementById('headerRegDesktop');
+          if (deskBox) deskBox.classList.add('hidden');
+          var mobBox = document.getElementById('headerRegMobile');
+          if (mobBox) mobBox.classList.add('hidden');
+          var drawerBox = document.getElementById('mobileMenuRegContainer');
+          if (drawerBox) drawerBox.classList.add('hidden');
           return;
         }
+
+        // Render Status Header Tunggal (BUKA -> Tombol Daftar, status lain -> Badge Info Disabled)
+        self.updateHeaderRegStatus(rawStatus, reg);
 
         // 3. Status Pendaftaran 4 Opsi (BUKA, DITUTUP, PENUH, SELEKSI)
         var form = document.getElementById('regMemberForm');
@@ -439,7 +621,6 @@
         var submitRow = document.getElementById('regSubmitBtnRow');
         var submitBtn = document.getElementById('regSubmitBtn');
         var inlineNotice = document.getElementById('regClosedInlineNotice');
-        var rawStatus = reg.status || (reg.is_open === false ? 'DITUTUP' : 'BUKA');
 
         if (rawStatus === 'BUKA' && reg.is_open !== false) {
           if (heroBadge) {
@@ -536,7 +717,7 @@
 
         // 5. Petunjuk & Pengantar
         if (reg.instructions) {
-          var pDesc = document.querySelector('#pendaftaran p.text-gray-600');
+          var pDesc = document.querySelector('#regModal p.text-gray-600');
           if (pDesc) pDesc.textContent = reg.instructions;
         }
       }).catch(function (err) {
