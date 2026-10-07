@@ -418,13 +418,33 @@ function setSettingValue_(key, val, user) {
  */
 function getSettings(ctx) {
   var rows = Database.readAll(TABS.SETTINGS);
+  if (!rows || rows.length === 0) {
+    seedDefaultSettings_();
+    rows = Database.readAll(TABS.SETTINGS);
+  }
   var settings = {};
   rows.forEach(function (r) {
     var v = r.value;
     try { v = JSON.parse(r.value); } catch (e) {}
     settings[r.key] = v;
   });
-  return { ok: true, data: settings, message: 'Pengaturan berhasil dimuat.' };
+
+  // Ekstrak properti flattened untuk kompatibilitas penuh dengan frontend
+  var kop = settings.letter_kop || {};
+  settings.kop_mode = settings.kop_mode || kop.mode || 'text';
+  settings.kop_image_base64 = settings.kop_image_base64 || kop.custom_kop_image || '';
+  var numCfg = settings.letter_numbering || {};
+  settings.letter_pattern = settings.letter_pattern || numCfg.pattern || '{urut}/{kode}/{org}/{bulanRomawi}/{tahun}';
+  var pub = settings.public_config || {};
+  settings.allow_public_registration = settings.allow_public_registration !== undefined ? settings.allow_public_registration : (pub.show_registration !== false);
+  settings.allow_public_verification = settings.allow_public_verification !== undefined ? settings.allow_public_verification : (pub.show_verification !== false);
+  settings.show_keuangan_public = settings.show_keuangan_public !== undefined ? settings.show_keuangan_public : (pub.show_finance !== false || pub.show_accounts !== false);
+  settings.show_program_public = settings.show_program_public !== undefined ? settings.show_program_public : (pub.show_programs !== false);
+  var drv = settings.drive_storage || {};
+  settings.google_drive_folder_id = settings.google_drive_folder_id || drv.custom_folder_id || '';
+  settings.auto_annual_subfolders = settings.auto_annual_subfolders !== undefined ? settings.auto_annual_subfolders : true;
+
+  return { ok: true, data: settings, settings: settings, message: 'Pengaturan berhasil dimuat.' };
 }
 
 /**
@@ -434,11 +454,12 @@ function getSettings(ctx) {
 function saveSettings(ctx) {
   var p = ctx.payload || {};
   var user = (ctx.user && ctx.user.username) || 'admin';
-  for (var k in p) {
-    setSettingValue_(k, p[k], user);
+  var toSave = (p.settings && typeof p.settings === 'object') ? p.settings : p;
+  for (var k in toSave) {
+    setSettingValue_(k, toSave[k], user);
   }
-  audit(user, 'SETTINGS_UPDATED', 'Memperbarui pengaturan: ' + Object.keys(p).join(', '), 'SETTINGS');
-  return { ok: true, data: p, message: 'Pengaturan berhasil disimpan.' };
+  audit(user, 'SETTINGS_UPDATED', 'Memperbarui pengaturan: ' + Object.keys(toSave).join(', '), 'SETTINGS');
+  return { ok: true, data: toSave, settings: toSave, message: 'Pengaturan berhasil disimpan.' };
 }
 
 /**

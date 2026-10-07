@@ -350,7 +350,7 @@ function saveAccount(ctx) {
 
   if (p.id) {
     // Edit mode
-    var target = Database.findOne(TABS.ACCOUNTS, { id: p.id });
+    var target = Database.findOne(TABS.ACCOUNTS, { id: p.id }) || Database.findOne(TABS.ACCOUNTS, { code: p.id });
     if (!target) return { ok: false, data: null, message: 'Rekening tidak ditemukan.' };
     Database.updateRow(TABS.ACCOUNTS, target._row, {
       name: name,
@@ -395,7 +395,7 @@ function saveAccount(ctx) {
 function deleteAccount(ctx) {
   var p = ctx.payload || {};
   if (!p.id) return { ok: false, data: null, message: 'ID rekening wajib diisi.' };
-  var acc = Database.findOne(TABS.ACCOUNTS, { id: p.id });
+  var acc = Database.findOne(TABS.ACCOUNTS, { id: p.id }) || Database.findOne(TABS.ACCOUNTS, { code: p.id });
   if (!acc) return { ok: false, data: null, message: 'Rekening tidak ditemukan.' };
 
   // Cek apakah ada voucher yang menggunakan rekening ini

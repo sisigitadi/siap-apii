@@ -205,29 +205,39 @@
     /**
      * getCached: ambil data instan dari in-memory cache (0 ms),
      * sambil memperbarui di latar belakang jika expired (SWR).
+     * Mendukung pemanggilan via Promise (.then) MAUPUN via callback function.
      */
-    getCached: function (action, payload, opts) {
+    getCached: function (action, payload, optsOrCallback, maybeCb) {
       var self = this;
-      opts = opts || {};
+      var cb = typeof optsOrCallback === 'function' ? optsOrCallback : (typeof maybeCb === 'function' ? maybeCb : null);
+      var opts = (typeof optsOrCallback === 'object' && optsOrCallback !== null) ? optsOrCallback : {};
       var cacheKey = action + ':' + JSON.stringify(payload || {});
       var cachedData = opts.force ? null : this.cache.get(cacheKey);
 
       if (cachedData !== null && cachedData !== undefined) {
-        // Data ada di cache: jika tidak diminta silent refresh, kembalikan langsung
+        if (cb) {
+          try { cb(cachedData); } catch (e) { console.error('Error in getCached callback:', e); }
+        }
         if (opts.revalidate !== false) {
-          // Silent revalidate di latar belakang
           setTimeout(function () {
             self.get(action, payload, { quiet: true }).then(function (fresh) {
-              if (fresh) self.cache.set(cacheKey, fresh, opts.ttl || 60000);
+              if (fresh) {
+                self.cache.set(cacheKey, fresh, opts.ttl || 60000);
+                if (cb) {
+                  try { cb(fresh); } catch (e) {}
+                }
+              }
             }).catch(function () {});
           }, 50);
         }
         return Promise.resolve(cachedData);
       }
 
-      // Belum ada di cache: ambil dari jaringan lalu simpan ke cache
       return this.get(action, payload, opts).then(function (data) {
         if (data) self.cache.set(cacheKey, data, opts.ttl || 60000);
+        if (cb) {
+          try { cb(data); } catch (e) { console.error('Error in getCached callback:', e); }
+        }
         return data;
       });
     },
