@@ -97,8 +97,8 @@ var ROUTES = {
   verifyVoucherKetum:  { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Keuangan.verifyVoucherKetum },
   rejectVoucher:       { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Keuangan.rejectVoucher },
   getAccounts:         { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.BENDAHARA], handler: Keuangan.getAccounts },
-  saveAccount:         { auth: true,  roles: [ROLES.SUPERADMIN], handler: Keuangan.saveAccount },
-  deleteAccount:       { auth: true,  roles: [ROLES.SUPERADMIN], handler: Keuangan.deleteAccount },
+  saveAccount:         { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.BENDAHARA], handler: Keuangan.saveAccount },
+  deleteAccount:       { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.BENDAHARA], handler: Keuangan.deleteAccount },
   getPublicAccounts:   { auth: false, roles: null, handler: Keuangan.getPublicAccounts },
 
   // --- Pengaturan & Penyimpanan (Utils.gs) ---
@@ -107,6 +107,7 @@ var ROUTES = {
   getPublicSettings:   { auth: false, roles: null, handler: Utils.getPublicSettings },
   uploadKopImage:      { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.uploadKopImage },
   testDriveStorage:    { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.testDriveStorage },
+  initDatabaseSchema:  { auth: true,  roles: [ROLES.SUPERADMIN], handler: function (ctx) { Database.initSchema(); return { ok: true, data: null, message: 'Skema database Google Sheets berhasil disinkronkan.' }; } },
 
   // --- Divisi (Divisi.gs) ---
   getListDivisi:       { auth: true,  roles: null, handler: Divisi.getListDivisi },

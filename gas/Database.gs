@@ -90,34 +90,9 @@ function initSchema() {
   return true;
 }
 
-/** Seed rekening kas bawaan jika Sheet_Accounts kosong. */
+/** Seed rekening kas bawaan jika Sheet_Accounts kosong (dikosongkan agar pengurus menginput rekening riil via portal). */
 function seedDefaultAccounts_() {
-  try {
-    var accounts = readAll(TABS.ACCOUNTS);
-    if (accounts.length === 0) {
-      var now = new Date().toISOString();
-      insert(TABS.ACCOUNTS, {
-        id: 'ACC_BSI', code: 'KAS_BSI', name: 'Kas BSI Operasional',
-        bank_name: 'Bank Syariah Indonesia', account_number: '7123456789',
-        holder_name: 'Yayasan APII DPW Jabodetabek', category: 'Operasional',
-        is_active: 'TRUE', show_on_public: 'TRUE', created_at: now, updated_at: now
-      });
-      insert(TABS.ACCOUNTS, {
-        id: 'ACC_MANDIRI', code: 'MANDIRI_WAKAF', name: 'Bank Mandiri Wakaf',
-        bank_name: 'Bank Mandiri', account_number: '1230098765432',
-        holder_name: 'Yayasan APII - Program Wakaf', category: 'Wakaf',
-        is_active: 'TRUE', show_on_public: 'TRUE', created_at: now, updated_at: now
-      });
-      insert(TABS.ACCOUNTS, {
-        id: 'ACC_BRANKAS', code: 'BRANKAS', name: 'Kas Tunai Brankas',
-        bank_name: 'Kas Tunai', account_number: '-',
-        holder_name: 'Sekretariat DPW APII', category: 'Kas Kecil',
-        is_active: 'TRUE', show_on_public: 'FALSE', created_at: now, updated_at: now
-      });
-    }
-  } catch (e) {
-    Logger.log('Gagal seed accounts: ' + e);
-  }
+  // Tidak mengisi dummy rekening secara otomatis. Rekening dikelola penuh oleh pengurus via portal master rekening.
 }
 
 /** Seed pengaturan bawaan jika Sheet_Settings kosong. */
@@ -191,12 +166,37 @@ function getSpreadsheet_() {
 }
 
 /**
+ * Ambil tab sheet secara aman. Jika tab belum ada di spreadsheet dan terdaftar di SCHEMA,
+ * sheet akan dibuat secara otomatis beserta header lengkapnya.
+ * @param {string} tab nama tab
+ * @return {GoogleAppsScript.Spreadsheet.Sheet|null}
+ */
+function getSheetSafe_(tab) {
+  var ss = getSpreadsheet_();
+  var sheet = ss.getSheetByName(tab);
+  if (!sheet && SCHEMA && SCHEMA[tab]) {
+    try {
+      sheet = ss.insertSheet(tab);
+      sheet.getRange(1, 1, 1, SCHEMA[tab].length).setValues([SCHEMA[tab]]);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, SCHEMA[tab].length)
+        .setFontWeight('bold')
+        .setBackground('#E6F4EC');
+    } catch (e) {
+      Logger.log('Gagal auto-create sheet ' + tab + ': ' + e);
+      sheet = ss.getSheetByName(tab);
+    }
+  }
+  return sheet;
+}
+
+/**
  * Baca seluruh baris tab sebagai array objek (dengan field header).
  * @param {string} tab nama tab
  * @return {Array<object>} [{ field: value, _row: <nomor baris> }]
  */
 function readAll(tab) {
-  var sheet = getSpreadsheet_().getSheetByName(tab);
+  var sheet = getSheetSafe_(tab);
   if (!sheet) return [];
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return []; // hanya header / kosong
@@ -265,7 +265,7 @@ function matchFilter_(row, filter) {
  * @return {object} nilai yang ditulis + _row
  */
 function insert(tab, values) {
-  var sheet = getSpreadsheet_().getSheetByName(tab);
+  var sheet = getSheetSafe_(tab);
   if (!sheet) throw new Error('Tab tidak ditemukan: ' + tab);
   var headers = SCHEMA[tab];
   var row = headers.map(function (h) {
@@ -286,7 +286,7 @@ function insert(tab, values) {
  * @param {object} values { field: value } field yang ingin diubah
  */
 function updateRow(tab, rowNum, values) {
-  var sheet = getSpreadsheet_().getSheetByName(tab);
+  var sheet = getSheetSafe_(tab);
   if (!sheet) throw new Error('Tab tidak ditemukan: ' + tab);
   var headers = SCHEMA[tab];
   var range = sheet.getRange(rowNum, 1, 1, headers.length);
@@ -311,7 +311,7 @@ function deleteRow(tab, rowNum) {
   if (tab === TABS.AUDIT) {
     throw new Error('AKSES DITOLAK: Jejak audit sistem bersifat permanen dan tidak dapat dihapus.');
   }
-  var sheet = getSpreadsheet_().getSheetByName(tab);
+  var sheet = getSheetSafe_(tab);
   if (!sheet) return false;
   sheet.deleteRow(rowNum);
   return true;

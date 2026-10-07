@@ -1763,9 +1763,12 @@
 
       // Ambil rekening kas dinamis dari backend atau cache
       Auth.getCached('getAccounts', null, function (accData) {
-        var accList = (accData && accData.accounts) || [];
+        var accList = Array.isArray(accData) ? accData : ((accData && (accData.accounts || accData.data || accData.items)) || []);
         var accOpts = accList.length ? accList.map(function (a) {
-          return '<option value="' + a.id + '">' + Auth.esc(a.nama_rekening + ' (' + a.bank_vendor + ' - ' + a.nomor_rekening + ')') + '</option>';
+          var name = a.name || a.nama_rekening || 'Akun Kas';
+          var bank = a.bank_name || a.bank_vendor || name;
+          var num = a.account_number || a.nomor_rekening || '-';
+          return '<option value="' + (a.code || a.id) + '">' + Auth.esc(name + ' (' + bank + ' - ' + num + ')') + '</option>';
         }).join('') : Object.keys(window.ACCOUNTS || {}).map(function (k) {
           return '<option value="' + k + '">' + window.ACCOUNTS[k] + '</option>';
         }).join('');
@@ -2971,16 +2974,19 @@
       var box = document.getElementById('pengaturanBox');
       var self = this;
       box.innerHTML =
-        '<div class="flex items-center justify-between mb-4">' +
-          '<h3 class="text-base font-extrabold text-emerald-dark">Master Rekening &amp; Kas Yayasan</h3>' +
+        '<div class="flex items-center justify-between mb-4 flex-wrap gap-2">' +
+          '<div>' +
+            '<h3 class="text-base font-extrabold text-emerald-dark">Master Rekening &amp; Kas Yayasan</h3>' +
+            '<p class="text-xs text-gray-500">Rekening dengan tanda &ldquo;Tampil di Publik&rdquo; akan langsung muncul di portal publik (apii.sigitadi.id).</p>' +
+          '</div>' +
           '<button type="button" id="btnAddAccount" class="btn btn-primary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-sm">' +
             '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>' +
             '<span>Tambah Rekening</span></button>' +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
           '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
-          '<th>Nama Rekening</th><th>Jenis</th><th>Bank / Vendor</th><th>Nomor Rekening</th><th>Atas Nama</th><th>Status</th><th>Aksi</th>' +
-          '</tr></thead><tbody id="accountRows">' + this.loadingRow(7) + '</tbody></table></div>' +
+          '<th>Nama Rekening</th><th>Jenis</th><th>Bank / Lembaga</th><th>Nomor Rekening</th><th>Atas Nama</th><th>Kategori</th><th>Publik</th><th>Status</th><th>Aksi</th>' +
+          '</tr></thead><tbody id="accountRows">' + this.loadingRow(9) + '</tbody></table></div>' +
         '</div>';
 
       document.getElementById('btnAddAccount').addEventListener('click', function () {
@@ -2996,31 +3002,43 @@
       if (!tb) return;
 
       Auth.getCached('getAccounts', null, function (data) {
-        var accounts = (data && data.accounts) || [];
+        var accounts = Array.isArray(data) ? data : ((data && (data.accounts || data.items || data.data)) || []);
         tb.innerHTML = accounts.length ? accounts.map(function (a) {
+          var nama = a.name || a.nama_rekening || '—';
+          var bank = a.bank_name || a.bank_vendor || '—';
+          var noRek = a.account_number || a.nomor_rekening || '—';
+          var atasNama = a.holder_name || a.atas_nama || '—';
+          var kategori = a.category || 'Operasional DPW';
+          var jenis = a.jenis || ((noRek && noRek !== '-') ? 'BANK' : 'KAS');
+          var isPub = (a.show_on_public === 'TRUE' || a.show_on_public === true);
+          var isAktif = (a.is_active === 'TRUE' || a.is_active === true);
+
           return '<tr data-id="' + a.id + '">' +
-            '<td class="font-bold text-gray-900">' + Auth.esc(a.nama_rekening) + '</td>' +
-            '<td><span class="badge ' + (a.jenis === 'BANK' ? 'badge-PUBLISHED' : 'badge-PENDING_APPROVAL') + '">' + Auth.esc(a.jenis) + '</span></td>' +
-            '<td class="text-gray-700 font-semibold">' + Auth.esc(a.bank_vendor) + '</td>' +
-            '<td class="font-mono text-xs text-gray-800">' + Auth.esc(a.nomor_rekening || '—') + '</td>' +
-            '<td class="text-xs text-gray-600">' + Auth.esc(a.atas_nama || '—') + '</td>' +
-            '<td>' + (a.is_active === 'TRUE' || a.is_active === true ? '<span class="badge badge-PUBLISHED">Aktif</span>' : '<span class="badge badge-REJECTED">Nonaktif</span>') + '</td>' +
+            '<td class="font-bold text-gray-900">' + Auth.esc(nama) + '</td>' +
+            '<td><span class="badge ' + (jenis === 'BANK' ? 'badge-PUBLISHED' : 'badge-PENDING_APPROVAL') + '">' + Auth.esc(jenis) + '</span></td>' +
+            '<td class="text-gray-700 font-semibold">' + Auth.esc(bank) + '</td>' +
+            '<td class="font-mono text-xs font-bold text-emerald-dark">' + Auth.esc(noRek) + '</td>' +
+            '<td class="text-xs text-gray-600">' + Auth.esc(atasNama) + '</td>' +
+            '<td><span class="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-lg">' + Auth.esc(kategori) + '</span></td>' +
+            '<td>' + (isPub ? '<span class="badge badge-PUBLISHED text-[11px]">🌐 Tampil di Publik</span>' : '<span class="badge text-gray-400 bg-gray-100 text-[11px]">🔒 Internal</span>') + '</td>' +
+            '<td>' + (isAktif ? '<span class="badge badge-PUBLISHED">Aktif</span>' : '<span class="badge badge-REJECTED">Nonaktif</span>') + '</td>' +
             '<td class="tbl-actions"><div class="flex gap-1.5">' +
               self.aBtn('edit-acc', 'Ubah', 'Ubah rincian rekening') +
               self.aBtn('danger del-acc', 'Hapus', 'Hapus rekening') +
             '</div></td>' +
           '</tr>';
-        }).join('') : '<tr class="tbl-empty"><td colspan="7" class="text-center text-gray-400 py-10">Belum ada rekening kas terdaftar.</td></tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="9" class="text-center text-gray-400 py-10">Belum ada rekening kas terdaftar. Silakan klik tombol "Tambah Rekening".</td></tr>';
 
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
           var id = tr.getAttribute('data-id');
-          var item = accounts.filter(function (x) { return x.id === id; })[0];
+          var item = accounts.filter(function (x) { return String(x.id) === String(id); })[0];
           var editBtn = tr.querySelector('[data-act="edit-acc"]');
           var delBtn = tr.querySelector('[data-act="danger del-acc"]');
           if (editBtn) editBtn.onclick = function () { self.accountForm(item); };
           if (delBtn) delBtn.onclick = function () {
-            self.confirm('Hapus Rekening', 'Hapus rekening "<b>' + Auth.esc(item.nama_rekening) + '</b>"? Tindakan ini tidak dapat dibatalkan.', function () {
+            self.confirm('Hapus Rekening', 'Hapus rekening "<b>' + Auth.esc(item.name || item.nama_rekening) + '</b>"? Tindakan ini tidak dapat dibatalkan.', function () {
               Auth.fetch('deleteAccount', { id: item.id }).then(function () {
+                Auth.cache.invalidate(['accounts', 'keuangan', 'dashboard']);
                 self.toast('Rekening berhasil dihapus.', 'success');
                 self.loadAccountsList();
               }).catch(function () {});
@@ -3033,33 +3051,62 @@
     accountForm: function (item) {
       var self = this;
       var isEdit = !!item;
+      var currJenis = (item && (item.jenis || ((item.account_number && item.account_number !== '-') ? 'BANK' : 'KAS'))) || 'BANK';
+      var currKategori = (item && item.category) || 'Operasional DPW';
+      var isPublicChecked = item ? (item.show_on_public === 'TRUE' || item.show_on_public === true) : true;
+      var isActiveChecked = item ? (item.is_active === 'TRUE' || item.is_active === true) : true;
 
       this.openModal(
         '<div class="p-4 sm:p-6">' +
           '<div class="flex items-center justify-between gap-2 mb-5">' +
-            '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + (isEdit ? 'Ubah Rekening Kas' : 'Tambah Rekening Kas Baru') + '</h3>' +
+            '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + (isEdit ? 'Ubah Master Rekening Kas' : 'Tambah Rekening Kas Baru') + '</h3>' +
             '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
               '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
           '</div>' +
           '<form id="accFormEl" class="space-y-4">' +
             '<div><label class="lbl">Nama Akun Rekening <span class="text-red-500">*</span></label>' +
-              '<input id="afNama" type="text" required class="field" placeholder="cth: Kas Operasional Sekretariat / Rekening Giro BCA" value="' + Auth.esc(item ? item.nama_rekening : '') + '" /></div>' +
+              '<input id="afNama" type="text" required class="field" placeholder="cth: Kas BSI Operasional Yayasan / Bank Mandiri Wakaf" value="' + Auth.esc(item ? (item.name || item.nama_rekening) : '') + '" /></div>' +
             '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Jenis Akun</label><select id="afJenis" class="field">' +
-                '<option value="BANK"' + (item && item.jenis === 'BANK' ? ' selected' : '') + '>Rekening Bank</option>' +
-                '<option value="KAS"' + (item && item.jenis === 'KAS' ? ' selected' : '') + '>Kas Tunai / Brankas</option>' +
+              '<div><label class="lbl">Jenis Akun <span class="text-red-500">*</span></label><select id="afJenis" class="field">' +
+                '<option value="BANK"' + (currJenis === 'BANK' ? ' selected' : '') + '>Rekening Bank</option>' +
+                '<option value="KAS"' + (currJenis === 'KAS' ? ' selected' : '') + '>Kas Tunai / Brankas</option>' +
               '</select></div>' +
-              '<div><label class="lbl">Bank / Vendor</label>' +
-                '<input id="afVendor" type="text" class="field" placeholder="BCA / BSI / Mandiri / Tunai" value="' + Auth.esc(item ? item.bank_vendor : '') + '" /></div>' +
+              '<div><label class="lbl">Nama Bank / Lembaga <span class="text-red-500">*</span></label>' +
+                '<input id="afVendor" type="text" required class="field" placeholder="cth: Bank Syariah Indonesia (BSI) / Bank Mandiri / Kas Tunai" value="' + Auth.esc(item ? (item.bank_name || item.bank_vendor) : '') + '" /></div>' +
             '</div>' +
             '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Nomor Rekening</label>' +
-                '<input id="afNomor" type="text" class="field font-mono" placeholder="cth: 712-345-6789" value="' + Auth.esc(item ? item.nomor_rekening : '') + '" /></div>' +
-              '<div><label class="lbl">Atas Nama</label>' +
-                '<input id="afAtasNama" type="text" class="field" placeholder="cth: Yayasan APII DPW Jabodetabek" value="' + Auth.esc(item ? item.atas_nama : '') + '" /></div>' +
+              '<div><label class="lbl">Nomor Rekening <span class="text-red-500">*</span></label>' +
+                '<input id="afNomor" type="text" required class="field font-mono font-bold" placeholder="cth: 7218390881 (atau - untuk kas tunai)" value="' + Auth.esc(item ? (item.account_number || item.nomor_rekening) : '') + '" /></div>' +
+              '<div><label class="lbl">Atas Nama Pemilik Rekening <span class="text-red-500">*</span></label>' +
+                '<input id="afAtasNama" type="text" required class="field" placeholder="cth: YAYASAN APII DPW JABODETABEK" value="' + Auth.esc(item ? (item.holder_name || item.atas_nama) : 'YAYASAN APII DPW JABODETABEK') + '" /></div>' +
             '</div>' +
-            '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
-              '<button type="submit" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">' + (isEdit ? 'Simpan Perubahan' : 'Tambah Rekening') + '</button>' +
+            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
+              '<div><label class="lbl">Kategori Peruntukan</label>' +
+                '<select id="afCategory" class="field">' +
+                  '<option value="Operasional DPW"' + (currKategori === 'Operasional DPW' ? ' selected' : '') + '>Operasional DPW</option>' +
+                  '<option value="Wakaf & Dakwah"' + (currKategori === 'Wakaf & Dakwah' ? ' selected' : '') + '>Wakaf & Dakwah</option>' +
+                  '<option value="Zakat & Infaq"' + (currKategori === 'Zakat & Infaq' ? ' selected' : '') + '>Zakat & Infaq</option>' +
+                  '<option value="Sosial Kemanusiaan"' + (currKategori === 'Sosial Kemanusiaan' ? ' selected' : '') + '>Sosial Kemanusiaan</option>' +
+                  '<option value="Kas Kecil Sekretariat"' + (currKategori === 'Kas Kecil Sekretariat' ? ' selected' : '') + '>Kas Kecil Sekretariat</option>' +
+                '</select></div>' +
+              '<div><label class="lbl">Kode Akun Internal (Opsional)</label>' +
+                '<input id="afCode" type="text" class="field font-mono text-xs uppercase" placeholder="cth: KAS_BSI (otomatis bila kosong)" value="' + Auth.esc(item ? item.code : '') + '" /></div>' +
+            '</div>' +
+            '<div class="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-2">' +
+              '<label class="flex items-center gap-2.5 text-xs font-bold text-emerald-950 cursor-pointer">' +
+                '<input id="afShowPublic" type="checkbox" class="h-4 w-4 accent-emerald rounded" ' + (isPublicChecked ? 'checked' : '') + ' />' +
+                '<span>🌐 Tampilkan Rekening Ini di Portal Publik (apii.sigitadi.id)</span>' +
+              '</label>' +
+              '<p class="text-[11px] text-emerald-800 leading-relaxed pl-6.5">' +
+                'Jika dicentang, nomor rekening akan langsung muncul di halaman publik yayasan untuk donasi, infaq, dan transaksi resmi.' +
+              '</p>' +
+            '</div>' +
+            '<label class="flex items-center gap-2.5 text-xs text-gray-700 cursor-pointer pt-1">' +
+              '<input id="afActive" type="checkbox" class="h-4 w-4 accent-emerald rounded" ' + (isActiveChecked ? 'checked' : '') + ' />' +
+              '<span class="font-semibold">Rekening Aktif (dapat digunakan untuk transaksi buku kas)</span>' +
+            '</label>' +
+            '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-3 border-t border-gray-100">' +
+              '<button type="submit" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm">' + (isEdit ? 'Simpan Perubahan' : 'Tambah Rekening') + '</button>' +
               '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
             '</div>' +
           '</form>' +
@@ -3071,18 +3118,38 @@
 
       document.getElementById('accFormEl').addEventListener('submit', function (e) {
         e.preventDefault();
+        var nama = document.getElementById('afNama').value.trim();
+        var jenis = document.getElementById('afJenis').value;
+        var bank = document.getElementById('afVendor').value.trim() || nama;
+        var nomor = document.getElementById('afNomor').value.trim() || '-';
+        var atasNama = document.getElementById('afAtasNama').value.trim() || 'YAYASAN APII DPW JABODETABEK';
+        var kategori = document.getElementById('afCategory').value;
+        var kodeManual = document.getElementById('afCode').value.trim();
+        var kode = kodeManual || ('ACC_' + (bank || nama).toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 15));
+        var isPublic = document.getElementById('afShowPublic').checked;
+        var isActive = document.getElementById('afActive').checked;
+
         var payload = {
-          nama_rekening: document.getElementById('afNama').value.trim(),
-          jenis: document.getElementById('afJenis').value,
-          bank_vendor: document.getElementById('afVendor').value.trim(),
-          nomor_rekening: document.getElementById('afNomor').value.trim(),
-          atas_nama: document.getElementById('afAtasNama').value.trim(),
-          is_active: true
+          name: nama,
+          nama_rekening: nama,
+          code: kode,
+          bank_name: bank,
+          bank_vendor: bank,
+          account_number: nomor,
+          nomor_rekening: nomor,
+          holder_name: atasNama,
+          atas_nama: atasNama,
+          category: kategori,
+          jenis: jenis,
+          show_on_public: isPublic,
+          is_active: isActive
         };
         if (isEdit) payload.id = item.id;
+
         Auth.fetch('saveAccount', payload).then(function () {
+          Auth.cache.invalidate(['accounts', 'keuangan', 'dashboard']);
           self.closeModal();
-          self.toast('Rekening kas berhasil disimpan.', 'success');
+          self.toast(isEdit ? 'Rekening berhasil diperbarui.' : 'Rekening baru berhasil ditambahkan dan disinkronkan.', 'success');
           self.loadAccountsList();
         }).catch(function () {});
       });

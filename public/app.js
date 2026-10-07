@@ -423,35 +423,86 @@
     // ---------------------------------------------------------------
     loadPublicAccounts: function () {
       var self = this;
+      var loadingEl = document.getElementById('loadingAccount');
       var container = document.getElementById('publicAccountList');
+      var emptyEl = document.getElementById('emptyAccount');
       if (!container) return;
 
       this.get('getPublicAccounts').then(function (res) {
+        if (loadingEl) loadingEl.classList.add('hidden');
         if (res && res.success && res.data && res.data.length) {
-          container.innerHTML = res.data.map(function (acc) {
-            var isBsi = /BSI|Syariah/i.test(acc.bank_name || acc.name);
-            var colorBg = isBsi ? 'from-emerald-50/70 to-teal-50/40 border-emerald-200' : 'from-amber-50/70 to-orange-50/40 border-amber-200';
-            var colorBadge = isBsi ? 'text-emerald-700 bg-emerald-100/70' : 'text-amber-800 bg-amber-100/70';
-            var colorBtn = isBsi ? 'text-emerald-800 border-emerald-300 hover:bg-emerald-100' : 'text-amber-900 border-amber-300 hover:bg-amber-100';
+          container.innerHTML = res.data.map(function (acc, idx) {
+            var bankName = acc.bank_name || acc.bank_vendor || acc.name || 'Bank Yayasan';
+            var accNum = acc.account_number || acc.nomor_rekening || '-';
+            var holder = acc.holder_name || acc.atas_nama || 'YAYASAN APII DPW JABODETABEK';
+            var category = acc.category || 'Operasional DPW';
+
+            var isBsi = /BSI|Syariah|Muamalat/i.test(bankName);
+            var isMandiri = /Mandiri/i.test(bankName);
+            var isBca = /BCA|BNI|BRI|CIMB/i.test(bankName);
+
+            var colorBg = 'from-gray-50 via-slate-50 to-gray-100 border-gray-300';
+            var colorBadge = 'text-gray-700 bg-gray-200/80 border-gray-300';
+            var colorBtn = 'text-gray-800 border-gray-300 hover:bg-gray-100';
+
+            if (isBsi) {
+              colorBg = 'from-emerald-500/10 via-emerald-50 to-teal-50/50 border-emerald-300/80';
+              colorBadge = 'text-emerald-800 bg-emerald-100/90 border-emerald-200/80';
+              colorBtn = 'text-emerald-800 border-emerald-300 hover:bg-emerald-100';
+            } else if (isMandiri) {
+              colorBg = 'from-amber-500/10 via-amber-50 to-orange-50/50 border-amber-300/80';
+              colorBadge = 'text-amber-900 bg-amber-100/90 border-amber-200/80';
+              colorBtn = 'text-amber-900 border-amber-300 hover:bg-amber-100';
+            } else if (isBca) {
+              colorBg = 'from-sky-500/10 via-sky-50 to-blue-50/50 border-sky-300/80';
+              colorBadge = 'text-sky-900 bg-sky-100/90 border-sky-200/80';
+              colorBtn = 'text-sky-900 border-sky-300 hover:bg-sky-100';
+            }
+
+            var btnId = 'copyBtn_' + idx;
 
             return '' +
-              '<div class="p-4 rounded-2xl bg-gradient-to-br ' + colorBg + ' border">' +
-                '<div class="flex items-center justify-between mb-2 flex-wrap gap-1">' +
-                  '<span class="text-xs font-black text-gray-900 uppercase tracking-wider">' + self.esc(acc.bank_name || acc.name) + '</span>' +
-                  '<span class="text-[10px] font-bold ' + colorBadge + ' px-2.5 py-0.5 rounded-full">' + self.esc(acc.category || 'Operasional DPW') + '</span>' +
+              '<div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-br ' + colorBg + ' border shadow-xs transition hover:shadow-md">' +
+                '<div class="flex items-center justify-between mb-2.5 flex-wrap gap-2">' +
+                  '<div class="flex items-center gap-2">' +
+                    '<span class="text-xs font-black text-gray-950 uppercase tracking-wide">' + self.esc(bankName) + '</span>' +
+                  '</div>' +
+                  '<span class="text-[10px] font-bold ' + colorBadge + ' px-2.5 py-0.5 rounded-full border shadow-2xs">' + self.esc(category) + '</span>' +
                 '</div>' +
-                '<div class="flex items-center justify-between gap-2 mt-1 flex-wrap sm:flex-nowrap">' +
-                  '<div class="text-base sm:text-xl font-extrabold font-mono text-gray-900 tracking-wider break-all min-w-0">' + self.esc(acc.account_number) + '</div>' +
-                  '<button type="button" onclick="navigator.clipboard.writeText(\'' + self.esc(acc.account_number) + '\'); window.Public && window.Public.showToast(\'Nomor rekening berhasil disalin!\');" ' +
-                          'class="text-xs font-bold bg-white ' + colorBtn + ' px-3 py-1.5 rounded-xl border shadow-xs transition flex-shrink-0">' +
-                    'Salin' +
-                  '</button>' +
+                '<div class="flex items-center justify-between gap-3 mt-1.5 flex-wrap sm:flex-nowrap bg-white/70 p-3 rounded-xl border border-white/60">' +
+                  '<div class="text-base sm:text-xl font-black font-mono text-gray-900 tracking-wider break-all min-w-0 select-all">' + self.esc(accNum) + '</div>' +
+                  (accNum !== '-' ?
+                    '<button type="button" id="' + btnId + '" ' +
+                            'onclick="(function(btn){ ' +
+                              'navigator.clipboard.writeText(\'' + self.esc(accNum) + '\'); ' +
+                              'var origText = btn.innerHTML; ' +
+                              'btn.innerHTML = \'Tersalin ✓\'; ' +
+                              'btn.classList.add(\'bg-emerald-600\', \'text-white\'); ' +
+                              'setTimeout(function(){ btn.innerHTML = origText; btn.classList.remove(\'bg-emerald-600\', \'text-white\'); }, 2000); ' +
+                              'window.Public && window.Public.showToast(\'Nomor rekening ' + self.esc(bankName) + ' berhasil disalin!\'); ' +
+                            '})(this);" ' +
+                            'class="inline-flex items-center gap-1.5 text-xs font-bold bg-white ' + colorBtn + ' px-3.5 py-1.5 rounded-xl border shadow-xs transition active:scale-95 flex-shrink-0 cursor-pointer">' +
+                      '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>' +
+                      '<span>Salin</span>' +
+                    '</button>' : '') +
                 '</div>' +
-                '<div class="text-xs text-gray-600 mt-2 font-medium break-words">a.n. <strong>' + self.esc(acc.holder_name || 'YAYASAN APII DPW JABODETABEK') + '</strong></div>' +
+                '<div class="text-xs text-gray-600 mt-2.5 font-medium break-words flex items-center gap-1.5">' +
+                  '<span class="text-gray-400">a.n.</span> ' +
+                  '<strong class="text-gray-900 font-extrabold">' + self.esc(holder) + '</strong>' +
+                '</div>' +
               '</div>';
           }).join('');
+          container.classList.remove('hidden');
+          if (emptyEl) emptyEl.classList.add('hidden');
+        } else {
+          container.classList.add('hidden');
+          if (emptyEl) emptyEl.classList.remove('hidden');
         }
-      }).catch(function () {});
+      }).catch(function () {
+        if (loadingEl) loadingEl.classList.add('hidden');
+        container.classList.add('hidden');
+        if (emptyEl) emptyEl.classList.remove('hidden');
+      });
     },
 
     // ---------------------------------------------------------------
