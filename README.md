@@ -11,16 +11,16 @@ Sistem administrasi yayasan yang dibangun di atas **Google Apps Script** (backen
 
 ## 🧱 Teknologi
 
-| Lapisan | Teknologi | Catatan |
-|---|---|---|
-| Backend | **Google Apps Script** (Web App `doGet` / `doPost`) | Router JSON, RBAC, manajemen sesi, state machine |
-| Database | **Google Sheets** | `Sheet_Users`, `Sheet_Sessions`, `Sheet_Surat`, `Sheet_Keuangan`, `Sheet_Divisi`, `Sheet_AuditLogs`, `Sheet_Sequences` |
-| Penyimpanan File | **Google Drive** | PDF surat resmi, kwitansi, lampiran divisi |
-| Mesin PDF | **Google Docs Template** → ekspor PDF | Kop yayasan, nomor, tanggal, dan isi surat otomatis |
-| Frontend Publik | HTML + Vanilla JS + Tailwind CSS (CDN) | folder `public/` → domain **`apii.sigit.id`** |
-| Frontend Portal | HTML + Vanilla JS + Tailwind CSS (CDN) | folder `portal/` → domain **`siapii.sigitadi.id`** |
-| Otentikasi | Username + Password + **Session Token (UUID)** | Sesi disimpan di `Sheet_Sessions`, masa berlaku 7 hari |
-| Tipografi & Tema | Google Fonts (Plus Jakarta Sans / Inter), Emerald + Gold | Lihat `docs/DESIGN.md §10` |
+| Lapisan          | Teknologi                                                     | Catatan                                                                                                                              |
+| ---------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Backend          | **Google Apps Script** (Web App `doGet` / `doPost`) | Router JSON, RBAC, manajemen sesi, state machine                                                                                     |
+| Database         | **Google Sheets**                                       | `Sheet_Users`, `Sheet_Sessions`, `Sheet_Surat`, `Sheet_Keuangan`, `Sheet_Divisi`, `Sheet_AuditLogs`, `Sheet_Sequences` |
+| Penyimpanan File | **Google Drive**                                        | PDF surat resmi, kwitansi, lampiran divisi                                                                                           |
+| Mesin PDF        | **Google Docs Template** → ekspor PDF                  | Kop yayasan, nomor, tanggal, dan isi surat otomatis                                                                                  |
+| Frontend Publik  | HTML + Vanilla JS + Tailwind CSS (CDN)                        | folder`public/` → domain **`apii.sigit.id`**                                                                              |
+| Frontend Portal  | HTML + Vanilla JS + Tailwind CSS (CDN)                        | folder`portal/` → domain **`siapii.sigitadi.id`**                                                                         |
+| Otentikasi       | Username + Password +**Session Token (UUID)**           | Sesi disimpan di`Sheet_Sessions`, masa berlaku 7 hari                                                                              |
+| Tipografi & Tema | Google Fonts (Plus Jakarta Sans / Inter), Emerald + Gold      | Lihat`docs/DESIGN.md §10`                                                                                                         |
 
 ---
 
@@ -66,7 +66,7 @@ Buka link Apps Script yang sudah Anda buat → di editor ada file `Code.gs`.
 **Langkah 4 — Deploy sebagai Web App**
 
 - Klik **Deploy** (kanan atas) → **New deployment** → ikon ⚙️ → **Web app**.
-- Isi: *Description* `SIAP APII`; **Execute as: Me**; **Who has access: Anyone** → **Deploy**.
+- Isi: _Description_ `SIAP APII`; **Execute as: Me**; **Who has access: Anyone** → **Deploy**.
 - Salin **URL Web app** (format `https://script.google.com/macros/s/xxx/exec`).
 
 **Langkah 5 — Tempel URL ke 2 file frontend**
@@ -95,7 +95,7 @@ Selesai. Backend + database gratis selamanya dalam kuota Google Workspace yayasa
 Setelah `setup()` dijalankan, 9 akun ini tersedia (password semuanya `apii2026`):
 
 | Username | Peran | Divisi |
-|---|---|---|
+| -------------- | -------------------- | --------- |
 | `superadmin` | SUPERADMIN | — |
 | `ketua` | KETUA | — |
 | `sekretaris` | SEKRETARIS | — |

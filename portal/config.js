@@ -6,7 +6,7 @@
  *
  * Catatan: backend yang sama dipakai oleh portal publik & portal pengurus.
  */
-window.API_BASE = 'https://script.google.com/macros/s/GANTI_DENGAN_DEPLOYMENT_ID/exec';
+window.API_BASE = 'https://script.google.com/macros/s/AKfycbzxV1_uYfNJdgDeWLHgfoGs6MNj41In9jpOlYuDqRH2SiVfq4CbhYTk2DIOPEkrO6NJdg/exec';
 
 // Domain portal publik (dipakai untuk link "Kembali ke situs publik").
 window.PUBLIC_URL = 'https://apii.sigit.id';

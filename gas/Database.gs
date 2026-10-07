@@ -90,7 +90,12 @@ function readAll(tab) {
       var key = headers[c];
       if (!key) continue;
       var val = rows[i][c];
-      obj[key] = (val === null || val === undefined) ? '' : val;
+      if (val === null || val === undefined) {
+        val = '';
+      } else if (typeof val === 'boolean') {
+        val = val ? 'TRUE' : 'FALSE';
+      }
+      obj[key] = val;
     }
     out.push(obj);
   }
@@ -120,7 +125,11 @@ function matchFilter_(row, filter) {
   for (var k in filter) {
     var want = filter[k];
     var have = row[k];
-    if (typeof want === 'string') {
+    if (typeof want === 'boolean' || typeof have === 'boolean') {
+      var bWant = want === true || String(want).toUpperCase() === 'TRUE';
+      var bHave = have === true || String(have).toUpperCase() === 'TRUE';
+      if (bWant !== bHave) return false;
+    } else if (typeof want === 'string') {
       if (String(have) !== want) return false;
     } else if (have !== want) {
       return false;
@@ -161,17 +170,17 @@ function updateRow(tab, rowNum, values) {
   var sheet = getSpreadsheet_().getSheetByName(tab);
   if (!sheet) throw new Error('Tab tidak ditemukan: ' + tab);
   var headers = SCHEMA[tab];
-  var updates = [];
-  var cols = [];
+  var range = sheet.getRange(rowNum, 1, 1, headers.length);
+  var currentValues = range.getValues()[0];
+  var hasChange = false;
   headers.forEach(function (h, idx) {
     if (values[h] !== undefined && values[h] !== null) {
-      updates.push(values[h]);
-      cols.push(idx + 1);
+      currentValues[idx] = values[h];
+      hasChange = true;
     }
   });
-  if (!updates.length) return false;
-  var range = sheet.getRange(rowNum, cols[0], 1, updates.length);
-  range.setValues([updates]);
+  if (!hasChange) return false;
+  range.setValues([currentValues]);
   return true;
 }
 

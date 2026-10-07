@@ -65,6 +65,7 @@ foreach ($name in $order) {
   [void]$sb.AppendLine()
 }
 $backend = $sb.ToString()
+$backendChars = $backend.Length
 
 $outBackend = Join-Path $outDir 'Backend.gs'
 Set-Content -Path $outBackend -Value $backend -Encoding UTF8 -NoNewline

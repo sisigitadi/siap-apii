@@ -47,7 +47,7 @@ function login(ctx) {
     audit(username, 'LOGIN_FAILED', 'Username tidak ditemukan');
     return { ok: false, data: null, message: 'Username atau password salah.' };
   }
-  if (user.is_active !== 'TRUE') {
+  if (user.is_active !== 'TRUE' && user.is_active !== true) {
     audit(username, 'LOGIN_FAILED', 'Akun nonaktif');
     return { ok: false, data: null, message: 'Akun Anda dinonaktifkan. Hubungi administrator.' };
   }
@@ -102,7 +102,7 @@ function verifySession(token) {
   var row = Database.findOne(TABS.SESSIONS, { token: token });
   if (!row) return null;
   var user = Database.findOne(TABS.USERS, { id: row.user_id });
-  if (!user || user.is_active !== 'TRUE') return null;
+  if (!user || (user.is_active !== 'TRUE' && user.is_active !== true)) return null;
   // Peran/divisi selalu dari snapshot sesi (dibuat saat login dari data user).
   user.role = row.role;
   user.division = row.division;
