@@ -13,7 +13,7 @@ SIAP APII berjalan di atas arsitektur serverless modern tanpa memerlukan server 
 | Komponen | Layanan / Provider | Endpoint / Target | Keterangan |
 |---|---|---|---|
 | **Portal Pengurus (SPA)** | **Vercel** Edge CDN (`sin1` SG) | `https://siapii.sigitadi.id` | Single Page Application 8 peran pengurus (folder `portal/`) |
-| **Portal Publik** | **Vercel / Static Web** | `https://apii.sigit.id` | Profil yayasan & pendaftaran calon anggota baru (UU PDP No. 27/2022) |
+| **Portal Publik** | **Vercel / Static Web** | `https://apii.sigitadi.id` | Profil yayasan & pendaftaran calon anggota baru (UU PDP No. 27/2022) |
 | **Backend API** | **Google Apps Script** Web App | `https://script.google.com/macros/s/.../exec` | Router RESTful JSON, RBAC 8 peran, sesi token 7-hari |
 | **Database ACID** | **Google Sheets** | Spreadsheet ID: `1B0p0Jgb...` | Sheet: Users, Sessions, Surat, Keuangan, Divisi, Audit, Pendaftar, Settings, Accounts |
 | **Document Storage** | **Google Drive** | `APII Jabo - PDF Surat Resmi` | Arsip PDF surat resmi, kwitansi kas, berkas KTP & selfie pemohon |
@@ -30,7 +30,7 @@ SIAP APII berjalan di atas arsitektur serverless modern tanpa memerlukan server 
                                   │
             ┌─────────────────────┴─────────────────────┐
             ▼                                           ▼
-    https://apii.sigit.id                    https://siapii.sigitadi.id
+    https://apii.sigitadi.id                    https://siapii.sigitadi.id
     [Portal Publik APII]                     [Portal Pengurus SIAPII]
     - Profil Yayasan & 7 Divisi              - Unified Action Inbox
     - Formulir Pendaftaran Anggota           - Modul Persuratan (A4 Virtual)
@@ -141,7 +141,7 @@ Script akan:
 | No | Parameter Pemeriksaan | Target Hasil | Metode Pengujian |
 |---|---|---|---|
 | 1 | **Konektivitas Portal Pengurus** | HTTP 200 OK | Akses `https://siapii.sigitadi.id` di browser |
-| 2 | **Konektivitas Portal Publik** | HTTP 200 OK | Akses `https://apii.sigit.id` di browser |
+| 2 | **Konektivitas Portal Publik** | HTTP 200 OK | Akses `https://apii.sigitadi.id` di browser |
 | 3 | **Sertifikat SSL/TLS** | Valid (HTTPS) | Cek gembok SSL di peramban |
 | 4 | **Pemuatan Aset** | Semua file HTTP 200 | Periksa console: `portal.js`, `style.css`, `logo.png` |
 | 5 | **Autentikasi Pengurus** | Sesi token aktif | Login dengan salah satu dari 8 peran pengurus |

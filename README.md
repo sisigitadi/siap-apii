@@ -18,7 +18,7 @@ Sistem administrasi yayasan modern nir-server (*serverless enterprise*) yang dib
 | **Penyimpanan Dokumen** | **Google Drive** | Arsip PDF surat resmi, kwitansi kas, berkas foto KTP & pas foto |
 | **Mesin Render PDF** | **Google Docs Template API** | Kop yayasan, logo resmi, nomor surat otomatis, dan stempel basah |
 | **Portal Pengurus (SPA)** | Vanilla JS + SWR Cache + Tailwind CDN | Domain **`siapii.sigitadi.id`** (Akses eksklusif 8 peran pengurus) |
-| **Portal Publik** | Vanilla JS + Canvas Watermark + Tailwind CDN | Domain **`apii.sigit.id`** (Pendaftaran anggota & profil yayasan) |
+| **Portal Publik** | Vanilla JS + Canvas Watermark + Tailwind CDN | Domain **`apii.sigitadi.id`** (Pendaftaran anggota & profil yayasan) |
 | **Otentikasi & Keamanan** | Password Hashing SHA-256 + Sesi Token UUID | Masa berlaku sesi 7 hari, proteksi XSS/CSRF, sanitasi payload |
 | **Kepatuhan Privasi** | **UU PDP No. 27/2022** + Canvas Watermarking | Watermark otomatis sisi klien sebelum berkas KTP dikirim ke server |
 
@@ -52,7 +52,7 @@ Sistem administrasi yayasan modern nir-server (*serverless enterprise*) yang dib
 - **Jejak Audit Permanen (WORM — Anti-Hapus)**:
   - Seluruh mutasi data dan aktivitas tercatat permanen di `Sheet_AuditLogs` tanpa tombol hapus.
 
-### 2. Portal Publik (`apii.sigit.id`)
+### 2. Portal Publik (`apii.sigitadi.id`)
 - **Formulir Pendaftaran Calon Anggota Baru**:
   - Entri biodata terstruktur: Nama KTP, NIK 16 digit, TTL, Gender, WhatsApp (+62), Email, Profesi, Domisili Jabodetabek, dan Minat 7 Divisi Kerja.
 - **Watermark KTP Otomatis Sisi Klien (HTML5 Canvas)**:
@@ -111,7 +111,7 @@ git push origin main
 ```
 Vercel akan otomatis men-deploy versi terbaru ke domain produksi:
 - Portal Pengurus: `https://siapii.sigitadi.id`
-- Portal Publik: `https://apii.sigit.id`
+- Portal Publik: `https://apii.sigitadi.id`
 
 ---
 

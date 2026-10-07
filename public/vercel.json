@@ -2,6 +2,9 @@
   "version": 2,
   "cleanUrls": true,
   "trailingSlash": false,
+  "buildCommand": null,
+  "installCommand": null,
+  "framework": null,
   "headers": [
     {
       "source": "/(.*)",

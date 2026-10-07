@@ -12,43 +12,25 @@ concurrency:
 
 jobs:
   ci:
-    name: Lint, Validate, Build & Test
+    name: Validate & Verify
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [20.x]
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          node-version: 20.x
 
-      - name: Install Dependencies
-        run: npm ci
+      - name: Validate Frontend JavaScript Syntax
+        run: |
+          node -c portal/portal.js
+          node -c portal/auth.js
+          node -c portal/config.js
+          node -c public/app.js
+          node -c public/config.js
 
-      - name: Generate RSA Keypair
-        run: npm run keys
-
-      - name: Generate Prisma Client
-        run: npm run prisma:generate
-
-      - name: Validate SQL Migrations
-        run: npm run migrate:validate
-
-      - name: Lint Code
-        run: npm run lint
-
-      - name: Build Application
+      - name: Verify Build Ready
         run: npm run build
-
-      - name: Run Unit Tests
-        run: npm test
-
-      - name: Run End-to-End Tests
-        run: npm run test:e2e

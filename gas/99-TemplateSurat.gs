@@ -35,7 +35,7 @@ function getStempelBlob_() {
 /**
  * Bangun URL verifikasi publik untuk sebuah nomor surat.
  * @param {string} letterNumber nomor surat, mis. 001/SK-DPW/APII-JABO/X/2026
- * @return {string} mis. https://apii.sigit.id/?no=001%2FSK-DPW%2F...
+ * @return {string} mis. https://apii.sigitadi.id/?no=001%2FSK-DPW%2F...
  */
 function urlVerifikasiSurat_(letterNumber) {
   var base = PropertiesService.getScriptProperties().getProperty('PUBLIC_URL') ||

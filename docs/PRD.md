@@ -35,7 +35,7 @@ Karena pengguna sebagian besar **belum terbiasa administrasi digital**, produk i
 4. **Terpercaya & dapat diverifikasi.** Setiap dokumen resmi dapat dicek keasliannya secara publik.
 
 ### 1.4 Solusi Singkat
-Sebuah **backend Google Apps Script** yang merespons JSON melalui `doGet`/`doPost`, dengan **Google Sheets** sebagai database dan **Google Drive** sebagai penyimpanan dokumen. Frontend terbagi dua domain: **portal publik** (`apii.sigit.id`) dan **portal pengurus** (`siapii.sigitadi.id`). Detail teknis ada di `DESIGN.md`; dokumen ini berfokus pada **kebutuhan pengguna dan produk**.
+Sebuah **backend Google Apps Script** yang merespons JSON melalui `doGet`/`doPost`, dengan **Google Sheets** sebagai database dan **Google Drive** sebagai penyimpanan dokumen. Frontend terbagi dua domain: **portal publik** (`apii.sigitadi.id`) dan **portal pengurus** (`siapii.sigitadi.id`). Detail teknis ada di `DESIGN.md`; dokumen ini berfokus pada **kebutuhan pengguna dan produk**.
 
 ---
 

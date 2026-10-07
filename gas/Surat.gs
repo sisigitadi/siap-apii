@@ -348,7 +348,7 @@ function rejectSurat(ctx) {
 
 /**
  * getPublishedSurat: daftar surat PUBLISHED untuk portal publik (TANPA login).
- * Dipakai section "Dokumen Resmi" di apii.sigit.id.
+ * Dipakai section "Dokumen Resmi" di apii.sigitadi.id.
  * @param {object} ctx.payload { limit?, page? }
  */
 function getPublishedSurat(ctx) {
@@ -378,7 +378,7 @@ function getPublishedSurat(ctx) {
 
 /**
  * verifySurat: verifikasi keaslian surat oleh MASYARAKAT (publik, tanpa login).
- * Dipakai portal publik apii.sigit.id.
+ * Dipakai portal publik apii.sigitadi.id.
  * @param {object} ctx.payload { letter_number } atau { hash }
  */
 function verifySurat(ctx) {

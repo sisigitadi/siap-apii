@@ -38,8 +38,8 @@
       </a>
       <ul class="hidden lg:flex items-center gap-8 font-medium text-gray-700">
         <li><a href="#beranda" class="nav-link hover:text-emerald transition">Beranda</a></li>
+        <li><a href="#informasi" class="nav-link hover:text-emerald transition">Informasi &amp; Keuangan</a></li>
         <li><a href="#pendaftaran" class="nav-link hover:text-emerald transition">Pendaftaran Anggota</a></li>
-        <li><a href="#divisi" class="nav-link hover:text-emerald transition">Divisi Kerja</a></li>
         <li><a href="#kontak" class="nav-link hover:text-emerald transition">Kontak</a></li>
       </ul>
       <a href="#pendaftaran"
@@ -53,8 +53,8 @@
     </nav>
     <div id="mobileMenu" class="hidden lg:hidden bg-white border-t border-emerald-100 px-4 py-4 space-y-3 font-medium text-gray-700 shadow-xl">
       <a href="#beranda" class="block py-2 mobile-link">Beranda</a>
+      <a href="#informasi" class="block py-2 mobile-link">Informasi &amp; Keuangan</a>
       <a href="#pendaftaran" class="block py-2 mobile-link font-bold text-emerald">Pendaftaran Anggota</a>
-      <a href="#divisi" class="block py-2 mobile-link">Divisi Kerja</a>
       <a href="#kontak" class="block py-2 mobile-link">Kontak</a>
       <a href="#pendaftaran" class="block text-center bg-gold text-emerald-dark py-3 rounded-xl font-bold mt-2">Daftar Anggota Sekarang</a>
     </div>
@@ -89,14 +89,14 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
             Formulir Pendaftaran Calon Anggota
           </a>
-          <a href="#divisi" class="inline-flex items-center justify-center gap-2 border-2 border-white/40 hover:bg-white/10 text-white px-6 py-4 rounded-xl font-semibold transition text-base">
-            7 Divisi Kerja
+          <a href="#informasi" class="inline-flex items-center justify-center gap-2 border-2 border-white/40 hover:bg-white/10 text-white px-6 py-4 rounded-xl font-semibold transition text-base">
+            Info Surat &amp; Keuangan
           </a>
         </div>
         <div class="flex gap-8 mt-12 pt-8 border-t border-white/20">
-          <div><div class="text-3xl font-extrabold text-gold-light">7</div><div class="text-sm text-emerald-light/80">Divisi Kerja</div></div>
+          <div><div class="text-3xl font-extrabold text-gold-light">Resmi</div><div class="text-sm text-emerald-light/80">Publikasi Surat</div></div>
+          <div><div class="text-3xl font-extrabold text-gold-light">Transparan</div><div class="text-sm text-emerald-light/80">Rekening Kas Yayasan</div></div>
           <div><div class="text-3xl font-extrabold text-gold-light">100%</div><div class="text-sm text-emerald-light/80">Terproteksi UU PDP</div></div>
-          <div><div class="text-3xl font-extrabold text-gold-light">DPW</div><div class="text-sm text-emerald-light/80">Jabodetabek</div></div>
         </div>
       </div>
       <div class="hidden lg:block">
@@ -397,15 +397,125 @@
     </div>
   </div>
 
-  <!-- ====================== DIVISI KERJA ====================== -->
-  <section id="divisi" class="py-24 bg-[#F7FAF7]">
+  <!-- ====================== INFORMASI SURAT & KEUANGAN YAYASAN ====================== -->
+  <section id="informasi" class="py-24 bg-gradient-to-b from-white via-emerald-50/30 to-white border-t border-emerald-100">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="text-center mb-12">
-        <span class="text-emerald font-bold text-sm uppercase tracking-widest">Struktur Kerja</span>
-        <h2 class="text-3xl sm:text-4xl font-extrabold text-emerald-dark mt-3 mb-4">7 Divisi Kerja Yayasan</h2>
-        <p class="text-gray-600 text-lg">Setiap divisi mengusulkan programnya sendiri, disetujui oleh Ketua.</p>
+      <div class="text-center max-w-3xl mx-auto mb-16">
+        <span class="inline-flex items-center gap-2 bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-widest">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          Transparansi Publik DPW
+        </span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-emerald-dark mt-4 mb-4">
+          Informasi Surat &amp; Keuangan Resmi Yayasan
+        </h2>
+        <p class="text-gray-600 text-base sm:text-lg leading-relaxed">
+          Keterbukaan informasi dan akuntabilitas publik Dewan Pimpinan Wilayah APII Jabodetabek bagi anggota, mitra kerja, dan masyarakat luas.
+        </p>
       </div>
-      <div id="divisiGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
+
+      <div class="grid lg:grid-cols-12 gap-8 items-start">
+        
+        <!-- KOLOM 1: DOKUMEN & SURAT RESMI DITERBITKAN (7 Kolom) -->
+        <div class="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-emerald-100 flex flex-col h-full">
+          <div class="flex items-center justify-between pb-6 mb-6 border-b border-gray-100">
+            <div class="flex items-center gap-3.5">
+              <div class="h-12 w-12 rounded-2xl bg-emerald-light flex items-center justify-center text-emerald">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-extrabold text-gray-900">Surat &amp; Publikasi Resmi</h3>
+                <p class="text-xs text-gray-500">Arsip surat keputusan, ketetapan, dan edaran DPW</p>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-emerald bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+              Diterbitkan
+            </span>
+          </div>
+
+          <!-- Loading state -->
+          <div id="loadingSurat" class="py-12 text-center text-gray-400 text-sm">
+            <svg class="animate-spin h-6 w-6 text-emerald mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            Memuat arsip surat resmi...
+          </div>
+
+          <!-- Daftar Surat -->
+          <div id="publicSuratList" class="space-y-3.5 hidden">
+            <!-- Di-render secara dinamis oleh JavaScript -->
+          </div>
+
+          <!-- Empty State -->
+          <div id="emptySurat" class="hidden py-12 text-center text-gray-400 text-sm bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-300 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+            Belum ada arsip surat publikasi terbuka.
+          </div>
+
+          <div class="mt-auto pt-6 text-[11px] text-gray-400 border-t border-gray-100 flex items-center justify-between">
+            <span>Seluruh surat sah diterbitkan Dewan Pimpinan Wilayah APII Jabodetabek.</span>
+          </div>
+        </div>
+
+        <!-- KOLOM 2: REKENING & INFORMASI KEUANGAN RESMI (5 Kolom) -->
+        <div class="lg:col-span-5 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-emerald-100 flex flex-col h-full">
+          <div class="flex items-center justify-between pb-6 mb-6 border-b border-gray-100">
+            <div class="flex items-center gap-3.5">
+              <div class="h-12 w-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-extrabold text-gray-900">Rekening Resmi Yayasan</h3>
+                <p class="text-xs text-gray-500">Kanal perbendaharaan, donasi, &amp; infaq</p>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+              Terverifikasi
+            </span>
+          </div>
+
+          <!-- Daftar Rekening Resmi -->
+          <div id="publicAccountList" class="space-y-3.5">
+            <!-- Rekening default fallback (BSI & Mandiri) -->
+            <div class="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/70 to-teal-50/40 border border-emerald-200">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-black text-emerald-800 uppercase tracking-wider">Bank Syariah Indonesia (BSI)</span>
+                <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2.5 py-0.5 rounded-full">Operasional DPW</span>
+              </div>
+              <div class="flex items-center justify-between gap-2 mt-1">
+                <div class="text-xl font-extrabold font-mono text-gray-900 tracking-wider">7218390881</div>
+                <button type="button" onclick="navigator.clipboard.writeText('7218390881'); window.Public &amp;&amp; window.Public.showToast('Nomor rekening BSI berhasil disalin!');"
+                        class="text-xs font-bold bg-white hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-300 shadow-sm transition">
+                  Salin
+                </button>
+              </div>
+              <div class="text-xs text-gray-600 mt-2 font-medium">a.n. <strong>YAYASAN APII DPW JABODETABEK</strong></div>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-gradient-to-br from-amber-50/70 to-orange-50/40 border border-amber-200">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-black text-amber-900 uppercase tracking-wider">Bank Mandiri</span>
+                <span class="text-[10px] font-bold text-amber-800 bg-amber-100/70 px-2.5 py-0.5 rounded-full">Wakaf &amp; Dakwah</span>
+              </div>
+              <div class="flex items-center justify-between gap-2 mt-1">
+                <div class="text-xl font-extrabold font-mono text-gray-900 tracking-wider">1240019283741</div>
+                <button type="button" onclick="navigator.clipboard.writeText('1240019283741'); window.Public &amp;&amp; window.Public.showToast('Nomor rekening Mandiri berhasil disalin!');"
+                        class="text-xs font-bold bg-white hover:bg-amber-100 text-amber-900 px-3 py-1.5 rounded-xl border border-amber-300 shadow-sm transition">
+                  Salin
+                </button>
+              </div>
+              <div class="text-xs text-gray-600 mt-2 font-medium">a.n. <strong>YAYASAN APII DPW JABODETABEK</strong></div>
+            </div>
+          </div>
+
+          <!-- Himbauan Keamanan Transaksi -->
+          <div class="mt-5 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 leading-relaxed flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-rose-600 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+            <div>
+              <strong>Himbauan Keamanan:</strong> Seluruh infaq dan donasi resmi hanya disalurkan melalui rekening yayasan tertera di atas. Pengurus tidak pernah menggunakan rekening pribadi.
+            </div>
+          </div>
+
+        </div>
+
+      </div>
     </div>
   </section>
 

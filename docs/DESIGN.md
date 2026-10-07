@@ -29,7 +29,7 @@ Setiap fitur dipertanyakan dulu: *apakah ini benar-benar menyelesaikan masalah p
 ### 2.1 Diagram
 
 ```
-   🌐 apii.sigit.id (publik)          🌐 siapii.sigitadi.id (portal pengurus)
+   🌐 apii.sigitadi.id (publik)          🌐 siapii.sigitadi.id (portal pengurus)
    public/index.html + app.js          portal/index.html + portal.js + auth.js
             │  fetch JSON (CORS)                 │  fetch JSON + token
             └───────────────┬────────────────────┘
@@ -424,7 +424,7 @@ Kesan: **Amanah · Bersih · Modern** (nuansa Islam-institusional, tidak murahan
 
 | Domain | Folder | Isi | Audiens |
 |---|---|---|---|
-| `apii.sigit.id` | `public/` | `index.html`, `app.js`, `style.css` | Masyarakat umum (tanpa login) |
+| `apii.sigitadi.id` | `public/` | `index.html`, `app.js`, `style.css` | Masyarakat umum (tanpa login) |
 | `siapii.sigitadi.id` | `portal/` | `index.html`, `portal.js`, `auth.js`, `style.css` | Pengurus (login wajib) |
 
 ### 10.3 Arsitektur Frontend (Vanilla JS, anti-spaghetti)
@@ -452,7 +452,7 @@ Pola **Module (IIFE)** — setiap file satu tanggung jawab:
 | Database | Google Sheets (`DB-SIAP-APII`) |
 | File | Google Drive (folder khusus, sharing link) |
 | Template PDF | Google Docs (1 file template) |
-| Frontend publik | Hosting statis → `apii.sigit.id` |
+| Frontend publik | Hosting statis → `apii.sigitadi.id` |
 | Frontend portal | Hosting statis → `siapii.sigitadi.id` |
 | SSL | Otomatis oleh hosting statis |
 

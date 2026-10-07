@@ -49,7 +49,7 @@ graph TD
     F -->|DriveApp API| H[Google Drive Storage]
     
     C -->|Vercel Hosting| I[siapii.sigitadi.id - Portal Pengurus]
-    D -->|Vercel Hosting| J[apii.sigit.id - Portal Publik]
+    D -->|Vercel Hosting| J[apii.sigitadi.id - Portal Publik]
     
     I -->|Fetch API + Token| F
     J -->|Fetch API Tanpa Login| F
@@ -64,7 +64,7 @@ graph TD
    - Host: Vercel Production (`https://siapii.sigitadi.id`).
 3. **Portal Publik**:
    - Sumber: Folder `public/` (`index.html`, `app.js`, `style.css`, `config.js`).
-   - Host: Vercel / Static Web Hosting (`https://apii.sigit.id`).
+   - Host: Vercel / Static Web Hosting (`https://apii.sigitadi.id`).
 
 ---
 
@@ -92,7 +92,7 @@ Script ini akan:
 ### Langkah 3: Deploy Frontend ke Vercel (CI/CD Otomatis)
 Setiap `git push origin main`, Vercel akan otomatis melakukan build dan deploy:
 - Project Portal Pengurus mendeteksi perubahan di root atau folder `portal/` dan mengarahkan ke domain `siapii.sigitadi.id`.
-- Project Portal Publik mendeteksi folder `public/` dan mengarahkan ke domain `apii.sigit.id`.
+- Project Portal Publik mendeteksi folder `public/` dan mengarahkan ke domain `apii.sigitadi.id`.
 
 Jika deploy manual menggunakan Vercel CLI:
 ```bash
@@ -115,7 +115,7 @@ cd public && npx vercel --prod --yes
   - [ ] Klik periksa pendaftar memunculkan pratinjau KTP ber-watermark dan tombol verifikasi.
   - [ ] Modal Kertas Virtual A4 surat dan Kwitansi Kas dapat dibuka dan dicetak.
   - [ ] Menu Pengaturan memuat master rekening, jenis surat baru (`NOTULEN`, `RAPAT`, `BA`), dan KOP.
-- [ ] **Portal Publik (`apii.sigit.id`)**:
+- [ ] **Portal Publik (`apii.sigitadi.id`)**:
   - [ ] Halaman landing memuat profil yayasan dan 7 divisi kerja.
   - [ ] Formulir Pendaftaran Calon Anggota muncul dengan kartu UU PDP.
   - [ ] Unggah foto KTP memicu watermark otomatis sisi klien tanpa error.

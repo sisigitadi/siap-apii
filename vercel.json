@@ -2,6 +2,9 @@
   "version": 2,
   "outputDirectory": "portal",
   "cleanUrls": true,
+  "buildCommand": null,
+  "installCommand": null,
+  "framework": null,
   "headers": [
     {
       "source": "/(.*)",
