@@ -76,6 +76,7 @@ function getListSurat(ctx) {
       created_at: s.created_at, submitted_at: s.submitted_at,
       published_at: s.published_at, approved_by: s.approved_by,
       rejection_notes: s.rejection_notes,
+      content: s.content || '',
       pdf_url: s.status === 'PUBLISHED' ? s.pdf_url : '',
       qr_verify_url: s.status === 'PUBLISHED' ? s.qr_verify_url : ''
     };

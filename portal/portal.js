@@ -77,6 +77,7 @@
 
     /** Boot aplikasi setelah login valid. */
     bootApp: function (user) {
+      var self = this;
       this.state.user = user || Auth.user;
       var hp = document.getElementById('loginPage');
       var ap = document.getElementById('appPage');
@@ -89,8 +90,10 @@
       // Sidebar.
       this.renderNav();
 
-      // Router pertama kali.
-      window.addEventListener('hashchange', this.router);
+      // Router pertama kali & listener hashchange terikat scope.
+      if (this._onHashChange) window.removeEventListener('hashchange', this._onHashChange);
+      this._onHashChange = function () { self.router(); };
+      window.addEventListener('hashchange', this._onHashChange);
       this.router();
     },
 
@@ -211,26 +214,29 @@
     },
 
     router: function () {
+      var self = (this && this.PAGES) ? this : window.App;
       var hash = (window.location.hash || '#/dashboard').replace('#', '').replace('/', '');
       var key = hash.split('&')[0];
-      var page = this.PAGES[key];
-      if (!page) { page = this.PAGES.dashboard; key = 'dashboard'; }
-      this.state.page = key;
+      var page = self.PAGES[key];
+      if (!page) { page = self.PAGES.dashboard; key = 'dashboard'; }
+      self.state.page = key;
 
       // Hanya render bila menu tersedia untuk peran ini.
-      var allowed = this.navForRole(this.state.user.role).some(function (n) { return n.id === key; });
-      if (!allowed) { page = this.PAGES.dashboard; this.state.page = 'dashboard'; }
+      var allowed = self.navForRole(self.state.user.role).some(function (n) { return n.id === key; });
+      if (!allowed) { page = self.PAGES.dashboard; self.state.page = 'dashboard'; }
 
       document.getElementById('pageTitle').textContent = page.t;
       document.getElementById('pageSubtitle').textContent = page.s;
 
       // Tandai menu aktif.
       var nav = document.getElementById('navItems');
-      Array.prototype.forEach.call(nav.children, function (btn) {
-        btn.classList.toggle('active', btn.getAttribute('data-nav') === this.state.page);
-      }.bind(this));
+      if (nav) {
+        Array.prototype.forEach.call(nav.children, function (btn) {
+          btn.classList.toggle('active', btn.getAttribute('data-nav') === self.state.page);
+        });
+      }
 
-      this.closeSidebar();
+      self.closeSidebar();
 
       // Render konten.
       var main = document.getElementById('mainContent');
@@ -238,7 +244,7 @@
         '<svg class="animate-spin h-8 w-8 text-emerald" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">' +
         '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>' +
         '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg></div>';
-      this[page.fn]();
+      self[page.fn]();
     },
 
     bindGlobal: function () {
@@ -309,14 +315,18 @@
     },
 
     /** Buka modal dengan HTML bebas. */
-    openModal: function (html) {
-      document.getElementById('modalPanel').innerHTML = html;
+    openModal: function (html, maxWidthClass) {
+      var panel = document.getElementById('modalPanel');
+      panel.className = 'modal-panel bg-white rounded-3xl shadow-2xl w-full ' + (maxWidthClass || 'max-w-lg') + ' max-h-[92vh] overflow-y-auto';
+      panel.innerHTML = html;
       document.getElementById('modalRoot').classList.remove('hidden');
     },
 
     closeModal: function () {
       document.getElementById('modalRoot').classList.add('hidden');
-      document.getElementById('modalPanel').innerHTML = '';
+      var panel = document.getElementById('modalPanel');
+      panel.className = 'modal-panel bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto';
+      panel.innerHTML = '';
     },
 
     /** Baris skeleton saat tabel masih memuat. */
@@ -684,44 +694,284 @@
         ['SUPERADMIN', 'KETUA'].indexOf(r) !== -1);
     },
 
-    /** Modal detail surat. */
+    /** Modal detail surat dengan Pratinjau Kertas Virtual A4 (Paper Replica) & Metadata. */
     suratDetail: function (s) {
       var self = this;
-      var rows = [
+      var canApprove = ['SUPERADMIN', 'KETUA'].indexOf(this.state.user.role) !== -1;
+      var canWrite = ['SUPERADMIN', 'SEKRETARIS'].indexOf(this.state.user.role) !== -1;
+
+      // Parsing konten
+      var contentObj = {};
+      try {
+        contentObj = typeof s.content === 'object' ? (s.content || {}) : JSON.parse(s.content || '{}');
+      } catch (e) {
+        contentObj = {};
+      }
+
+      var bodyHtml = '';
+      if (contentObj.menimbang || contentObj.mengingat || contentObj.memutuskan) {
+        if (contentObj.menimbang) {
+          bodyHtml += '<div class="flex flex-col sm:flex-row gap-1 sm:gap-4 items-start">' +
+            '<div class="w-24 sm:w-28 font-bold text-gray-900 flex-shrink-0">Menimbang :</div>' +
+            '<div class="flex-1">' + Auth.esc(contentObj.menimbang) + '</div></div>';
+        }
+        if (contentObj.mengingat) {
+          bodyHtml += '<div class="flex flex-col sm:flex-row gap-1 sm:gap-4 items-start">' +
+            '<div class="w-24 sm:w-28 font-bold text-gray-900 flex-shrink-0">Mengingat :</div>' +
+            '<div class="flex-1">' + Auth.esc(contentObj.mengingat) + '</div></div>';
+        }
+        if (contentObj.memutuskan) {
+          bodyHtml += '<div class="flex flex-col sm:flex-row gap-1 sm:gap-4 items-start">' +
+            '<div class="w-24 sm:w-28 font-bold text-gray-900 flex-shrink-0">Memutuskan :</div>' +
+            '<div class="flex-1 font-semibold text-gray-950">' + Auth.esc(contentObj.memutuskan) + '</div></div>';
+        }
+      } else if (typeof s.content === 'string' && s.content.trim()) {
+        bodyHtml = '<p class="leading-relaxed">' + Auth.esc(s.content) + '</p>';
+      } else {
+        bodyHtml = '<div class="bg-amber-50/50 border border-amber-100 rounded-xl p-4 text-center text-amber-900 text-xs italic">' +
+          'Isi butir konsideran (menimbang, mengingat, memutuskan) belum diisi pada draf surat ini. Anda dapat mengisinya melalui menu <strong>Ubah</strong>.' +
+          '</div>';
+      }
+
+      // Watermark status
+      var watermarkHtml = '';
+      if (s.status === 'DRAFT') {
+        watermarkHtml = '<div class="paper-watermark paper-watermark-DRAFT">DRAF SURAT</div>';
+      } else if (s.status === 'PENDING_APPROVAL') {
+        watermarkHtml = '<div class="paper-watermark paper-watermark-PENDING_APPROVAL">MENUNGGU KETUA</div>';
+      } else if (s.status === 'REJECTED') {
+        watermarkHtml = '<div class="paper-watermark paper-watermark-REJECTED">DITOLAK</div>';
+      }
+
+      var ketuaName = s.approved_by || 'Dr. H. Ahmad Fauzi, M.Pd';
+      var sekretarisName = s.created_by_name || s.created_by || 'M. Rahmatullah, S.T';
+
+      // Rows metadata
+      var metaRows = [
         ['Nomor Surat', s.letter_number, 'mono'],
-        ['Jenis', s.letter_type_label, ''],
-        ['Judul', s.title, ''],
-        ['Status', null, 'badge'],
-        ['Tanggal Surat', s.tanggal_label, ''],
+        ['Jenis Surat', s.letter_type_label, ''],
+        ['Perihal / Judul', s.title, ''],
+        ['Status Dokumen', null, 'badge'],
+        ['Tanggal Surat', s.tanggal_label || s.tanggal_surat, ''],
         ['Dibuat Oleh', s.created_by_name || s.created_by, ''],
         ['Disahkan Oleh', s.approved_by || '—', '']
       ];
-      if (s.rejection_notes) rows.push(['Catatan Penolakan', s.rejection_notes, 'warn']);
+      if (s.rejection_notes) metaRows.push(['Catatan Penolakan', s.rejection_notes, 'warn']);
+      if (s.pdf_url) metaRows.push(['URL Dokumen PDF', s.pdf_url, 'link']);
+      if (s.qr_verify_url) metaRows.push(['URL Verifikasi Publik', s.qr_verify_url, 'link']);
 
-      this.openModal(
-        '<div class="p-6">' +
-          '<div class="flex items-center justify-between mb-5">' +
-            '<h3 class="text-lg font-extrabold text-emerald-dark">Detail Surat</h3>' +
-            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+      var modalHtml = '<div class="p-4 sm:p-6">' +
+        // Header Modal
+        '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-100 no-print">' +
+          '<div class="flex items-center gap-3">' +
+            '<div class="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl">' +
+              '<button type="button" id="tabPaperBtn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-emerald-dark shadow-sm transition">📄 Kertas A4</button>' +
+              '<button type="button" id="tabMetaBtn" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-900 transition">📋 Metadata</button>' +
+            '</div>' +
+            self.badge(s.status, s.status_label) +
           '</div>' +
-          '<div class="space-y-1">' + rows.map(function (r) {
+          '<div class="flex items-center gap-2 self-end sm:self-center flex-wrap">' +
+            '<button type="button" id="btnPrintLetter" class="btn btn-ghost text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5">' +
+              '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
+              '<span>Cetak</span>' +
+            '</button>' +
+            (s.pdf_url ?
+              '<a href="' + Auth.esc(s.pdf_url) + '" target="_blank" rel="noopener" class="btn btn-primary text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5">' +
+                '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
+                '<span>Unduh PDF</span>' +
+              '</a>' : '') +
+            (s.qr_verify_url ?
+              '<button type="button" id="btnCopyVerify" class="btn btn-ghost text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5" title="Salin Link Publik">' +
+                '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>' +
+                '<span class="hidden sm:inline">Salin Link</span>' +
+              '</button>' : '') +
+            '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100 transition">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+
+        // Tab A: Kertas Virtual A4
+        '<div id="viewPaper" class="overflow-x-auto py-2">' +
+          '<div id="printPaperArea" class="paper-a4 p-6 sm:p-12 text-gray-900 shadow-xl border border-gray-200 rounded-xl relative overflow-hidden bg-white max-w-[760px] mx-auto select-text">' +
+            watermarkHtml +
+
+            // KOP SURAT
+            '<div class="flex items-center gap-4 sm:gap-6 mb-2">' +
+              '<img src="logo.png" alt="Logo DPW APII" class="w-16 h-16 sm:w-20 sm:h-20 object-contain flex-shrink-0" />' +
+              '<div class="flex-1 text-center font-serif leading-tight">' +
+                '<div class="text-[11px] sm:text-xs font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
+                '<div class="text-sm sm:text-lg font-black text-gray-900 tracking-tight mt-0.5">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
+                '<div class="text-xs sm:text-sm font-bold text-gray-800 tracking-normal">WILAYAH JABODETABEK</div>' +
+                '<div class="text-[9px] sm:text-[10.5px] text-gray-600 font-sans mt-1 leading-snug">' +
+                  'Gedung Pusat Dakwah APII Wilayah Jabodetabek Lt. 3, Jl. Kramat Raya No. 45, Senen, Jakarta Pusat 10450<br/>' +
+                  'Telp: (021) 390-8812 &bull; Email: sekretariat.dpw@apii-jabodetabek.or.id &bull; Website: siapii.sigitadi.id' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+
+            // DOUBLE DIVIDER LINE
+            '<div class="hr-double-top"></div>' +
+            '<div class="hr-double-bottom"></div>' +
+
+            // JUDUL SURAT & NOMOR
+            '<div class="text-center my-6">' +
+              '<h2 class="text-sm sm:text-base font-bold uppercase tracking-widest underline decoration-2 underline-offset-4">' +
+                Auth.esc(s.letter_type_label || 'SURAT RESMI') +
+              '</h2>' +
+              '<div class="font-mono text-xs text-gray-700 mt-1.5 font-medium">' +
+                'Nomor : ' + Auth.esc(s.letter_number) +
+              '</div>' +
+              '<div class="text-xs font-bold uppercase text-gray-800 mt-3 tracking-wider">TENTANG</div>' +
+              '<div class="text-xs sm:text-sm font-black uppercase text-gray-900 max-w-lg mx-auto mt-1 leading-snug">' +
+                Auth.esc(s.title) +
+              '</div>' +
+            '</div>' +
+
+            // ISI DOKUMEN
+            '<div class="my-6 space-y-4 text-xs sm:text-[13px] leading-relaxed text-gray-800 text-justify">' +
+              bodyHtml +
+            '</div>' +
+
+            // PENETAPAN
+            '<div class="mt-8 text-right text-xs sm:text-[13px] text-gray-800 font-serif">' +
+              '<div>Ditetapkan di : <strong>Jakarta</strong></div>' +
+              '<div>Pada tanggal : <strong>' + Auth.esc(s.tanggal_label || s.tanggal_surat) + '</strong></div>' +
+            '</div>' +
+
+            // BLOK TANDA TANGAN & STEMPEL
+            '<div class="mt-8 grid grid-cols-2 gap-4 text-xs sm:text-[13px] font-serif">' +
+              // SEKRETARIS (Kiri)
+              '<div class="text-center">' +
+                '<div class="font-medium text-gray-700">Sekretaris DPW Jabodetabek,</div>' +
+                '<div class="h-20 sm:h-24 flex items-center justify-center">' +
+                  (s.status === 'PUBLISHED' ? '<span class="font-serif italic text-emerald-800 text-xs sm:text-sm opacity-60">Tertanda digital</span>' : '') +
+                '</div>' +
+                '<div class="font-bold underline text-gray-900">' + Auth.esc(sekretarisName) + '</div>' +
+                '<div class="text-[10px] text-gray-500 font-sans mt-0.5">Sekretaris Wilayah</div>' +
+              '</div>' +
+
+              // KETUA + STEMPEL BASAH (Kanan)
+              '<div class="text-center relative">' +
+                '<div class="font-medium text-gray-700">Ketua DPW Jabodetabek,</div>' +
+                '<div class="h-20 sm:h-24 relative flex items-center justify-center">' +
+                  (s.status === 'PUBLISHED' ?
+                    '<img src="stempel.png" alt="Stempel Basah Resmi APII" class="stempel-basah" />' +
+                    '<span class="font-serif italic text-emerald-900 text-xs sm:text-sm opacity-70 relative z-[2]">Tertanda & Disahkan</span>'
+                    : '') +
+                '</div>' +
+                '<div class="font-bold underline text-gray-900 relative z-[4]">' + Auth.esc(ketuaName) + '</div>' +
+                '<div class="text-[10px] text-gray-500 font-sans mt-0.5 relative z-[4]">Ketua Dewan Pimpinan Wilayah</div>' +
+              '</div>' +
+            '</div>' +
+
+            // FOOTER RESMI KERTAS
+            '<div class="mt-12 pt-3 border-t border-gray-300 flex flex-col sm:flex-row items-center justify-between text-[9px] sm:text-[10px] text-gray-500 font-sans gap-2">' +
+              '<div>Yayasan Aliansi Pendidikan dan Informatika Indonesia (APII) DPW Jabodetabek</div>' +
+              (s.status === 'PUBLISHED' ?
+                '<div class="text-emerald-700 font-medium flex items-center gap-1.5">' +
+                  '<span>🔒 Dokumen Sah Terverifikasi</span>' +
+                  (s.qr_verify_url ? '• <a href="' + Auth.esc(s.qr_verify_url) + '" target="_blank" rel="noopener" class="underline hover:text-emerald-900">Cek Keaslian Digital</a>' : '') +
+                '</div>' : '<div class="text-gray-400">Salinan Dokumen Internal</div>') +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Tab B: Metadata
+        '<div id="viewMeta" class="hidden py-2 space-y-1">' +
+          metaRows.map(function (r) {
             var val = r[2] === 'badge' ? self.badge(s.status, s.status_label)
               : r[2] === 'mono' ? '<span class="font-mono text-xs break-all">' + Auth.esc(r[1]) + '</span>'
-              : r[2] === 'warn' ? '<span class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg block">' + Auth.esc(r[1]) + '</span>'
+              : r[2] === 'warn' ? '<span class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl block border border-red-100">' + Auth.esc(r[1]) + '</span>'
+              : r[2] === 'link' ? '<a href="' + Auth.esc(r[1]) + '" target="_blank" rel="noopener" class="text-emerald text-xs font-semibold hover:underline break-all">' + Auth.esc(r[1]) + ' ↗</a>'
               : '<span class="text-sm text-gray-800">' + Auth.esc(r[1]) + '</span>';
-            return '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-2 border-b border-gray-50">' +
-              '<div class="text-xs font-bold text-gray-400 uppercase tracking-wide sm:w-40 flex-shrink-0">' + r[0] + '</div>' +
-              '<div class="min-w-0">' + val + '</div></div>';
-          }).join('') + '</div>' +
-          (s.pdf_url ?
-            '<a href="' + Auth.esc(s.pdf_url) + '" target="_blank" rel="noopener" class="btn btn-primary mt-5 w-full py-3 rounded-xl font-bold inline-flex items-center justify-center gap-2">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>' +
-            'Unduh PDF Resmi</a>' : '') +
-          (s.qr_verify_url ?
-            '<a href="' + Auth.esc(s.qr_verify_url) + '" target="_blank" rel="noopener" class="block text-center text-sm text-emerald mt-3 font-semibold hover:underline">Link verifikasi publik →</a>' : '') +
-        '</div>');
+            return '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-2.5 border-b border-gray-100">' +
+              '<div class="text-xs font-bold text-gray-400 uppercase tracking-wide sm:w-44 flex-shrink-0">' + r[0] + '</div>' +
+              '<div class="min-w-0 flex-1">' + val + '</div></div>';
+          }).join('') +
+        '</div>' +
 
+        // Approval Action Bar (Khusus Pimpinan saat status PENDING_APPROVAL)
+        (canApprove && s.status === 'PENDING_APPROVAL' ?
+          '<div class="mt-6 pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-amber-50/70 p-4 rounded-2xl border border-amber-200 no-print">' +
+            '<div class="text-xs text-amber-900 font-medium text-center sm:text-left">' +
+              '⚡ <strong>Persetujuan Pimpinan:</strong> Dokumen menunggu keputusan Anda untuk disahkan dan diterbitkan dengan PDF & stempel resmi.' +
+            '</div>' +
+            '<div class="flex gap-2 w-full sm:w-auto flex-shrink-0">' +
+              '<button type="button" id="modalApproveBtn" class="btn btn-primary text-xs px-4 py-2.5 rounded-xl font-bold flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-sm">' +
+                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
+                '<span>Setujui & Terbitkan</span>' +
+              '</button>' +
+              '<button type="button" id="modalRejectBtn" class="btn btn-danger text-xs px-4 py-2.5 rounded-xl font-bold flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-sm">' +
+                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
+                '<span>Tolak</span>' +
+              '</button>' +
+            '</div>' +
+          '</div>' : '') +
+      '</div>';
+
+      this.openModal(modalHtml, 'max-w-4xl');
+
+      // Bind tabs
+      var tabPaperBtn = document.getElementById('tabPaperBtn');
+      var tabMetaBtn = document.getElementById('tabMetaBtn');
+      var viewPaper = document.getElementById('viewPaper');
+      var viewMeta = document.getElementById('viewMeta');
+
+      if (tabPaperBtn && tabMetaBtn) {
+        tabPaperBtn.addEventListener('click', function () {
+          tabPaperBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-emerald-dark shadow-sm transition';
+          tabMetaBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-900 transition';
+          viewPaper.classList.remove('hidden');
+          viewMeta.classList.add('hidden');
+        });
+        tabMetaBtn.addEventListener('click', function () {
+          tabMetaBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-emerald-dark shadow-sm transition';
+          tabPaperBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-900 transition';
+          viewMeta.classList.remove('hidden');
+          viewPaper.classList.add('hidden');
+        });
+      }
+
+      // Bind print
+      var printBtn = document.getElementById('btnPrintLetter');
+      if (printBtn) {
+        printBtn.addEventListener('click', function () {
+          window.print();
+        });
+      }
+
+      // Bind copy verify link
+      var copyBtn = document.getElementById('btnCopyVerify');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+          if (navigator.clipboard && s.qr_verify_url) {
+            navigator.clipboard.writeText(s.qr_verify_url).then(function () {
+              self.toast('Link verifikasi berhasil disalin ke clipboard!', 'success');
+            }).catch(function () {
+              prompt('Salin link verifikasi surat:', s.qr_verify_url);
+            });
+          } else if (s.qr_verify_url) {
+            prompt('Salin link verifikasi surat:', s.qr_verify_url);
+          }
+        });
+      }
+
+      // Bind modal approve & reject buttons if available
+      var modalApprove = document.getElementById('modalApproveBtn');
+      if (modalApprove) {
+        modalApprove.addEventListener('click', function () {
+          self.suratApprove(s, canWrite, canApprove);
+        });
+      }
+      var modalReject = document.getElementById('modalRejectBtn');
+      if (modalReject) {
+        modalReject.addEventListener('click', function () {
+          self.suratReject(s);
+        });
+      }
+
+      // Bind close buttons
       Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
         b.addEventListener('click', function () { self.closeModal(); });
       });

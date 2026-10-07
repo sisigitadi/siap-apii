@@ -160,6 +160,8 @@ label.lbl { display: block; font-size: .78rem; font-weight: 700; color: #374151;
   border-radius: 0.5rem;
   max-width: 720px;
   margin: 0 auto;
+  position: relative;
+  font-family: 'Times New Roman', Times, serif;
 }
 .hr-double-top {
   border-top: 2.5px solid #000;
@@ -168,5 +170,76 @@ label.lbl { display: block; font-size: .78rem; font-weight: 700; color: #374151;
 .hr-double-bottom {
   border-top: 1px solid #000;
   margin-top: 2px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.paper-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-32deg);
+  font-size: 3.2rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  font-family: system-ui, -apple-system, sans-serif;
+  z-index: 10;
+}
+.paper-watermark-DRAFT {
+  color: #9CA3AF;
+  opacity: 0.14;
+}
+.paper-watermark-PENDING_APPROVAL {
+  color: #D97706;
+  opacity: 0.16;
+}
+.paper-watermark-REJECTED {
+  color: #DC2626;
+  opacity: 0.18;
+}
+
+.stempel-basah {
+  position: absolute;
+  width: 105px;
+  height: 105px;
+  top: -24px;
+  left: -20px;
+  opacity: 0.88;
+  transform: rotate(-6deg);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  filter: contrast(1.15) saturate(1.2);
+  z-index: 5;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printPaperArea, #printPaperArea * {
+    visibility: visible;
+  }
+  #printPaperArea {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0.5in !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+  .modal-backdrop, .modal-panel, #modalRoot {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
 }
