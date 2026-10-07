@@ -165,7 +165,14 @@ function handleRequest(req) {
 
   // 4) Jalankan handler. Handler WAJIB return { ok, data, message }.
   try {
-    var ctx = { user: user, token: req.token, payload: req.payload || {} };
+    var payload = req.payload || {};
+    if (typeof payload !== 'object' || payload === null) payload = {};
+    for (var k in req) {
+      if (k !== 'action' && k !== 'token' && k !== 'payload') {
+        if (!(k in payload)) payload[k] = req[k];
+      }
+    }
+    var ctx = { user: user, token: req.token, payload: payload };
     var result = route.handler(ctx);
     if (!result) result = { ok: false, data: null, message: 'Handler tidak mengembalikan hasil.' };
     return jsonOut({ success: result.ok, data: result.data, message: result.message || '' });
