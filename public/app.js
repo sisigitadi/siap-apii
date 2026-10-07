@@ -20,6 +20,44 @@
       this.renderDivisions();
     },
 
+    bindMobileNav: function () {
+      var btn = document.getElementById('mobileToggle');
+      var menu = document.getElementById('mobileMenu');
+      if (!btn || !menu) return;
+      btn.addEventListener('click', function () {
+        menu.classList.toggle('hidden');
+      });
+      var links = document.querySelectorAll('.mobile-link');
+      for (var i = 0; i < links.length; i++) {
+        links[i].addEventListener('click', function () {
+          menu.classList.add('hidden');
+        });
+      }
+    },
+
+    get: function (action, params) {
+      var base = window.API_BASE || '';
+      var url = new URL(base);
+      url.searchParams.set('action', action);
+      if (params) {
+        Object.keys(params).forEach(function (k) {
+          url.searchParams.set(k, params[k]);
+        });
+      }
+      return fetch(url.toString(), { redirect: 'follow' })
+        .then(function (r) { return r.json(); });
+    },
+
+    post: function (action, payload) {
+      var base = window.API_BASE || '';
+      return fetch(base, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: action, payload: payload || {} }),
+        redirect: 'follow'
+      }).then(function (r) { return r.json(); });
+    },
+
     // ---------------------------------------------------------------
     // PENDAFTARAN ANGGOTA & WATERMARK KTP CANVAS
     // ---------------------------------------------------------------

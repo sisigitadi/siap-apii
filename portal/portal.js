@@ -46,7 +46,7 @@
     /** Prefetch data rute di background agar transisi 0ms instan tanpa jeda. */
     prefetchRoute: function (key) {
       if (key === 'dashboard') {
-        Auth.getCached('getDashboardSummary');
+        Auth.getCached('getDashboard');
       } else if (key === 'surat') {
         Auth.getCached('getListSurat', { q: '', status: '', limit: 50 });
       } else if (key === 'keuangan') {
@@ -54,7 +54,7 @@
         Auth.getCached('getListKeuangan', { q: '', status: '', type: '', limit: 50 });
         Auth.getCached('getAccounts');
       } else if (key === 'divisi') {
-        Auth.getCached('getListProgram', { q: '', status: '', limit: 50 });
+        Auth.getCached('getListDivisi', { q: '', status: '', limit: 50 });
       } else if (key === 'pengguna') {
         Auth.getCached('getListPengguna');
         Auth.getCached('getListPendaftar');

@@ -116,7 +116,13 @@ var ROUTES = {
   approveSubmission:   { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Divisi.approveSubmission },
   rejectSubmission:    { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Divisi.rejectSubmission },
   startExecution:      { auth: true,  roles: DIVISI_SUBMIT_ROLES, handler: Divisi.startExecution },
-  submitLPJ:           { auth: true,  roles: DIVISI_SUBMIT_ROLES, handler: Divisi.submitLPJ }
+  submitLPJ:           { auth: true,  roles: DIVISI_SUBMIT_ROLES, handler: Divisi.submitLPJ },
+
+  // --- Alias Kompatibilitas (Pencegahan Notif Aksi Tidak Dikenali) ---
+  getDashboardSummary: { auth: true,  roles: null, handler: Utils.getDashboard },
+  getListProgram:      { auth: true,  roles: null, handler: Divisi.getListDivisi },
+  getPublicFeed:       { auth: false, roles: null, handler: Surat.getPublishedSurat },
+  verify:              { auth: false, roles: null, handler: Surat.verifySurat }
 };
 
 // ==========================================================================
@@ -156,6 +162,16 @@ function doPost(e) {
 function handleRequest(req) {
   req = req || {};
   var action = req.action;
+
+  // Cek ping status bila diakses langsung tanpa aksi (misal browser GET)
+  if (!action || action === 'ping') {
+    return jsonOut({
+      success: true,
+      data: { status: 'online', version: '2.0.0', service: 'SIAP APII Backend' },
+      message: 'Layanan API Yayasan APII DPW Jabodetabek Aktif.'
+    });
+  }
+
   var route = ROUTES[action];
 
   // 1) Aksi tidak dikenali.
