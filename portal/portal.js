@@ -18,8 +18,52 @@
       surat: { status: '', q: '', page: 1 },
       keuangan: { status: '', type: '', q: '', page: 1 },
       divisi: { status: '', q: '', page: 1 },
-      pengguna: { q: '', page: 1 },
-      audit: { page: 1 }
+      pengguna: { tab: 'pengurus', q: '', page: 1 },
+      pengaturan: { tab: 'rekening' },
+      audit: { modul: '', actor: '', page: 1 }
+    },
+
+    /** Konversi angka ke kalimat rupiah Indonesia untuk Kwitansi / Bukti Kas. */
+    terbilang: function (n) {
+      n = Math.floor(Math.abs(Number(n) || 0));
+      if (n === 0) return 'Nol Rupiah';
+      var satuan = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'];
+      function convert(num) {
+        if (num < 12) return satuan[num];
+        if (num < 20) return convert(num - 10) + ' Belas';
+        if (num < 100) return convert(Math.floor(num / 10)) + ' Puluh' + (num % 10 ? ' ' + convert(num % 10) : '');
+        if (num < 200) return 'Seratus' + (num % 100 ? ' ' + convert(num % 100) : '');
+        if (num < 1000) return convert(Math.floor(num / 100)) + ' Ratus' + (num % 100 ? ' ' + convert(num % 100) : '');
+        if (num < 2000) return 'Seribu' + (num % 1000 ? ' ' + convert(num % 1000) : '');
+        if (num < 1000000) return convert(Math.floor(num / 1000)) + ' Ribu' + (num % 1000 ? ' ' + convert(num % 1000) : '');
+        if (num < 1000000000) return convert(Math.floor(num / 1000000)) + ' Juta' + (num % 1000000 ? ' ' + convert(num % 1000000) : '');
+        if (num < 1000000000000) return convert(Math.floor(num / 1000000000)) + ' Miliar' + (num % 1000000000 ? ' ' + convert(num % 1000000000) : '');
+        return convert(Math.floor(num / 1000000000000)) + ' Triliun' + (num % 1000000000000 ? ' ' + convert(num % 1000000000000) : '');
+      }
+      return (convert(n).trim() + ' Rupiah').replace(/\s+/g, ' ');
+    },
+
+    /** Prefetch data rute di background agar transisi 0ms instan tanpa jeda. */
+    prefetchRoute: function (key) {
+      if (key === 'dashboard') {
+        Auth.getCached('getDashboardSummary');
+      } else if (key === 'surat') {
+        Auth.getCached('getListSurat', { q: '', status: '', limit: 50 });
+      } else if (key === 'keuangan') {
+        Auth.getCached('getSaldo');
+        Auth.getCached('getListKeuangan', { q: '', status: '', type: '', limit: 50 });
+        Auth.getCached('getAccounts');
+      } else if (key === 'divisi') {
+        Auth.getCached('getListProgram', { q: '', status: '', limit: 50 });
+      } else if (key === 'pengguna') {
+        Auth.getCached('getListPengguna');
+        Auth.getCached('getListPendaftar');
+      } else if (key === 'pengaturan') {
+        Auth.getCached('getAccounts');
+        Auth.getCached('getSettings');
+      } else if (key === 'audit') {
+        Auth.getCached('getAuditLogs', { limit: 200 });
+      }
     },
 
     // ---------------------------------------------------------------
@@ -89,6 +133,11 @@
 
       // Sidebar.
       this.renderNav();
+
+      // Prefetch data rute penting di background untuk navigasi 0ms.
+      this.prefetchRoute('dashboard');
+      this.prefetchRoute('surat');
+      this.prefetchRoute('keuangan');
 
       // Router pertama kali & listener hashchange terikat scope.
       if (this._onHashChange) window.removeEventListener('hashchange', this._onHashChange);
@@ -175,15 +224,17 @@
       if (has(['SUPERADMIN', 'KETUA', 'BENDAHARA', 'PEMBINA', 'PENGAWAS'])) {
         items.push({ id: 'keuangan', label: 'Keuangan', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' });
       }
-      if (role !== 'ANGGOTA_BIASA') {
-        items.push({ id: 'divisi', label: 'Divisi Kerja', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' });
-      }
+      // Divisi Kerja untuk semua 8 peran pengurus
+      items.push({ id: 'divisi', label: 'Divisi Kerja', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' });
       // Daftar akun: read-only untuk pengurus inti; tulis hanya SUPERADMIN.
       if (has(['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'BENDAHARA'])) {
         items.push({ id: 'pengguna', label: 'Manajemen Pengguna', icon: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-3.13a4 4 0 10-8 0 4 4 0 008 0zm6 0a4 4 0 10-8 0 4 4 0 008 0z' });
       }
-      if (has(['SUPERADMIN', 'KETUA', 'PENGAWAS'])) {
+      if (has(['SUPERADMIN', 'KETUA', 'PEMBINA', 'PENGAWAS'])) {
         items.push({ id: 'audit', label: 'Jejak Audit', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' });
+      }
+      if (has(['SUPERADMIN', 'KETUA'])) {
+        items.push({ id: 'pengaturan', label: 'Pengaturan & Master', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' });
       }
       items.push({ id: 'profil', label: 'Profil Saya', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' });
       return items;
@@ -208,8 +259,9 @@
       surat: { t: 'Persuratan', s: 'Kelola surat resmi: draf → persetujuan → terbit', fn: 'renderSurat' },
       keuangan: { t: 'Keuangan', s: 'Buku kas & voucher dengan verifikasi ganda', fn: 'renderKeuangan' },
       divisi: { t: 'Divisi Kerja', s: 'Usulan program dari 7 divisi kerja', fn: 'renderDivisi' },
-      pengguna: { t: 'Manajemen Pengguna', s: 'Kelola akun pengurus sistem', fn: 'renderPengguna' },
-      audit: { t: 'Jejak Audit', s: 'Catatan keamanan setiap aksi penting', fn: 'renderAudit' },
+      pengguna: { t: 'Manajemen Pengguna', s: 'Kelola akun pengurus sistem & pendaftar anggota', fn: 'renderPengguna' },
+      audit: { t: 'Jejak Audit', s: 'Catatan keamanan & log kepatuhan (WORM - Anti-Hapus)', fn: 'renderAudit' },
+      pengaturan: { t: 'Pengaturan & Master Data', s: 'Master rekening kas, format & KOP surat, RBAC, dan Google Drive', fn: 'renderPengaturan' },
       profil: { t: 'Profil Saya', s: 'Informasi akun Anda', fn: 'renderProfil' }
     },
 
@@ -238,13 +290,12 @@
 
       self.closeSidebar();
 
-      // Render konten.
-      var main = document.getElementById('mainContent');
-      main.innerHTML = '<div class="flex items-center justify-center py-20 text-gray-400">' +
-        '<svg class="animate-spin h-8 w-8 text-emerald" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">' +
-        '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>' +
-        '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg></div>';
+      // Transisi instan dengan progress bar halus di bagian atas
+      if (typeof Auth.showProgress === 'function') Auth.showProgress();
       self[page.fn]();
+      setTimeout(function () {
+        if (typeof Auth.hideProgress === 'function') Auth.hideProgress();
+      }, 350);
     },
 
     bindGlobal: function () {
@@ -256,6 +307,12 @@
         if (!b) return;
         window.location.hash = '#/' + b.getAttribute('data-nav');
       });
+
+      // Prefetch data saat kursor mouse hover di atas tombol navigasi (0ms latency).
+      document.getElementById('navItems').addEventListener('mouseenter', function (e) {
+        var b = e.target.closest('[data-nav]');
+        if (b) self.prefetchRoute(b.getAttribute('data-nav'));
+      }, true);
 
       // Menu user.
       var umb = document.getElementById('userMenuBtn');
@@ -719,7 +776,7 @@
       var tb = document.getElementById('suratRows');
       var self = this;
 
-      Auth.get('getListSurat', { q: st.q, status: st.status, limit: 50 }).then(function (data) {
+      Auth.getCached('getListSurat', { q: st.q, status: st.status, limit: 50 }, function (data) {
         var items = (data && data.items) || [];
         tb.innerHTML = items.length ? items.map(function (s) {
           var acts = '';
@@ -763,8 +820,6 @@
             });
           });
         });
-      }).catch(function () {
-        tb.innerHTML = '<tr><td colspan="6" class="text-center text-red-400 py-10">Gagal memuat data surat.</td></tr>';
       });
     },
 
@@ -775,31 +830,41 @@
       var types = window.LETTER_TYPES || {};
       var typeOpts = Object.keys(types).map(function (k) {
         return '<option value="' + k + '"' + (item && item.letter_type === k ? ' selected' : '') + '>' + types[k] + '</option>';
-      }).join('');
+      }).join('') + '<option value="CUSTOM">+ Jenis Surat Baru (Kustom)...</option>';
 
       this.openModal(
         '<div class="p-6">' +
           '<div class="flex items-center justify-between mb-5">' +
-            '<h3 class="text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Draf Surat' : 'Buat Surat Baru') + '</h3>' +
+            '<div class="flex items-center gap-3">' +
+              '<h3 class="text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Draf Surat' : 'Buat Surat Baru') + '</h3>' +
+              (!isEdit ? '<button type="button" id="sfBookingBtn" class="btn btn-ghost px-3 py-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 rounded-xl inline-flex items-center gap-1 shadow-sm" title="Ambil/reservasi nomor surat resmi terlebih dahulu">🔖 Booking Nomor</button>' : '') +
+            '</div>' +
             '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
               '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
           '</div>' +
           '<form id="suratFormEl" class="space-y-4">' +
             '<div><label class="lbl">Jenis Surat</label><select id="sfType" class="field">' + typeOpts + '</select></div>' +
-            '<div><label class="lbl">Judul Surat <span class="text-red-500">*</span></label>' +
-              '<input id="sfTitle" type="text" required class="field" placeholder="cth: Undangan Rapat Pleno" value="' + Auth.esc(item ? item.title : '') + '" /></div>' +
+            '<div id="sfCustomBox" class="hidden p-3.5 bg-amber-50 rounded-xl border border-amber-200 space-y-2">' +
+              '<div class="text-xs font-bold text-amber-900">Jenis Surat Kustom Baru:</div>' +
+              '<div class="grid sm:grid-cols-2 gap-2">' +
+                '<input id="sfCustomCode" type="text" placeholder="Kode (cth: NOTULEN_KHUSUS)" class="field text-xs font-mono uppercase" />' +
+                '<input id="sfCustomLabel" type="text" placeholder="Nama Jenis (cth: Notulen Rapat Khusus)" class="field text-xs" />' +
+              '</div>' +
+            '</div>' +
+            '<div><label class="lbl">Judul / Perihal Surat <span class="text-red-500">*</span></label>' +
+              '<input id="sfTitle" type="text" required class="field" placeholder="cth: Undangan Rapat Kerja DPW" value="' + Auth.esc(item ? item.title : '') + '" /></div>' +
             '<div class="grid sm:grid-cols-2 gap-4">' +
               '<div><label class="lbl">Tanggal Surat</label><input id="sfTanggal" type="date" class="field" value="' + (item ? item.tanggal_surat : new Date().toISOString().slice(0, 10)) + '" /></div>' +
               '<div><label class="lbl">Nomor Surat</label><input id="sfNomor" type="text" class="field font-mono text-xs" placeholder="(otomatis bila kosong)" value="' + Auth.esc(item ? item.letter_number : '') + '" /></div>' +
             '</div>' +
-            '<div><label class="lbl">Menimbang</label><textarea id="sfMenimbang" rows="2" class="field" placeholder="Pertimbangan…"></textarea></div>' +
-            '<div><label class="lbl">Mengingat</label><textarea id="sfMengingat" rows="2" class="field" placeholder="Dasar hukum / aturan…"></textarea></div>' +
-            '<div><label class="lbl">Memutuskan</label><textarea id="sfMemutuskan" rows="3" class="field" placeholder="Isi pokok surat…"></textarea></div>' +
+            '<div><label class="lbl">Menimbang (Konsideran)</label><textarea id="sfMenimbang" rows="2" class="field" placeholder="Pertimbangan latar belakang diterbitkannya surat…"></textarea></div>' +
+            '<div><label class="lbl">Mengingat (Dasar Hukum / AD-ART)</label><textarea id="sfMengingat" rows="2" class="field" placeholder="Dasar hukum / ketentuan anggaran dasar APII…"></textarea></div>' +
+            '<div><label class="lbl">Memutuskan / Isi Pokok Surat</label><textarea id="sfMemutuskan" rows="3" class="field" placeholder="Ketetapan, agenda rapat, atau isi pokok instruksi…"></textarea></div>' +
             '<p class="text-xs text-gray-400">' + (isEdit
               ? 'Kosongkan ketiga kotak isi untuk mempertahankan isi lama. Hanya Draf yang dapat diubah.'
-              : 'Isi surat dapat dilengkapi nanti selama masih Draf.') + '</p>' +
+              : 'Isi surat dapat dilengkapi nanti selama masih berstatus Draf.') + '</p>' +
             '<div class="flex gap-3 pt-2">' +
-              '<button type="submit" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">' + (isEdit ? 'Simpan Perubahan' : 'Simpan Draf') + '</button>' +
+              '<button type="submit" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">' + (isEdit ? 'Simpan Perubahan' : 'Simpan Draf Surat') + '</button>' +
               '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
             '</div>' +
           '</form>' +
@@ -810,14 +875,47 @@
         b.addEventListener('click', function () { self.closeModal(); });
       });
 
+      // Toggle input jenis surat kustom
+      var sfTypeEl = document.getElementById('sfType');
+      var sfCustomBox = document.getElementById('sfCustomBox');
+      sfTypeEl.addEventListener('change', function () {
+        if (sfTypeEl.value === 'CUSTOM') sfCustomBox.classList.remove('hidden');
+        else sfCustomBox.classList.add('hidden');
+      });
+
+      // Tombol Booking Nomor Saja
+      var sfBookingBtn = document.getElementById('sfBookingBtn');
+      if (sfBookingBtn) {
+        sfBookingBtn.addEventListener('click', function () {
+          var titleVal = document.getElementById('sfTitle').value.trim() || 'Reservasi Nomor Surat';
+          var typeVal = sfTypeEl.value === 'CUSTOM' ? (document.getElementById('sfCustomCode').value.trim() || 'SURAT') : sfTypeEl.value;
+          self.confirm('Booking Nomor Surat', 'Sistem akan mereservasi nomor urut resmi berikutnya untuk surat "<b>' + Auth.esc(titleVal) + '</b>". Lanjutkan?', function () {
+            Auth.fetch('reserveLetterNumber', { letter_type: typeVal, title: titleVal }).then(function (res) {
+              if (res && res.letter_number) {
+                document.getElementById('sfNomor').value = res.letter_number;
+                self.toast('Nomor surat berhasil dibooking: ' + res.letter_number, 'success');
+              } else {
+                self.toast('Nomor surat berhasil dipesan.', 'success');
+              }
+              self.refreshSurat();
+            }).catch(function () {});
+          });
+        });
+      }
+
       document.getElementById('suratFormEl').addEventListener('submit', function (e) {
         e.preventDefault();
         var menimbang = document.getElementById('sfMenimbang').value.trim();
         var mengingat = document.getElementById('sfMengingat').value.trim();
         var memutuskan = document.getElementById('sfMemutuskan').value.trim();
 
+        var letterTypeVal = document.getElementById('sfType').value;
+        if (letterTypeVal === 'CUSTOM') {
+          letterTypeVal = (document.getElementById('sfCustomCode').value || '').trim().toUpperCase() || 'SURAT_KUSTOM';
+        }
+
         var payload = {
-          letter_type: document.getElementById('sfType').value,
+          letter_type: letterTypeVal,
           title: document.getElementById('sfTitle').value.trim(),
           tanggal_surat: document.getElementById('sfTanggal').value,
           letter_number: document.getElementById('sfNomor').value.trim()
@@ -949,19 +1047,22 @@
           '<div id="printPaperArea" class="paper-a4 p-6 sm:p-12 text-gray-900 shadow-xl border border-gray-200 rounded-xl relative overflow-hidden bg-white max-w-[760px] mx-auto select-text">' +
             watermarkHtml +
 
-            // KOP SURAT
-            '<div class="flex items-center gap-4 sm:gap-6 mb-2">' +
-              '<img src="logo.png" alt="Logo DPW APII" class="w-16 h-16 sm:w-20 sm:h-20 object-contain flex-shrink-0" />' +
-              '<div class="flex-1 text-center font-serif leading-tight">' +
-                '<div class="text-[11px] sm:text-xs font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
-                '<div class="text-sm sm:text-lg font-black text-gray-900 tracking-tight mt-0.5">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
-                '<div class="text-xs sm:text-sm font-bold text-gray-800 tracking-normal">WILAYAH JABODETABEK</div>' +
-                '<div class="text-[9px] sm:text-[10.5px] text-gray-600 font-sans mt-1 leading-snug">' +
-                  'Gedung Pusat Dakwah APII Wilayah Jabodetabek Lt. 3, Jl. Kramat Raya No. 45, Senen, Jakarta Pusat 10450<br/>' +
-                  'Telp: (021) 390-8812 &bull; Email: sekretariat.dpw@apii-jabodetabek.or.id &bull; Website: siapii.sigitadi.id' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
+            // KOP SURAT (Dukungan Gambar KOP Resmi Uploaded vs Teks Standar)
+            (window._kopSettings && window._kopSettings.kop_mode === 'image' && window._kopSettings.kop_image_base64
+              ? '<div class="mb-2 text-center"><img src="' + window._kopSettings.kop_image_base64 + '" alt="KOP Surat Resmi" class="w-full max-h-36 object-contain mx-auto" /></div>'
+              : '<div class="flex items-center gap-4 sm:gap-6 mb-2">' +
+                  '<img src="logo.png" alt="Logo DPW APII" class="w-16 h-16 sm:w-20 sm:h-20 object-contain flex-shrink-0" />' +
+                  '<div class="flex-1 text-center font-serif leading-tight">' +
+                    '<div class="text-[11px] sm:text-xs font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
+                    '<div class="text-sm sm:text-lg font-black text-gray-900 tracking-tight mt-0.5">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
+                    '<div class="text-xs sm:text-sm font-bold text-gray-800 tracking-normal">WILAYAH JABODETABEK</div>' +
+                    '<div class="text-[9px] sm:text-[10.5px] text-gray-600 font-sans mt-1 leading-snug">' +
+                      'Gedung Pusat Dakwah APII Wilayah Jabodetabek Lt. 3, Jl. Kramat Raya No. 45, Senen, Jakarta Pusat 10450<br/>' +
+                      'Telp: (021) 390-8812 &bull; Email: sekretariat.dpw@apii-jabodetabek.or.id &bull; Website: siapii.sigitadi.id' +
+                    '</div>' +
+                  '</div>' +
+                '</div>'
+            ) +
 
             // DOUBLE DIVIDER LINE
             '<div class="hr-double-top"></div>' +
@@ -1294,7 +1395,7 @@
     },
 
     loadSaldoCards: function () {
-      Auth.get('getSaldo').then(function (data) {
+      Auth.getCached('getSaldo', null, function (data) {
         if (!data) return;
         var cards = [
           { l: 'Total Saldo Kas', v: 'Rp ' + Number(data.saldo || 0).toLocaleString('id-ID'), c: 'text-emerald' },
@@ -1308,7 +1409,7 @@
             '<div class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">' + c.l + '</div>' +
             '<div class="text-2xl font-extrabold ' + c.c + ' leading-none">' + c.v + '</div></div>';
         }).join('');
-      }).catch(function () {});
+      });
     },
 
     loadKeuangan: function (canWrite, canApprove) {
@@ -1316,7 +1417,7 @@
       var tb = document.getElementById('keuRows');
       var self = this;
 
-      Auth.get('getListKeuangan', { q: st.q, status: st.status, type: st.type, limit: 50 }).then(function (data) {
+      Auth.getCached('getListKeuangan', { q: st.q, status: st.status, type: st.type, limit: 50 }, function (data) {
         var items = (data && data.items) || [];
         tb.innerHTML = items.length ? items.map(function (k) {
           var acts = '';
@@ -1366,8 +1467,6 @@
             });
           });
         });
-      }).catch(function () {
-        tb.innerHTML = '<tr class="tbl-empty"><td colspan="6" class="text-center text-red-400 py-10">Gagal memuat data voucher.</td></tr>';
       });
     },
 
@@ -1398,7 +1497,7 @@
         'rejectVoucher', item.id, function () { self.refreshKeuangan(); });
     },
 
-    /** Modal detail voucher keuangan dengan aksi WhatsApp & otorisasi. */
+    /** Modal detail voucher keuangan dengan aksi WhatsApp, otorisasi & cetak kwitansi. */
     voucherDetail: function (k) {
       var self = this;
       var u = this.state.user;
@@ -1427,7 +1526,11 @@
             '<span class="font-mono text-xs font-bold text-gray-500">' + Auth.esc(k.voucher_number) + '</span>' +
             self.badge(k.status, k.status_label) +
           '</div>' +
-          '<div class="flex items-center gap-2">' +
+          '<div class="flex items-center gap-2 flex-wrap">' +
+            '<button type="button" id="btnPrintKwitansi" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-ghost shadow-sm" title="Cetak Kwitansi / Slip Pembayaran">' +
+              '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
+              '<span>Cetak Kwitansi</span>' +
+            '</button>' +
             '<button type="button" id="btnWaShareVoucher" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-wa-ghost shadow-sm" title="Bagikan ke WhatsApp">' +
               '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
               '<span>Share WA</span>' +
@@ -1490,6 +1593,13 @@
 
       this.openModal(modalHtml, 'max-w-xl');
 
+      var kwitansiBtn = document.getElementById('btnPrintKwitansi');
+      if (kwitansiBtn) {
+        kwitansiBtn.addEventListener('click', function () {
+          self.printKwitansi(k);
+        });
+      }
+
       var waBtn = document.getElementById('btnWaShareVoucher');
       if (waBtn) {
         waBtn.addEventListener('click', function () {
@@ -1543,79 +1653,209 @@
       });
     },
 
-    /** Modal buat voucher baru (Bendahara/Superadmin). */
-    voucherForm: function () {
+    /** Modal Cetak Bukti Kas / Kwitansi Resmi dengan Terbilang & Tanda Tangan. */
+    printKwitansi: function (k) {
       var self = this;
-      var accOpts = Object.keys(window.ACCOUNTS || {}).map(function (k) {
-        return '<option value="' + k + '">' + window.ACCOUNTS[k] + '</option>';
-      }).join('');
+      var isMasuk = k.type === 'MASUK';
+      var terbilangText = this.terbilang(k.amount);
+      var kopHtml = (window._kopSettings && window._kopSettings.kop_mode === 'image' && window._kopSettings.kop_image_base64)
+        ? '<div class="mb-3 text-center"><img src="' + window._kopSettings.kop_image_base64 + '" alt="KOP APII" class="w-full max-h-28 object-contain mx-auto" /></div>'
+        : '<div class="flex items-center gap-4 mb-2 pb-2 border-b-2 border-emerald-900">' +
+            '<img src="logo.png" alt="Logo DPW APII" class="w-14 h-14 object-contain flex-shrink-0" />' +
+            '<div class="flex-1 text-center font-serif leading-tight">' +
+              '<div class="text-[11px] font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
+              '<div class="text-base font-black text-gray-900 tracking-tight">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
+              '<div class="text-xs font-bold text-gray-800">WILAYAH JABODETABEK</div>' +
+              '<div class="text-[9px] text-gray-600 font-sans mt-0.5">' +
+                'Gedung Pusat Dakwah APII Wilayah Jabodetabek &bull; Telp: (021) 390-8812 &bull; Website: siapii.sigitadi.id' +
+              '</div>' +
+            '</div>' +
+          '</div>';
 
-      this.openModal(
-        '<div class="p-6">' +
-          '<div class="flex items-center justify-between mb-5">' +
-            '<h3 class="text-lg font-extrabold text-emerald-dark">Buat Voucher Baru</h3>' +
-            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+      var modalHtml = '<div class="p-4 sm:p-6">' +
+        '<div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-100 no-print">' +
+          '<h3 class="text-sm font-bold text-gray-700">Pratinjau Cetak Kwitansi Resmi</h3>' +
+          '<div class="flex items-center gap-2">' +
+            '<button type="button" id="btnDoPrintKwitansi" class="btn btn-primary text-xs px-4 py-2 rounded-xl font-bold inline-flex items-center gap-1.5 shadow-sm">' +
+              '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
+              '<span>Cetak / Simpan PDF</span>' +
+            '</button>' +
+            '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
+            '</button>' +
           '</div>' +
-          '<form id="voucherFormEl" class="space-y-4">' +
-            '<div class="grid sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Jenis Transaksi</label><select id="vfType" class="field">' +
-                '<option value="MASUK">Kas Masuk</option><option value="KELUAR">Kas Keluar</option></select></div>' +
-              '<div><label class="lbl">Akun Kas</label><select id="vfAccount" class="field">' + accOpts + '</select></div>' +
+        '</div>' +
+
+        // Kertas Kwitansi Area
+        '<div id="printKwitansiArea" class="p-6 sm:p-8 bg-white border border-gray-300 rounded-2xl shadow-lg max-w-[700px] mx-auto text-gray-900 select-text text-xs sm:text-sm font-sans">' +
+          kopHtml +
+          '<div class="text-center my-3">' +
+            '<h2 class="text-sm sm:text-base font-extrabold uppercase tracking-wider underline decoration-2 underline-offset-4">' +
+              (isMasuk ? 'BUKTI PENERIMAAN KAS / KWITANSI' : 'BUKTI PENGELUARAN KAS / KWITANSI') +
+            '</h2>' +
+            '<div class="font-mono text-xs text-gray-600 mt-1">Nomor: ' + Auth.esc(k.voucher_number) + '</div>' +
+          '</div>' +
+          '<div class="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-4 pb-2 border-b border-gray-200">' +
+            '<div>Tanggal Transaksi: <strong class="text-gray-900">' + Auth.esc(k.transaction_date) + '</strong></div>' +
+            '<div class="text-right">Akun Kas: <strong class="text-gray-900">' + Auth.esc(k.account_label || k.account) + '</strong></div>' +
+          '</div>' +
+          '<div class="space-y-3 leading-relaxed">' +
+            '<div class="flex items-start gap-3"><span class="w-36 text-gray-500 font-semibold flex-shrink-0">' + (isMasuk ? 'Telah Diterima Dari' : 'Diserahkan Kepada') + ' :</span>' +
+              '<span class="font-bold text-gray-900">' + Auth.esc(k.created_by || 'Bendahara DPW APII') + '</span></div>' +
+            '<div class="flex items-start gap-3"><span class="w-36 text-gray-500 font-semibold flex-shrink-0">Jumlah Uang :</span>' +
+              '<span class="font-black text-emerald-800 text-base sm:text-lg">' + Auth.esc(k.amount_label) + '</span></div>' +
+            '<div class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs sm:text-sm font-serif italic text-gray-800">' +
+              'Terbilang: &ldquo;<strong>' + Auth.esc(terbilangText) + '</strong>&rdquo;' +
             '</div>' +
-            '<div><label class="lbl">Jumlah (Rp) <span class="text-red-500">*</span></label>' +
-              '<input id="vfAmount" type="number" min="1" step="1" required class="field" placeholder="cth: 1500000" /></div>' +
-            '<div><label class="lbl">Kategori</label><input id="vfCategory" type="text" class="field" placeholder="cth: Operasional Sekretariat" /></div>' +
-            '<div><label class="lbl">Keterangan <span class="text-red-500">*</span></label>' +
-              '<textarea id="vfDesc" required rows="3" class="field" placeholder="Keterangan transaksi…"></textarea></div>' +
-            '<div><label class="lbl">Tanggal Transaksi</label>' +
-              '<input id="vfTanggal" type="date" class="field" value="' + new Date().toISOString().slice(0, 10) + '" /></div>' +
-            '<div><label class="lbl">Tautan Bukti Kas / Google Drive (Opsional)</label>' +
-              '<input id="vfReceipt" type="url" class="field" placeholder="https://drive.google.com/file/d/.../view" />' +
-              '<p class="text-[11px] text-gray-400 mt-1">Lampirkan tautan bukti transfer, kuitansi, atau nota dari Google Drive.</p></div>' +
-            '<p class="text-xs text-gray-400">Voucher dibuat berstatus "Menunggu Verifikasi" &amp; butuh persetujuan Bendahara + Ketua.</p>' +
-            '<div class="flex gap-3 pt-2">' +
-              '<button type="submit" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">Simpan Voucher</button>' +
-              '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
+            '<div class="flex items-start gap-3 pt-1"><span class="w-36 text-gray-500 font-semibold flex-shrink-0">Kategori :</span>' +
+              '<span class="text-gray-800">' + Auth.esc(k.category || 'Operasional') + '</span></div>' +
+            '<div class="flex items-start gap-3"><span class="w-36 text-gray-500 font-semibold flex-shrink-0">Untuk Keperluan :</span>' +
+              '<span class="font-medium text-gray-900 flex-1">' + Auth.esc(k.description) + '</span></div>' +
+          '</div>' +
+
+          // 3 Kolom Tanda Tangan
+          '<div class="grid grid-cols-3 gap-2 mt-8 pt-4 border-t border-gray-200 text-center text-xs">' +
+            '<div>' +
+              '<div class="text-gray-500 mb-1">' + (isMasuk ? 'Penyetor / Penerima' : 'Penerima Dana') + '</div>' +
+              '<div class="h-16 flex items-center justify-center text-[10px] text-gray-300 italic">(Tanda Tangan)</div>' +
+              '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1">( ..................................... )</div>' +
             '</div>' +
-          '</form>' +
-        '</div>');
+            '<div>' +
+              '<div class="text-gray-500 mb-1">Bendahara DPW</div>' +
+              '<div class="h-16 flex items-center justify-center font-serif text-emerald-900 font-semibold text-xs">' + Auth.esc(k.verified_by_bendahara || 'M. Yusuf Ramadhan, S.E') + '</div>' +
+              '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1">M. Yusuf Ramadhan, S.E</div>' +
+            '</div>' +
+            '<div>' +
+              '<div class="text-gray-500 mb-1">Mengetahui, Ketua DPW</div>' +
+              '<div class="h-16 flex items-center justify-center font-serif text-emerald-900 font-semibold text-xs">' + Auth.esc(k.approved_by_ketum || 'Dr. H. Ahmad Fauzi, M.Pd') + '</div>' +
+              '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1">Dr. H. Ahmad Fauzi, M.Pd</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="mt-6 pt-2 border-t border-gray-100 flex justify-between text-[10px] text-gray-400 font-mono">' +
+            '<span>SIAP APII DPW Jabodetabek</span>' +
+            '<span>Status: ' + Auth.esc(k.status) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+      this.openModal(modalHtml, 'max-w-2xl');
+
+      document.getElementById('btnDoPrintKwitansi').addEventListener('click', function () {
+        window.print();
+      });
 
       Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
         b.addEventListener('click', function () { self.closeModal(); });
       });
+    },
 
-      document.getElementById('voucherFormEl').addEventListener('submit', function (e) {
-        e.preventDefault();
-        var payload = {
-          type: document.getElementById('vfType').value,
-          account: document.getElementById('vfAccount').value,
-          amount: Number(document.getElementById('vfAmount').value),
-          category: document.getElementById('vfCategory').value.trim(),
-          description: document.getElementById('vfDesc').value.trim(),
-          transaction_date: document.getElementById('vfTanggal').value,
-          receipt_url: (document.getElementById('vfReceipt').value || '').trim()
-        };
-        Auth.fetch('createVoucher', payload).then(function () {
-          self.closeModal();
-          self.toast('Voucher berhasil dibuat.', 'success', '📲 Kabari via WA', function () {
-            self.openWhatsApp(self.buildKeuanganWaText({
-              voucher_number: '(Voucher Baru)',
-              type: payload.type,
-              amount: payload.amount,
-              amount_label: 'Rp ' + Number(payload.amount).toLocaleString('id-ID'),
-              description: payload.description,
-              account: payload.account,
-              account_label: window.ACCOUNTS[payload.account] || payload.account,
-              transaction_date: payload.transaction_date,
-              receipt_url: payload.receipt_url,
-              status: 'PENDING',
-              status_label: 'Menunggu Verifikasi',
-              created_by: self.state.user.full_name || self.state.user.username
-            }));
-          });
-          self.refreshKeuangan();
-        }).catch(function () {});
+    /** Modal buat voucher baru dengan master rekening dinamis & kategori kustom. */
+    voucherForm: function () {
+      var self = this;
+      var defaultCats = [
+        'Operasional Sekretariat', 'Kegiatan Dakwah & Kajian', 'Santunan Sosial & Kemanusiaan',
+        'Infaq & Sedekah', 'Iuran Pengurus DPW', 'Donasi Wakaf', 'Pembelian Inventaris & Aset',
+        'Transportasi & Perjalanan Dinas', 'Konsumsi Kegiatan', 'Honorarium & Ujrah'
+      ];
+      var catOpts = defaultCats.map(function (c) {
+        return '<option value="' + c + '">' + c + '</option>';
+      }).join('') + '<option value="CUSTOM">+ Kategori Baru (Ketik Manual)...</option>';
+
+      // Ambil rekening kas dinamis dari backend atau cache
+      Auth.getCached('getAccounts', null, function (accData) {
+        var accList = (accData && accData.accounts) || [];
+        var accOpts = accList.length ? accList.map(function (a) {
+          return '<option value="' + a.id + '">' + Auth.esc(a.nama_rekening + ' (' + a.bank_vendor + ' - ' + a.nomor_rekening + ')') + '</option>';
+        }).join('') : Object.keys(window.ACCOUNTS || {}).map(function (k) {
+          return '<option value="' + k + '">' + window.ACCOUNTS[k] + '</option>';
+        }).join('');
+
+        self.openModal(
+          '<div class="p-6">' +
+            '<div class="flex items-center justify-between mb-5">' +
+              '<h3 class="text-lg font-extrabold text-emerald-dark">Buat Voucher Baru</h3>' +
+              '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+            '</div>' +
+            '<form id="voucherFormEl" class="space-y-4">' +
+              '<div class="grid sm:grid-cols-2 gap-4">' +
+                '<div><label class="lbl">Jenis Transaksi</label><select id="vfType" class="field">' +
+                  '<option value="MASUK">Kas Masuk</option><option value="KELUAR">Kas Keluar</option></select></div>' +
+                '<div><label class="lbl">Akun Kas</label><select id="vfAccount" class="field">' + accOpts + '</select></div>' +
+              '</div>' +
+              '<div><label class="lbl">Jumlah (Rp) <span class="text-red-500">*</span></label>' +
+                '<input id="vfAmount" type="number" min="1" step="1" required class="field" placeholder="cth: 1500000" /></div>' +
+              '<div>' +
+                '<label class="lbl">Kategori</label>' +
+                '<select id="vfCategorySelect" class="field">' + catOpts + '</select>' +
+                '<input id="vfCategoryCustom" type="text" class="field mt-2 hidden" placeholder="Ketik nama kategori transaksi baru…" />' +
+              '</div>' +
+              '<div><label class="lbl">Keterangan Transaksi <span class="text-red-500">*</span></label>' +
+                '<textarea id="vfDesc" required rows="3" class="field" placeholder="Uraian peruntukan atau sumber dana…"></textarea></div>' +
+              '<div><label class="lbl">Tanggal Transaksi</label>' +
+                '<input id="vfTanggal" type="date" class="field" value="' + new Date().toISOString().slice(0, 10) + '" /></div>' +
+              '<div><label class="lbl">Tautan Bukti Kas / Google Drive (Opsional)</label>' +
+                '<input id="vfReceipt" type="url" class="field" placeholder="https://drive.google.com/file/d/.../view" />' +
+                '<p class="text-[11px] text-gray-400 mt-1">Lampirkan tautan bukti transfer, kuitansi, atau nota dari Google Drive.</p></div>' +
+              '<p class="text-xs text-gray-400">Voucher dibuat berstatus "Menunggu Verifikasi" &amp; butuh persetujuan Bendahara + Ketua.</p>' +
+              '<div class="flex gap-3 pt-2">' +
+                '<button type="submit" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">Simpan Voucher</button>' +
+                '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
+              '</div>' +
+            '</form>' +
+          '</div>');
+
+        // Toggle kategori kustom
+        var catSel = document.getElementById('vfCategorySelect');
+        var catCust = document.getElementById('vfCategoryCustom');
+        catSel.addEventListener('change', function () {
+          if (catSel.value === 'CUSTOM') {
+            catCust.classList.remove('hidden');
+            catCust.focus();
+          } else {
+            catCust.classList.add('hidden');
+          }
+        });
+
+        Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+          b.addEventListener('click', function () { self.closeModal(); });
+        });
+
+        document.getElementById('voucherFormEl').addEventListener('submit', function (e) {
+          e.preventDefault();
+          var finalCategory = catSel.value === 'CUSTOM' ? catCust.value.trim() : catSel.value;
+          if (!finalCategory) finalCategory = 'Operasional';
+
+          var payload = {
+            type: document.getElementById('vfType').value,
+            account: document.getElementById('vfAccount').value,
+            amount: Number(document.getElementById('vfAmount').value),
+            category: finalCategory,
+            description: document.getElementById('vfDesc').value.trim(),
+            transaction_date: document.getElementById('vfTanggal').value,
+            receipt_url: (document.getElementById('vfReceipt').value || '').trim()
+          };
+          Auth.fetch('createVoucher', payload).then(function () {
+            self.closeModal();
+            self.toast('Voucher berhasil dibuat.', 'success', '📲 Kabari via WA', function () {
+              self.openWhatsApp(self.buildKeuanganWaText({
+                voucher_number: '(Voucher Baru)',
+                type: payload.type,
+                amount: payload.amount,
+                amount_label: 'Rp ' + Number(payload.amount).toLocaleString('id-ID'),
+                description: payload.description,
+                account: payload.account,
+                account_label: payload.account,
+                transaction_date: payload.transaction_date,
+                receipt_url: payload.receipt_url,
+                status: 'PENDING',
+                status_label: 'Menunggu Verifikasi',
+                created_by: self.state.user.full_name || self.state.user.username
+              }));
+            });
+            self.refreshKeuangan();
+          }).catch(function () {});
+        });
       });
     },
 
@@ -2136,37 +2376,73 @@
     renderPengguna: function () {
       var main = document.getElementById('mainContent');
       var self = this;
+      var currentTab = this.state.pengguna.tab || 'pengurus';
 
-      var newBtn = Auth.isSuperadmin()
+      var newBtn = (currentTab === 'pengurus' && Auth.isSuperadmin())
         ? '<button id="btnUserBaru" class="btn btn-primary px-5 py-2.5 rounded-xl inline-flex items-center gap-2 font-bold text-sm">' +
           '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>' +
-          'Buat Akun Baru</button>'
-        : '<span class="text-xs text-gray-400 bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100">Mode read-only — hanya Administrator Sistem yang dapat mengubah akun</span>';
+          'Buat Akun Pengurus</button>'
+        : '';
 
-      main.innerHTML = this.pageHead('Manajemen Pengguna',
-        'Buat & kelola akun pengurus. Hanya Administrator Sistem yang dapat mengubah akun.', newBtn) +
+      main.innerHTML = this.pageHead('Manajemen Pengguna &amp; Pendaftar',
+        'Kelola 8 peran pengurus yayasan dan verifikasi berkas calon anggota dari portal publik.', newBtn) +
+        '<div class="flex items-center gap-2 p-1.5 bg-gray-100 rounded-2xl mb-6 max-w-md">' +
+          '<button type="button" id="tabPengurusBtn" class="flex-1 py-2 px-4 rounded-xl text-xs font-bold transition ' + (currentTab === 'pengurus' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">👥 Pengurus Yayasan</button>' +
+          '<button type="button" id="tabPendaftarBtn" class="flex-1 py-2 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ' + (currentTab === 'pendaftar' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">' +
+            '<span>📥 Pendaftaran Masuk</span>' +
+            '<span id="pendaftarBadge" class="hidden px-2 py-0.5 text-[10px] rounded-full bg-amber-500 text-white font-extrabold">0</span>' +
+          '</button>' +
+        '</div>' +
+        '<div id="penggunaContainer"></div>';
+
+      document.getElementById('tabPengurusBtn').addEventListener('click', function () {
+        self.state.pengguna.tab = 'pengurus';
+        self.renderPengguna();
+      });
+      document.getElementById('tabPendaftarBtn').addEventListener('click', function () {
+        self.state.pengguna.tab = 'pendaftar';
+        self.renderPengguna();
+      });
+
+      // Update badge pending
+      Auth.getCached('getListPendaftar', null, function (pData) {
+        var pItems = (pData && pData.items) || [];
+        var pendingCount = pItems.filter(function (x) { return x.status === 'PENDING' || x.status === 'VERIFIED_SEKRETARIS'; }).length;
+        var badge = document.getElementById('pendaftarBadge');
+        if (badge && pendingCount > 0) {
+          badge.textContent = pendingCount;
+          badge.classList.remove('hidden');
+        }
+      });
+
+      if (currentTab === 'pengurus') {
+        this.renderPengurusView();
+      } else {
+        this.renderPendaftarView();
+      }
+    },
+
+    renderPengurusView: function () {
+      var box = document.getElementById('penggunaContainer');
+      var self = this;
+      box.innerHTML =
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 mb-6">' +
-          '<input id="usrQ" type="text" placeholder="Cari username / nama…" class="field" />' +
+          '<input id="usrQ" type="text" placeholder="Cari nama pengurus / username…" class="field" />' +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
           '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
-          '<th>Username</th><th>Nama</th><th>Peran</th><th>Divisi</th><th>Status</th><th>Aksi</th>' +
+          '<th>Username</th><th>Nama Pengurus</th><th>Peran Organisasi</th><th>Divisi Kerja</th><th>Status Akun</th><th>Aksi</th>' +
           '</tr></thead><tbody id="usrRows">' + this.loadingRow(6) + '</tbody></table></div>' +
         '</div>';
 
-      if (Auth.isSuperadmin()) {
-        document.getElementById('btnUserBaru').addEventListener('click', function () {
-          self.userForm(null);
-        });
+      var btnBaru = document.getElementById('btnUserBaru');
+      if (btnBaru) {
+        btnBaru.addEventListener('click', function () { self.userForm(null); });
       }
 
       var q = '';
-      document.getElementById('usrQ').addEventListener('keydown', function (e) {
-        if (e.key !== 'Enter') return;
-        q = e.target.value.trim();
-        self.loadPengguna(q);
-      });
-      document.getElementById('usrQ').addEventListener('input', function (e) {
+      var inputQ = document.getElementById('usrQ');
+      inputQ.addEventListener('input', function (e) {
         q = e.target.value.trim();
         self.loadPengguna(q);
       });
@@ -2179,9 +2455,9 @@
       var self = this;
       if (!tb) return;
 
-      Auth.get('getListPengguna', null, { quiet: true }).then(function (data) {
+      Auth.getCached('getListPengguna', null, function (data) {
         var users = (data && data.users) || [];
-        var ql = q.toLowerCase();
+        var ql = (q || '').toLowerCase();
         if (ql) {
           users = users.filter(function (u) {
             return (u.username || '').toLowerCase().indexOf(ql) !== -1 ||
@@ -2206,7 +2482,7 @@
                 : '<span class="text-xs text-gray-300">—</span>') +
               '</div></td>' +
           '</tr>';
-        }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada pengguna.</td></tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada pengurus yang ditemukan.</td></tr>';
 
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
           var id = tr.getAttribute('data-id');
@@ -2219,12 +2495,218 @@
             });
           });
         });
-      }).catch(function () {
-        tb.innerHTML = '<tr class="tbl-empty"><td colspan="6" class="text-center text-red-400 py-10">Gagal memuat data pengguna.</td></tr>';
       });
     },
 
-    /** Modal buat/ubah akun pengguna (SUPERADMIN). */
+    renderPendaftarView: function () {
+      var box = document.getElementById('penggunaContainer');
+      var self = this;
+      box.innerHTML =
+        '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 mb-6 flex flex-col sm:flex-row gap-3">' +
+          '<input id="pendaftarQ" type="text" placeholder="Cari nama pemohon / NIK / WA / kota…" class="field flex-1" />' +
+          '<select id="pendaftarStatus" class="field sm:w-56">' +
+            '<option value="">Semua Status Berkas</option>' +
+            '<option value="PENDING">Menunggu Sekretariat</option>' +
+            '<option value="VERIFIED_SEKRETARIS">Terverifikasi Sekretaris</option>' +
+            '<option value="APPROVED">Disetujui Ketua DPW</option>' +
+            '<option value="REJECTED">Ditolak</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
+          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+          '<th>No. Registrasi &amp; Nama</th><th>NIK &amp; Kontak</th><th>Domisili</th><th>Tgl Daftar</th><th>Status</th><th>Aksi</th>' +
+          '</tr></thead><tbody id="pendaftarRows">' + this.loadingRow(6) + '</tbody></table></div>' +
+        '</div>';
+
+      var load = function () {
+        self.loadPendaftar();
+      };
+      document.getElementById('pendaftarQ').addEventListener('input', load);
+      document.getElementById('pendaftarStatus').addEventListener('change', load);
+
+      this.loadPendaftar();
+    },
+
+    loadPendaftar: function () {
+      var tb = document.getElementById('pendaftarRows');
+      var self = this;
+      if (!tb) return;
+      var q = (document.getElementById('pendaftarQ') ? document.getElementById('pendaftarQ').value.trim() : '').toLowerCase();
+      var st = document.getElementById('pendaftarStatus') ? document.getElementById('pendaftarStatus').value : '';
+
+      Auth.getCached('getListPendaftar', null, function (data) {
+        var items = (data && data.items) || [];
+        if (q) {
+          items = items.filter(function (x) {
+            return (x.nama_lengkap || '').toLowerCase().indexOf(q) !== -1 ||
+                   (x.nik || '').toLowerCase().indexOf(q) !== -1 ||
+                   (x.whatsapp || '').toLowerCase().indexOf(q) !== -1 ||
+                   (x.registration_no || '').toLowerCase().indexOf(q) !== -1 ||
+                   (x.kota || '').toLowerCase().indexOf(q) !== -1;
+          });
+        }
+        if (st) {
+          items = items.filter(function (x) { return x.status === st; });
+        }
+
+        tb.innerHTML = items.length ? items.map(function (p) {
+          var statusBadge = self.badge(p.status, p.status_label || p.status);
+          return '<tr data-id="' + p.id + '">' +
+            '<td><div class="font-mono text-xs text-gray-500 font-bold">' + Auth.esc(p.registration_no) + '</div>' +
+              '<div class="font-bold text-gray-900 leading-snug">' + Auth.esc(p.nama_lengkap) + '</div>' +
+              '<div class="text-xs text-gray-500">' + Auth.esc(p.profesi || '') + '</div></td>' +
+            '<td><div class="font-mono text-xs text-gray-600">' + Auth.esc(p.nik) + '</div>' +
+              '<div class="text-xs text-emerald-800 font-semibold">WA: ' + Auth.esc(p.whatsapp) + '</div>' +
+              '<div class="text-xs text-gray-400">' + Auth.esc(p.email || '') + '</div></td>' +
+            '<td class="text-gray-700 text-xs sm:text-sm">' + Auth.esc(p.kota || '—') + '</td>' +
+            '<td class="text-gray-500 text-xs whitespace-nowrap">' + Auth.esc((p.created_at || '').slice(0, 10)) + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td class="tbl-actions"><div class="flex gap-1.5">' +
+              self.aBtn('review', 'Periksa Berkas', 'Lihat biodata, KTP & foto selfie') +
+            '</div></td>' +
+          '</tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada pendaftar yang sesuai filter.</td></tr>';
+
+        Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
+          var id = tr.getAttribute('data-id');
+          var btn = tr.querySelector('[data-act="review"]');
+          if (btn) {
+            btn.addEventListener('click', function () {
+              var item = items.filter(function (x) { return x.id === id; })[0];
+              if (item) self.pendaftarDetail(item);
+            });
+          }
+        });
+      });
+    },
+
+    /** Modal periksa berkas pendaftaran anggota (biodata, KTP watermarked, foto selfie, verifikasi). */
+    pendaftarDetail: function (p) {
+      var self = this;
+      var u = this.state.user;
+      var canVerifySekretaris = ['SUPERADMIN', 'SEKRETARIS'].indexOf(u.role) !== -1;
+      var canApproveKetum = ['SUPERADMIN', 'KETUA'].indexOf(u.role) !== -1;
+
+      var ktpHtml = p.ktp_image_url
+        ? '<div class="mt-2 text-center">' +
+            '<a href="' + Auth.esc(p.ktp_image_url) + '" target="_blank" rel="noopener">' +
+              '<img src="' + Auth.esc(p.ktp_image_url) + '" alt="KTP Watermarked" class="max-h-48 rounded-xl border border-gray-200 mx-auto shadow-sm hover:opacity-95 transition" />' +
+            '</a>' +
+            '<p class="text-[11px] text-gray-500 mt-1 italic">Klik gambar untuk melihat resolusi penuh (Watermarked ARSIP APII)</p>' +
+          '</div>'
+        : '<div class="p-6 bg-gray-50 rounded-xl text-center text-xs text-gray-400">Tidak ada lampiran foto KTP</div>';
+
+      var selfieHtml = p.selfie_image_url
+        ? '<div class="mt-2 text-center">' +
+            '<a href="' + Auth.esc(p.selfie_image_url) + '" target="_blank" rel="noopener">' +
+              '<img src="' + Auth.esc(p.selfie_image_url) + '" alt="Pas Foto / Selfie" class="max-h-48 rounded-xl border border-gray-200 mx-auto shadow-sm hover:opacity-95 transition" />' +
+            '</a>' +
+            '<p class="text-[11px] text-gray-500 mt-1 italic">Foto Verifikasi Wajah Pemohon</p>' +
+          '</div>'
+        : '<div class="p-6 bg-gray-50 rounded-xl text-center text-xs text-gray-400">Tidak ada lampiran foto selfie</div>';
+
+      var modalHtml = '<div class="p-5 sm:p-7">' +
+        '<div class="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">' +
+          '<div>' +
+            '<div class="font-mono text-xs text-gray-500 font-bold">' + Auth.esc(p.registration_no) + '</div>' +
+            '<h3 class="text-lg font-black text-emerald-dark">' + Auth.esc(p.nama_lengkap) + '</h3>' +
+          '</div>' +
+          '<div class="flex items-center gap-2">' +
+            self.badge(p.status, p.status_label || p.status) +
+            '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+
+        // Detail Biodata
+        '<div class="grid sm:grid-cols-2 gap-4 text-xs mb-6">' +
+          '<div class="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-100">' +
+            '<div><span class="text-gray-400 block">NIK:</span><span class="font-mono font-bold text-gray-900">' + Auth.esc(p.nik) + '</span></div>' +
+            '<div><span class="text-gray-400 block">Tempat, Tanggal Lahir:</span><span class="font-semibold text-gray-800">' + Auth.esc(p.tempat_lahir || '-') + ', ' + Auth.esc(p.tanggal_lahir || '-') + '</span></div>' +
+            '<div><span class="text-gray-400 block">Jenis Kelamin:</span><span class="font-semibold text-gray-800">' + Auth.esc(p.jenis_kelamin || '-') + '</span></div>' +
+            '<div><span class="text-gray-400 block">Profesi / Keahlian:</span><span class="font-semibold text-gray-800">' + Auth.esc(p.profesi || '-') + '</span></div>' +
+          '</div>' +
+          '<div class="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-100">' +
+            '<div><span class="text-gray-400 block">WhatsApp:</span><a href="https://wa.me/' + encodeURIComponent((p.whatsapp || '').replace(/[^0-9]/g, '')) + '" target="_blank" class="font-bold text-emerald font-mono hover:underline">' + Auth.esc(p.whatsapp) + ' ↗</a></div>' +
+            '<div><span class="text-gray-400 block">Email:</span><span class="font-semibold text-gray-800">' + Auth.esc(p.email || '-') + '</span></div>' +
+            '<div><span class="text-gray-400 block">Kota / Domisili:</span><span class="font-semibold text-gray-800">' + Auth.esc(p.kota || '-') + '</span></div>' +
+            '<div><span class="text-gray-400 block">Alamat Lengkap:</span><span class="text-gray-800">' + Auth.esc(p.alamat || '-') + '</span></div>' +
+          '</div>' +
+        '</div>' +
+
+        (p.alasan_bergabung ?
+          '<div class="p-3 bg-amber-50/70 rounded-xl border border-amber-200 mb-6 text-xs text-amber-950">' +
+            '<span class="font-bold block mb-1">Motivasi &amp; Alasan Bergabung APII:</span>' +
+            '<p class="italic">' + Auth.esc(p.alasan_bergabung) + '</p>' +
+          '</div>' : '') +
+
+        // Berkas Gambar KTP & Selfie
+        '<div class="grid sm:grid-cols-2 gap-4 mb-6">' +
+          '<div class="p-3 bg-white rounded-xl border border-emerald-100">' +
+            '<div class="text-xs font-bold text-emerald-dark">Foto KTP (Watermarked)</div>' +
+            ktpHtml +
+          '</div>' +
+          '<div class="p-3 bg-white rounded-xl border border-emerald-100">' +
+            '<div class="text-xs font-bold text-emerald-dark">Pas Foto / Selfie</div>' +
+            selfieHtml +
+          '</div>' +
+        '</div>' +
+
+        // Action Buttons Verifikasi Ganda
+        '<div class="flex gap-2 pt-2 border-t border-gray-100 flex-wrap">' +
+          (canVerifySekretaris && p.status === 'PENDING' ?
+            '<button type="button" id="btnVerifSekretaris" class="btn btn-primary flex-1 py-3 rounded-xl font-bold text-xs shadow-sm">✅ Verifikasi Berkas (Sekretaris)</button>' : '') +
+          (canApproveKetum && (p.status === 'VERIFIED_SEKRETARIS' || p.status === 'DIVERIFIKASI_SEKRETARIS') ?
+            '<button type="button" id="btnApproveKetum" class="btn bg-gold hover:bg-gold-light text-emerald-dark flex-1 py-3 rounded-xl font-extrabold text-xs shadow-sm">🌟 Sahkan &amp; Setujui Anggota (Ketua DPW)</button>' : '') +
+          (p.status === 'PENDING' || p.status === 'VERIFIED_SEKRETARIS' || p.status === 'DIVERIFIKASI_SEKRETARIS' ?
+            '<button type="button" id="btnRejectPendaftar" class="btn btn-danger px-4 py-3 rounded-xl font-bold text-xs">Tolak Berkas</button>' : '') +
+          '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold text-xs">Tutup</button>' +
+        '</div>' +
+      '</div>';
+
+      this.openModal(modalHtml, 'max-w-2xl');
+
+      var bVerifSekretaris = document.getElementById('btnVerifSekretaris');
+      if (bVerifSekretaris) {
+        bVerifSekretaris.addEventListener('click', function () {
+          self.confirm('Verifikasi Berkas Calon Anggota', 'Apakah berkas NIK dan data pendaftaran <b>' + Auth.esc(p.nama_lengkap) + '</b> sudah sah & valid?', function () {
+            Auth.fetch('verifyPendaftarSekretaris', { id: p.id }).then(function () {
+              self.closeModal();
+              self.toast('Berkas berhasil diverifikasi oleh Sekretaris. Menunggu persetujuan Ketua DPW.', 'success');
+              self.loadPendaftar();
+            }).catch(function () {});
+          });
+        });
+      }
+
+      var bApproveKetum = document.getElementById('btnApproveKetum');
+      if (bApproveKetum) {
+        bApproveKetum.addEventListener('click', function () {
+          self.confirm('Pengesahan Anggota Baru', 'Sahkan <b>' + Auth.esc(p.nama_lengkap) + '</b> sebagai Anggota Resmi APII DPW Jabodetabek?', function () {
+            Auth.fetch('approvePendaftarKetum', { id: p.id }).then(function () {
+              self.closeModal();
+              self.toast('Pendaftaran anggota berhasil disahkan & disetujui penuh oleh Ketua DPW.', 'success');
+              self.loadPendaftar();
+            }).catch(function () {});
+          });
+        });
+      }
+
+      var bReject = document.getElementById('btnRejectPendaftar');
+      if (bReject) {
+        bReject.addEventListener('click', function () {
+          self.rejectModal('Tolak Pendaftaran', 'Pendaftaran <b>' + Auth.esc(p.nama_lengkap) + '</b> akan ditolak dengan alasan di bawah ini.',
+            'rejectPendaftar', p.id, function () { self.loadPendaftar(); });
+        });
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+        b.addEventListener('click', function () { self.closeModal(); });
+      });
+    },
+
+    /** Modal buat/ubah akun pengguna pengurus (SUPERADMIN). Hanya 8 peran pengurus. */
     userForm: function (item) {
       var self = this;
       var isEdit = !!item;
@@ -2241,7 +2723,7 @@
       this.openModal(
         '<div class="p-6">' +
           '<div class="flex items-center justify-between mb-5">' +
-            '<h3 class="text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Akun' : 'Buat Akun Baru') + '</h3>' +
+            '<h3 class="text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Akun Pengurus' : 'Buat Akun Pengurus Baru') + '</h3>' +
             '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
               '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
           '</div>' +
@@ -2251,13 +2733,13 @@
                 '<input id="ufUsername" type="text" ' + (isEdit ? 'readonly' : 'required') +
                 ' class="field font-mono" placeholder="cth: sekretaris2" value="' + Auth.esc(item ? item.username : '') + '" /></div>' +
               '<div><label class="lbl">Nama Lengkap</label>' +
-                '<input id="ufNama" type="text" class="field" placeholder="Nama lengkap" value="' + Auth.esc(item ? item.full_name : '') + '" /></div>' +
+                '<input id="ufNama" type="text" class="field" placeholder="Nama lengkap pengurus" value="' + Auth.esc(item ? item.full_name : '') + '" /></div>' +
             '</div>' +
             '<div><label class="lbl">Email</label>' +
               '<input id="ufEmail" type="email" class="field" placeholder="email@contoh.com" value="' + Auth.esc(item ? item.email : '') + '" /></div>' +
             '<div class="grid sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Peran <span class="text-red-500">*</span></label><select id="ufRole" class="field">' + roleOpts + '</select></div>' +
-              '<div><label class="lbl">Divisi</label><select id="ufDivisi" class="field">' + divOpts + '</select></div>' +
+              '<div><label class="lbl">Peran Organisasi <span class="text-red-500">*</span></label><select id="ufRole" class="field">' + roleOpts + '</select></div>' +
+              '<div><label class="lbl">Divisi Kerja</label><select id="ufDivisi" class="field">' + divOpts + '</select></div>' +
             '</div>' +
             '<div><label class="lbl">Password ' + (isEdit ? '(kosongkan bila tidak diubah)' : '<span class="text-red-500">*</span>') + '</label>' +
               '<input id="ufPassword" type="password" ' + (isEdit ? '' : 'required') +
@@ -2266,7 +2748,7 @@
               '<input id="ufAktif" type="checkbox" class="h-4 w-4 accent-emerald" ' +
               (!isEdit || item.is_active === 'TRUE' ? 'checked' : '') + ' /> Akun aktif</label>' +
             '<div class="flex gap-3 pt-2">' +
-              '<button type="submit" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">' + (isEdit ? 'Simpan Perubahan' : 'Buat Akun') + '</button>' +
+              '<button type="submit" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">' + (isEdit ? 'Simpan Perubahan' : 'Buat Akun Pengurus') + '</button>' +
               '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
             '</div>' +
           '</form>' +
@@ -2291,7 +2773,7 @@
 
         Auth.fetch(isEdit ? 'updatePengguna' : 'createPengguna', payload).then(function () {
           self.closeModal();
-          self.toast(isEdit ? 'Akun berhasil diperbarui.' : 'Akun baru berhasil dibuat.', 'success');
+          self.toast(isEdit ? 'Akun pengurus berhasil diperbarui.' : 'Akun pengurus baru berhasil dibuat.', 'success');
           self.loadPengguna(document.getElementById('usrQ') ? document.getElementById('usrQ').value.trim() : '');
         }).catch(function () {});
       });
@@ -2319,33 +2801,505 @@
       var main = document.getElementById('mainContent');
       var self = this;
 
-      main.innerHTML = this.pageHead('Jejak Audit',
-        'Catatan keamanan setiap aksi penting: login, persetujuan, penolakan, &amp; aksi sensitif lainnya.', '') +
+      var exportBtn = '<button type="button" id="btnExportAuditCsv" class="btn btn-ghost px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border-emerald-300 text-emerald-800 bg-white hover:bg-emerald-50 shadow-sm">' +
+        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
+        '<span>Ekspor CSV</span></button>';
+
+      main.innerHTML = this.pageHead('Jejak Audit &amp; Kepatuhan',
+        'Catatan keamanan setiap aksi penting organisasi. Dilindungi integritas WORM tanpa hak hapus.', exportBtn) +
+        // WORM Security Banner
+        '<div class="p-5 bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-950 text-white rounded-2xl mb-6 shadow-md border border-emerald-800/60 flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">' +
+          '<div class="flex items-center gap-3.5">' +
+            '<div class="w-10 h-10 rounded-xl bg-gold text-emerald-dark flex items-center justify-center font-bold flex-shrink-0 shadow">' +
+              '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>' +
+            '</div>' +
+            '<div>' +
+              '<div class="font-extrabold text-sm sm:text-base text-gold-light flex items-center gap-2">' +
+                '<span>Jurnal Audit Terkunci &amp; Permanen (WORM - Write Once, Read Many)</span>' +
+                '<span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-800/80 text-emerald-200 border border-emerald-600">Anti-Hapus</span>' +
+              '</div>' +
+              '<p class="text-xs text-emerald-200/90 mt-0.5">Catatan ini dienkripsi pada database pusat dan tidak memiliki fungsi hapus demi akuntabilitas hukum organisasi APII.</p>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Filter Bar
+        '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 mb-6 flex flex-col sm:flex-row gap-3">' +
+          '<select id="auditModul" class="field sm:w-48 text-xs">' +
+            '<option value="">Semua Modul</option>' +
+            '<option value="AUTH">AUTH (Login/Logout)</option>' +
+            '<option value="SURAT">SURAT (Persuratan)</option>' +
+            '<option value="KEUANGAN">KEUANGAN (Buku Kas)</option>' +
+            '<option value="DIVISI">DIVISI (Program Kerja)</option>' +
+            '<option value="USER">USER (Pengguna)</option>' +
+            '<option value="PENDAFTAR">PENDAFTAR (Calon Anggota)</option>' +
+            '<option value="SETTINGS">SETTINGS (Pengaturan)</option>' +
+          '</select>' +
+          '<input id="auditActor" type="text" placeholder="Filter pelaku (username)…" class="field flex-1 text-xs" />' +
+          '<input id="auditDate" type="date" class="field sm:w-48 text-xs" />' +
+        '</div>' +
+
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
           '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
-          '<th>Waktu</th><th>Pelaku</th><th>Aksi</th><th>Keterangan</th>' +
+          '<th>Waktu</th><th>Pelaku</th><th>Modul &amp; Aksi</th><th>Keterangan Aktivitas</th>' +
           '</tr></thead><tbody id="auditRows">' + this.loadingRow(4) + '</tbody></table></div>' +
         '</div>';
 
-      Auth.get('getAuditLogs', { limit: 200 }).then(function (data) {
+      var filterLogs = function () {
+        self.loadAuditLogs();
+      };
+      document.getElementById('auditModul').addEventListener('change', filterLogs);
+      document.getElementById('auditActor').addEventListener('input', filterLogs);
+      document.getElementById('auditDate').addEventListener('change', filterLogs);
+
+      this.loadAuditLogs();
+    },
+
+    loadAuditLogs: function () {
+      var tb = document.getElementById('auditRows');
+      var self = this;
+      if (!tb) return;
+
+      var mFilter = document.getElementById('auditModul') ? document.getElementById('auditModul').value : '';
+      var aFilter = document.getElementById('auditActor') ? document.getElementById('auditActor').value.trim().toLowerCase() : '';
+      var dFilter = document.getElementById('auditDate') ? document.getElementById('auditDate').value : '';
+
+      Auth.getCached('getAuditLogs', { limit: 200 }, function (data) {
         var logs = (data && data.logs) || [];
-        var tb = document.getElementById('auditRows');
+
+        // Pasang exporter CSV
+        var expBtn = document.getElementById('btnExportAuditCsv');
+        if (expBtn) {
+          expBtn.onclick = function () {
+            self.exportAuditCsv(logs);
+          };
+        }
+
+        if (mFilter) {
+          logs = logs.filter(function (l) { return (l.module || l.action || '').toUpperCase().indexOf(mFilter) !== -1; });
+        }
+        if (aFilter) {
+          logs = logs.filter(function (l) { return (l.actor || '').toLowerCase().indexOf(aFilter) !== -1; });
+        }
+        if (dFilter) {
+          logs = logs.filter(function (l) { return (l.timestamp || '').indexOf(dFilter) !== -1; });
+        }
+
         tb.innerHTML = logs.length ? logs.map(function (l) {
-          // Badge warna per kategori aksi.
           var cls = 'badge-DRAFT';
           if (/SUCCESS|PUBLISHED|SETUJU|APPROVED|VERIFY/.test(l.action)) cls = 'badge-PUBLISHED';
           else if (/REJECT|DITOLAK|FAILED|FORBIDDEN/.test(l.action)) cls = 'badge-REJECTED';
           else if (/LOGIN|LOGOUT|SUBMIT|AJUKAN|CREATE|UPDATE/.test(l.action)) cls = 'badge-PENDING_APPROVAL';
+
+          var modBadge = l.module ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 mr-1.5">' + Auth.esc(l.module) + '</span>' : '';
+
           return '<tr>' +
             '<td class="whitespace-nowrap text-xs text-gray-500 font-mono"><span class="sm:hidden text-gray-400 font-sans font-medium">Waktu: </span>' + Auth.esc(l.timestamp) + '</td>' +
             '<td class="font-semibold font-mono text-xs text-emerald-dark"><span class="sm:hidden text-gray-400 font-sans font-medium">Pelaku: </span>' + Auth.esc(l.actor) + '</td>' +
-            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Aksi: </span><span class="badge ' + cls + '">' + Auth.esc(l.action) + '</span></td>' +
+            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Aksi: </span>' + modBadge + '<span class="badge ' + cls + '">' + Auth.esc(l.action) + '</span></td>' +
             '<td class="text-sm text-gray-700 leading-snug">' + Auth.esc(l.detail) + '</td>' +
           '</tr>';
-        }).join('') : '<tr class="tbl-empty"><td colspan="4" class="text-center text-gray-400 py-10">Belum ada catatan audit.</td></tr>';
-      }).catch(function () {
-        document.getElementById('auditRows').innerHTML =
-          '<tr class="tbl-empty"><td colspan="4" class="text-center text-red-400 py-10">Gagal memuat jejak audit.</td></tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="4" class="text-center text-gray-400 py-10">Belum ada catatan audit yang sesuai filter.</td></tr>';
+      });
+    },
+
+    exportAuditCsv: function (logs) {
+      if (!logs || !logs.length) {
+        this.toast('Tidak ada log untuk diekspor.', 'info');
+        return;
+      }
+      var rows = [['Timestamp', 'Pelaku', 'Modul', 'Aksi', 'Keterangan', 'IP Client']];
+      logs.forEach(function (l) {
+        rows.push([
+          l.timestamp || '',
+          l.actor || '',
+          l.module || '',
+          l.action || '',
+          (l.detail || '').replace(/"/g, '""'),
+          l.ip_client || ''
+        ]);
+      });
+      var csvContent = '\uFEFF' + rows.map(function (r) {
+        return r.map(function (cell) { return '"' + cell + '"'; }).join(',');
+      }).join('\r\n');
+
+      var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'Audit_Logs_APII_' + new Date().toISOString().slice(0, 10) + '.csv');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      this.toast('Jejak audit berhasil diekspor ke file CSV.', 'success');
+    },
+
+    // ---------------------------------------------------------------
+    // PENGATURAN & MASTER DATA (SUPERADMIN & KETUA)
+    // ---------------------------------------------------------------
+    renderPengaturan: function () {
+      var main = document.getElementById('mainContent');
+      var self = this;
+      var currentTab = this.state.pengaturan.tab || 'rekening';
+
+      main.innerHTML = this.pageHead('Pengaturan &amp; Master Data',
+        'Kelola master rekening kas, format penomoran & KOP surat resmi, RBAC, dan Google Drive.', '') +
+        '<div class="flex items-center gap-2 p-1.5 bg-gray-100 rounded-2xl mb-6 flex-wrap max-w-2xl">' +
+          '<button type="button" data-ptab="rekening" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rekening' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💳 Master Rekening</button>' +
+          '<button type="button" data-ptab="surat" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'surat' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📄 Format &amp; KOP Surat</button>' +
+          '<button type="button" data-ptab="rbac" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rbac' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">🛡️ RBAC &amp; Publik</button>' +
+          '<button type="button" data-ptab="drive" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'drive' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">☁️ Google Drive</button>' +
+        '</div>' +
+        '<div id="pengaturanBox"></div>';
+
+      Array.prototype.forEach.call(main.querySelectorAll('[data-ptab]'), function (btn) {
+        btn.addEventListener('click', function () {
+          self.state.pengaturan.tab = btn.getAttribute('data-ptab');
+          self.renderPengaturan();
+        });
+      });
+
+      if (currentTab === 'rekening') this.renderPengaturanRekening();
+      else if (currentTab === 'surat') this.renderPengaturanSurat();
+      else if (currentTab === 'rbac') this.renderPengaturanRbac();
+      else if (currentTab === 'drive') this.renderPengaturanDrive();
+    },
+
+    renderPengaturanRekening: function () {
+      var box = document.getElementById('pengaturanBox');
+      var self = this;
+      box.innerHTML =
+        '<div class="flex items-center justify-between mb-4">' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">Master Rekening &amp; Kas Yayasan</h3>' +
+          '<button type="button" id="btnAddAccount" class="btn btn-primary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-sm">' +
+            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>' +
+            '<span>Tambah Rekening</span></button>' +
+        '</div>' +
+        '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
+          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+          '<th>Nama Rekening</th><th>Jenis</th><th>Bank / Vendor</th><th>Nomor Rekening</th><th>Atas Nama</th><th>Status</th><th>Aksi</th>' +
+          '</tr></thead><tbody id="accountRows">' + this.loadingRow(7) + '</tbody></table></div>' +
+        '</div>';
+
+      document.getElementById('btnAddAccount').addEventListener('click', function () {
+        self.accountForm(null);
+      });
+
+      this.loadAccountsList();
+    },
+
+    loadAccountsList: function () {
+      var tb = document.getElementById('accountRows');
+      var self = this;
+      if (!tb) return;
+
+      Auth.getCached('getAccounts', null, function (data) {
+        var accounts = (data && data.accounts) || [];
+        tb.innerHTML = accounts.length ? accounts.map(function (a) {
+          return '<tr data-id="' + a.id + '">' +
+            '<td class="font-bold text-gray-900">' + Auth.esc(a.nama_rekening) + '</td>' +
+            '<td><span class="badge ' + (a.jenis === 'BANK' ? 'badge-PUBLISHED' : 'badge-PENDING_APPROVAL') + '">' + Auth.esc(a.jenis) + '</span></td>' +
+            '<td class="text-gray-700 font-semibold">' + Auth.esc(a.bank_vendor) + '</td>' +
+            '<td class="font-mono text-xs text-gray-800">' + Auth.esc(a.nomor_rekening || '—') + '</td>' +
+            '<td class="text-xs text-gray-600">' + Auth.esc(a.atas_nama || '—') + '</td>' +
+            '<td>' + (a.is_active === 'TRUE' || a.is_active === true ? '<span class="badge badge-PUBLISHED">Aktif</span>' : '<span class="badge badge-REJECTED">Nonaktif</span>') + '</td>' +
+            '<td class="tbl-actions"><div class="flex gap-1.5">' +
+              self.aBtn('edit-acc', 'Ubah', 'Ubah rincian rekening') +
+              self.aBtn('danger del-acc', 'Hapus', 'Hapus rekening') +
+            '</div></td>' +
+          '</tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="7" class="text-center text-gray-400 py-10">Belum ada rekening kas terdaftar.</td></tr>';
+
+        Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
+          var id = tr.getAttribute('data-id');
+          var item = accounts.filter(function (x) { return x.id === id; })[0];
+          var editBtn = tr.querySelector('[data-act="edit-acc"]');
+          var delBtn = tr.querySelector('[data-act="danger del-acc"]');
+          if (editBtn) editBtn.onclick = function () { self.accountForm(item); };
+          if (delBtn) delBtn.onclick = function () {
+            self.confirm('Hapus Rekening', 'Hapus rekening "<b>' + Auth.esc(item.nama_rekening) + '</b>"? Tindakan ini tidak dapat dibatalkan.', function () {
+              Auth.fetch('deleteAccount', { id: item.id }).then(function () {
+                self.toast('Rekening berhasil dihapus.', 'success');
+                self.loadAccountsList();
+              }).catch(function () {});
+            });
+          };
+        });
+      });
+    },
+
+    accountForm: function (item) {
+      var self = this;
+      var isEdit = !!item;
+
+      this.openModal(
+        '<div class="p-6">' +
+          '<div class="flex items-center justify-between mb-5">' +
+            '<h3 class="text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Rekening Kas' : 'Tambah Rekening Kas Baru') + '</h3>' +
+            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+          '</div>' +
+          '<form id="accFormEl" class="space-y-4">' +
+            '<div><label class="lbl">Nama Akun Rekening <span class="text-red-500">*</span></label>' +
+              '<input id="afNama" type="text" required class="field" placeholder="cth: Kas Operasional Sekretariat / Rekening Giro BCA" value="' + Auth.esc(item ? item.nama_rekening : '') + '" /></div>' +
+            '<div class="grid sm:grid-cols-2 gap-4">' +
+              '<div><label class="lbl">Jenis Akun</label><select id="afJenis" class="field">' +
+                '<option value="BANK"' + (item && item.jenis === 'BANK' ? ' selected' : '') + '>Rekening Bank</option>' +
+                '<option value="KAS"' + (item && item.jenis === 'KAS' ? ' selected' : '') + '>Kas Tunai / Brankas</option>' +
+              '</select></div>' +
+              '<div><label class="lbl">Bank / Vendor</label>' +
+                '<input id="afVendor" type="text" class="field" placeholder="BCA / BSI / Mandiri / Tunai" value="' + Auth.esc(item ? item.bank_vendor : '') + '" /></div>' +
+            '</div>' +
+            '<div class="grid sm:grid-cols-2 gap-4">' +
+              '<div><label class="lbl">Nomor Rekening</label>' +
+                '<input id="afNomor" type="text" class="field font-mono" placeholder="cth: 712-345-6789" value="' + Auth.esc(item ? item.nomor_rekening : '') + '" /></div>' +
+              '<div><label class="lbl">Atas Nama</label>' +
+                '<input id="afAtasNama" type="text" class="field" placeholder="cth: Yayasan APII DPW Jabodetabek" value="' + Auth.esc(item ? item.atas_nama : '') + '" /></div>' +
+            '</div>' +
+            '<div class="flex gap-3 pt-2">' +
+              '<button type="submit" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">' + (isEdit ? 'Simpan Perubahan' : 'Tambah Rekening') + '</button>' +
+              '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
+            '</div>' +
+          '</form>' +
+        '</div>');
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+        b.addEventListener('click', function () { self.closeModal(); });
+      });
+
+      document.getElementById('accFormEl').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var payload = {
+          nama_rekening: document.getElementById('afNama').value.trim(),
+          jenis: document.getElementById('afJenis').value,
+          bank_vendor: document.getElementById('afVendor').value.trim(),
+          nomor_rekening: document.getElementById('afNomor').value.trim(),
+          atas_nama: document.getElementById('afAtasNama').value.trim(),
+          is_active: true
+        };
+        if (isEdit) payload.id = item.id;
+        Auth.fetch('saveAccount', payload).then(function () {
+          self.closeModal();
+          self.toast('Rekening kas berhasil disimpan.', 'success');
+          self.loadAccountsList();
+        }).catch(function () {});
+      });
+    },
+
+    renderPengaturanSurat: function () {
+      var box = document.getElementById('pengaturanBox');
+      var self = this;
+
+      Auth.getCached('getSettings', null, function (sData) {
+        var s = (sData && sData.settings) || {};
+        window._kopSettings = s;
+        var kopMode = s.kop_mode || 'text';
+        var kopImg = s.kop_image_base64 || '';
+        var pattern = s.letter_pattern || '{NUM}/APII-JABO/{ROMAN}/{YEAR}';
+
+        box.innerHTML =
+          '<div class="grid lg:grid-cols-2 gap-6">' +
+            // Form Pengaturan
+            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-5">' +
+              '<h3 class="text-base font-extrabold text-emerald-dark">Pengaturan KOP &amp; Penomoran Surat</h3>' +
+              '<div>' +
+                '<label class="lbl">Mode KOP Surat</label>' +
+                '<div class="grid grid-cols-2 gap-3 mt-1.5">' +
+                  '<label class="flex items-center gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+                    '<input type="radio" name="kopMode" value="image" ' + (kopMode === 'image' ? 'checked' : '') + ' class="accent-emerald" />' +
+                    '<span class="text-xs font-bold text-gray-800">🖼️ Gambar KOP Resmi (PNG/JPG)</span>' +
+                  '</label>' +
+                  '<label class="flex items-center gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+                    '<input type="radio" name="kopMode" value="text" ' + (kopMode !== 'image' ? 'checked' : '') + ' class="accent-emerald" />' +
+                    '<span class="text-xs font-bold text-gray-800">📝 Teks Standar HTML</span>' +
+                  '</label>' +
+                '</div>' +
+              '</div>' +
+              '<div>' +
+                '<label class="lbl">Unggah File KOP Surat Resmi (PNG/JPG)</label>' +
+                '<input id="kopFileInput" type="file" accept="image/png,image/jpeg" class="field text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-light file:text-emerald-dark hover:file:bg-emerald" />' +
+                '<p class="text-[11px] text-gray-400 mt-1">Disarankan gambar transparan / putih lebar 1200x260 px untuk kerapian A4.</p>' +
+              '</div>' +
+              '<div>' +
+                '<label class="lbl">Pola Penomoran Surat Otomatis</label>' +
+                '<input id="patternInput" type="text" class="field font-mono text-xs" value="' + Auth.esc(pattern) + '" />' +
+                '<p class="text-[11px] text-gray-400 mt-1">Variabel tersedia: <code class="bg-gray-100 px-1 rounded">{NUM}</code>, <code class="bg-gray-100 px-1 rounded">{TYPE}</code>, <code class="bg-gray-100 px-1 rounded">{ROMAN}</code>, <code class="bg-gray-100 px-1 rounded">{YEAR}</code></p>' +
+              '</div>' +
+              '<div class="pt-2">' +
+                '<button type="button" id="btnSaveSuratSetting" class="btn btn-primary w-full py-3 rounded-xl font-bold text-xs shadow-sm">Simpan Format &amp; KOP Surat</button>' +
+              '</div>' +
+            '</div>' +
+
+            // Pratinjau Kertas A4 Mini
+            '<div class="card bg-gray-50 rounded-2xl border border-gray-200 p-6 flex flex-col items-center">' +
+              '<div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Pratinjau Live KOP Surat (Skala A4)</div>' +
+              '<div id="kopPreviewBox" class="w-full bg-white border border-gray-300 rounded-xl p-5 shadow-sm min-h-[140px] flex items-center justify-center text-center">' +
+                (kopImg
+                  ? '<img id="liveKopImg" src="' + kopImg + '" alt="KOP Live Preview" class="w-full max-h-28 object-contain" />'
+                  : '<div class="text-xs text-gray-400 italic">KOP Teks Standar Aktif</div>') +
+              '</div>' +
+            '</div>' +
+          '</div>';
+
+        // Handler Upload KOP
+        var fileIn = document.getElementById('kopFileInput');
+        fileIn.addEventListener('change', function (e) {
+          var f = e.target.files[0];
+          if (!f) return;
+          var reader = new FileReader();
+          reader.onload = function (evt) {
+            kopImg = evt.target.result;
+            var box = document.getElementById('kopPreviewBox');
+            box.innerHTML = '<img id="liveKopImg" src="' + kopImg + '" alt="KOP Live Preview" class="w-full max-h-28 object-contain" />';
+            document.querySelector('input[name="kopMode"][value="image"]').checked = true;
+          };
+          reader.readAsDataURL(f);
+        });
+
+        document.getElementById('btnSaveSuratSetting').addEventListener('click', function () {
+          var mode = document.querySelector('input[name="kopMode"]:checked').value;
+          var newPat = document.getElementById('patternInput').value.trim();
+          var payload = {
+            kop_mode: mode,
+            kop_image_base64: kopImg,
+            letter_pattern: newPat
+          };
+          Auth.fetch('saveSettings', { settings: payload }).then(function () {
+            window._kopSettings = payload;
+            self.toast('Pengaturan format & KOP surat berhasil disimpan.', 'success');
+          }).catch(function () {});
+        });
+      });
+    },
+
+    renderPengaturanRbac: function () {
+      var box = document.getElementById('pengaturanBox');
+      var self = this;
+
+      Auth.getCached('getSettings', null, function (sData) {
+        var s = (sData && sData.settings) || {};
+        box.innerHTML =
+          '<div class="space-y-6">' +
+            // Visibilitas Publik
+            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+              '<h3 class="text-base font-extrabold text-emerald-dark">Visibilitas Portal Publik (apii.sigitadi.id)</h3>' +
+              '<div class="grid sm:grid-cols-2 gap-4 text-xs">' +
+                '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+                  '<input type="checkbox" id="setPubReg" class="h-4 w-4 accent-emerald" ' + (s.allow_public_registration !== false ? 'checked' : '') + ' />' +
+                  '<div><strong class="text-gray-900 block">Pendaftaran Anggota Terbuka</strong><span class="text-gray-500">Masyarakat dapat mendaftar mandiri dengan foto KTP & selfie.</span></div>' +
+                '</label>' +
+                '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+                  '<input type="checkbox" id="setPubVerif" class="h-4 w-4 accent-emerald" ' + (s.allow_public_verification !== false ? 'checked' : '') + ' />' +
+                  '<div><strong class="text-gray-900 block">Verifikasi Dokumen Publik</strong><span class="text-gray-500">Pencarian nomor surat & validasi sidik digital SHA-256.</span></div>' +
+                '</label>' +
+                '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+                  '<input type="checkbox" id="setPubKeu" class="h-4 w-4 accent-emerald" ' + (s.show_keuangan_public ? 'checked' : '') + ' />' +
+                  '<div><strong class="text-gray-900 block">Transparansi Kas di Publik</strong><span class="text-gray-500">Tampilkan ringkasan saldo kas yayasan di situs publik.</span></div>' +
+                '</label>' +
+                '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+                  '<input type="checkbox" id="setPubProg" class="h-4 w-4 accent-emerald" ' + (s.show_program_public !== false ? 'checked' : '') + ' />' +
+                  '<div><strong class="text-gray-900 block">Tampilkan Program Kerja Divisi</strong><span class="text-gray-500">Publik dapat melihat kiprah 7 divisi kerja.</span></div>' +
+                '</label>' +
+              '</div>' +
+              '<div class="pt-2">' +
+                '<button type="button" id="btnSaveRbacPublic" class="btn btn-primary px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm">Simpan Pengaturan Visibilitas</button>' +
+              '</div>' +
+            '</div>' +
+
+            // Matriks RBAC Readonly Reference
+            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6">' +
+              '<h3 class="text-base font-extrabold text-emerald-dark mb-3">Matriks Hak Akses (8 Peran Pengurus)</h3>' +
+              '<div class="overflow-x-auto"><table class="tbl tbl-responsive text-xs"><thead><tr>' +
+              '<th>Peran</th><th>Persuratan</th><th>Keuangan</th><th>Divisi Kerja</th><th>Pengguna</th><th>Audit Log</th><th>Pengaturan</th>' +
+              '</tr></thead><tbody>' +
+                '<tr><td class="font-bold text-emerald-950">SUPERADMIN</td><td>Full Akses</td><td>Full Akses</td><td>Full Akses</td><td>Full Akses</td><td>Baca Log</td><td>Full Akses</td></tr>' +
+                '<tr><td class="font-bold text-emerald-950">KETUA DPW</td><td>Setujui/Tolak</td><td>Verifikasi Final</td><td>Setujui Program</td><td>Lihat Pengurus</td><td>Baca Log</td><td>Full Akses</td></tr>' +
+                '<tr><td class="font-bold text-emerald-950">SEKRETARIS</td><td>Draf/Ajukan</td><td>—</td><td>Lihat Program</td><td>Verif Pendaftar</td><td>—</td><td>—</td></tr>' +
+                '<tr><td class="font-bold text-emerald-950">BENDAHARA</td><td>—</td><td>Draf/Verifikasi</td><td>Lihat Program</td><td>Lihat Pengurus</td><td>—</td><td>—</td></tr>' +
+                '<tr><td class="font-bold text-emerald-950">PEMBINA</td><td>Lihat Surat</td><td>Lihat Kas</td><td>Lihat Program</td><td>—</td><td>Baca Log</td><td>—</td></tr>' +
+                '<tr><td class="font-bold text-emerald-950">PENGAWAS</td><td>Lihat Surat</td><td>Lihat Kas</td><td>Lihat Program</td><td>—</td><td>Baca Log</td><td>—</td></tr>' +
+                '<tr><td class="font-bold text-emerald-950">KETUA_DIVISI</td><td>—</td><td>—</td><td>Usul/LPJ Divisi</td><td>—</td><td>—</td><td>—</td></tr>' +
+                '<tr><td class="font-bold text-emerald-950">ANGGOTA_DIVISI</td><td>—</td><td>—</td><td>Usul/LPJ Divisi</td><td>—</td><td>—</td><td>—</td></tr>' +
+              '</tbody></table></div>' +
+            '</div>' +
+          '</div>';
+
+        document.getElementById('btnSaveRbacPublic').addEventListener('click', function () {
+          var payload = {
+            allow_public_registration: document.getElementById('setPubReg').checked,
+            allow_public_verification: document.getElementById('setPubVerif').checked,
+            show_keuangan_public: document.getElementById('setPubKeu').checked,
+            show_program_public: document.getElementById('setPubProg').checked
+          };
+          Auth.fetch('saveSettings', { settings: payload }).then(function () {
+            self.toast('Pengaturan visibilitas publik berhasil disimpan.', 'success');
+          }).catch(function () {});
+        });
+      });
+    },
+
+    renderPengaturanDrive: function () {
+      var box = document.getElementById('pengaturanBox');
+      var self = this;
+
+      Auth.getCached('getSettings', null, function (sData) {
+        var s = (sData && sData.settings) || {};
+        var folderId = s.google_drive_folder_id || '1g_pQ7nC4_EXAMPLE_APII_DRIVE';
+        var autoSub = s.auto_annual_subfolders !== false;
+
+        box.innerHTML =
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 max-w-2xl space-y-5">' +
+            '<div class="flex items-center gap-3">' +
+              '<div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">' +
+                '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"/></svg>' +
+              '</div>' +
+              '<div>' +
+                '<h3 class="text-base font-extrabold text-gray-900">Penyimpanan Dokumen Cloud (Google Drive)</h3>' +
+                '<p class="text-xs text-gray-500">Simpan otomatis PDF surat, berkas LPJ, bukti nota kas, dan arsip pendaftaran.</p>' +
+              '</div>' +
+            '</div>' +
+            '<div>' +
+              '<label class="lbl">Google Drive Root Folder ID <span class="text-red-500">*</span></label>' +
+              '<input id="driveFolderInput" type="text" class="field font-mono text-xs" value="' + Auth.esc(folderId) + '" />' +
+              '<p class="text-[11px] text-gray-400 mt-1">Dapatkan ID folder dari URL Google Drive: <code class="bg-gray-100 px-1 rounded">drive.google.com/drive/folders/{ID}</code></p>' +
+            '</div>' +
+            '<div>' +
+              '<label class="flex items-center gap-2.5 text-xs font-semibold text-gray-800 cursor-pointer">' +
+                '<input id="driveAutoSub" type="checkbox" class="h-4 w-4 accent-emerald" ' + (autoSub ? 'checked' : '') + ' />' +
+                'Buat subfolder arsip otomatis per tahun (contoh: /2026/Surat, /2026/Voucher)' +
+              '</label>' +
+            '</div>' +
+            '<div class="flex gap-3 pt-2">' +
+              '<button type="button" id="btnTestDrive" class="btn btn-ghost px-5 py-2.5 rounded-xl font-bold text-xs inline-flex items-center gap-1.5">' +
+                '<span>⚡ Uji Koneksi Drive</span></button>' +
+              '<button type="button" id="btnSaveDrive" class="btn btn-primary px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm">' +
+                '<span>Simpan Pengaturan</span></button>' +
+            '</div>' +
+          '</div>';
+
+        document.getElementById('btnTestDrive').addEventListener('click', function () {
+          var btn = document.getElementById('btnTestDrive');
+          btn.disabled = true;
+          btn.textContent = 'Menguji...';
+          Auth.fetch('testDriveStorage', { folder_id: document.getElementById('driveFolderInput').value.trim() }).then(function (res) {
+            btn.disabled = false;
+            btn.textContent = '⚡ Uji Koneksi Drive';
+            self.toast((res && res.message) || 'Koneksi Google Drive terhubung & aktif!', 'success');
+          }).catch(function () {
+            btn.disabled = false;
+            btn.textContent = '⚡ Uji Koneksi Drive';
+          });
+        });
+
+        document.getElementById('btnSaveDrive').addEventListener('click', function () {
+          var payload = {
+            google_drive_folder_id: document.getElementById('driveFolderInput').value.trim(),
+            auto_annual_subfolders: document.getElementById('driveAutoSub').checked
+          };
+          Auth.fetch('saveSettings', { settings: payload }).then(function () {
+            self.toast('Pengaturan Google Drive berhasil disimpan.', 'success');
+          }).catch(function () {});
+        });
       });
     },
 

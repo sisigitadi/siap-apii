@@ -48,6 +48,62 @@
     clear: function () {
       this.token = null; this.user = null;
       try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch (e) {}
+      this.cache.clear();
+    },
+
+    // ---------------------------------------------------------------
+    // IN-MEMORY SWR (STALE-WHILE-REVALIDATE) CACHE ENGINE
+    // ---------------------------------------------------------------
+    cache: {
+      store: {},
+      get: function (key) {
+        var item = this.store[key];
+        if (!item) return null;
+        if (Date.now() > item.expiresAt) {
+          delete this.store[key];
+          return null;
+        }
+        return item.data;
+      },
+      set: function (key, data, ttlMs) {
+        this.store[key] = {
+          data: data,
+          expiresAt: Date.now() + (ttlMs || 60000) // default 1 menit
+        };
+      },
+      invalidate: function (namespaces) {
+        if (!namespaces) { this.store = {}; return; }
+        if (typeof namespaces === 'string') namespaces = [namespaces];
+        var self = this;
+        Object.keys(this.store).forEach(function (k) {
+          namespaces.forEach(function (ns) {
+            if (k.toLowerCase().indexOf(ns.toLowerCase()) !== -1) {
+              delete self.store[k];
+            }
+          });
+        });
+      },
+      clear: function () { this.store = {}; }
+    },
+
+    /** Indikator loading bar tipis di atas layar (#topProgressBar). */
+    showProgress: function () {
+      var bar = document.getElementById('topProgressBar');
+      if (bar) {
+        bar.style.width = '35%';
+        bar.classList.remove('opacity-0');
+      }
+    },
+
+    hideProgress: function () {
+      var bar = document.getElementById('topProgressBar');
+      if (bar) {
+        bar.style.width = '100%';
+        setTimeout(function () {
+          bar.classList.add('opacity-0');
+          setTimeout(function () { bar.style.width = '0%'; }, 250);
+        }, 150);
+      }
     },
 
     // ---------------------------------------------------------------
@@ -60,15 +116,14 @@
      * @param {object} payload  parameter aksi (opsional)
      * @param {object} opts     { method: 'GET'|'POST' (default POST), quiet: true }
      * @return {Promise<object>} resolve dengan { success, data, message }
-     *   - success true  → data berisi payload handler
-     *   - success false → reject dengan Error(message) agar mudah ditangkap
-     *   - 401           → auto-logout + redirect ke login
      */
     fetch: function (action, payload, opts) {
       opts = opts || {};
       var method = (opts.method || 'POST').toUpperCase();
       var url = (window.API_BASE || '') + '?action=' + encodeURIComponent(action);
       var self = this;
+
+      self.showProgress();
 
       // GET: token & payload sebagai query string.
       if (method === 'GET') {
@@ -84,8 +139,6 @@
 
       var req = { method: method, redirect: 'follow' };
       if (method === 'POST') {
-        // Gunakan text/plain untuk menghindari CORS Preflight (OPTIONS)
-        // yang tidak didukung oleh Web App Google Apps Script.
         req.headers = { 'Content-Type': 'text/plain;charset=utf-8' };
         req.body = JSON.stringify({
           action: action,
@@ -101,31 +154,39 @@
           throw new Error('Respons server tidak valid (bukan JSON).');
         });
       }).then(function (res) {
+        self.hideProgress();
         var b = res.body;
 
-        // Sesi berakhir/tidak sah → auto-logout.
+        // Sesi berakhir/tidak sah -> auto-logout.
         if (res.status === 401 || b.code === 401 || b.expired === true) {
           self.clear();
           self.redirectLogin(b.message || 'Sesi Anda telah berakhir. Silakan login kembali.');
           throw new Error(b.message || 'Sesi berakhir.');
         }
 
-        if (b && b.success === true) return b.data;
+        if (b && b.success === true) {
+          // Mutasi berhasil: bersihkan cache namespace terkait secara otomatis
+          if (method === 'POST') {
+            if (/Surat/i.test(action)) self.cache.invalidate(['surat', 'dashboard']);
+            if (/Voucher|Account/i.test(action)) self.cache.invalidate(['keuangan', 'accounts', 'dashboard']);
+            if (/Submission|LPJ/i.test(action)) self.cache.invalidate(['divisi', 'dashboard']);
+            if (/Pengguna|Pendaftar/i.test(action)) self.cache.invalidate(['pengguna', 'pendaftar']);
+            if (/Settings|Kop/i.test(action)) self.cache.invalidate(['settings', 'surat', 'dashboard']);
+          }
+          return b.data;
+        }
 
-        // Apps Script selalu mengembalikan HTTP 200, jadi sesi berakhir
-        // dideteksi dari pesan backend lalu auto-logout.
         if (b && b.success === false && /Sesi berakhir|tidak valid|Silakan login kembali/i.test(b.message || '')) {
           self.clear();
           self.redirectLogin(b.message);
           throw new Error(b.message);
         }
 
-        // Gagal normal: lempar pesan agar UI bisa menampilkannya.
         var msg = (b && b.message) || 'Permintaan gagal diproses.';
         if (!opts.quiet) self.toast(msg, 'error');
         throw new Error(msg);
       }).catch(function (err) {
-        // Kesalahan jaringan.
+        self.hideProgress();
         if (err instanceof TypeError) {
           var m = 'Gagal menghubungi server. Periksa koneksi internet Anda.';
           if (!opts.quiet) self.toast(m, 'error');
@@ -139,6 +200,36 @@
     get: function (action, payload, opts) {
       var o = opts || {}; o.method = 'GET';
       return this.fetch(action, payload, o);
+    },
+
+    /**
+     * getCached: ambil data instan dari in-memory cache (0 ms),
+     * sambil memperbarui di latar belakang jika expired (SWR).
+     */
+    getCached: function (action, payload, opts) {
+      var self = this;
+      opts = opts || {};
+      var cacheKey = action + ':' + JSON.stringify(payload || {});
+      var cachedData = opts.force ? null : this.cache.get(cacheKey);
+
+      if (cachedData !== null && cachedData !== undefined) {
+        // Data ada di cache: jika tidak diminta silent refresh, kembalikan langsung
+        if (opts.revalidate !== false) {
+          // Silent revalidate di latar belakang
+          setTimeout(function () {
+            self.get(action, payload, { quiet: true }).then(function (fresh) {
+              if (fresh) self.cache.set(cacheKey, fresh, opts.ttl || 60000);
+            }).catch(function () {});
+          }, 50);
+        }
+        return Promise.resolve(cachedData);
+      }
+
+      // Belum ada di cache: ambil dari jaringan lalu simpan ke cache
+      return this.get(action, payload, opts).then(function (data) {
+        if (data) self.cache.set(cacheKey, data, opts.ttl || 60000);
+        return data;
+      });
     },
 
     // ---------------------------------------------------------------

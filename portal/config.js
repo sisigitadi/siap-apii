@@ -26,22 +26,22 @@ window.DIVISIONS = {
 // Akun kas (harus sama dengan backend ACCOUNT_LABELS).
 window.ACCOUNTS = { KAS_BSI: 'Kas BSI', BRANKAS: 'Brankas', MANDIRI_WAKAF: 'Bank Mandiri Wakaf' };
 
-// Peran (harus sama dengan backend ROLES/ROLE_LABELS).
+// Peran (harus sama dengan backend ROLES/ROLE_LABELS - 8 peran pengurus).
 window.ROLES = {
   SUPERADMIN: 'Administrator Sistem', KETUA: 'Ketua', SEKRETARIS: 'Sekretaris',
   BENDAHARA: 'Bendahara', PEMBINA: 'Pembina', PENGAWAS: 'Pengawas',
-  KETUA_DIVISI: 'Ketua Divisi', ANGGOTA_DIVISI: 'Anggota Divisi',
-  ANGGOTA_BIASA: 'Anggota Biasa'
+  KETUA_DIVISI: 'Ketua Divisi', ANGGOTA_DIVISI: 'Anggota Divisi'
 };
 
 // Peran read-only: frontend menyembunyikan tombol aksi (backend juga menolak).
 window.READONLY_ROLES = ['PEMBINA', 'PENGAWAS'];
 
-// Jenis surat (harus sama dengan backend LETTER_TYPE_LABELS).
+// Jenis surat bawaan (diperluas dinamis oleh backend Sheet_Settings).
 window.LETTER_TYPES = {
   SK: 'Surat Keputusan', UNDANGAN: 'Surat Undangan',
   PENGANTAR: 'Surat Pengantar', KETERANGAN: 'Surat Keterangan',
-  TUGAS: 'Surat Tugas', REKOMENDASI: 'Surat Rekomendasi', EDARAN: 'Surat Edaran'
+  TUGAS: 'Surat Tugas', REKOMENDASI: 'Surat Rekomendasi', EDARAN: 'Surat Edaran',
+  NOTULEN: 'Notulen Rapat', RAPAT: 'Hasil Rapat / Risalah Rapat', BA: 'Berita Acara'
 };
 
 // Status surat (harus sama dengan backend STATUS_LABELS).
@@ -51,15 +51,14 @@ window.STATUS_LABELS = {
   PENDING: 'Menunggu Verifikasi', VERIFIED_BY_BENDAHARA: 'Diverifikasi Bendahara',
   VERIFIED_BY_KETUM: 'Diverifikasi Ketua', APPROVED: 'Disetujui',
   AJUKAN: 'Diajukan', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak',
-  PELAKSANAAN: 'Pelaksanaan', LPJ_SELESAI: 'LPJ Selesai'
+  PELAKSANAAN: 'Pelaksanaan', LPJ_SELESAI: 'LPJ Selesai',
+  DIVERIFIKASI_SEKRETARIS: 'Diverifikasi Sekretaris'
 };
 
-// Akun demo (dibuat setup() di Code.gs; password: apii2026).
-// Username WAJIB sama dengan seedDemoUsers() di gas/Code.gs.
+// 8 Akun demo pengurus resmi (password: apii2026).
 window.DEMO_ACCOUNTS = [
   { u: 'superadmin', r: 'Administrator Sistem' }, { u: 'ketua', r: 'Ketua' },
   { u: 'sekretaris', r: 'Sekretaris' }, { u: 'bendahara', r: 'Bendahara' },
   { u: 'pembina', r: 'Pembina' }, { u: 'pengawas', r: 'Pengawas' },
-  { u: 'khumas', r: 'Ketua Divisi Humas' }, { u: 'ahumas', r: 'Anggota Divisi Humas' },
-  { u: 'anggota', r: 'Anggota Biasa' }
+  { u: 'khumas', r: 'Ketua Divisi Humas' }, { u: 'ahumas', r: 'Anggota Divisi Humas' }
 ];

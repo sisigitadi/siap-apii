@@ -17,7 +17,10 @@ var TABS = {
   KEUANGAN: 'Sheet_Keuangan',
   DIVISI: 'Sheet_Divisi',
   AUDIT: 'Sheet_AuditLogs',
-  SEQUENCES: 'Sheet_Sequences'
+  SEQUENCES: 'Sheet_Sequences',
+  PENDAFTAR: 'Sheet_Pendaftar',
+  ACCOUNTS: 'Sheet_Accounts',
+  SETTINGS: 'Sheet_Settings'
 };
 
 // Definisi header tiap tab (dipakai initSchema & insert).
@@ -37,8 +40,15 @@ SCHEMA[TABS.DIVISI] = ['id', 'tracking_id', 'division', 'program_title', 'descri
   'budget_estimate', 'target_audience', 'execution_date', 'status', 'submitted_by',
   'submitted_by_name', 'submitted_at', 'reviewed_by', 'reviewed_at', 'approval_notes',
   'created_at', 'started_at', 'lpj_url', 'lpj_notes', 'realisasi_anggaran', 'lpj_submitted_at'];
-SCHEMA[TABS.AUDIT] = ['timestamp', 'actor', 'action', 'detail'];
+SCHEMA[TABS.AUDIT] = ['id', 'timestamp', 'actor', 'action', 'module', 'detail', 'ip_client', 'status'];
 SCHEMA[TABS.SEQUENCES] = ['key', 'value'];
+SCHEMA[TABS.PENDAFTAR] = ['id', 'reg_number', 'full_name', 'nik', 'birth_place', 'birth_date',
+  'gender', 'job', 'phone', 'email', 'address', 'division_interest', 'ktp_drive_url',
+  'selfie_drive_url', 'status', 'verified_by_sekretaris', 'verified_by_sekretaris_at',
+  'approved_by_ketum', 'approved_by_ketum_at', 'rejection_notes', 'created_at'];
+SCHEMA[TABS.ACCOUNTS] = ['id', 'code', 'name', 'bank_name', 'account_number', 'holder_name',
+  'category', 'is_active', 'show_on_public', 'created_at', 'updated_at'];
+SCHEMA[TABS.SETTINGS] = ['key', 'value', 'description', 'updated_by', 'updated_at'];
 
 /**
  * Inisialisasi semua tab + header. Idempoten.
@@ -70,7 +80,106 @@ function initSchema() {
       });
     }
   }
+
+  // Seed default master rekening jika kosong
+  seedDefaultAccounts_();
+
+  // Seed default pengaturan sistem jika kosong
+  seedDefaultSettings_();
+
   return true;
+}
+
+/** Seed rekening kas bawaan jika Sheet_Accounts kosong. */
+function seedDefaultAccounts_() {
+  try {
+    var accounts = readAll(TABS.ACCOUNTS);
+    if (accounts.length === 0) {
+      var now = new Date().toISOString();
+      insert(TABS.ACCOUNTS, {
+        id: 'ACC_BSI', code: 'KAS_BSI', name: 'Kas BSI Operasional',
+        bank_name: 'Bank Syariah Indonesia', account_number: '7123456789',
+        holder_name: 'Yayasan APII DPW Jabodetabek', category: 'Operasional',
+        is_active: 'TRUE', show_on_public: 'TRUE', created_at: now, updated_at: now
+      });
+      insert(TABS.ACCOUNTS, {
+        id: 'ACC_MANDIRI', code: 'MANDIRI_WAKAF', name: 'Bank Mandiri Wakaf',
+        bank_name: 'Bank Mandiri', account_number: '1230098765432',
+        holder_name: 'Yayasan APII - Program Wakaf', category: 'Wakaf',
+        is_active: 'TRUE', show_on_public: 'TRUE', created_at: now, updated_at: now
+      });
+      insert(TABS.ACCOUNTS, {
+        id: 'ACC_BRANKAS', code: 'BRANKAS', name: 'Kas Tunai Brankas',
+        bank_name: 'Kas Tunai', account_number: '-',
+        holder_name: 'Sekretariat DPW APII', category: 'Kas Kecil',
+        is_active: 'TRUE', show_on_public: 'FALSE', created_at: now, updated_at: now
+      });
+    }
+  } catch (e) {
+    Logger.log('Gagal seed accounts: ' + e);
+  }
+}
+
+/** Seed pengaturan bawaan jika Sheet_Settings kosong. */
+function seedDefaultSettings_() {
+  try {
+    var settings = readAll(TABS.SETTINGS);
+    var now = new Date().toISOString();
+    var setIfMissing = function (key, val, desc) {
+      var exist = settings.some(function (s) { return s.key === key; });
+      if (!exist) {
+        insert(TABS.SETTINGS, {
+          key: key, value: typeof val === 'object' ? JSON.stringify(val) : String(val),
+          description: desc, updated_by: 'system', updated_at: now
+        });
+      }
+    };
+
+    setIfMissing('letter_numbering', {
+      pattern: '{urut}/{kode}/{org}/{bulanRomawi}/{tahun}',
+      org_code: 'DPW-APII',
+      digits: 3,
+      reset_cycle: 'yearly'
+    }, 'Format penomoran surat resmi');
+
+    setIfMissing('letter_types', [
+      { code: 'SK', label: 'Surat Keputusan', prefix: 'SK', active: true },
+      { code: 'UNDANGAN', label: 'Surat Undangan', prefix: 'UND', active: true },
+      { code: 'PENGANTAR', label: 'Surat Pengantar', prefix: 'PENG', active: true },
+      { code: 'KETERANGAN', label: 'Surat Keterangan', prefix: 'KET', active: true },
+      { code: 'TUGAS', label: 'Surat Tugas', prefix: 'TUG', active: true },
+      { code: 'REKOMENDASI', label: 'Surat Rekomendasi', prefix: 'REK', active: true },
+      { code: 'EDARAN', label: 'Surat Edaran', prefix: 'EDR', active: true },
+      { code: 'NOTULEN', label: 'Notulen Rapat', prefix: 'NOT', active: true },
+      { code: 'RAPAT', label: 'Hasil Rapat / Risalah Rapat', prefix: 'RAPAT', active: true },
+      { code: 'BA', label: 'Berita Acara', prefix: 'BA', active: true }
+    ], 'Daftar jenis naskah dan surat resmi');
+
+    setIfMissing('letter_kop', {
+      mode: 'text',
+      custom_kop_image: '',
+      org_name: 'DEWAN PIMPINAN WILAYAH APOLOGET ISLAM INDONESIA (APII) JABODETABEK',
+      address: 'DKI Jakarta & Sekitarnya, Indonesia',
+      phone: '0812-8888-2026',
+      email: 'sekretariat@apii.sigitadi.id',
+      website: 'https://apii.sigitadi.id'
+    }, 'Pengaturan KOP surat dan logo');
+
+    setIfMissing('public_config', {
+      show_verification: true,
+      show_finance: true,
+      show_programs: true,
+      show_accounts: true,
+      announcement_banner: 'Selamat datang di Portal Resmi Yayasan APII DPW Jabodetabek.'
+    }, 'Pengaturan visibilitas portal publik');
+
+    setIfMissing('drive_storage', {
+      custom_folder_id: '',
+      folder_name: 'APII Jabo - PDF Surat Resmi'
+    }, 'Pengaturan penyimpanan Google Drive');
+  } catch (e) {
+    Logger.log('Gagal seed settings: ' + e);
+  }
 }
 
 /** Buka spreadsheet database (ID dari KONFIG; bisa juga via Script Properties). */
@@ -196,8 +305,12 @@ function updateRow(tab, rowNum, values) {
 
 /**
  * Hapus satu baris (berdasarkan _row).
+ * PERINGATAN: TABS.AUDIT bersifat WORM (Write Once, Read Many) permanen dan dilarang dihapus.
  */
 function deleteRow(tab, rowNum) {
+  if (tab === TABS.AUDIT) {
+    throw new Error('AKSES DITOLAK: Jejak audit sistem bersifat permanen dan tidak dapat dihapus.');
+  }
   var sheet = getSpreadsheet_().getSheetByName(tab);
   if (!sheet) return false;
   sheet.deleteRow(rowNum);

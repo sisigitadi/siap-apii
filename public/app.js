@@ -9,175 +9,331 @@
   'use strict';
 
   var Public = {
+    state: {
+      ktpBase64: '',
+      selfieBase64: ''
+    },
+
     init: function () {
       this.bindMobileNav();
-      this.bindVerifyForm();
-      this.loadDocuments();
+      this.bindRegistrationForm();
       this.renderDivisions();
     },
 
-    /** Panggil backend (GET, publik). */
-    get: function (action, params) {
-      var url = (window.API_BASE || '') + '?action=' + encodeURIComponent(action);
-      if (params) {
-        Object.keys(params).forEach(function (k) {
-          url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+    // ---------------------------------------------------------------
+    // PENDAFTARAN ANGGOTA & WATERMARK KTP CANVAS
+    // ---------------------------------------------------------------
+    bindRegistrationForm: function () {
+      var self = this;
+      var form = document.getElementById('regMemberForm');
+      var ktpInput = document.getElementById('regKtpInput');
+      var selfieInput = document.getElementById('regSelfieInput');
+      var btnHapusKtp = document.getElementById('btnHapusKtp');
+      var btnHapusSelfie = document.getElementById('btnHapusSelfie');
+      var closeReceiptBtn = document.getElementById('closeReceiptBtn');
+      var receiptModal = document.getElementById('regReceiptModal');
+
+      if (!form) return;
+
+      if (closeReceiptBtn && receiptModal) {
+        closeReceiptBtn.addEventListener('click', function () {
+          receiptModal.classList.add('hidden');
         });
       }
-      return fetch(url, { method: 'GET' }).then(function (r) { return r.json(); });
-    },
 
-    /** POST publik. */
-    post: function (action, payload) {
-      return fetch(window.API_BASE || '', {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: action, payload: payload || {} }),
-        redirect: 'follow'
-      }).then(function (r) { return r.json(); });
-    },
-
-    bindMobileNav: function () {
-      var toggle = document.getElementById('mobileToggle');
-      var menu = document.getElementById('mobileMenu');
-      if (!toggle || !menu) return;
-      toggle.addEventListener('click', function () {
-        menu.classList.toggle('hidden');
-      });
-      menu.querySelectorAll('.mobile-link').forEach(function (link) {
-        link.addEventListener('click', function () { menu.classList.add('hidden'); });
-      });
-    },
-
-    // ---------------------------------------------------------------
-    // VERIFIKASI SURAT
-    // ---------------------------------------------------------------
-    bindVerifyForm: function () {
-      var form = document.getElementById('verifyForm');
-      if (!form) return;
-      var self = this;
-
-      // Isi otomatis bila ada ?no= di URL (dari QR/link verifikasi surat).
-      var q = new URLSearchParams(window.location.search).get('no');
-      if (q) {
-        var input = document.getElementById('verifyInput');
-        if (input) { input.value = q; this.runVerify(q); }
+      // KTP Handler with HTML5 Canvas auto-watermark
+      if (ktpInput) {
+        ktpInput.addEventListener('change', function (e) {
+          var file = e.target.files && e.target.files[0];
+          if (!file) return;
+          self.processKtpWatermark(file);
+        });
       }
 
+      if (btnHapusKtp) {
+        btnHapusKtp.addEventListener('click', function () {
+          self.state.ktpBase64 = '';
+          if (ktpInput) ktpInput.value = '';
+          var box = document.getElementById('ktpPreviewBox');
+          if (box) box.classList.add('hidden');
+          var img = document.getElementById('ktpPreviewImg');
+          if (img) img.src = '';
+        });
+      }
+
+      // Selfie Handler
+      if (selfieInput) {
+        selfieInput.addEventListener('change', function (e) {
+          var file = e.target.files && e.target.files[0];
+          if (!file) return;
+          self.processSelfie(file);
+        });
+      }
+
+      if (btnHapusSelfie) {
+        btnHapusSelfie.addEventListener('click', function () {
+          self.state.selfieBase64 = '';
+          if (selfieInput) selfieInput.value = '';
+          var box = document.getElementById('selfiePreviewBox');
+          if (box) box.classList.add('hidden');
+          var img = document.getElementById('selfiePreviewImg');
+          if (img) img.src = '';
+        });
+      }
+
+      // Submit Form
       form.addEventListener('submit', function (e) {
         e.preventDefault();
-        var no = (document.getElementById('verifyInput').value || '').trim();
-        if (!no) return;
-        self.runVerify(no);
+        self.submitRegistration();
       });
     },
 
-    runVerify: function (letterNumber) {
-      var box = document.getElementById('verifyResult');
-      var loading = document.getElementById('verifyLoading');
-      var btn = document.getElementById('verifyBtn');
-      if (!box) return;
-
-      box.classList.add('hidden');
-      loading.classList.remove('hidden');
-      btn.disabled = true;
-
+    processKtpWatermark: function (file) {
       var self = this;
-      this.post('verifySurat', { letter_number: letterNumber }).then(function (res) {
-        loading.classList.add('hidden');
-        btn.disabled = false;
-        box.classList.remove('hidden');
+      var reader = new FileReader();
+      reader.onload = function (evt) {
+        var img = new Image();
+        img.onload = function () {
+          // Scale to max width 1280px maintaining aspect ratio
+          var maxW = 1280;
+          var w = img.width;
+          var h = img.height;
+          if (w > maxW) {
+            h = Math.round((h * maxW) / w);
+            w = maxW;
+          }
+          var canvas = document.getElementById('ktpCanvas') || document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          var ctx = canvas.getContext('2d');
+
+          // Draw original image
+          ctx.drawImage(img, 0, 0, w, h);
+
+          // Semi-transparent diagonal watermarking
+          ctx.save();
+          var dateStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+          var wmLine1 = 'ARSIP PENDAFTARAN APII DPW JABODETABEK - ' + dateStr;
+          var wmLine2 = 'HANYA UNTUK VERIFIKASI KEANGGOTAAN RESMI (UU PDP NO. 27/2022)';
+
+          // Rotate canvas for diagonal pattern
+          var fontSize = Math.max(16, Math.round(w / 30));
+          ctx.font = 'bold ' + fontSize + 'px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          var diagDist = Math.sqrt(w * w + h * h);
+          var step = fontSize * 4.2;
+
+          // Draw multiple diagonal stripes
+          ctx.translate(w / 2, h / 2);
+          ctx.rotate(-28 * Math.PI / 180);
+
+          for (var y = -diagDist; y <= diagDist; y += step) {
+            ctx.fillStyle = 'rgba(220, 38, 38, 0.42)'; // Stamped red security watermark
+            ctx.fillText(wmLine1, 0, y);
+            ctx.font = 'bold ' + Math.round(fontSize * 0.72) + 'px sans-serif';
+            ctx.fillStyle = 'rgba(2, 44, 34, 0.40)';
+            ctx.fillText(wmLine2, 0, y + fontSize * 1.1);
+            ctx.font = 'bold ' + fontSize + 'px sans-serif';
+          }
+          ctx.restore();
+
+          // Bottom protection banner
+          var bannerH = Math.max(32, Math.round(h * 0.075));
+          ctx.fillStyle = 'rgba(4, 120, 87, 0.88)';
+          ctx.fillRect(0, h - bannerH, w, bannerH);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold ' + Math.max(12, Math.round(bannerH * 0.45)) + 'px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('APII DPW JABODETABEK • TERPROTEKSI WATERMARK DIGITAL • ' + dateStr, w / 2, h - (bannerH / 2));
+
+          // Export compressed JPEG
+          var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          self.state.ktpBase64 = dataUrl;
+
+          var previewImg = document.getElementById('ktpPreviewImg');
+          var previewBox = document.getElementById('ktpPreviewBox');
+          if (previewImg) previewImg.src = dataUrl;
+          if (previewBox) previewBox.classList.remove('hidden');
+        };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    },
+
+    processSelfie: function (file) {
+      var self = this;
+      var reader = new FileReader();
+      reader.onload = function (evt) {
+        var img = new Image();
+        img.onload = function () {
+          var maxDim = 800;
+          var w = img.width;
+          var h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          var canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+
+          var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          self.state.selfieBase64 = dataUrl;
+
+          var previewImg = document.getElementById('selfiePreviewImg');
+          var previewBox = document.getElementById('selfiePreviewBox');
+          if (previewImg) previewImg.src = dataUrl;
+          if (previewBox) previewBox.classList.remove('hidden');
+        };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    },
+
+    submitRegistration: function () {
+      var self = this;
+      var alertBox = document.getElementById('regAlertBox');
+      var submitBtn = document.getElementById('regSubmitBtn');
+
+      var fullName = (document.getElementById('regFullName').value || '').trim();
+      var nik = (document.getElementById('regNik').value || '').trim();
+      var genderElem = document.querySelector('input[name="regGender"]:checked');
+      var gender = genderElem ? genderElem.value : 'L';
+      var birthPlace = (document.getElementById('regBirthPlace').value || '').trim();
+      var birthDate = (document.getElementById('regBirthDate').value || '').trim();
+      var phone = (document.getElementById('regPhone').value || '').trim();
+      var email = (document.getElementById('regEmail').value || '').trim();
+      var job = (document.getElementById('regJob').value || '').trim();
+      var division = (document.getElementById('regDivision').value || '').trim();
+      var address = (document.getElementById('regAddress').value || '').trim();
+      var agreement = document.getElementById('regAgreement').checked;
+
+      function showAlert(msg, isErr) {
+        if (!alertBox) return;
+        alertBox.className = 'mt-4 p-4 rounded-xl text-sm font-semibold ' +
+          (isErr ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200');
+        alertBox.innerHTML = msg;
+        alertBox.classList.remove('hidden');
+      }
+
+      if (!fullName) return showAlert('Mohon isi Nama Lengkap sesuai KTP.', true);
+      if (!nik || nik.length !== 16 || !/^\d+$/.test(nik)) return showAlert('Nomor NIK KTP harus terdiri dari 16 digit angka.', true);
+      if (!phone) return showAlert('Nomor WhatsApp aktif wajib diisi.', true);
+      if (!self.state.ktpBase64) return showAlert('Foto KTP wajib diunggah untuk verifikasi identitas resmi.', true);
+      if (!self.state.selfieBase64) return showAlert('Pas Foto / Selfie wajib diunggah untuk pencocokan wajah.', true);
+      if (!agreement) return showAlert('Anda harus menyetujui pernyataan keabsahan data dan AD/ART.', true);
+
+      if (alertBox) alertBox.classList.add('hidden');
+
+      var originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span>Mengirim berkas pendaftaran...</span>';
+      }
+
+      var fullPhone = phone.startsWith('0') ? '62' + phone.slice(1) : (phone.startsWith('+62') ? phone.slice(1) : (phone.startsWith('62') ? phone : '62' + phone));
+
+      var payload = {
+        full_name: fullName,
+        nik: nik,
+        gender: gender,
+        birth_place: birthPlace,
+        birth_date: birthDate,
+        phone: fullPhone,
+        email: email,
+        job: job,
+        division_interest: division,
+        address: address,
+        ktp_base64: self.state.ktpBase64,
+        selfie_base64: self.state.selfieBase64
+      };
+
+      self.post('registerAnggota', payload).then(function (res) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnHtml;
+        }
         if (res && res.success) {
-          box.innerHTML = self.htmlValid(res.data);
+          var receiptData = {};
+          for (var k in payload) receiptData[k] = payload[k];
+          if (res.data) { for (var k2 in res.data) receiptData[k2] = res.data[k2]; }
+          self.showRegistrationReceipt(receiptData);
+          document.getElementById('regMemberForm').reset();
+          self.state.ktpBase64 = '';
+          self.state.selfieBase64 = '';
+          var ktpBox = document.getElementById('ktpPreviewBox');
+          if (ktpBox) ktpBox.classList.add('hidden');
+          var selfieBox = document.getElementById('selfiePreviewBox');
+          if (selfieBox) selfieBox.classList.add('hidden');
         } else {
-          box.innerHTML = self.htmlInvalid((res && res.message) || 'Surat tidak ditemukan.');
+          showAlert((res && res.message) || 'Gagal mengirim pendaftaran. Coba beberapa saat lagi.', true);
         }
-      }).catch(function () {
-        loading.classList.add('hidden');
-        btn.disabled = false;
-        box.classList.remove('hidden');
-        box.innerHTML = self.htmlInvalid('Gagal menghubungi server. Coba beberapa saat lagi.');
+      }).catch(function (err) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnHtml;
+        }
+        showAlert('Terjadi kesalahan jaringan: ' + (err && err.message ? err.message : 'Silakan coba lagi.'), true);
       });
     },
 
-    htmlValid: function (d) {
-      return '' +
-        '<div class="border-2 border-emerald bg-emerald-light/40 rounded-xl p-6">' +
-          '<div class="flex items-center gap-3 mb-4">' +
-            '<div class="h-12 w-12 bg-emerald rounded-full flex items-center justify-center flex-shrink-0">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>' +
-            '</div>' +
-            '<div><div class="font-extrabold text-emerald text-lg">SURAT SAH &amp; DITERBITKAN RESMI</div>' +
-            '<div class="text-sm text-gray-600">Dokumen terverifikasi di sistem Yayasan APII DPW Jabodetabek</div></div>' +
+    showRegistrationReceipt: function (data) {
+      var modal = document.getElementById('regReceiptModal');
+      var content = document.getElementById('receiptContent');
+      var waBtn = document.getElementById('receiptWaBtn');
+      if (!modal || !content) return;
+
+      var regNum = data.reg_number || 'REG-' + new Date().getFullYear() + '-0000';
+      var maskedNik = data.nik ? data.nik.slice(0, 4) + '********' + data.nik.slice(12) : '3171********0001';
+      var dateStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+      content.innerHTML = '' +
+        '<div class="text-center pb-4 border-b border-gray-100">' +
+          '<div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Nomor Registrasi Anda</div>' +
+          '<div class="text-2xl font-black text-emerald font-mono bg-emerald-light/40 py-2 px-4 rounded-xl inline-block border border-emerald/20">' + this.esc(regNum) + '</div>' +
+          '<div class="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">' +
+            '<span class="h-2 w-2 rounded-full bg-amber-500 animate-ping"></span>' +
+            'MENUNGGU VERIFIKASI SEKRETARIAT' +
           '</div>' +
-          '<div class="grid sm:grid-cols-2 gap-4 text-sm">' +
-            '<div><div class="text-gray-500 text-xs uppercase tracking-wide">Nomor Surat</div><div class="font-bold text-gray-800 break-all">' + this.esc(d.letter_number) + '</div></div>' +
-            '<div><div class="text-gray-500 text-xs uppercase tracking-wide">Jenis</div><div class="font-bold text-gray-800">' + this.esc(d.letter_type_label) + '</div></div>' +
-            '<div><div class="text-gray-500 text-xs uppercase tracking-wide">Tanggal Surat</div><div class="font-bold text-gray-800">' + this.esc(d.tanggal_label) + '</div></div>' +
-            '<div><div class="text-gray-500 text-xs uppercase tracking-wide">Disahkan Oleh</div><div class="font-bold text-gray-800">' + this.esc(d.approved_by || 'Ketua DPW Jabodetabek') + '</div></div>' +
-          '</div>' +
-          '<div class="mt-4 pt-4 border-t border-emerald/20">' +
-            '<div class="text-gray-500 text-xs uppercase tracking-wide mb-1">Sidik Digital (SHA-256)</div>' +
-            '<code class="text-xs text-emerald-dark break-all font-mono">' + this.esc(d.sha256_hash) + '</code>' +
-          '</div>' +
-          (d.pdf_url ?
-            '<a href="' + this.esc(d.pdf_url) + '" target="_blank" rel="noopener" class="mt-4 inline-flex items-center gap-2 bg-emerald hover:bg-emerald-dark text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>' +
-              'Unduh PDF Resmi</a>' : '') +
+        '</div>' +
+        '<div class="grid grid-cols-2 gap-3 text-xs">' +
+          '<div><div class="text-gray-400 font-bold uppercase">Nama Pendaftar</div><div class="font-extrabold text-gray-800 text-sm mt-0.5">' + this.esc(data.full_name) + '</div></div>' +
+          '<div><div class="text-gray-400 font-bold uppercase">NIK Terlindungi</div><div class="font-bold text-gray-700 text-sm font-mono mt-0.5">' + this.esc(maskedNik) + '</div></div>' +
+          '<div><div class="text-gray-400 font-bold uppercase">Minat Divisi</div><div class="font-bold text-gray-700 mt-0.5">' + this.esc(data.division_interest || 'Umum') + '</div></div>' +
+          '<div><div class="text-gray-400 font-bold uppercase">Waktu Pengajuan</div><div class="font-medium text-gray-600 mt-0.5">' + this.esc(dateStr) + ' WIB</div></div>' +
+        '</div>' +
+        '<div class="bg-gray-50 rounded-2xl p-4 text-xs text-gray-600 border border-gray-200 leading-relaxed">' +
+          '<strong>Langkah Selanjutnya:</strong><br>' +
+          '1. Berkas KTP ber-watermark Anda sedang ditinjau oleh Sekretariat DPW.<br>' +
+          '2. Klik tombol di bawah untuk konfirmasi ke WhatsApp Pengurus agar proses verifikasi lebih cepat.' +
         '</div>';
+
+      var waMsg = encodeURIComponent(
+        'Assalamu’alaikum / Halo Sekretariat APII DPW Jabodetabek,\n\n' +
+        'Saya telah mendaftar sebagai calon anggota baru:\n' +
+        '• No. Registrasi: ' + regNum + '\n' +
+        '• Nama: ' + data.full_name + '\n' +
+        '• Divisi: ' + (data.division_interest || 'Umum') + '\n\n' +
+        'Mohon konfirmasi dan verifikasi berkas pendaftaran saya. Terima kasih.'
+      );
+      if (waBtn) {
+        waBtn.href = 'https://wa.me/6281283626100?text=' + waMsg;
+      }
+
+      modal.classList.remove('hidden');
     },
 
-    htmlInvalid: function (msg) {
-      return '' +
-        '<div class="border-2 border-red-200 bg-red-50 rounded-xl p-6 flex items-start gap-3">' +
-          '<div class="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>' +
-          '</div>' +
-          '<div><div class="font-extrabold text-red-700 text-lg mb-1">TIDAK DAPAT DIVERIFIKASI</div>' +
-            '<div class="text-sm text-gray-700">' + this.esc(msg) + '</div>' +
-            '<div class="text-xs text-gray-500 mt-2">Pastikan nomor surat ditulis lengkap &amp; sesuai. Hubungi sekretariat bila masih gagal.</div></div>' +
-        '</div>';
-    },
 
-    // ---------------------------------------------------------------
-    // DOKUMEN RESMI
-    // ---------------------------------------------------------------
-    loadDocuments: function () {
-      var list = document.getElementById('dokumenList');
-      var empty = document.getElementById('dokumenEmpty');
-      var stat = document.getElementById('statSurat');
-      if (!list) return;
-      var self = this;
-
-      this.get('getPublishedSurat', { limit: 9 }).then(function (res) {
-        if (!res || !res.success || !res.data.items.length) {
-          list.innerHTML = '';
-          if (empty) empty.classList.remove('hidden');
-          if (stat) stat.textContent = '0';
-          return;
-        }
-        if (stat) stat.textContent = res.data.total;
-        list.innerHTML = res.data.items.map(function (s) {
-          return '' +
-            '<a href="' + self.esc(s.pdf_url || '#') + '" target="_blank" rel="noopener" class="doc-card bg-white rounded-2xl shadow-md border border-emerald-100 p-6 flex flex-col">' +
-              '<div class="flex items-center justify-between mb-4">' +
-                '<span class="badge badge-published">Diterbitkan</span>' +
-                '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>' +
-              '</div>' +
-              '<div class="text-xs font-bold text-emerald uppercase tracking-wide mb-2">' + self.esc(s.letter_type_label) + '</div>' +
-              '<h3 class="font-bold text-gray-800 text-base mb-3 line-clamp-2">' + self.esc(s.title) + '</h3>' +
-              '<div class="text-xs text-gray-500 font-mono break-all mb-4">' + self.esc(s.letter_number) + '</div>' +
-              '<div class="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between text-xs">' +
-                '<span class="text-gray-500">' + self.esc(s.tanggal_label) + '</span>' +
-                '<span class="text-emerald font-semibold inline-flex items-center gap-1">Unduh PDF' +
-                  '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg></span>' +
-              '</div>' +
-            '</a>';
-        }).join('');
-      }).catch(function () {
-        list.innerHTML = '<div class="col-span-full text-center text-gray-400 py-12">Gagal memuat dokumen.</div>';
-      });
-    },
 
     // ---------------------------------------------------------------
     // DIVISI KERJA (statis 7 divisi sesuai sistem)

@@ -11,16 +11,66 @@
  * Nomor surat otomatis: {urut}/{KODE}/{romawi bulan}/{tahun} — reset per tahun.
  * ==========================================================================*/
 
-/** Bangun nomor surat dari jenis + tanggal surat (tidak increment counter). */
+/** Peta seluruh jenis surat aktif (bawaan + dinamis dari Sheet_Settings). */
+function getLetterTypesMap_() {
+  var types = getSettingValue_('letter_types', null);
+  var map = {
+    SK: { label: 'Surat Keputusan', prefix: 'SK' },
+    UNDANGAN: { label: 'Surat Undangan', prefix: 'UND' },
+    PENGANTAR: { label: 'Surat Pengantar', prefix: 'PENG' },
+    KETERANGAN: { label: 'Surat Keterangan', prefix: 'KET' },
+    TUGAS: { label: 'Surat Tugas', prefix: 'TUG' },
+    REKOMENDASI: { label: 'Surat Rekomendasi', prefix: 'REK' },
+    EDARAN: { label: 'Surat Edaran', prefix: 'EDR' },
+    NOTULEN: { label: 'Notulen Rapat', prefix: 'NOT' },
+    RAPAT: { label: 'Hasil Rapat / Risalah Rapat', prefix: 'RAPAT' },
+    BA: { label: 'Berita Acara', prefix: 'BA' }
+  };
+  if (Array.isArray(types)) {
+    types.forEach(function (t) {
+      if (t && t.code) {
+        map[t.code] = { label: t.label || t.name || t.code, prefix: t.prefix || t.code };
+      }
+    });
+  }
+  return map;
+}
+
+/** Bangun nomor surat dinamis dari jenis + tanggal surat. */
 function buildLetterNumber(letterType, tanggalSurat) {
   var d = new Date(tanggalSurat || new Date());
   var tahun = d.getFullYear();
   var bulan = toRoman(d.getMonth() + 1);
-  var kode = LETTER_TYPE_CODES[letterType] || 'SR-DPW/APII-JABO';
+
+  var numberingCfg = getSettingValue_('letter_numbering', {
+    pattern: '{urut}/{kode}/{org}/{bulanRomawi}/{tahun}',
+    org_code: 'DPW-APII',
+    digits: 3
+  });
+  var orgCode = numberingCfg.org_code || 'DPW-APII';
+  var digits = Number(numberingCfg.digits) || 3;
+
+  var typeMap = getLetterTypesMap_();
+  var typeInfo = typeMap[letterType] || { label: letterType, prefix: letterType };
+  var prefix = typeInfo.prefix || letterType;
+  var kodeSurat = prefix + '-' + orgCode;
+
   var urut = Database.nextSequence('SURAT:' + letterType + ':' + tahun);
   var urutStr = String(urut);
-  while (urutStr.length < 3) urutStr = '0' + urutStr;
-  return urutStr + '/' + kode + '/' + bulan + '/' + tahun;
+  while (urutStr.length < digits) urutStr = '0' + urutStr;
+
+  var pattern = numberingCfg.pattern || '{urut}/{kode}/{org}/{bulanRomawi}/{tahun}';
+  var res = pattern
+    .replace('{urut}', urutStr)
+    .replace('{kode}', prefix)
+    .replace('{org}', orgCode)
+    .replace('{bulanRomawi}', bulan)
+    .replace('{tahun}', String(tahun));
+
+  if (res.indexOf('{') !== -1) {
+    res = urutStr + '/' + kodeSurat + '/' + bulan + '/' + tahun;
+  }
+  return res;
 }
 
 /** Canonical string untuk hashing integritas dokumen. */
@@ -63,13 +113,15 @@ function getListSurat(ctx) {
   // Urutkan terbaru dibuat.
   rows.sort(function (a, b) { return (b.created_at || '').localeCompare(a.created_at || ''); });
 
+  var typeMap = getLetterTypesMap_();
   var total = rows.length;
   var start = (page - 1) * limit;
   var items = rows.slice(start, start + limit).map(function (s) {
+    var tInfo = typeMap[s.letter_type] || { label: LETTER_TYPE_LABELS[s.letter_type] || s.letter_type };
     return {
       id: s.id, letter_number: s.letter_number, title: s.title,
       letter_type: s.letter_type,
-      letter_type_label: LETTER_TYPE_LABELS[s.letter_type] || s.letter_type,
+      letter_type_label: tInfo.label || s.letter_type,
       status: s.status, status_label: STATUS_LABELS[s.status] || s.status,
       tanggal_surat: s.tanggal_surat, tanggal_label: formatTanggal(s.tanggal_surat),
       created_by: s.created_by, created_by_name: s.created_by_name,
@@ -89,14 +141,33 @@ function getListSurat(ctx) {
 /**
  * createSurat: buat draf surat. SUPERADMIN, SEKRETARIS.
  * @param {object} ctx.payload { title, letter_type, content{menimbang,mengingat,memutuskan},
- *                                tanggal_surat?, letter_number? }
+ *                                tanggal_surat?, letter_number?, custom_type_code?, custom_type_label? }
  */
 function createSurat(ctx) {
   var p = ctx.payload || {};
-  if (!p.title || !p.letter_type) {
-    return { ok: false, data: null, message: 'Judul dan jenis surat wajib diisi.' };
+  if (!p.title) {
+    return { ok: false, data: null, message: 'Perihal / judul surat wajib diisi.' };
   }
-  if (!LETTER_TYPE_CODES[p.letter_type]) {
+
+  var typeMap = getLetterTypesMap_();
+  // Tangani custom letter type on-the-fly jika ada
+  if (p.custom_type_code && p.custom_type_label) {
+    var cCode = String(p.custom_type_code).trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+    var cLabel = String(p.custom_type_label).trim();
+    if (!typeMap[cCode]) {
+      var allTypes = getSettingValue_('letter_types', []);
+      if (!Array.isArray(allTypes)) allTypes = [];
+      allTypes.push({ code: cCode, label: cLabel, prefix: cCode, active: true });
+      setSettingValue_('letter_types', allTypes, ctx.user.username);
+      typeMap[cCode] = { label: cLabel, prefix: cCode };
+    }
+    p.letter_type = cCode;
+  }
+
+  if (!p.letter_type) {
+    return { ok: false, data: null, message: 'Jenis surat wajib dipilih.' };
+  }
+  if (!typeMap[p.letter_type] && !LETTER_TYPE_CODES[p.letter_type]) {
     return { ok: false, data: null, message: 'Jenis surat tidak valid.' };
   }
 
@@ -415,3 +486,41 @@ function replaceInBody_(body, placeholder) {
     body.replaceText('{{' + key + '}}', String(placeholder[key]));
   }
 }
+
+/**
+ * reserveLetterNumber: reservasi / booking nomor surat resmi sebelum draf naskah selesai.
+ * SUPERADMIN, SEKRETARIS.
+ * @param {object} ctx.payload { letter_type, title?, tanggal_surat? }
+ */
+function reserveLetterNumber(ctx) {
+  var p = ctx.payload || {};
+  if (!p.letter_type) {
+    return { ok: false, data: null, message: 'Jenis surat wajib dipilih.' };
+  }
+  var tanggal = p.tanggal_surat || new Date().toISOString().slice(0, 10);
+  var letterNumber = buildLetterNumber(p.letter_type, tanggal);
+  var now = new Date().toISOString();
+
+  var created = Database.insert(TABS.SURAT, {
+    id: uuid(),
+    letter_number: letterNumber,
+    title: p.title || '(Nomor Dipesan: ' + letterNumber + ')',
+    letter_type: p.letter_type,
+    content: JSON.stringify({ menimbang: '', mengingat: '', memutuskan: '' }),
+    status: 'DRAFT',
+    tanggal_surat: tanggal,
+    created_by: ctx.user.username,
+    created_by_name: ctx.user.full_name || ctx.user.username,
+    created_at: now,
+    submitted_at: '', published_at: '', approved_by: '',
+    rejection_notes: '', sha256_hash: '', pdf_url: '', qr_verify_url: ''
+  });
+
+  audit(ctx.user.username, 'SURAT_RESERVED', 'Memesan nomor surat resmi ' + letterNumber, 'SURAT');
+  return {
+    ok: true,
+    data: { id: created.id, letter_number: letterNumber },
+    message: 'Nomor surat ' + letterNumber + ' berhasil dibooking.'
+  };
+}
+

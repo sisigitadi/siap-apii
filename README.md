@@ -1,142 +1,132 @@
-# Yayasan APII DPW Jabodetabek — SIAP APII
+# Yayasan APII DPW Jabodetabek — SIAP APII (v2.0.0 Enterprise)
 
-**Sistem Informasi & Administrasi Terpadu Yayasan APII (Apologet Islam Indonesia)**
-Dewan Pimpinan Wilayah (DPW) Jabodetabek
+**Sistem Informasi & Administrasi Terpadu Yayasan APII (Apologet Islam Indonesia)**  
+Dewan Pimpinan Wilayah (DPW) Jabodetabek (Jakarta, Bogor, Depok, Tangerang, Bekasi)
 
-Sistem administrasi yayasan yang dibangun di atas **Google Apps Script** (backend & logika), **Google Sheets** (database), **Google Drive** (penyimpanan dokumen), dan **HTML + Vanilla JavaScript + Tailwind CSS** (frontend). Tidak ada server yang harus dijalankan, tidak ada biaya infrastruktur, dan seluruhnya dapat dikelola langsung oleh tim yayasan.
+Sistem administrasi yayasan modern nir-server (*serverless enterprise*) yang dibangun di atas **Google Apps Script** (backend API & state machine), **Google Sheets** (database ACID berelasi), **Google Drive** (penyimpanan dokumen & berkas terenkripsi), dan **HTML5 + Vanilla JavaScript (SWR Caching) + Tailwind CSS** (frontend antarmuka pengguna). Bebas biaya sewa server VM, stabil, aman, dan siap pakai.
 
-> **Filosofi:** _"Cukup untuk berjalan hari ini, mudah dibesarkan besok."_ Setiap fitur dipertanyakan dulu apakah benar-benar menyelesaikan masalah pengurus, bukan menambah kesibukan.
-
----
-
-## 🧱 Teknologi
-
-| Lapisan          | Teknologi                                                     | Catatan                                                                                                                              |
-| ---------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Backend          | **Google Apps Script** (Web App `doGet` / `doPost`) | Router JSON, RBAC, manajemen sesi, state machine                                                                                     |
-| Database         | **Google Sheets**                                       | `Sheet_Users`, `Sheet_Sessions`, `Sheet_Surat`, `Sheet_Keuangan`, `Sheet_Divisi`, `Sheet_AuditLogs`, `Sheet_Sequences` |
-| Penyimpanan File | **Google Drive**                                        | PDF surat resmi, kwitansi, lampiran divisi                                                                                           |
-| Mesin PDF        | **Google Docs Template** → ekspor PDF                  | Kop yayasan, nomor, tanggal, dan isi surat otomatis                                                                                  |
-| Frontend Publik  | HTML + Vanilla JS + Tailwind CSS (CDN)                        | folder`public/` → domain **`apii.sigit.id`**                                                                              |
-| Frontend Portal  | HTML + Vanilla JS + Tailwind CSS (CDN)                        | folder`portal/` → domain **`siapii.sigitadi.id`**                                                                         |
-| Otentikasi       | Username + Password +**Session Token (UUID)**           | Sesi disimpan di`Sheet_Sessions`, masa berlaku 7 hari                                                                              |
-| Tipografi & Tema | Google Fonts (Plus Jakarta Sans / Inter), Emerald + Gold      | Lihat`docs/DESIGN.md §10`                                                                                                         |
+> **Filosofi Sistem:** _"Amanah, Transparan, Cepat, dan Akuntabel."_ Menghubungkan seluruh tata kelola persuratan, buku kas keuangan, program kerja divisi, dan penerimaan anggota baru dalam satu ekosistem terpadu.
 
 ---
 
-## ✨ Fitur Inti
+## 🧱 Tumpukan Teknologi (Technology Stack)
 
-- **RBAC 9 peran bertingkat** + delegasi manajemen anggota ke pimpinan (tanpa campur tangan IT).
-- **Isolasi divisi mutlak** — akses lintas divisi selalu ditolak + dicatat sebagai event audit keamanan.
-- **Persuratan resmi** — nomor surat otomatis, draf, _state machine_ `DRAFT → PENDING_APPROVAL → PUBLISHED / REJECTED`, dan generate PDF dari template Google Docs.
-- **Keuangan dual-approval** — voucher dibukukan Bendahara, diverifikasi Bendahara + Ketua; saldo kas otomatis.
-- **Workflow 7 divisi** (Humas, Litbang, Sosmed, Dakwah, Investasi, Hukum, Umum) dengan status `DRAFT → AJUKAN → DISETUJUI / DITOLAK`.
-- **Portal publik** — landing page yayasan + **form pengecekan keaslian surat** berbasis nomor/SHA-256 (tanpa login).
-- **Pembina & Pengawas 100% read-only** — tidak ada tombol aksi yang dirender di layar mereka.
-
----
-
-## 🚀 Cara Pasang (6 Langkah Saja)
-
-> Semua sudah disiapkan: **Spreadsheet**, **project Apps Script**, **logo**, **stempel**, dan **kop surat**.
-> Yang Anda lakukan hanya menyalin file & klik tombol di Google.
-
-**Persiapan (sekali saja):** Jalankan `scripts/build-apps-script.ps1` di folder ini.
-Hasilnya 3 file di folder `apps-script/`: `Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`.
+| Lapisan | Teknologi | Peran & Keterangan |
+| :--- | :--- | :--- |
+| **Backend API** | **Google Apps Script** (`doGet` / `doPost`) | RESTful JSON API, RBAC 8 peran, state machine, generator PDF Docs |
+| **Database ACID** | **Google Sheets** | Sheet: `Users`, `Sessions`, `Surat`, `Keuangan`, `Divisi`, `AuditLogs`, `Pendaftar`, `Settings`, `Accounts` |
+| **Penyimpanan Dokumen** | **Google Drive** | Arsip PDF surat resmi, kwitansi kas, berkas foto KTP & pas foto |
+| **Mesin Render PDF** | **Google Docs Template API** | Kop yayasan, logo resmi, nomor surat otomatis, dan stempel basah |
+| **Portal Pengurus (SPA)** | Vanilla JS + SWR Cache + Tailwind CDN | Domain **`siapii.sigitadi.id`** (Akses eksklusif 8 peran pengurus) |
+| **Portal Publik** | Vanilla JS + Canvas Watermark + Tailwind CDN | Domain **`apii.sigit.id`** (Pendaftaran anggota & profil yayasan) |
+| **Otentikasi & Keamanan** | Password Hashing SHA-256 + Sesi Token UUID | Masa berlaku sesi 7 hari, proteksi XSS/CSRF, sanitasi payload |
+| **Kepatuhan Privasi** | **UU PDP No. 27/2022** + Canvas Watermarking | Watermark otomatis sisi klien sebelum berkas KTP dikirim ke server |
 
 ---
 
-**Langkah 1 — Buka project Apps Script Anda**
+## ✨ Fitur-Fitur Unggulan
 
-Buka link Apps Script yang sudah Anda buat → di editor ada file `Code.gs`.
+### 1. Portal Pengurus (`siapii.sigitadi.id`)
+- **Navigasi Super Cepat (0ms Latency)**: Didukung mesin *Stale-While-Revalidate (SWR)* dan *Route Prefetching* di `portal/auth.js`.
+- **Kotak Aksi Terpadu (*Action Inbox*)**: Dashboard pimpinan dengan rangkuman aksi mendesak (surat menunggu persetujuan, voucher kas verifikasi, dan usulan divisi).
+- **Modul Persuratan Resmi**:
+  - Penomoran otomatis dinamis (misal: `042/SK-DPW-APII/III/2026`).
+  - Pratinjau Kertas Virtual A4 dengan stempel basah transparan (*mix-blend-mode*) dan watermark status.
+  - Cetak ramah printer (`@media print`) dan unduh PDF resmi.
+- **Modul Keuangan Kas Dual-Approval**:
+  - Pencatatan voucher masuk/keluar oleh Bendahara.
+  - Verifikasi ganda: Tahap 1 oleh Bendahara $\to$ Tahap 2 oleh Ketua DPW.
+  - Cetak kwitansi kas otomatis terbilang Rupiah dan integrasi bukti bayar Google Drive.
+- **Siklus Hidup Usulan Divisi (5-Tahap)**:
+  - `DRAFT` $\to$ `AJUKAN` $\to$ `DISETUJUI` $\to$ `PELAKSANAAN` $\to$ `LPJ_SELESAI`.
+  - Formulir penyerahan LPJ akuntabel dengan tautan laporan Google Drive dan realisasi anggaran akhir.
+- **Manajemen Pendaftar Anggota Baru**:
+  - Meninjau berkas pendaftar masuk dari portal publik.
+  - Pratinjau KTP ber-watermark dan foto selfie pemohon.
+  - Verifikasi berkas oleh Sekretaris $\to$ Pengesahan resmi anggota oleh Ketua DPW.
+- **Pengaturan & Master Data Terpadu (Superadmin & Ketua)**:
+  - Master rekening bank kas yayasan (CRUD & toggle publik).
+  - Master format penomoran dan jenis surat baru (`NOTULEN`, `RAPAT`, `BA`, dll).
+  - Upload gambar KOP surat resmi dengan pratinjau Canvas.
+  - Uji koneksi penyimpanan Google Drive langsung dari UI.
+- **Jejak Audit Permanen (WORM — Anti-Hapus)**:
+  - Seluruh mutasi data dan aktivitas tercatat permanen di `Sheet_AuditLogs` tanpa tombol hapus.
 
-**Langkah 2 — Hapus file lama, buat 3 file baru**
-
-- Klik ikon ⋮ di samping file `Code.gs` → **Delete** (hapus semua file default).
-- Klik **+ (New file)** → **Script** → buat 3 file bernama persis: `Backend`, `AsetLogo`, `AsetStempel`.
-- Buka masing-masing file di folder `apps-script/` proyek ini, **salin seluruh isinya**, lalu tempel ke file yang sama nama di Apps Script. Simpan (ikon 💾).
-
-**Langkah 3 — Jalankan `setup` (ini yang buat semuanya)**
-
-- Di editor, pastikan file `Backend.gs` terbuka, lalu di toolbar atas pilih fungsi **`setup`** → klik **▶ Run**.
-- Saat diminta izin akses Google: pilih akun yayasan → **Advanced** → **Go to project (unsafe)** → **Allow**.
-
-> Fungsi `setup` ini otomatis membuat: **7 sheet database**, **9 akun demo**, **folder Drive** untuk PDF, dan **template Google Docs** lengkap dengan **kop + logo + stempel** Anda. Tidak perlu buat manual sama sekali.
-
-**Langkah 4 — Deploy sebagai Web App**
-
-- Klik **Deploy** (kanan atas) → **New deployment** → ikon ⚙️ → **Web app**.
-- Isi: _Description_ `SIAP APII`; **Execute as: Me**; **Who has access: Anyone** → **Deploy**.
-- Salin **URL Web app** (format `https://script.google.com/macros/s/xxx/exec`).
-
-**Langkah 5 — Tempel URL ke 2 file frontend**
-
-Buka file di proyek ini, ganti `GANTI_DENGAN_DEPLOYMENT_ID` dengan URL deployment Anda:
-
-- `public/config.js` — baris `window.API_BASE`
-- `portal/config.js` — baris `window.API_BASE`
-
-**Langkah 6 — Deploy frontend (opsional, bisa nanti)**
-
-- Folder `public/` → hosting statis (Cloudflare Pages / Netlify) → domain `apii.sigit.id`.
-- Folder `portal/` → hosting terpisah → domain `siapii.sigitadi.id`.
-- File `logo.png` sudah ada di kedua folder — tidak perlu tambah apa-apa.
-
-Selesai. Backend + database gratis selamanya dalam kuota Google Workspace yayasan.
-
----
-
-> 🆘 **Kalau error di langkah mana pun**, baca `docs/TROUBLESHOOTING.md` — ada daftar error + cara memperbaiki.
+### 2. Portal Publik (`apii.sigit.id`)
+- **Formulir Pendaftaran Calon Anggota Baru**:
+  - Entri biodata terstruktur: Nama KTP, NIK 16 digit, TTL, Gender, WhatsApp (+62), Email, Profesi, Domisili Jabodetabek, dan Minat 7 Divisi Kerja.
+- **Watermark KTP Otomatis Sisi Klien (HTML5 Canvas)**:
+  - Mencegah penyalahgunaan identitas dengan cap pengaman diagonal (*"ARSIP PENDAFTARAN APII DPW JABODETABEK - [TANGGAL]"*).
+- **Tanda Terima Pendaftaran Digital (Receipt Modal)**:
+  - Kode registrasi unik `REG-YYYY-XXXX`, masking NIK terproteksi, dan tombol konfirmasi instan ke WhatsApp Sekretariat.
+- **Privasi & Keamanan Maksimal**:
+  - Sesuai amanat UU PDP No. 27/2022, data e-KTA tidak dipublikasikan ke publik.
+  - Tautan portal pengurus disembunyikan sepenuhnya dari pandangan publik.
+  - Formulir verifikasi dokumen internal dinonaktifkan dari akses publik.
 
 ---
 
-## 👤 Akun Demo
+## 👥 8 Peran Resmi Pengurus Yayasan (RBAC Matrix)
 
-Setelah `setup()` dijalankan, 9 akun ini tersedia (password semuanya `apii2026`):
+| Username | Peran (*Role*) | Hak Akses Utama |
+| :--- | :--- | :--- |
+| `superadmin` | **SUPERADMIN** | Akses penuh sistem, manajemen akun pengurus, master data, konfigurasi |
+| `ketua` | **KETUA** | Pengesahan akhir surat, persetujuan voucher kas, persetujuan usulan program, pengesahan anggota |
+| `sekretaris` | **SEKRETARIS** | Konseptor surat, penomoran dinamis, verifikasi tahap 1 berkas pendaftar anggota baru |
+| `bendahara` | **BENDAHARA** | Pembukuan voucher kas, verifikasi kas tahap 1, cetak kwitansi, laporan saldo buku kas |
+| `pembina` | **PEMBINA** | Read-Only: Pemantauan kinerja persuratan, buku kas keuangan, program divisi, jejak audit |
+| `pengawas` | **PENGAWAS** | Read-Only: Pengawasan kepatuhan hukum, mutasi kas, dan rekam jejak audit sistem |
+| `khumas` | **KETUA_DIVISI** | Pengusul program kerja divisi, eksekusi kegiatan, dan penyerahan LPJ akuntabel |
+| `ahumas` | **ANGGOTA_DIVISI** | Pelaksana program kerja divisi, asistensi penyusunan usulan program & LPJ |
 
-| Username | Peran | Divisi |
-| -------------- | -------------------- | --------- |
-| `superadmin` | SUPERADMIN | — |
-| `ketua` | KETUA | — |
-| `sekretaris` | SEKRETARIS | — |
-| `bendahara` | BENDAHARA | — |
-| `pembina` | PEMBINA (read-only) | — |
-| `pengawas` | PENGAWAS (read-only) | — |
-| `khumas` | KETUA_DIVISI | DIV_HUMAS |
-| `ahumas` | ANGGOTA_DIVISI | DIV_HUMAS |
-| `anggota` | ANGGOTA_BIASA | — |
-
-> Ganti password semua akun sebelum penggunaan nyata.
+> *Catatan:* Seluruh akun pengurus bawaan menggunakan password awal: `apii2026`. Harap ubah password saat pertama kali masuk melalui menu Profil Saya.
 
 ---
 
-## 📚 Dokumentasi
+## 🚀 Prosedur Deployment & Pembaruan
 
-- **[docs/PRD.md](./docs/PRD.md)** — Kebutuhan produk, persona, `FR-*`, user story, metrik sukses
-- **[docs/DESIGN.md](./docs/DESIGN.md)** — Arsitektur, skema Google Sheets, alur dokumen, session, PDF engine
-- **[docs/rbac-matrix.md](./docs/rbac-matrix.md)** — Matriks izin 9 peran × modul (single source of truth)
-- **[docs/PROJECT_RULES.md](./docs/PROJECT_RULES.md)** — Aturan pengembangan & Definition of Done
+### 1. Kompilasi Backend Google Apps Script
+Jalankan script bundler PowerShell dari root direktori proyek:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build-apps-script.ps1
+```
+Hasil kompilasi siap-tempel akan diperbarui di folder `apps-script/`:
+- `apps-script/Backend.gs`
+- `apps-script/AsetLogo.gs`
+- `apps-script/AsetStempel.gs`
+
+### 2. Unggah ke Google Apps Script Editor
+1. Buka [script.google.com](https://script.google.com) pada project yayasan Anda.
+2. Salin isi masing-masing file dari folder `apps-script/` ke file script di editor Apps Script.
+3. Simpan (Ctrl + S).
+4. Klik **Deploy** $\to$ **Manage deployments** $\to$ Pilih versi **New version** $\to$ **Deploy**.
+5. Pastikan URL endpoint Web App sinkron pada `portal/config.js` dan `public/config.js`.
+
+### 3. Deployment Frontend via Vercel (CI/CD Otomatis)
+Cukup lakukan commit dan push ke branch `main`:
+```bash
+git add .
+git commit -m "feat(release): update sistem siap apii"
+git push origin main
+```
+Vercel akan otomatis men-deploy versi terbaru ke domain produksi:
+- Portal Pengurus: `https://siapii.sigitadi.id`
+- Portal Publik: `https://apii.sigit.id`
 
 ---
 
-## 🗺️ Roadmap
+## 📚 Indeks Dokumentasi
 
-- **Fase 1 — Fondasi:** ✅ router GAS, database Google Sheets, login + session token, RBAC 9 peran, audit log.
-- **Fase 2 — Core:** ✅ persuratan + generate PDF dari template Docs, keuangan dual-approval, workflow 7 divisi.
-- **Fase 3 — Portal:** ✅ landing page publik + verifikasi keaslian surat, portal pengurus (dashboard, tabel, aksi).
-- **Fase 4 — Pengembangan lanjutan:** 🔜 notifikasi email (GmailApp), e-KTA anggota, laporan keuangan bulanan PDF, import/export CSV.
-
----
-
-## 🔒 Catatan Keamanan
-
-- Password di-hash **SHA-256 + salt** (tidak pernah disimpan plain-text).
-- Session token **UUID** disimpan di `Sheet_Sessions` dengan `expired_at`; setiap request wajib membawa token.
-- Setiap percobaan akses yang ditolak dicatat di `Sheet_AuditLogs` beserta waktu & pelaku.
-- Deploy Web App dengan **"Anyone"** hanya aman karena seluruh endpoint dilindungi verifikasi sesi + RBAC di router.
+- **[CHANGELOG.md](./CHANGELOG.md)** — Catatan riwayat versi, fitur baru, dan perubahan sistem
+- **[docs/VERSION_CONTROL.md](./docs/VERSION_CONTROL.md)** — Standar Git workflow, branching, dan deployment pipeline
+- **[docs/deploy.md](./docs/deploy.md)** — Panduan deployment produksi, konfigurasi DNS CNAME, dan checklist rilis
+- **[docs/DESIGN.md](./docs/DESIGN.md)** — Dokumen arsitektur teknis, relasi spreadsheet, dan diagram alur
+- **[docs/PRD.md](./docs/PRD.md)** — Product Requirements Document (kebutuhan bisnis dan fungsi)
+- **[docs/rbac-matrix.md](./docs/rbac-matrix.md)** — Matriks kewenangan RBAC 8 peran pengurus
 
 ---
 
-## 📄 Lisensi
+## 📄 Lisensi & Hak Cipta
 
-Internal — Yayasan APII DPW Jabodetabek. Tidak untuk distribusi publik tanpa izin.
+Hak Cipta © 2026 **Yayasan APII DPW Jabodetabek**. Seluruh hak dilindungi undang-undang.
+Sistem ini dikembangkan khusus untuk operasional resmi organisasi APII.

@@ -225,10 +225,11 @@ label.lbl { display: block; font-size: .78rem; font-weight: 700; color: #374151;
   body * {
     visibility: hidden;
   }
-  #printPaperArea, #printPaperArea * {
+  #printPaperArea, #printPaperArea *,
+  #printKwitansiArea, #printKwitansiArea * {
     visibility: visible;
   }
-  #printPaperArea {
+  #printPaperArea, #printKwitansiArea {
     position: absolute;
     left: 0;
     top: 0;
@@ -249,3 +250,4 @@ label.lbl { display: block; font-size: .78rem; font-weight: 700; color: #374151;
     display: none !important;
   }
 }
+

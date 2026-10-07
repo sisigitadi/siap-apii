@@ -1,6 +1,6 @@
 # Panduan Deployment & Operasional Produksi (SIAP APII)
 
-**Sistem Informasi & Administrasi Terpadu Yayasan APII DPW Jabodetabek**
+**Sistem Informasi & Administrasi Terpadu Yayasan APII DPW Jabodetabek (v2.0.0 Enterprise)**
 
 > Dokumen panduan resmi deployment, konfigurasi custom domain, sinkronisasi Google Apps Script, dan prosedur operasional produksi SIAP APII.
 
@@ -8,42 +8,44 @@
 
 ## 1. Ringkasan Infrastruktur Produksi (100% Serverless & Gratis)
 
-SIAP APII berjalan di atas arsitektur serverless modern tanpa memerlukan server VM berbayar. Seluruh beban komputasi backend, basis data, dan penyimpanan dokumen dikelola oleh infrastruktur Google Workspace/Google Cloud gratis selamanya dalam kuota yayasan, sedangkan frontend di-hosting pada Vercel Global Edge Network.
+SIAP APII berjalan di atas arsitektur serverless modern tanpa memerlukan server VM berbayar. Seluruh beban komputasi backend, basis data, dan penyimpanan dokumen dikelola oleh infrastruktur Google Workspace gratis selamanya dalam kuota yayasan, sedangkan antarmuka web di-hosting pada Vercel Global Edge Network.
 
 | Komponen | Layanan / Provider | Endpoint / Target | Keterangan |
 |---|---|---|---|
-| **Portal Pengurus (SPA)** | **Vercel** Edge CDN (`sin1` SG) | `https://siapii.sigitadi.id` | Single Page Application pengurus (folder `portal/`) |
-| **Portal Publik** | **Nginx / Static Web** | `https://apii.sigitadi.id` | Landing page masyarakat & verifikasi surat resmi |
-| **Backend API** | **Google Apps Script** Web App | `https://script.google.com/macros/s/.../exec` | Router RESTful JSON, RBAC 9 peran, sesi token 7-hari |
-| **Database ACID** | **Google Sheets** | Spreadsheet ID: `1B0p0Jgb...` | 7 sheet: Users, Sessions, Surat, Keuangan, Divisi, Audit, Sequences |
-| **Document Storage** | **Google Drive** | `APII Jabo - PDF Surat Resmi` | Arsip PDF surat resmi, lampiran berkas, nota transaksi |
+| **Portal Pengurus (SPA)** | **Vercel** Edge CDN (`sin1` SG) | `https://siapii.sigitadi.id` | Single Page Application 8 peran pengurus (folder `portal/`) |
+| **Portal Publik** | **Vercel / Static Web** | `https://apii.sigit.id` | Profil yayasan & pendaftaran calon anggota baru (UU PDP No. 27/2022) |
+| **Backend API** | **Google Apps Script** Web App | `https://script.google.com/macros/s/.../exec` | Router RESTful JSON, RBAC 8 peran, sesi token 7-hari |
+| **Database ACID** | **Google Sheets** | Spreadsheet ID: `1B0p0Jgb...` | Sheet: Users, Sessions, Surat, Keuangan, Divisi, Audit, Pendaftar, Settings, Accounts |
+| **Document Storage** | **Google Drive** | `APII Jabo - PDF Surat Resmi` | Arsip PDF surat resmi, kwitansi kas, berkas KTP & selfie pemohon |
 | **Mesin Render PDF** | **Google Docs Template** | Auto-generated via `setup()` | Kop surat resmi, stempel basah, logo, nomor otomatis |
-| **Notifikasi Background** | **GmailApp / MailApp** | Otomatis via GAS | Email persetujuan surat, voucher kas, & usulan program |
-| **Notifikasi Interaktif** | **WhatsApp Web Link** | Click-to-Chat URI | Quick share dokumen, voucher, & permohonan ke WhatsApp |
+| **Notifikasi Background** | **GmailApp / MailApp** | Otomatis via GAS | Email persetujuan surat, voucher kas, & pendaftaran anggota |
+| **Notifikasi Interaktif** | **WhatsApp Web Link** | Click-to-Chat URI | Quick share dokumen, voucher, & konfirmasi pendaftar |
 
 ---
 
 ## 2. Struktur Domain & Routing
 
 ```
-                          Internet / User
-                                 │
-           ┌─────────────────────┴─────────────────────┐
-           ▼                                           ▼
-   https://apii.sigitadi.id                 https://siapii.sigitadi.id
-   [Portal Publik APII]                     [Portal Pengurus SIAPII]
-   - Profil Yayasan & Kegiatan              - Unified Action Inbox
-   - Verifikasi Keaslian Surat              - Modul Persuratan (A4 Virtual)
-   - Transparansi Informasi                 - Buku Kas & Dual-Approval
-                                            - Usulan Divisi & LPJ 5-Tahap
-                                            - Manajemen Akun & Audit Log
-                                                       │
-                                                       ▼ (REST JSON HTTPS)
-                                            Google Apps Script Web App
-                                                       │
-                               ┌───────────────────────┴───────────────────────┐
-                               ▼                                               ▼
-                      Google Sheets (Database)                       Google Drive (Dokumen/PDF)
+                          Internet / Pengguna
+                                  │
+            ┌─────────────────────┴─────────────────────┐
+            ▼                                           ▼
+    https://apii.sigit.id                    https://siapii.sigitadi.id
+    [Portal Publik APII]                     [Portal Pengurus SIAPII]
+    - Profil Yayasan & 7 Divisi              - Unified Action Inbox
+    - Formulir Pendaftaran Anggota           - Modul Persuratan (A4 Virtual)
+    - Auto-Watermark KTP (UU PDP)            - Buku Kas & Dual-Approval
+    - Tanda Terima Digital Pendaftar         - Usulan Divisi & LPJ 5-Tahap
+    (Tanpa tautan portal admin)              - Verifikasi Pendaftar Masuk
+                                             - Pengaturan & Master Data
+                                             - Log Audit Permanen (WORM)
+                                                        │
+                                                        ▼ (REST JSON HTTPS)
+                                             Google Apps Script Web App
+                                                        │
+                                ┌───────────────────────┴───────────────────────┐
+                                ▼                                               ▼
+                       Google Sheets (Database)                       Google Drive (Dokumen/Foto)
 ```
 
 ### Konfigurasi DNS Domain (`sigitadi.id`)
@@ -111,13 +113,7 @@ Script akan:
    - `apps-script/AsetLogo.gs`
    - `apps-script/AsetStempel.gs`
 
-### Langkah 2 — Uji Logika (Smoke Test)
-Pastikan seluruh 58 pengujian validasi logika backend lolos:
-```bash
-node scripts/smoke-backend.mjs
-```
-
-### Langkah 3 — Perbarui Kode di Google Apps Script
+### Langkah 2 — Perbarui Kode di Google Apps Script
 1. Buka project Apps Script di browser: [script.google.com](https://script.google.com).
 2. Salin isi masing-masing file dari folder `apps-script/` ke editor Google Apps Script:
    - Isi `apps-script/Backend.gs` $\to$ file `Backend.gs`
@@ -125,12 +121,12 @@ node scripts/smoke-backend.mjs
    - Isi `apps-script/AsetStempel.gs` $\to$ file `AsetStempel.gs`
 3. Tekan **Save** (Ctrl+S / ikon 💾).
 
-### Langkah 4 — Perbarui Versi Web App (New Deployment)
+### Langkah 3 — Perbarui Versi Web App (New Deployment)
 1. Klik tombol **Deploy** di pojok kanan atas editor Apps Script.
 2. Pilih **Manage deployments**.
 3. Klik ikon pensil (Edit) pada deployment aktif.
 4. Pada kolom **Version**, pilih **New version**.
-5. Isi deskripsi (contoh: *Update Tahap 4 - Bukti Kas & Siklus LPJ*).
+5. Isi deskripsi (contoh: *Release v2.0.0 - Pendaftaran Anggota & Hardening RBAC*).
 6. Klik **Deploy**.
 7. Salin URL Web App yang dihasilkan (format: `https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec`).
 8. Jika ID Deployment berubah, perbarui baris `window.API_BASE` pada:
@@ -144,16 +140,19 @@ node scripts/smoke-backend.mjs
 
 | No | Parameter Pemeriksaan | Target Hasil | Metode Pengujian |
 |---|---|---|---|
-| 1 | **Konektivitas Portal** | HTTP 200 OK | Akses `https://siapii.sigitadi.id` di browser |
-| 2 | **Sertifikat SSL/TLS** | Valid (HTTPS Hijau) | Cek gembok SSL di peramban |
-| 3 | **Pemuatan Aset** | Semua file HTTP 200 | Periksa console: `portal.js`, `style.css`, `logo.png` |
-| 4 | **Autentikasi Pengurus** | Sesi token aktif | Login dengan salah satu akun pengurus |
-| 5 | **Action Inbox** | Render dokumen pending | Masuk ke dashboard dengan role Ketua/Bendahara |
-| 6 | **Kertas Virtual A4** | Modal A4 + Watermark | Buka detail surat di modul Persuratan |
-| 7 | **Quick Share WhatsApp** | Buka dialog kirim pesan | Klik ikon WhatsApp pada surat/voucher/usulan |
-| 8 | **Bukti Kas Drive** | Tautan terbuka di tab baru | Cek voucher dengan bukti di modul Keuangan |
-| 9 | **Siklus Usulan LPJ** | Stepper 5-tahap aktif | Buka detail usulan program di modul Divisi |
-| 10 | **Link Publik Balik** | Mengarah ke `apii.sigitadi.id` | Klik tautan "Kembali ke situs publik" |
+| 1 | **Konektivitas Portal Pengurus** | HTTP 200 OK | Akses `https://siapii.sigitadi.id` di browser |
+| 2 | **Konektivitas Portal Publik** | HTTP 200 OK | Akses `https://apii.sigit.id` di browser |
+| 3 | **Sertifikat SSL/TLS** | Valid (HTTPS) | Cek gembok SSL di peramban |
+| 4 | **Pemuatan Aset** | Semua file HTTP 200 | Periksa console: `portal.js`, `style.css`, `logo.png` |
+| 5 | **Autentikasi Pengurus** | Sesi token aktif | Login dengan salah satu dari 8 peran pengurus |
+| 6 | **Action Inbox** | Render dokumen pending | Masuk ke dashboard dengan role Ketua/Sekretaris/Bendahara |
+| 7 | **Kertas Virtual A4** | Modal A4 + Watermark | Buka detail surat di modul Persuratan |
+| 8 | **Quick Share WhatsApp** | Buka dialog kirim pesan | Klik ikon WhatsApp pada surat/voucher/usulan |
+| 9 | **Bukti Kas Drive** | Tautan terbuka di tab baru | Cek voucher dengan bukti di modul Keuangan |
+| 10 | **Siklus Usulan LPJ** | Stepper 5-tahap aktif | Buka detail usulan program di modul Divisi |
+| 11 | **Formulir Pendaftaran** | Validasi + Canvas Watermark | Unggah KTP di portal publik, cek cap watermark |
+| 12 | **Verifikasi Pendaftar** | Approval ganda berfungsi | Sekretaris verifikasi berkas $\to$ Ketua sahkan anggota |
+| 13 | **Privasi & Kerahasiaan** | Bebas link admin | Pastikan portal publik tidak memuat link portal pengurus |
 
 ---
 
@@ -165,4 +164,4 @@ node scripts/smoke-backend.mjs
 2. **Pencadangan Berkas PDF & Nota:**
    - Seluruh PDF surat dan dokumen nota tersimpan rapi di Google Drive yayasan pada folder `APII Jabo - PDF Surat Resmi`.
 3. **Audit Trail Keamanan:**
-   - Seluruh aktivitas login, persetujuan surat, verifikasi kas, dan pengajuan program tercatat permanen di tab `Sheet_AuditLogs` dan dapat dipantau langsung oleh Superadmin, Ketua, dan Pengawas.
+   - Seluruh aktivitas login, persetujuan surat, verifikasi kas, dan pengajuan program tercatat permanen di tab `Sheet_AuditLogs` (WORM - Anti Hapus) dan dapat dipantau langsung oleh Superadmin, Ketua, Pembina, dan Pengawas.

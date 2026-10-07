@@ -11,12 +11,11 @@
  * DILARANG: menulis logika domain di file ini.
  * ==========================================================================*/
 
-// 9 peran sistem (sesuai docs/rbac-matrix.md)
+// 8 peran pengurus sistem (khusus pengurus yayasan)
 var ROLES = {
   SUPERADMIN: 'SUPERADMIN', KETUA: 'KETUA', SEKRETARIS: 'SEKRETARIS',
   BENDAHARA: 'BENDAHARA', PEMBINA: 'PEMBINA', PENGAWAS: 'PENGAWAS',
-  KETUA_DIVISI: 'KETUA_DIVISI', ANGGOTA_DIVISI: 'ANGGOTA_DIVISI',
-  ANGGOTA_BIASA: 'ANGGOTA_BIASA'
+  KETUA_DIVISI: 'KETUA_DIVISI', ANGGOTA_DIVISI: 'ANGGOTA_DIVISI'
 };
 
 // Peran read-only mutlak: Pembina & Pengawas (tidak ada aksi tulis).
@@ -40,37 +39,40 @@ var DIVISION_LABELS = {
 var ROLE_LABELS = {
   SUPERADMIN: 'Administrator Sistem', KETUA: 'Ketua', SEKRETARIS: 'Sekretaris',
   BENDAHARA: 'Bendahara', PEMBINA: 'Pembina', PENGAWAS: 'Pengawas',
-  KETUA_DIVISI: 'Ketua Divisi', ANGGOTA_DIVISI: 'Anggota Divisi',
-  ANGGOTA_BIASA: 'Anggota Biasa'
+  KETUA_DIVISI: 'Ketua Divisi', ANGGOTA_DIVISI: 'Anggota Divisi'
 };
 
 // Peran yang boleh membaca modul tertentu.
-// Catatan: sesuai docs/rbac-matrix.md, BENDAHARA tidak punya akses modul surat
-// (fokus pada keuangan), dan SEKRETARIS tidak punya akses modul keuangan.
 var SURAT_READ_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS,
                         ROLES.PEMBINA, ROLES.PENGAWAS];
 var KEUANGAN_READ_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.BENDAHARA,
                            ROLES.PEMBINA, ROLES.PENGAWAS];
-// Daftar akun boleh dibaca (read-only) oleh pengurus inti; tulis hanya SUPERADMIN.
 var USERS_READ_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS, ROLES.BENDAHARA];
 var DIVISI_SUBMIT_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA_DIVISI, ROLES.ANGGOTA_DIVISI];
+var AUDIT_READ_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.PEMBINA, ROLES.PENGAWAS];
 
 // ==========================================================================
 // TABEL ROUTES — Single Source of Truth RBAC
 // ==========================================================================
 // Setiap route: { auth: bool, roles: [array|null], handler: fn }
-//   auth  -> true: wajib sesi valid; false: publik (login, verifySurat)
+//   auth  -> true: wajib sesi valid; false: publik (login, verifySurat, registerAnggota)
 //   roles -> null: semua peran login; array: salah satu harus cocok.
-// Handler menerima ctx = { user, payload } dan WAJIB return { ok, data, message }.
 var ROUTES = {
-  // --- Autentikasi (Auth.gs) ---
+  // --- Autentikasi & Akun Pengurus (Auth.gs) ---
   login:               { auth: false, roles: null, handler: Auth.login },
   logout:              { auth: true,  roles: null, handler: Auth.logout },
   me:                  { auth: true,  roles: null, handler: Auth.me },
   getListPengguna:     { auth: true,  roles: USERS_READ_ROLES, handler: Auth.getListPengguna },
   createPengguna:      { auth: true,  roles: [ROLES.SUPERADMIN], handler: Auth.createPengguna },
   updatePengguna:      { auth: true,  roles: [ROLES.SUPERADMIN], handler: Auth.updatePengguna },
-  getAuditLogs:        { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.PENGAWAS], handler: Auth.getAuditLogs },
+  getAuditLogs:        { auth: true,  roles: AUDIT_READ_ROLES, handler: Auth.getAuditLogs },
+
+  // --- Pendaftaran Anggota Baru (Auth.gs) ---
+  registerAnggota:           { auth: false, roles: null, handler: Auth.registerAnggota },
+  getListPendaftar:          { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS], handler: Auth.getListPendaftar },
+  verifyPendaftarSekretaris: { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.SEKRETARIS], handler: Auth.verifyPendaftarSekretaris },
+  approvePendaftarKetum:     { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Auth.approvePendaftarKetum },
+  rejectPendaftar:           { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS], handler: Auth.rejectPendaftar },
 
   // --- Dashboard ---
   getDashboard:        { auth: true,  roles: null, handler: Utils.getDashboard },
@@ -84,8 +86,9 @@ var ROUTES = {
   rejectSurat:         { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Surat.rejectSurat },
   verifySurat:         { auth: false, roles: null, handler: Surat.verifySurat },
   getPublishedSurat:   { auth: false, roles: null, handler: Surat.getPublishedSurat },
+  reserveLetterNumber: { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.SEKRETARIS], handler: Surat.reserveLetterNumber },
 
-  // --- Keuangan (Keuangan.gs) ---
+  // --- Keuangan & Rekening (Keuangan.gs) ---
   getListKeuangan:     { auth: true,  roles: KEUANGAN_READ_ROLES, handler: Keuangan.getListKeuangan },
   getSaldo:            { auth: true,  roles: KEUANGAN_READ_ROLES, handler: Keuangan.getSaldo },
   createVoucher:       { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.BENDAHARA], handler: Keuangan.createVoucher },
@@ -93,6 +96,17 @@ var ROUTES = {
   verifyVoucherBendahara: { auth: true, roles: [ROLES.SUPERADMIN, ROLES.BENDAHARA], handler: Keuangan.verifyVoucherBendahara },
   verifyVoucherKetum:  { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Keuangan.verifyVoucherKetum },
   rejectVoucher:       { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Keuangan.rejectVoucher },
+  getAccounts:         { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.BENDAHARA], handler: Keuangan.getAccounts },
+  saveAccount:         { auth: true,  roles: [ROLES.SUPERADMIN], handler: Keuangan.saveAccount },
+  deleteAccount:       { auth: true,  roles: [ROLES.SUPERADMIN], handler: Keuangan.deleteAccount },
+  getPublicAccounts:   { auth: false, roles: null, handler: Keuangan.getPublicAccounts },
+
+  // --- Pengaturan & Penyimpanan (Utils.gs) ---
+  getSettings:         { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Utils.getSettings },
+  saveSettings:        { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.saveSettings },
+  getPublicSettings:   { auth: false, roles: null, handler: Utils.getPublicSettings },
+  uploadKopImage:      { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.uploadKopImage },
+  testDriveStorage:    { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.testDriveStorage },
 
   // --- Divisi (Divisi.gs) ---
   getListDivisi:       { auth: true,  roles: null, handler: Divisi.getListDivisi },
@@ -235,8 +249,7 @@ function seedDemoUsers() {
     ['pembina',    'Pembina',              ROLES.PEMBINA,    '', 'pembina@apii-jabo.or.id'],
     ['pengawas',   'Pengawas',             ROLES.PENGAWAS,   '', 'pengawas@apii-jabo.or.id'],
     ['khumas',     'Ketua Divisi Humas',   ROLES.KETUA_DIVISI,     DIVISIONS.DIV_HUMAS, 'humas@apii-jabo.or.id'],
-    ['ahumas',     'Anggota Divisi Humas', ROLES.ANGGOTA_DIVISI,   DIVISIONS.DIV_HUMAS, ''],
-    ['anggota',    'Anggota Biasa',        ROLES.ANGGOTA_BIASA,    '', '']
+    ['ahumas',     'Anggota Divisi Humas', ROLES.ANGGOTA_DIVISI,   DIVISIONS.DIV_HUMAS, '']
   ];
   var now = new Date().toISOString();
   demo.forEach(function (row) {

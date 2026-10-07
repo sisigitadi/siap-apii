@@ -217,16 +217,307 @@ function updatePengguna(ctx) {
 }
 
 /**
- * getAuditLogs: jejak audit (terbaru di atas). SUPERADMIN/KETUA/PENGAWAS.
- * @param {object} ctx.payload { limit (default 100) }
+ * getAuditLogs: jejak audit WORM anti-hapus (terbaru di atas).
+ * SUPERADMIN, KETUA, PEMBINA, PENGAWAS.
+ * @param {object} ctx.payload { limit (default 100), module?, q? }
  */
 function getAuditLogs(ctx) {
-  var limit = Math.min(Number(ctx.payload.limit) || 100, 500);
-  var logs = Database.readAll(TABS.AUDIT)
-    .sort(function (a, b) { return (b.timestamp || '').localeCompare(a.timestamp || ''); })
-    .slice(0, limit)
-    .map(function (l) {
-      return { timestamp: l.timestamp, actor: l.actor, action: l.action, detail: l.detail };
+  var p = ctx.payload || {};
+  var limit = Math.min(Number(p.limit) || 150, 1000);
+  var logs = Database.readAll(TABS.AUDIT);
+  if (p.module) {
+    logs = logs.filter(function (l) { return l.module === p.module; });
+  }
+  if (p.q) {
+    var q = String(p.q).toLowerCase();
+    logs = logs.filter(function (l) {
+      return (l.detail || '').toLowerCase().indexOf(q) !== -1 ||
+             (l.actor || '').toLowerCase().indexOf(q) !== -1 ||
+             (l.action || '').toLowerCase().indexOf(q) !== -1;
     });
-  return { ok: true, data: { logs: logs }, message: 'Jejak audit berhasil dimuat.' };
+  }
+  logs.sort(function (a, b) { return (b.timestamp || '').localeCompare(a.timestamp || ''); });
+  var items = logs.slice(0, limit).map(function (l) {
+    return {
+      id: l.id || '',
+      timestamp: l.timestamp,
+      actor: l.actor,
+      action: l.action,
+      module: l.module || 'SYSTEM',
+      detail: l.detail,
+      ip_client: l.ip_client || '',
+      status: l.status || 'SUCCESS'
+    };
+  });
+  return { ok: true, data: { logs: items, total: logs.length }, message: 'Jejak audit berhasil dimuat.' };
 }
+
+/** Helper: simpan file base64 ke Google Drive subfolder resmi. */
+function saveUploadToDrive_(base64Data, filename, subfolderName) {
+  if (!base64Data) return '';
+  try {
+    var raw = base64Data;
+    var mime = 'image/jpeg';
+    if (raw.indexOf(';base64,') !== -1) {
+      var parts = raw.split(';base64,');
+      var mimePart = parts[0].replace('data:', '');
+      if (mimePart) mime = mimePart;
+      raw = parts[1];
+    }
+    var decoded = Utilities.base64Decode(raw);
+    var blob = Utilities.newBlob(decoded, mime, filename);
+
+    var parentFolderId = siapkanFolderPdf_();
+    var parentFolder = DriveApp.getFolderById(parentFolderId);
+
+    var targetFolder = parentFolder;
+    if (subfolderName) {
+      var it = parentFolder.getFoldersByName(subfolderName);
+      if (it.hasNext()) {
+        targetFolder = it.next();
+      } else {
+        targetFolder = parentFolder.createFolder(subfolderName);
+      }
+    }
+    var file = targetFolder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return file.getUrl();
+  } catch (err) {
+    Logger.log('Gagal simpan file ke Drive: ' + err);
+    return '';
+  }
+}
+
+/**
+ * registerAnggota: pendaftaran calon anggota baru dari portal publik.
+ * Route publik (tanpa token).
+ */
+function registerAnggota(ctx) {
+  var p = ctx.payload || {};
+  if (!p.full_name || !String(p.full_name).trim()) {
+    return { ok: false, data: null, message: 'Nama lengkap wajib diisi.' };
+  }
+  if (!p.nik || !String(p.nik).trim()) {
+    return { ok: false, data: null, message: 'Nomor NIK KTP wajib diisi.' };
+  }
+  if (!p.phone || !String(p.phone).trim()) {
+    return { ok: false, data: null, message: 'Nomor WhatsApp / HP aktif wajib diisi.' };
+  }
+
+  var now = new Date().toISOString();
+  var tahun = new Date().getFullYear();
+  var urut = Database.nextSequence('PENDAFTAR:' + tahun);
+  var urutStr = String(urut);
+  while (urutStr.length < 4) urutStr = '0' + urutStr;
+  var regNumber = 'REG-' + tahun + '-' + urutStr;
+
+  // Simpan foto KTP dan selfie ke Drive
+  var ktpUrl = '';
+  if (p.ktp_base64) {
+    ktpUrl = saveUploadToDrive_(p.ktp_base64, 'KTP_' + regNumber + '.jpg', 'Pendaftaran_KTP');
+  }
+  var selfieUrl = '';
+  if (p.selfie_base64) {
+    selfieUrl = saveUploadToDrive_(p.selfie_base64, 'SELFIE_' + regNumber + '.jpg', 'Pendaftaran_Selfie');
+  }
+
+  var created = Database.insert(TABS.PENDAFTAR, {
+    id: uuid(),
+    reg_number: regNumber,
+    full_name: String(p.full_name).trim(),
+    nik: String(p.nik).trim(),
+    birth_place: p.birth_place || '',
+    birth_date: p.birth_date || '',
+    gender: p.gender || 'L',
+    job: p.job || '',
+    phone: String(p.phone).trim(),
+    email: p.email || '',
+    address: p.address || '',
+    division_interest: p.division_interest || '',
+    ktp_drive_url: ktpUrl,
+    selfie_drive_url: selfieUrl,
+    status: 'PENDING',
+    verified_by_sekretaris: '',
+    verified_by_sekretaris_at: '',
+    approved_by_ketum: '',
+    approved_by_ketum_at: '',
+    rejection_notes: '',
+    created_at: now
+  });
+
+  audit('public', 'MEMBER_REGISTERED', 'Pendaftaran baru ' + regNumber + ' a.n ' + p.full_name, 'PENDAFTARAN');
+
+  return {
+    ok: true,
+    data: {
+      reg_number: regNumber,
+      full_name: p.full_name,
+      status: 'PENDING',
+      message: 'Pendaftaran Anda telah berhasil dikirim dengan Nomor Registrasi: ' + regNumber
+    },
+    message: 'Pendaftaran berhasil dikirim. Tim sekretariat akan memverifikasi berkas Anda.'
+  };
+}
+
+/**
+ * getListPendaftar: daftar calon anggota baru untuk ditinjau pengurus.
+ * SUPERADMIN, KETUA, SEKRETARIS.
+ */
+function getListPendaftar(ctx) {
+  var p = ctx.payload || {};
+  var rows = Database.readAll(TABS.PENDAFTAR);
+  var q = String(p.q || '').toLowerCase();
+  if (q) {
+    rows = rows.filter(function (r) {
+      return (r.full_name || '').toLowerCase().indexOf(q) !== -1 ||
+             (r.reg_number || '').toLowerCase().indexOf(q) !== -1 ||
+             (r.nik || '').indexOf(q) !== -1 ||
+             (r.phone || '').indexOf(q) !== -1;
+    });
+  }
+  if (p.status) {
+    var filterSt = String(p.status).toUpperCase();
+    rows = rows.filter(function (r) {
+      var s = String(r.status || '').toUpperCase();
+      if (filterSt === 'PENDING') return s === 'PENDING';
+      if (filterSt === 'VERIFIED_SEKRETARIS' || filterSt === 'DIVERIFIKASI_SEKRETARIS') {
+        return s === 'VERIFIED_SEKRETARIS' || s === 'DIVERIFIKASI_SEKRETARIS';
+      }
+      if (filterSt === 'APPROVED' || filterSt === 'DISETUJUI') {
+        return s === 'APPROVED' || s === 'DISETUJUI';
+      }
+      if (filterSt === 'REJECTED' || filterSt === 'DITOLAK') {
+        return s === 'REJECTED' || s === 'DITOLAK';
+      }
+      return s === filterSt;
+    });
+  }
+  rows.sort(function (a, b) { return (b.created_at || '').localeCompare(a.created_at || ''); });
+
+  var mapped = rows.map(function (r) {
+    var s = String(r.status || 'PENDING').toUpperCase();
+    var stdStatus = s;
+    if (s === 'DIVERIFIKASI_SEKRETARIS') stdStatus = 'VERIFIED_SEKRETARIS';
+    else if (s === 'DISETUJUI') stdStatus = 'APPROVED';
+    else if (s === 'DITOLAK') stdStatus = 'REJECTED';
+
+    var statusLabel = 'Menunggu Sekretariat';
+    if (stdStatus === 'VERIFIED_SEKRETARIS') statusLabel = 'Terverifikasi Sekretaris';
+    else if (stdStatus === 'APPROVED') statusLabel = 'Disetujui Ketua DPW';
+    else if (stdStatus === 'REJECTED') statusLabel = 'Ditolak';
+
+    var kota = r.address ? (String(r.address).split(',')[0].trim() || r.address) : (r.division_interest || 'Jabodetabek');
+
+    return {
+      id: r.id,
+      reg_number: r.reg_number,
+      registration_no: r.reg_number,
+      full_name: r.full_name,
+      nama_lengkap: r.full_name,
+      nik: r.nik,
+      birth_place: r.birth_place,
+      tempat_lahir: r.birth_place,
+      birth_date: r.birth_date,
+      tanggal_lahir: r.birth_date,
+      gender: r.gender,
+      jenis_kelamin: r.gender === 'P' ? 'Perempuan' : 'Laki-Laki',
+      job: r.job,
+      profesi: r.job,
+      phone: r.phone,
+      whatsapp: r.phone,
+      email: r.email,
+      address: r.address,
+      alamat: r.address,
+      kota: kota,
+      division_interest: r.division_interest,
+      alasan_bergabung: r.division_interest ? ('Minat divisi: ' + r.division_interest) : '',
+      ktp_drive_url: r.ktp_drive_url,
+      ktp_image_url: r.ktp_drive_url,
+      selfie_drive_url: r.selfie_drive_url,
+      selfie_image_url: r.selfie_drive_url,
+      status: stdStatus,
+      raw_status: r.status,
+      status_label: statusLabel,
+      verified_by_sekretaris: r.verified_by_sekretaris,
+      verified_by_sekretaris_at: r.verified_by_sekretaris_at,
+      approved_by_ketum: r.approved_by_ketum,
+      approved_by_ketum_at: r.approved_by_ketum_at,
+      rejection_notes: r.rejection_notes,
+      created_at: r.created_at
+    };
+  });
+
+  return { ok: true, data: { items: mapped, total: mapped.length }, message: 'Daftar pendaftar berhasil dimuat.' };
+}
+
+/**
+ * verifyPendaftarSekretaris: verifikasi tahap 1 oleh Sekretaris.
+ * PENDING -> DIVERIFIKASI_SEKRETARIS.
+ * SUPERADMIN, SEKRETARIS.
+ */
+function verifyPendaftarSekretaris(ctx) {
+  var p = ctx.payload || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID pendaftar wajib diisi.' };
+  var reg = Database.findOne(TABS.PENDAFTAR, { id: p.id });
+  if (!reg) return { ok: false, data: null, message: 'Data pendaftar tidak ditemukan.' };
+  if (reg.status !== 'PENDING') {
+    return { ok: false, data: null, message: 'Hanya pendaftar berstatus PENDING yang dapat diverifikasi Sekretaris.' };
+  }
+  var now = new Date().toISOString();
+  Database.updateRow(TABS.PENDAFTAR, reg._row, {
+    status: 'DIVERIFIKASI_SEKRETARIS',
+    verified_by_sekretaris: ctx.user.username,
+    verified_by_sekretaris_at: now
+  });
+  audit(ctx.user.username, 'MEMBER_VERIFIED_SEKRETARIS', 'Verifikasi berkas pendaftar ' + reg.reg_number, 'PENDAFTARAN');
+  return { ok: true, data: { id: reg.id, status: 'DIVERIFIKASI_SEKRETARIS' },
+    message: 'Berkas pendaftar ' + reg.reg_number + ' berhasil diverifikasi Sekretaris. Menunggu pengesahan Ketua DPW.' };
+}
+
+/**
+ * approvePendaftarKetum: pengesahan tahap 2 (final) oleh Ketua DPW.
+ * DIVERIFIKASI_SEKRETARIS -> DISETUJUI.
+ * SUPERADMIN, KETUA.
+ */
+function approvePendaftarKetum(ctx) {
+  var p = ctx.payload || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID pendaftar wajib diisi.' };
+  var reg = Database.findOne(TABS.PENDAFTAR, { id: p.id });
+  if (!reg) return { ok: false, data: null, message: 'Data pendaftar tidak ditemukan.' };
+  var currentStatus = String(reg.status || '').toUpperCase();
+  if (currentStatus !== 'DIVERIFIKASI_SEKRETARIS' && currentStatus !== 'VERIFIED_SEKRETARIS' && ctx.user.role !== ROLES.SUPERADMIN) {
+    return { ok: false, data: null, message: 'Pendaftar harus diverifikasi Sekretaris terlebih dahulu sebelum disahkan Ketua.' };
+  }
+  var now = new Date().toISOString();
+  Database.updateRow(TABS.PENDAFTAR, reg._row, {
+    status: 'DISETUJUI',
+    approved_by_ketum: ctx.user.username,
+    approved_by_ketum_at: now
+  });
+  audit(ctx.user.username, 'MEMBER_APPROVED_KETUM', 'Pengesahan keanggotaan ' + reg.reg_number + ' a.n ' + reg.full_name, 'PENDAFTARAN');
+  return { ok: true, data: { id: reg.id, status: 'DISETUJUI' },
+    message: 'Calon anggota ' + reg.full_name + ' berhasil disahkan oleh Ketua DPW.' };
+}
+
+/**
+ * rejectPendaftar: tolak pendaftar dengan catatan alasan.
+ * SUPERADMIN, KETUA, SEKRETARIS.
+ */
+function rejectPendaftar(ctx) {
+  var p = ctx.payload || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID pendaftar wajib diisi.' };
+  if (!p.notes || !String(p.notes).trim()) {
+    return { ok: false, data: null, message: 'Alasan penolakan wajib diisi.' };
+  }
+  var reg = Database.findOne(TABS.PENDAFTAR, { id: p.id });
+  if (!reg) return { ok: false, data: null, message: 'Data pendaftar tidak ditemukan.' };
+  var now = new Date().toISOString();
+  Database.updateRow(TABS.PENDAFTAR, reg._row, {
+    status: 'DITOLAK',
+    rejection_notes: String(p.notes).trim()
+  });
+  audit(ctx.user.username, 'MEMBER_REJECTED', 'Menolak pendaftar ' + reg.reg_number + ': ' + p.notes, 'PENDAFTARAN');
+  return { ok: true, data: { id: reg.id, status: 'DITOLAK' },
+    message: 'Pendaftaran ' + reg.reg_number + ' telah ditolak.' };
+}
+

@@ -42,8 +42,6 @@ function getListDivisi(ctx) {
                        user.role === ROLES.ANGGOTA_DIVISI;
   if (isDivisionRole) {
     rows = rows.filter(function (d) { return d.division === user.division; });
-  } else if (user.role === ROLES.ANGGOTA_BIASA) {
-    rows = []; // anggota biasa tidak punya akses modul divisi
   }
 
   if (q) {

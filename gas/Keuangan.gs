@@ -14,6 +14,23 @@ var ACCOUNT_LABELS = {
   KAS_BSI: 'Kas BSI', BRANKAS: 'Brankas', MANDIRI_WAKAF: 'Bank Mandiri Wakaf'
 };
 
+/** Ambil label akun kas dinamis dari Sheet_Accounts. */
+function getAccountLabels_() {
+  try {
+    var rows = Database.readAll(TABS.ACCOUNTS);
+    if (rows && rows.length > 0) {
+      var map = {};
+      rows.forEach(function (r) {
+        if (r.is_active === 'TRUE' || r.is_active === true) {
+          map[r.code] = r.name || r.bank_name || r.code;
+        }
+      });
+      if (Object.keys(map).length > 0) return map;
+    }
+  } catch (e) {}
+  return ACCOUNT_LABELS;
+}
+
 /** Bangun nomor voucher baru (increment counter per tahun). */
 function buildVoucherNumber(transactionDate) {
   var d = new Date(transactionDate || new Date());
@@ -38,16 +55,17 @@ function getSaldo(ctx) {
     var amt = Number(k.amount) || 0;
     if (k.type === 'MASUK') masuk += amt; else keluar += amt;
   });
-  // Rincian per akun.
+  // Rincian per akun dinamis.
+  var accMap = getAccountLabels_();
   var perAccount = {};
-  for (var acc in ACCOUNT_LABELS) {
+  for (var acc in accMap) {
     var m = 0, k2 = 0;
     rows.forEach(function (r) {
       if (r.account !== acc) return;
       var amt = Number(r.amount) || 0;
       if (r.type === 'MASUK') m += amt; else k2 += amt;
     });
-    perAccount[acc] = { label: ACCOUNT_LABELS[acc], masuk: m, keluar: k2, saldo: m - k2 };
+    perAccount[acc] = { label: accMap[acc], masuk: m, keluar: k2, saldo: m - k2 };
   }
   return { ok: true,
     data: { saldo: masuk - keluar, total_masuk: masuk, total_keluar: keluar,
@@ -113,7 +131,8 @@ function createVoucher(ctx) {
   if (!p.type || (p.type !== 'MASUK' && p.type !== 'KELUAR')) {
     return { ok: false, data: null, message: 'Jenis transaksi harus MASUK atau KELUAR.' };
   }
-  if (!ACCOUNT_LABELS[p.account]) {
+  var accMap = getAccountLabels_();
+  if (!accMap[p.account]) {
     return { ok: false, data: null, message: 'Akun kas tidak valid.' };
   }
   var amount = Number(p.amount);
@@ -263,3 +282,138 @@ function updateVoucherReceipt(ctx) {
   return { ok: true, data: { receipt_url: receiptUrl },
     message: 'Bukti transaksi berhasil diperbarui.' };
 }
+
+/**
+ * getAccounts: ambil daftar seluruh rekening kas master + saldo riil saat ini.
+ * SUPERADMIN, KETUA, BENDAHARA.
+ */
+function getAccounts(ctx) {
+  var accounts = Database.readAll(TABS.ACCOUNTS);
+  var vouchers = Database.readAll(TABS.KEUANGAN).filter(function (k) {
+    return k.status === 'APPROVED';
+  });
+
+  var items = accounts.map(function (a) {
+    var masuk = 0, keluar = 0;
+    vouchers.forEach(function (v) {
+      if (v.account === a.code) {
+        var amt = Number(v.amount) || 0;
+        if (v.type === 'MASUK') masuk += amt; else keluar += amt;
+      }
+    });
+    return {
+      id: a.id,
+      code: a.code,
+      name: a.name,
+      bank_name: a.bank_name,
+      account_number: a.account_number,
+      holder_name: a.holder_name,
+      category: a.category || 'Operasional',
+      is_active: a.is_active === 'TRUE' || a.is_active === true,
+      show_on_public: a.show_on_public === 'TRUE' || a.show_on_public === true,
+      saldo: masuk - keluar,
+      total_masuk: masuk,
+      total_keluar: keluar,
+      created_at: a.created_at,
+      updated_at: a.updated_at
+    };
+  });
+
+  return { ok: true, data: items, message: 'Daftar rekening berhasil dimuat.' };
+}
+
+/**
+ * saveAccount: buat atau perbarui rekening kas.
+ * SUPERADMIN.
+ */
+function saveAccount(ctx) {
+  var p = ctx.payload || {};
+  if (!p.code || !p.name) {
+    return { ok: false, data: null, message: 'Kode dan nama rekening wajib diisi.' };
+  }
+  var code = String(p.code).trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+  var now = new Date().toISOString();
+
+  if (p.id) {
+    // Edit mode
+    var target = Database.findOne(TABS.ACCOUNTS, { id: p.id });
+    if (!target) return { ok: false, data: null, message: 'Rekening tidak ditemukan.' };
+    Database.updateRow(TABS.ACCOUNTS, target._row, {
+      name: p.name,
+      bank_name: p.bank_name || p.name,
+      account_number: p.account_number || '-',
+      holder_name: p.holder_name || '',
+      category: p.category || 'Operasional',
+      is_active: (p.is_active === true || p.is_active === 'TRUE') ? 'TRUE' : 'FALSE',
+      show_on_public: (p.show_on_public === true || p.show_on_public === 'TRUE') ? 'TRUE' : 'FALSE',
+      updated_at: now
+    });
+    audit(ctx.user.username, 'ACCOUNT_UPDATED', 'Memperbarui rekening ' + code, 'KEUANGAN');
+    return { ok: true, data: { id: target.id, code: code }, message: 'Rekening berhasil diperbarui.' };
+  } else {
+    // Tambah baru
+    var existing = Database.findOne(TABS.ACCOUNTS, { code: code });
+    if (existing) return { ok: false, data: null, message: 'Kode rekening sudah digunakan.' };
+    var newAcc = Database.insert(TABS.ACCOUNTS, {
+      id: uuid(),
+      code: code,
+      name: p.name,
+      bank_name: p.bank_name || p.name,
+      account_number: p.account_number || '-',
+      holder_name: p.holder_name || '',
+      category: p.category || 'Operasional',
+      is_active: (p.is_active !== false && p.is_active !== 'FALSE') ? 'TRUE' : 'FALSE',
+      show_on_public: (p.show_on_public === true || p.show_on_public === 'TRUE') ? 'TRUE' : 'FALSE',
+      created_at: now,
+      updated_at: now
+    });
+    audit(ctx.user.username, 'ACCOUNT_CREATED', 'Menambah rekening baru ' + code + ' (' + p.name + ')', 'KEUANGAN');
+    return { ok: true, data: { id: newAcc.id, code: code }, message: 'Rekening baru berhasil ditambahkan.' };
+  }
+}
+
+/**
+ * deleteAccount: nonaktifkan atau hapus rekening kas.
+ * SUPERADMIN.
+ */
+function deleteAccount(ctx) {
+  var p = ctx.payload || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID rekening wajib diisi.' };
+  var acc = Database.findOne(TABS.ACCOUNTS, { id: p.id });
+  if (!acc) return { ok: false, data: null, message: 'Rekening tidak ditemukan.' };
+
+  // Cek apakah ada voucher yang menggunakan rekening ini
+  var hasVoucher = Database.findOne(TABS.KEUANGAN, { account: acc.code });
+  if (hasVoucher) {
+    Database.updateRow(TABS.ACCOUNTS, acc._row, { is_active: 'FALSE', updated_at: new Date().toISOString() });
+    audit(ctx.user.username, 'ACCOUNT_DEACTIVATED', 'Menonaktifkan rekening ' + acc.code + ' (memiliki riwayat transaksi)', 'KEUANGAN');
+    return { ok: true, data: { deactivated: true }, message: 'Rekening dinonaktifkan karena telah memiliki riwayat transaksi kas.' };
+  }
+
+  Database.deleteRow(TABS.ACCOUNTS, acc._row);
+  audit(ctx.user.username, 'ACCOUNT_DELETED', 'Menghapus rekening ' + acc.code, 'KEUANGAN');
+  return { ok: true, data: { deleted: true }, message: 'Rekening kas berhasil dihapus.' };
+}
+
+/**
+ * getPublicAccounts: daftar rekening donasi aktif untuk publik.
+ * Publik (tanpa token).
+ */
+function getPublicAccounts(ctx) {
+  var rows = Database.readAll(TABS.ACCOUNTS).filter(function (a) {
+    return (a.is_active === 'TRUE' || a.is_active === true) &&
+           (a.show_on_public === 'TRUE' || a.show_on_public === true);
+  });
+  var items = rows.map(function (a) {
+    return {
+      code: a.code,
+      name: a.name,
+      bank_name: a.bank_name,
+      account_number: a.account_number,
+      holder_name: a.holder_name,
+      category: a.category || 'Donasi'
+    };
+  });
+  return { ok: true, data: items, message: 'Rekening donasi publik berhasil dimuat.' };
+}
+

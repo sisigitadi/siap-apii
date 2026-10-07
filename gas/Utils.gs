@@ -46,18 +46,24 @@ function uuid() {
 }
 
 /**
- * Tulis satu baris audit log.
+ * Tulis satu baris audit log (WORM: permanen dan dilarang hapus).
  * @param {string} actor username pelaku
- * @param {string} action kode aksi (mis. 'FORBIDDEN', 'SURAT_PUBLISHED')
+ * @param {string} action kode aksi (mis. 'SURAT_CREATED', 'LOGIN_SUCCESS')
  * @param {string} detail keterangan bebas
+ * @param {string} [module] nama modul (mis. 'SURAT', 'KEUANGAN', 'SETTINGS')
+ * @param {string} [ip] IP atau User-Agent
  */
-function audit(actor, action, detail) {
+function audit(actor, action, detail, module, ip) {
   try {
     Database.insert(TABS.AUDIT, {
+      id: uuid(),
       timestamp: new Date().toISOString(),
       actor: actor || 'unknown',
-      action: action,
-      detail: detail || ''
+      action: action || 'UNKNOWN',
+      module: module || 'SYSTEM',
+      detail: detail || '',
+      ip_client: ip || '',
+      status: 'SUCCESS'
     });
   } catch (e) {
     Logger.log('Audit log gagal: ' + e);
@@ -347,3 +353,160 @@ function kirimNotifikasiKeUser_(username, subject, title, messageHtml, actionTex
     Logger.log('Error kirimNotifikasiKeUser_: ' + e);
   }
 }
+
+/**
+ * Konversi angka rupiah ke kalimat terbilang Bahasa Indonesia.
+ * Contoh: 1500000 -> "Satu Juta Lima Ratus Ribu Rupiah"
+ * @param {number|string} n nilai uang
+ * @return {string} kalimat terbilang
+ */
+function terbilang(n) {
+  n = Math.floor(Math.abs(Number(n) || 0));
+  if (n === 0) return 'Nol Rupiah';
+  var satuan = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'];
+  function kata(num) {
+    if (num < 12) return satuan[num];
+    if (num < 20) return kata(num - 10) + ' Belas';
+    if (num < 100) return kata(Math.floor(num / 10)) + ' Puluh' + (num % 10 ? ' ' + kata(num % 10) : '');
+    if (num < 200) return 'Seratus' + (num - 100 ? ' ' + kata(num - 100) : '');
+    if (num < 1000) return kata(Math.floor(num / 100)) + ' Ratus' + (num % 100 ? ' ' + kata(num % 100) : '');
+    if (num < 2000) return 'Seribu' + (num - 1000 ? ' ' + kata(num - 1000) : '');
+    if (num < 1000000) return kata(Math.floor(num / 1000)) + ' Ribu' + (num % 1000 ? ' ' + kata(num % 1000) : '');
+    if (num < 1000000000) return kata(Math.floor(num / 1000000)) + ' Juta' + (num % 1000000 ? ' ' + kata(num % 1000000) : '');
+    if (num < 1000000000000) return kata(Math.floor(num / 1000000000)) + ' Milyar' + (num % 1000000000 ? ' ' + kata(num % 1000000000) : '');
+    return kata(Math.floor(num / 1000000000000)) + ' Triliun' + (num % 1000000000000 ? ' ' + kata(num % 1000000000000) : '');
+  }
+  return kata(n).trim() + ' Rupiah';
+}
+
+/** Ambil nilai setting dari Sheet_Settings berdasarkan key. */
+function getSettingValue_(key, defaultVal) {
+  try {
+    var row = Database.findOne(TABS.SETTINGS, { key: key });
+    if (!row || !row.value) return defaultVal;
+    try { return JSON.parse(row.value); } catch (e) { return row.value; }
+  } catch (err) {
+    return defaultVal;
+  }
+}
+
+/** Simpan/perbarui nilai setting ke Sheet_Settings. */
+function setSettingValue_(key, val, user) {
+  var strVal = typeof val === 'object' ? JSON.stringify(val) : String(val);
+  var now = new Date().toISOString();
+  var row = Database.findOne(TABS.SETTINGS, { key: key });
+  if (row) {
+    Database.updateRow(TABS.SETTINGS, row._row, {
+      value: strVal,
+      updated_by: user || 'system',
+      updated_at: now
+    });
+  } else {
+    Database.insert(TABS.SETTINGS, {
+      key: key,
+      value: strVal,
+      description: 'Pengaturan ' + key,
+      updated_by: user || 'system',
+      updated_at: now
+    });
+  }
+}
+
+/**
+ * getSettings: ambil seluruh pengaturan sistem.
+ * SUPERADMIN, KETUA.
+ */
+function getSettings(ctx) {
+  var rows = Database.readAll(TABS.SETTINGS);
+  var settings = {};
+  rows.forEach(function (r) {
+    var v = r.value;
+    try { v = JSON.parse(r.value); } catch (e) {}
+    settings[r.key] = v;
+  });
+  return { ok: true, data: settings, message: 'Pengaturan berhasil dimuat.' };
+}
+
+/**
+ * saveSettings: perbarui satu atau beberapa pengaturan.
+ * SUPERADMIN.
+ */
+function saveSettings(ctx) {
+  var p = ctx.payload || {};
+  var user = (ctx.user && ctx.user.username) || 'admin';
+  for (var k in p) {
+    setSettingValue_(k, p[k], user);
+  }
+  audit(user, 'SETTINGS_UPDATED', 'Memperbarui pengaturan: ' + Object.keys(p).join(', '), 'SETTINGS');
+  return { ok: true, data: p, message: 'Pengaturan berhasil disimpan.' };
+}
+
+/**
+ * getPublicSettings: ambil konfigurasi yang boleh dibaca publik.
+ * Publik (tanpa token).
+ */
+function getPublicSettings(ctx) {
+  var pubConfig = getSettingValue_('public_config', {
+    show_verification: true, show_finance: true, show_programs: true, show_accounts: true,
+    announcement_banner: 'Selamat datang di Portal Resmi Yayasan APII DPW Jabodetabek.'
+  });
+  var kop = getSettingValue_('letter_kop', {});
+  return {
+    ok: true,
+    data: {
+      config: pubConfig,
+      kop: {
+        org_name: kop.org_name || 'YAYASAN APII DPW JABODETABEK',
+        address: kop.address || 'Jakarta, Indonesia',
+        email: kop.email || 'sekretariat@apii.sigitadi.id',
+        phone: kop.phone || '0812-8888-2026'
+      }
+    },
+    message: 'Pengaturan publik berhasil dimuat.'
+  };
+}
+
+/**
+ * uploadKopImage: unggah gambar KOP surat resmi baru.
+ * SUPERADMIN.
+ */
+function uploadKopImage(ctx) {
+  var p = ctx.payload || {};
+  var base64 = p.image_base64 || '';
+  if (!base64) return { ok: false, data: null, message: 'Data gambar KOP tidak boleh kosong.' };
+
+  var user = (ctx.user && ctx.user.username) || 'admin';
+  var kop = getSettingValue_('letter_kop', {});
+  kop.custom_kop_image = base64;
+  kop.mode = 'image';
+  setSettingValue_('letter_kop', kop, user);
+
+  audit(user, 'KOP_UPLOADED', 'Mengunggah gambar KOP surat resmi baru', 'SETTINGS');
+  return { ok: true, data: { mode: 'image', updated_at: new Date().toISOString() }, message: 'Gambar KOP surat resmi berhasil disimpan.' };
+}
+
+/**
+ * testDriveStorage: verifikasi koneksi Google Drive penyimpanan berkas.
+ * SUPERADMIN.
+ */
+function testDriveStorage(ctx) {
+  try {
+    var folderId = siapkanFolderPdf_();
+    var folder = DriveApp.getFolderById(folderId);
+    var user = (ctx.user && ctx.user.username) || 'admin';
+    audit(user, 'DRIVE_TESTED', 'Uji koneksi penyimpanan Google Drive: ' + folder.getName(), 'STORAGE');
+    return {
+      ok: true,
+      data: {
+        folder_id: folder.getId(),
+        folder_name: folder.getName(),
+        folder_url: folder.getUrl(),
+        status: 'CONNECTED'
+      },
+      message: 'Koneksi Google Drive berhasil terverifikasi.'
+    };
+  } catch (err) {
+    return { ok: false, data: null, message: 'Gagal terhubung ke Google Drive: ' + err.message };
+  }
+}
+
