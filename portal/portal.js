@@ -295,8 +295,8 @@
       document.getElementById('sidebarOverlay').classList.add('hidden');
     },
 
-    /** Toast singkat di pojok kanan atas. */
-    toast: function (msg, type) {
+    /** Toast singkat di pojok kanan atas, mendukung aksi cepat (mis. Bagikan ke WA). */
+    toast: function (msg, type, actionLabel, onAction) {
       var box = document.getElementById('toastContainer');
       var colors = { success: 'bg-emerald text-white', error: 'bg-red-600 text-white', info: 'bg-gray-800 text-white' };
       var icons = {
@@ -304,14 +304,122 @@
       };
       var el = document.createElement('div');
       el.className = 'toast ' + (colors[type] || colors.info) +
-        ' px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-3';
-      el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="' + (icons[type] || icons.info) + '" /></svg><span>' + Auth.esc(msg) + '</span>';
+        ' px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center justify-between gap-3';
+
+      var leftHtml = '<div class="flex items-center gap-2.5 min-w-0">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="' + (icons[type] || icons.info) + '" /></svg>' +
+        '<span class="truncate">' + Auth.esc(msg) + '</span>' +
+        '</div>';
+
+      var rightHtml = '';
+      if (actionLabel && typeof onAction === 'function') {
+        rightHtml = '<button type="button" class="toast-act-btn px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition flex items-center gap-1.5 flex-shrink-0 shadow-sm">' +
+          '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
+          Auth.esc(actionLabel) +
+          '</button>';
+      }
+
+      el.innerHTML = leftHtml + rightHtml;
       box.appendChild(el);
+
+      var actBtn = el.querySelector('.toast-act-btn');
+      if (actBtn) {
+        actBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          onAction();
+        });
+      }
+
+      var duration = (actionLabel && typeof onAction === 'function') ? 6000 : 3600;
       setTimeout(function () {
         el.style.transition = 'opacity .3s, transform .3s';
         el.style.opacity = '0'; el.style.transform = 'translateX(24px)';
         setTimeout(function () { el.remove(); }, 320);
-      }, 3600);
+      }, duration);
+    },
+
+    /** Buka link WhatsApp Quick Share. */
+    openWhatsApp: function (text) {
+      if (!text) return;
+      var url = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    },
+
+    /** Format teks WhatsApp untuk Surat Resmi. */
+    buildSuratWaText: function (s) {
+      var stat = s.status_label || s.status || 'DRAF';
+      var pembuat = s.created_by_name || s.created_by || 'Sekretariat';
+      var portalUrl = window.PORTAL_URL || 'https://siapii.sigitadi.id';
+      var text = '🏛️ *SIAP APII — SURAT RESMI*\n' +
+        '━━━━━━━━━━━━━━━━━━━\n' +
+        '📄 *Nomor:* ' + (s.letter_number || '(Draf)') + '\n' +
+        '📌 *Perihal:* ' + (s.title || '-') + '\n' +
+        '🏷️ *Jenis:* ' + (s.letter_type_label || s.letter_type || 'Surat') + '\n' +
+        '📅 *Tanggal:* ' + (s.tanggal_label || s.tanggal_surat || '-') + '\n' +
+        '⚡ *Status:* ' + stat + '\n' +
+        '👤 *Pembuat:* ' + pembuat + '\n';
+      if (s.rejection_notes) {
+        text += '⚠️ *Catatan:* ' + s.rejection_notes + '\n';
+      }
+      if (s.pdf_url) {
+        text += '📥 *Unduh PDF:* ' + s.pdf_url + '\n';
+      }
+      if (s.qr_verify_url) {
+        text += '🔒 *Verifikasi Dokumen:* ' + s.qr_verify_url + '\n';
+      }
+      text += '━━━━━━━━━━━━━━━━━━━\n' +
+        '🌐 *Buka Portal:* ' + portalUrl + '/#/surat';
+      return text;
+    },
+
+    /** Format teks WhatsApp untuk Voucher Keuangan. */
+    buildKeuanganWaText: function (k) {
+      var stat = k.status_label || k.status || 'PENDING';
+      var jenis = k.type === 'MASUK' ? 'Kas Masuk (+)' : 'Kas Keluar (−)';
+      var portalUrl = window.PORTAL_URL || 'https://siapii.sigitadi.id';
+      var text = '💵 *SIAP APII — BUKU KAS & VOUCHER*\n' +
+        '━━━━━━━━━━━━━━━━━━━\n' +
+        '🔖 *No. Voucher:* ' + (k.voucher_number || '-') + '\n' +
+        '📂 *Jenis:* ' + jenis + '\n' +
+        '💰 *Nominal:* ' + (k.amount_label || ('Rp ' + Number(k.amount || 0).toLocaleString('id-ID'))) + '\n' +
+        '📝 *Keterangan:* ' + (k.description || '-') + '\n' +
+        '🏷️ *Akun:* ' + (k.account_label || k.account || '-') + '\n' +
+        '📅 *Tanggal:* ' + (k.transaction_date || '-') + '\n' +
+        '⚡ *Status:* ' + stat + '\n' +
+        '👤 *Dibuat Oleh:* ' + (k.created_by || '-') + '\n';
+      if (k.verified_by_bendahara) {
+        text += '✅ *Verifikasi Bendahara:* ' + k.verified_by_bendahara + '\n';
+      }
+      if (k.approved_by_ketum) {
+        text += '🌟 *Verifikasi Ketua:* ' + k.approved_by_ketum + '\n';
+      }
+      if (k.rejection_notes) {
+        text += '⚠️ *Catatan Penolakan:* ' + k.rejection_notes + '\n';
+      }
+      text += '━━━━━━━━━━━━━━━━━━━\n' +
+        '🌐 *Buka Portal:* ' + portalUrl + '/#/keuangan';
+      return text;
+    },
+
+    /** Format teks WhatsApp untuk Usulan Program Divisi. */
+    buildDivisiWaText: function (d) {
+      var stat = d.status_label || d.status || 'DRAFT';
+      var portalUrl = window.PORTAL_URL || 'https://siapii.sigitadi.id';
+      var text = '🎯 *SIAP APII — USULAN PROGRAM DIVISI*\n' +
+        '━━━━━━━━━━━━━━━━━━━\n' +
+        '🔖 *Tracking ID:* ' + (d.tracking_id || '-') + '\n' +
+        '💡 *Program:* ' + (d.program_title || '-') + '\n' +
+        '🏢 *Divisi:* ' + (d.division_label || d.division || '-') + '\n' +
+        '💰 *Estimasi Anggaran:* ' + (d.budget_label || ('Rp ' + Number(d.budget_estimate || 0).toLocaleString('id-ID'))) + '\n' +
+        '📅 *Target Pelaksanaan:* ' + (d.execution_date || '-') + '\n' +
+        '👥 *Target Peserta:* ' + (d.target_audience || '-') + '\n' +
+        '⚡ *Status:* ' + stat + '\n';
+      if (d.rejection_notes) {
+        text += '⚠️ *Catatan Penolakan:* ' + d.rejection_notes + '\n';
+      }
+      text += '━━━━━━━━━━━━━━━━━━━\n' +
+        '🌐 *Buka Portal:* ' + portalUrl + '/#/divisi';
+      return text;
     },
 
     /** Buka modal dengan HTML bebas. */
@@ -332,6 +440,13 @@
     /** Baris skeleton saat tabel masih memuat. */
     loadingRow: function (cols) {
       return '<tr class="tbl-empty"><td colspan="' + cols + '" class="text-center text-gray-400 py-10">Memuat data…</td></tr>';
+    },
+
+    /** Tombol aksi WhatsApp kecil dengan ikon resmi. */
+    waBtn: function (title) {
+      return '<button data-act="wa" title="' + (title || 'Bagikan ke WhatsApp') + '" class="p-1.5 rounded-lg font-semibold transition btn-wa-ghost inline-flex items-center justify-center flex-shrink-0">' +
+        '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
+        '</button>';
     },
 
     /** Tombol aksi kecil. */
@@ -395,7 +510,7 @@
         if (inboxEl) {
           var items = data.action_items || [];
           if (items.length > 0) {
-            var itemsHtml = items.map(function (it) {
+            var itemsHtml = items.map(function (it, idx) {
               var modColor = it.module === 'surat'
                 ? 'bg-amber-100 text-amber-700'
                 : it.module === 'keuangan'
@@ -422,8 +537,12 @@
                     '<p class="text-xs text-gray-500 mt-0.5">' + Auth.esc(it.detail) + '</p>' +
                   '</div>' +
                 '</div>' +
-                '<div class="flex items-center sm:self-center flex-shrink-0">' +
-                  '<button type="button" data-nav-target="' + Auth.esc(it.target_nav) + '" data-item-id="' + Auth.esc(it.id) + '" class="w-full sm:w-auto btn btn-primary text-xs px-4 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm">' +
+                '<div class="flex items-center gap-2 sm:self-center flex-shrink-0 w-full sm:w-auto">' +
+                  '<button type="button" data-inbox-wa="' + idx + '" class="btn btn-wa-ghost text-xs px-3 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm" title="Bagikan ke WhatsApp">' +
+                    '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
+                    '<span>WA</span>' +
+                  '</button>' +
+                  '<button type="button" data-nav-target="' + Auth.esc(it.target_nav) + '" data-item-id="' + Auth.esc(it.id) + '" class="flex-1 sm:flex-initial btn btn-primary text-xs px-4 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm">' +
                     '<span>' + Auth.esc(it.action_label || 'Tinjau') + '</span>' +
                     '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>' +
                   '</button>' +
@@ -445,6 +564,22 @@
               '</div>' +
               '<div class="divide-y divide-gray-100">' + itemsHtml + '</div>' +
             '</div>';
+
+            inboxEl.querySelectorAll('[data-inbox-wa]').forEach(function (btn) {
+              btn.addEventListener('click', function () {
+                var idx = parseInt(this.getAttribute('data-inbox-wa'), 10);
+                var it = items[idx];
+                if (!it) return;
+                var text = '⚡ *TINDAKAN DIPERLUKAN — SIAP APII*\n' +
+                  '━━━━━━━━━━━━━━━━━━━\n' +
+                  '📌 *' + it.badge + ':* ' + it.title + '\n' +
+                  '🔖 *Keterangan:* ' + it.subtitle + '\n' +
+                  'ℹ️ *Rincian:* ' + it.detail + '\n' +
+                  '━━━━━━━━━━━━━━━━━━━\n' +
+                  '🌐 *Tinjau di Portal:* ' + (window.PORTAL_URL || 'https://siapii.sigitadi.id') + '/#/' + it.target_nav;
+                self.openWhatsApp(text);
+              });
+            });
 
             inboxEl.querySelectorAll('[data-nav-target]').forEach(function (btn) {
               btn.addEventListener('click', function () {
@@ -578,6 +713,7 @@
           var acts = '';
           // Detail selalu tersedia.
           acts += self.aBtn('view', 'Detail', 'Lihat detail surat');
+          acts += self.waBtn('Bagikan surat ke WhatsApp');
           // Penulis: ajukkan draft.
           if (canWrite && s.status === 'DRAFT') {
             acts += self.aBtn('edit', 'Ubah', 'Ubah draf surat');
@@ -607,6 +743,7 @@
               var act = b.getAttribute('data-act');
               var item = items.filter(function (x) { return x.id === id; })[0];
               if (act === 'view') self.suratDetail(item);
+              else if (act === 'wa') self.openWhatsApp(self.buildSuratWaText(item));
               else if (act === 'edit') self.suratForm(item);
               else if (act === 'submit') self.suratSubmit(item, canWrite, canApprove);
               else if (act === 'approve') self.suratApprove(item, canWrite, canApprove);
@@ -771,6 +908,10 @@
             self.badge(s.status, s.status_label) +
           '</div>' +
           '<div class="flex items-center gap-2 self-end sm:self-center flex-wrap">' +
+            '<button type="button" id="btnWaShareLetter" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-wa-ghost shadow-sm" title="Bagikan Ringkasan ke WhatsApp">' +
+              '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
+              '<span>Share WA</span>' +
+            '</button>' +
             '<button type="button" id="btnPrintLetter" class="btn btn-ghost text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5">' +
               '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
               '<span>Cetak</span>' +
@@ -933,6 +1074,14 @@
         });
       }
 
+      // Bind WhatsApp share
+      var waLetterBtn = document.getElementById('btnWaShareLetter');
+      if (waLetterBtn) {
+        waLetterBtn.addEventListener('click', function () {
+          self.openWhatsApp(self.buildSuratWaText(s));
+        });
+      }
+
       // Bind print
       var printBtn = document.getElementById('btnPrintLetter');
       if (printBtn) {
@@ -1037,7 +1186,9 @@
       var self = this;
       this.confirm('Ajukan Surat', 'Surat <b>' + Auth.esc(item.letter_number) + '</b> akan diajukan ke Ketua untuk persetujuan. Lanjutkan?', function () {
         Auth.fetch('submitSurat', { id: item.id }).then(function () {
-          self.toast('Surat diajukan ke Ketua.', 'success');
+          self.toast('Surat diajukan ke Ketua.', 'success', '📲 Kabari via WA', function () {
+            self.openWhatsApp(self.buildSuratWaText(item));
+          });
           self.refreshSurat();
         }).catch(function () {});
       });
@@ -1048,7 +1199,9 @@
       var self = this;
       this.confirm('Terbitkan Surat', 'Surat <b>' + Auth.esc(item.letter_number) + '</b> akan diterbitkan: status PUBLISHED, PDF dibuat, &amp; sidik digital dicatat. Lanjutkan?', function () {
         Auth.fetch('approveSurat', { id: item.id }).then(function () {
-          self.toast('Surat berhasil diterbitkan & PDF tersedia.', 'success');
+          self.toast('Surat berhasil diterbitkan & PDF tersedia.', 'success', '📲 Bagikan WA', function () {
+            self.openWhatsApp(self.buildSuratWaText(item));
+          });
           self.refreshSurat();
         }).catch(function () {});
       });
@@ -1155,6 +1308,8 @@
         var items = (data && data.items) || [];
         tb.innerHTML = items.length ? items.map(function (k) {
           var acts = '';
+          acts += self.aBtn('view', 'Detail', 'Lihat detail voucher');
+          acts += self.waBtn('Bagikan voucher ke WhatsApp');
           if (canWrite && k.status === 'PENDING') {
             acts += self.aBtn('verify-bend', 'Verifikasi', 'Verifikasi sebagai Bendahara');
           }
@@ -1175,7 +1330,7 @@
               (k.type === 'MASUK' ? '+ ' : '− ') + Auth.esc(k.amount_label.replace('Rp ', '')) + '</td>' +
             '<td class="whitespace-nowrap text-gray-600 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Akun: </span>' + Auth.esc(k.account_label) + '</td>' +
             '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(k.status, k.status_label) + '</td>' +
-            '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap min-w-[110px]">' + acts + '</div></td>' +
+            '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap min-w-[120px]">' + acts + '</div></td>' +
           '</tr>';
         }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada voucher yang ditemukan.</td></tr>';
 
@@ -1185,7 +1340,9 @@
             b.addEventListener('click', function () {
               var act = b.getAttribute('data-act');
               var item = items.filter(function (x) { return x.id === id; })[0];
-              if (act === 'verify-bend') self.voucherVerify(item, 'verifyVoucherBendahara',
+              if (act === 'view') self.voucherDetail(item);
+              else if (act === 'wa') self.openWhatsApp(self.buildKeuanganWaText(item));
+              else if (act === 'verify-bend') self.voucherVerify(item, 'verifyVoucherBendahara',
                 'Verifikasi Bendahara', 'diverifikasi Bendahara & menunggu verifikasi Ketua');
               else if (act === 'approve') self.voucherVerify(item, 'verifyVoucherKetum',
                 'Verifikasi Final Ketua', 'disetujui penuh & masuk perhitungan saldo');
@@ -1210,7 +1367,9 @@
       this.confirm(title, 'Voucher <b>' + Auth.esc(item.voucher_number) + '</b> sebesar <b>' +
         Auth.esc(item.amount_label) + '</b> akan ' + effect + '. Lanjutkan?', function () {
         Auth.fetch(action, { id: item.id }).then(function () {
-          self.toast('Voucher berhasil diproses.', 'success');
+          self.toast('Voucher berhasil diproses.', 'success', '📲 Kabari via WA', function () {
+            self.openWhatsApp(self.buildKeuanganWaText(item));
+          });
           self.refreshKeuangan();
         }).catch(function () {});
       });
@@ -1221,6 +1380,111 @@
       this.rejectModal('Tolak Voucher',
         'Voucher <span class="font-mono text-xs">' + Auth.esc(item.voucher_number) + '</span> akan ditolak dengan alasan di bawah ini.',
         'rejectVoucher', item.id, function () { self.refreshKeuangan(); });
+    },
+
+    /** Modal detail voucher keuangan dengan aksi WhatsApp & otorisasi. */
+    voucherDetail: function (k) {
+      var self = this;
+      var u = this.state.user;
+      var canWrite = ['SUPERADMIN', 'BENDAHARA'].indexOf(u.role) !== -1;
+      var canApprove = ['SUPERADMIN', 'KETUA'].indexOf(u.role) !== -1;
+
+      var isMasuk = k.type === 'MASUK';
+      var amountColor = isMasuk ? 'text-emerald' : 'text-red-600';
+      var bgBanner = isMasuk ? 'from-emerald-50 to-emerald-100/60' : 'from-red-50 to-amber-50';
+
+      var metaRows = [
+        ['Nomor Voucher', k.voucher_number, 'mono'],
+        ['Jenis Transaksi', isMasuk ? 'Kas Masuk (+)' : 'Kas Keluar (−)', ''],
+        ['Akun Kas', k.account_label || k.account, ''],
+        ['Kategori Transaksi', k.category || '—', ''],
+        ['Tanggal Transaksi', k.transaction_date || '—', ''],
+        ['Dibuat Oleh', k.created_by || '—', ''],
+        ['Verifikasi Bendahara', k.verified_by_bendahara || 'Belum diverifikasi', ''],
+        ['Verifikasi Ketua', k.approved_by_ketum || 'Belum disetujui', '']
+      ];
+      if (k.rejection_notes) metaRows.push(['Alasan Penolakan', k.rejection_notes, 'warn']);
+
+      var modalHtml = '<div class="p-5 sm:p-7">' +
+        '<div class="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">' +
+          '<div class="flex items-center gap-2.5">' +
+            '<span class="font-mono text-xs font-bold text-gray-500">' + Auth.esc(k.voucher_number) + '</span>' +
+            self.badge(k.status, k.status_label) +
+          '</div>' +
+          '<div class="flex items-center gap-2">' +
+            '<button type="button" id="btnWaShareVoucher" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-wa-ghost shadow-sm" title="Bagikan ke WhatsApp">' +
+              '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
+              '<span>Share WA</span>' +
+            '</button>' +
+            '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="bg-gradient-to-br ' + bgBanner + ' rounded-2xl p-6 border border-gray-200/80 mb-5 text-center">' +
+          '<div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">' + (isMasuk ? 'Total Kas Masuk' : 'Total Pengeluaran Kas') + '</div>' +
+          '<div class="text-3xl font-black ' + amountColor + ' tracking-tight">' + (isMasuk ? '+ ' : '− ') + Auth.esc(k.amount_label) + '</div>' +
+          '<div class="text-sm font-semibold text-gray-800 mt-2 max-w-md mx-auto">' + Auth.esc(k.description) + '</div>' +
+        '</div>' +
+        '<div class="space-y-1 divide-y divide-gray-100">' +
+          metaRows.map(function (r) {
+            var val = r[2] === 'mono' ? '<span class="font-mono text-xs text-gray-700 font-semibold">' + Auth.esc(r[1]) + '</span>'
+              : r[2] === 'warn' ? '<span class="text-sm text-red-600 bg-red-50 px-3 py-1.5 rounded-xl block border border-red-100 font-medium">' + Auth.esc(r[1]) + '</span>'
+              : '<span class="text-sm text-gray-800 font-medium">' + Auth.esc(r[1]) + '</span>';
+            return '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-2.5">' +
+              '<span class="text-xs font-bold text-gray-400 uppercase tracking-wide">' + r[0] + '</span>' +
+              '<div>' + val + '</div>' +
+            '</div>';
+          }).join('') +
+        '</div>' +
+        (canWrite && k.status === 'PENDING' ?
+          '<div class="mt-6 pt-4 border-t border-gray-100 flex gap-2">' +
+            '<button type="button" id="vDetailVerifyBend" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Verifikasi Bendahara</button>' +
+            '<button type="button" id="vDetailReject" class="btn btn-danger px-4 py-2.5 rounded-xl font-bold text-xs">Tolak</button>' +
+          '</div>' :
+          canApprove && k.status === 'VERIFIED_BY_BENDAHARA' ?
+          '<div class="mt-6 pt-4 border-t border-gray-100 flex gap-2">' +
+            '<button type="button" id="vDetailApproveKetum" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Setujui Pengeluaran (Ketua)</button>' +
+            '<button type="button" id="vDetailReject" class="btn btn-danger px-4 py-2.5 rounded-xl font-bold text-xs">Tolak</button>' +
+          '</div>' : '') +
+      '</div>';
+
+      this.openModal(modalHtml, 'max-w-xl');
+
+      var waBtn = document.getElementById('btnWaShareVoucher');
+      if (waBtn) {
+        waBtn.addEventListener('click', function () {
+          self.openWhatsApp(self.buildKeuanganWaText(k));
+        });
+      }
+
+      var btnVerifyBend = document.getElementById('vDetailVerifyBend');
+      if (btnVerifyBend) {
+        btnVerifyBend.addEventListener('click', function () {
+          self.closeModal();
+          self.voucherVerify(k, 'verifyVoucherBendahara', 'Verifikasi Bendahara', 'diverifikasi Bendahara & menunggu verifikasi Ketua');
+        });
+      }
+
+      var btnApproveKetum = document.getElementById('vDetailApproveKetum');
+      if (btnApproveKetum) {
+        btnApproveKetum.addEventListener('click', function () {
+          self.closeModal();
+          self.voucherVerify(k, 'verifyVoucherKetum', 'Verifikasi Final Ketua', 'disetujui penuh & masuk perhitungan saldo');
+        });
+      }
+
+      var btnReject = document.getElementById('vDetailReject');
+      if (btnReject) {
+        btnReject.addEventListener('click', function () {
+          self.closeModal();
+          self.voucherReject(k);
+        });
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+        b.addEventListener('click', function () { self.closeModal(); });
+      });
     },
 
     /** Modal buat voucher baru (Bendahara/Superadmin). */
@@ -1274,7 +1538,21 @@
         };
         Auth.fetch('createVoucher', payload).then(function () {
           self.closeModal();
-          self.toast('Voucher berhasil dibuat.', 'success');
+          self.toast('Voucher berhasil dibuat.', 'success', '📲 Kabari via WA', function () {
+            self.openWhatsApp(self.buildKeuanganWaText({
+              voucher_number: '(Voucher Baru)',
+              type: payload.type,
+              amount: payload.amount,
+              amount_label: 'Rp ' + Number(payload.amount).toLocaleString('id-ID'),
+              description: payload.description,
+              account: payload.account,
+              account_label: window.ACCOUNTS[payload.account] || payload.account,
+              transaction_date: payload.transaction_date,
+              status: 'PENDING',
+              status_label: 'Menunggu Verifikasi',
+              created_by: self.state.user.full_name || self.state.user.username
+            }));
+          });
           self.refreshKeuangan();
         }).catch(function () {});
       });
@@ -1345,6 +1623,8 @@
         var items = (data && data.items) || [];
         tb.innerHTML = items.length ? items.map(function (d) {
           var acts = '';
+          acts += self.aBtn('view', 'Detail', 'Lihat detail usulan');
+          acts += self.waBtn('Bagikan usulan ke WhatsApp');
           if (d.can_edit) acts += self.aBtn('edit', 'Ubah', 'Ubah draf usulan');
           if (d.can_submit) acts += self.aBtn('submit', 'Ajukan', 'Kirim ke Approval Board Ketua');
           if (canApprove && d.status === 'AJUKAN') {
@@ -1360,7 +1640,7 @@
             '<td class="whitespace-nowrap text-gray-600 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Divisi: </span>' + Auth.esc(d.division_label) + '</td>' +
             '<td class="whitespace-nowrap font-bold text-gray-800 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Anggaran: </span>' + Auth.esc(d.budget_label) + '</td>' +
             '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(d.status, d.status_label) + '</td>' +
-            '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap min-w-[110px]">' + acts + '</div></td>' +
+            '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap min-w-[120px]">' + acts + '</div></td>' +
           '</tr>';
         }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada usulan yang ditemukan.</td></tr>';
 
@@ -1370,7 +1650,9 @@
             b.addEventListener('click', function () {
               var act = b.getAttribute('data-act');
               var item = items.filter(function (x) { return x.id === id; })[0];
-              if (act === 'edit') self.submissionForm(item);
+              if (act === 'view') self.submissionDetail(item);
+              else if (act === 'wa') self.openWhatsApp(self.buildDivisiWaText(item));
+              else if (act === 'edit') self.submissionForm(item);
               else if (act === 'submit') self.submissionAjukan(item);
               else if (act === 'approve') self.submissionApprove(item);
               else if (act === 'reject') self.submissionReject(item);
@@ -1386,6 +1668,121 @@
       var r = this.state.user.role;
       this.loadDivisi(['SUPERADMIN', 'KETUA_DIVISI', 'ANGGOTA_DIVISI'].indexOf(r) !== -1,
         ['SUPERADMIN', 'KETUA'].indexOf(r) !== -1);
+    },
+
+    /** Modal detail usulan program divisi dengan aksi WhatsApp & otorisasi. */
+    submissionDetail: function (d) {
+      var self = this;
+      var u = this.state.user;
+      var canApprove = ['SUPERADMIN', 'KETUA'].indexOf(u.role) !== -1;
+
+      var metaRows = [
+        ['Tracking ID', d.tracking_id, 'mono'],
+        ['Divisi Pengusul', d.division_label || d.division, ''],
+        ['Estimasi Anggaran', d.budget_label, 'bold'],
+        ['Target Peserta', d.target_audience || '—', ''],
+        ['Rencana Pelaksanaan', d.execution_date || '—', ''],
+        ['Dibuat Oleh', d.created_by || '—', ''],
+        ['Status Persetujuan', null, 'badge']
+      ];
+      if (d.rejection_notes) metaRows.push(['Alasan Penolakan', d.rejection_notes, 'warn']);
+
+      var modalHtml = '<div class="p-5 sm:p-7">' +
+        '<div class="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">' +
+          '<div class="flex items-center gap-2.5">' +
+            '<span class="font-mono text-xs font-bold text-gray-500">' + Auth.esc(d.tracking_id) + '</span>' +
+            self.badge(d.status, d.status_label) +
+          '</div>' +
+          '<div class="flex items-center gap-2">' +
+            '<button type="button" id="btnWaShareSub" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-wa-ghost shadow-sm" title="Bagikan ke WhatsApp">' +
+              '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
+              '<span>Share WA</span>' +
+            '</button>' +
+            '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-6 border border-emerald-100 mb-5">' +
+          '<div class="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">' + Auth.esc(d.division_label || d.division) + '</div>' +
+          '<h3 class="text-xl font-extrabold text-gray-900 leading-snug">' + Auth.esc(d.program_title) + '</h3>' +
+          '<div class="flex items-center gap-3 mt-3 flex-wrap text-xs text-gray-600">' +
+            '<span>💰 Anggaran: <strong class="text-emerald-dark font-bold">' + Auth.esc(d.budget_label) + '</strong></span>' +
+            '<span>📅 Rencana: <strong>' + Auth.esc(d.execution_date || 'Fleksibel') + '</strong></span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="mb-5">' +
+          '<div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Rincian Deskripsi Program</div>' +
+          '<div class="bg-gray-50 p-4 rounded-xl text-sm text-gray-800 leading-relaxed whitespace-pre-line border border-gray-100">' +
+            Auth.esc(d.description) +
+          '</div>' +
+        '</div>' +
+        '<div class="space-y-1 divide-y divide-gray-100">' +
+          metaRows.map(function (r) {
+            var val = r[2] === 'badge' ? self.badge(d.status, d.status_label)
+              : r[2] === 'mono' ? '<span class="font-mono text-xs text-gray-700 font-semibold">' + Auth.esc(r[1]) + '</span>'
+              : r[2] === 'bold' ? '<span class="font-bold text-sm text-gray-900">' + Auth.esc(r[1]) + '</span>'
+              : r[2] === 'warn' ? '<span class="text-sm text-red-600 bg-red-50 px-3 py-1.5 rounded-xl block border border-red-100 font-medium">' + Auth.esc(r[1]) + '</span>'
+              : '<span class="text-sm text-gray-800 font-medium">' + Auth.esc(r[1]) + '</span>';
+            return '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-2.5">' +
+              '<span class="text-xs font-bold text-gray-400 uppercase tracking-wide">' + r[0] + '</span>' +
+              '<div>' + val + '</div>' +
+            '</div>';
+          }).join('') +
+        '</div>' +
+        '<div class="mt-6 pt-4 border-t border-gray-100 flex gap-2 flex-wrap">' +
+          (d.can_edit ? '<button type="button" id="subDetailEdit" class="btn btn-ghost text-xs px-4 py-2.5 rounded-xl font-bold">Ubah Draf</button>' : '') +
+          (d.can_submit ? '<button type="button" id="subDetailSubmit" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Ajukan ke Ketua</button>' : '') +
+          (canApprove && d.status === 'AJUKAN' ?
+            '<button type="button" id="subDetailApprove" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Setujui Program</button>' +
+            '<button type="button" id="subDetailReject" class="btn btn-danger px-4 py-2.5 rounded-xl font-bold text-xs">Tolak</button>' : '') +
+        '</div>' +
+      '</div>';
+
+      this.openModal(modalHtml, 'max-w-xl');
+
+      var waBtn = document.getElementById('btnWaShareSub');
+      if (waBtn) {
+        waBtn.addEventListener('click', function () {
+          self.openWhatsApp(self.buildDivisiWaText(d));
+        });
+      }
+
+      var btnEdit = document.getElementById('subDetailEdit');
+      if (btnEdit) {
+        btnEdit.addEventListener('click', function () {
+          self.closeModal();
+          self.submissionForm(d);
+        });
+      }
+
+      var btnSubmit = document.getElementById('subDetailSubmit');
+      if (btnSubmit) {
+        btnSubmit.addEventListener('click', function () {
+          self.closeModal();
+          self.submissionAjukan(d);
+        });
+      }
+
+      var btnApprove = document.getElementById('subDetailApprove');
+      if (btnApprove) {
+        btnApprove.addEventListener('click', function () {
+          self.closeModal();
+          self.submissionApprove(d);
+        });
+      }
+
+      var btnReject = document.getElementById('subDetailReject');
+      if (btnReject) {
+        btnReject.addEventListener('click', function () {
+          self.closeModal();
+          self.submissionReject(d);
+        });
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+        b.addEventListener('click', function () { self.closeModal(); });
+      });
     },
 
     /** Modal buat/ubah usulan program divisi. */
@@ -1452,7 +1849,21 @@
 
         Auth.fetch(isEdit ? 'updateSubmission' : 'createSubmission', payload).then(function () {
           self.closeModal();
-          self.toast(isEdit ? 'Usulan berhasil diperbarui.' : 'Usulan program berhasil dibuat.', 'success');
+          self.toast(isEdit ? 'Usulan berhasil diperbarui.' : 'Usulan program berhasil dibuat.', 'success', !isEdit ? '📲 Kabari via WA' : null, !isEdit ? function () {
+            self.openWhatsApp(self.buildDivisiWaText({
+              tracking_id: '(Usulan Baru)',
+              program_title: payload.program_title,
+              description: payload.description,
+              budget_estimate: payload.budget_estimate,
+              budget_label: 'Rp ' + Number(payload.budget_estimate).toLocaleString('id-ID'),
+              target_audience: payload.target_audience,
+              execution_date: payload.execution_date,
+              division: payload.division,
+              division_label: window.DIVISIONS[payload.division] || payload.division,
+              status: 'DRAFT',
+              status_label: 'Draf'
+            }));
+          } : null);
           self.refreshDivisi();
         }).catch(function () {});
       });
@@ -1463,7 +1874,9 @@
       this.confirm('Ajukan Program', 'Usulan <b>' + Auth.esc(item.tracking_id) + '</b> — ' +
         '<b>' + Auth.esc(item.program_title) + '</b> akan dikirim ke Approval Board Ketua. Lanjutkan?', function () {
         Auth.fetch('ajukanSubmission', { id: item.id }).then(function () {
-          self.toast('Usulan diajukan ke Ketua.', 'success');
+          self.toast('Usulan diajukan ke Ketua.', 'success', '📲 Kabari via WA', function () {
+            self.openWhatsApp(self.buildDivisiWaText(item));
+          });
           self.refreshDivisi();
         }).catch(function () {});
       });
@@ -1474,7 +1887,9 @@
       this.confirm('Setujui Program', 'Usulan <b>' + Auth.esc(item.program_title) + '</b> dari divisi <b>' +
         Auth.esc(item.division_label) + '</b> akan disetujui. Lanjutkan?', function () {
         Auth.fetch('approveSubmission', { id: item.id }).then(function () {
-          self.toast('Usulan program disetujui.', 'success');
+          self.toast('Usulan program disetujui.', 'success', '📲 Bagikan WA', function () {
+            self.openWhatsApp(self.buildDivisiWaText(item));
+          });
           self.refreshDivisi();
         }).catch(function () {});
       });

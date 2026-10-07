@@ -190,6 +190,15 @@ function ajukanSubmission(ctx) {
     status: 'AJUKAN', submitted_at: new Date().toISOString()
   });
   audit(ctx.user.username, 'DIVISI_AJUKAN', 'Usulan ' + d.tracking_id);
+
+  // Notifikasi email ke Ketua DPW (Approval Board)
+  kirimNotifikasiKeRole_(ROLES.KETUA,
+    'Usulan Program Baru: ' + d.tracking_id,
+    'Usulan Program Divisi Menunggu Persetujuan',
+    'Usulan program <strong>' + d.program_title + '</strong> (ID: <code>' + d.tracking_id + '</code>) dari <strong>' + (DIVISION_LABELS[d.division] || d.division) + '</strong> telah diajukan oleh <strong>' + (d.submitted_by_name || d.submitted_by) + '</strong> dengan estimasi anggaran <strong>' + formatRupiah(d.budget_estimate) + '</strong>.',
+    'Tinjau Usulan Program',
+    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/divisi');
+
   return { ok: true, data: null,
     message: 'Usulan ' + d.tracking_id + ' diajukan ke Ketua (Approval Board).' };
 }
@@ -213,6 +222,15 @@ function approveSubmission(ctx) {
     approval_notes: (p.notes || '').trim()
   });
   audit(ctx.user.username, 'DIVISI_SETUJU', 'Usulan ' + d.tracking_id);
+
+  // Notifikasi email ke Pengusul Divisi
+  kirimNotifikasiKeUser_(d.submitted_by,
+    'Usulan Program Disetujui: ' + d.tracking_id,
+    'Usulan Program Divisi Disetujui',
+    'Usulan program <strong>' + d.program_title + '</strong> (ID: <code>' + d.tracking_id + '</code>) telah disetujui oleh Ketua DPW untuk pelaksanaan program kerja.' + (p.notes ? '<br/><strong>Catatan Ketua:</strong> ' + Auth.esc(p.notes) : ''),
+    'Buka Portal Divisi',
+    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/divisi');
+
   return { ok: true, data: null, message: 'Usulan ' + d.tracking_id + ' disetujui.' };
 }
 
@@ -238,5 +256,14 @@ function rejectSubmission(ctx) {
     approval_notes: String(p.notes).trim()
   });
   audit(ctx.user.username, 'DIVISI_TOLAK', 'Usulan ' + d.tracking_id + ': ' + p.notes);
+
+  // Notifikasi email ke Pengusul Divisi
+  kirimNotifikasiKeUser_(d.submitted_by,
+    'Usulan Program Perlu Perbaikan: ' + d.tracking_id,
+    'Usulan Program Dikembalikan untuk Perbaikan',
+    'Usulan program <strong>' + d.program_title + '</strong> (ID: <code>' + d.tracking_id + '</code>) telah dikembalikan oleh Ketua DPW dengan catatan perbaikan:<br/><blockquote style="background:#fee2e2;padding:10px 14px;border-left:4px solid #ef4444;margin:12px 0;color:#991b1b;border-radius:4px;">' + String(p.notes).trim() + '</blockquote>',
+    'Perbaiki Usulan Program',
+    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/divisi');
+
   return { ok: true, data: null, message: 'Usulan ' + d.tracking_id + ' ditolak.' };
 }

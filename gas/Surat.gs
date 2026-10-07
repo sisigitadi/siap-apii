@@ -183,6 +183,15 @@ function submitSurat(ctx) {
     status: 'PENDING_APPROVAL', submitted_at: new Date().toISOString()
   });
   audit(ctx.user.username, 'SURAT_SUBMIT', 'Nomor ' + s.letter_number);
+
+  // Notifikasi email ke Ketua DPW
+  kirimNotifikasiKeRole_(ROLES.KETUA,
+    'Persetujuan Surat: ' + s.letter_number,
+    'Permohonan Persetujuan Surat',
+    'Draf surat <strong>' + s.title + '</strong> (Nomor: <code>' + s.letter_number + '</code>) telah diajukan oleh <strong>' + (ctx.user.full_name || ctx.user.username) + '</strong> dan menunggu persetujuan Anda.',
+    'Tinjau & Setujui Surat',
+    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/surat');
+
   return { ok: true, data: null,
     message: 'Surat ' + s.letter_number + ' diajukan ke Ketua untuk persetujuan.' };
 }
@@ -220,6 +229,15 @@ function approveSurat(ctx) {
     pdf_url: pdfUrl, qr_verify_url: verifyUrl
   });
   audit(ctx.user.username, 'SURAT_PUBLISHED', 'Nomor ' + s.letter_number);
+
+  // Notifikasi email ke pembuat surat (Sekretaris)
+  kirimNotifikasiKeUser_(s.created_by,
+    'Surat Telah Diterbitkan: ' + s.letter_number,
+    'Surat Resmi Telah Diterbitkan',
+    'Surat <strong>' + s.title + '</strong> (Nomor: <code>' + s.letter_number + '</code>) telah disetujui oleh Ketua DPW dan resmi diterbitkan beserta salinan PDF di Google Drive.',
+    'Buka Dokumen Resmi',
+    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/surat');
+
   return { ok: true, data: { pdf_url: pdfUrl, sha256_hash: hash },
     message: 'Surat ' + s.letter_number + ' telah diterbitkan dan PDF tersedia.' };
 }
@@ -245,6 +263,15 @@ function rejectSurat(ctx) {
     rejection_notes: String(p.notes).trim()
   });
   audit(ctx.user.username, 'SURAT_REJECTED', 'Nomor ' + s.letter_number + ': ' + p.notes);
+
+  // Notifikasi email ke pembuat surat
+  kirimNotifikasiKeUser_(s.created_by,
+    'Draf Surat Dikembalikan: ' + s.letter_number,
+    'Catatan Perbaikan Draf Surat',
+    'Draf surat <strong>' + s.title + '</strong> (Nomor: <code>' + s.letter_number + '</code>) telah dikembalikan oleh Ketua DPW dengan catatan perbaikan:<br/><blockquote style="background:#fee2e2;padding:10px 14px;border-left:4px solid #ef4444;margin:12px 0;color:#991b1b;border-radius:4px;">' + String(p.notes).trim() + '</blockquote>',
+    'Perbaiki Draf Surat',
+    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/surat');
+
   return { ok: true, data: null, message: 'Surat ' + s.letter_number + ' telah ditolak.' };
 }
 

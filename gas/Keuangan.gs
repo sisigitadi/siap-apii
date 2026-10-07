@@ -135,6 +135,14 @@ function createVoucher(ctx) {
     created_at: new Date().toISOString()
   });
 
+  // Notifikasi email ke Bendahara
+  kirimNotifikasiKeRole_(ROLES.BENDAHARA,
+    'Voucher Kas Baru: ' + created.voucher_number,
+    'Pemberitahuan Voucher Kas Menunggu Verifikasi',
+    'Voucher kas baru <strong>' + created.voucher_number + '</strong> bernilai <strong>' + formatRupiah(amount) + '</strong> (' + (p.type === 'MASUK' ? 'Kas Masuk' : 'Kas Keluar') + ') telah dibuat oleh <strong>' + (ctx.user.full_name || ctx.user.username) + '</strong> dan menunggu verifikasi Anda.',
+    'Verifikasi Voucher Kas',
+    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/keuangan');
+
   return { ok: true, data: { id: created.id, voucher_number: created.voucher_number },
     message: 'Voucher ' + created.voucher_number + ' berhasil dibuat.' };
 }
@@ -159,6 +167,15 @@ function verifyVoucherBendahara(ctx) {
     verified_by_bendahara: ctx.user.username, verified_by_bendahara_at: now
   });
   audit(ctx.user.username, 'KEU_VERIFY_BENDAHARA', 'Voucher ' + k.voucher_number);
+
+  // Notifikasi email ke Ketua DPW untuk persetujuan final
+  kirimNotifikasiKeRole_(ROLES.KETUA,
+    'Persetujuan Final Kas: ' + k.voucher_number,
+    'Voucher Kas Menunggu Persetujuan Ketua',
+    'Voucher kas <strong>' + k.voucher_number + '</strong> senilai <strong>' + formatRupiah(k.amount) + '</strong> (' + k.description + ') telah diverifikasi oleh Bendahara dan kini menunggu persetujuan final Anda.',
+    'Tinjau & Setujui Kas',
+    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/keuangan');
+
   return { ok: true, data: null,
     message: 'Voucher ' + k.voucher_number + ' diverifikasi Bendahara. Menunggu verifikasi Ketua.' };
 }
@@ -182,6 +199,15 @@ function verifyVoucherKetum(ctx) {
     status: 'APPROVED', verified_by_ketum: ctx.user.username, verified_by_ketum_at: now
   });
   audit(ctx.user.username, 'KEU_VERIFY_KETUM', 'Voucher ' + k.voucher_number + ' APPROVED');
+
+  // Notifikasi email ke pembuat voucher
+  kirimNotifikasiKeUser_(k.created_by,
+    'Voucher Kas Disetujui: ' + k.voucher_number,
+    'Voucher Kas Telah Disetujui Penuh',
+    'Voucher kas <strong>' + k.voucher_number + '</strong> bernilai <strong>' + formatRupiah(k.amount) + '</strong> (' + k.description + ') telah disetujui penuh oleh Ketua DPW dan resmi dicatatkan ke saldo buku kas yayasan.',
+    'Lihat Buku Kas',
+    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/keuangan');
+
   return { ok: true, data: null,
     message: 'Voucher ' + k.voucher_number + ' disetujui penuh & masuk perhitungan saldo.' };
 }
@@ -208,5 +234,14 @@ function rejectVoucher(ctx) {
     status: 'REJECTED', rejection_notes: String(p.notes).trim()
   });
   audit(ctx.user.username, 'KEU_REJECTED', 'Voucher ' + k.voucher_number + ': ' + p.notes);
+
+  // Notifikasi email ke pembuat voucher
+  kirimNotifikasiKeUser_(k.created_by,
+    'Voucher Kas Ditolak: ' + k.voucher_number,
+    'Pemberitahuan Penolakan Voucher Kas',
+    'Voucher kas <strong>' + k.voucher_number + '</strong> bernilai <strong>' + formatRupiah(k.amount) + '</strong> telah ditolak dengan catatan:<br/><blockquote style="background:#fee2e2;padding:10px 14px;border-left:4px solid #ef4444;margin:12px 0;color:#991b1b;border-radius:4px;">' + String(p.notes).trim() + '</blockquote>',
+    'Buka Portal Keuangan',
+    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/keuangan');
+
   return { ok: true, data: null, message: 'Voucher ' + k.voucher_number + ' telah ditolak.' };
 }

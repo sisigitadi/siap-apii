@@ -273,3 +273,76 @@ function getDashboard(ctx) {
 
   return { ok: true, data: data, message: 'Dashboard berhasil dimuat.' };
 }
+
+/**
+ * kirimNotifikasiEmail_: kirim email notifikasi resmi via MailApp / GmailApp.
+ * Non-blocking & fail-safe: error pengiriman tidak menggagalkan transaksi DB.
+ */
+function kirimNotifikasiEmail_(toEmail, subject, title, messageHtml, actionText, actionUrl) {
+  if (!toEmail || String(toEmail).indexOf('@') === -1) return false;
+  try {
+    var appName = 'SIAP APII DPW Jabodetabek';
+    var defaultUrl = KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id';
+    var btnUrl = actionUrl || defaultUrl;
+    var btnText = actionText || 'Buka Portal SIAP APII';
+
+    var htmlBody = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9fafb; padding: 24px; border-radius: 16px;">' +
+      '<div style="text-align: center; margin-bottom: 24px;">' +
+        '<div style="font-size: 13px; font-weight: 800; color: #1B5E20; text-transform: uppercase; letter-spacing: 0.05em;">Yayasan APII DPW Jabodetabek</div>' +
+        '<div style="font-size: 20px; font-weight: 900; color: #064e3b; margin-top: 4px;">SIAP APII — Sistem Administrasi & Informasi</div>' +
+      '</div>' +
+      '<div style="background-color: #ffffff; border-radius: 12px; padding: 24px; border: 1px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">' +
+        '<h2 style="font-size: 16px; font-weight: 800; color: #111827; margin-top: 0; margin-bottom: 16px; border-bottom: 2px solid #a7f3d0; padding-bottom: 8px;">' + title + '</h2>' +
+        '<div style="font-size: 14px; line-height: 1.6; color: #374151; margin-bottom: 24px;">' + messageHtml + '</div>' +
+        '<div style="text-align: center; margin: 28px 0 12px 0;">' +
+          '<a href="' + btnUrl + '" style="background-color: #047857; color: #ffffff; font-size: 14px; font-weight: 700; text-decoration: none; padding: 12px 28px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 12px rgba(4,120,87,0.3);">' + btnText + ' →</a>' +
+        '</div>' +
+      '</div>' +
+      '<div style="text-align: center; margin-top: 20px; font-size: 11px; color: #9ca3af; line-height: 1.5;">' +
+        'Email otomatis dari Portal SIAP Yayasan APII DPW Jabodetabek.<br/>' +
+        'Jl. Kramat Raya No. 45, Senen, Jakarta Pusat 10450 | sekretariat.dpw@apii-jabodetabek.or.id' +
+      '</div>' +
+    '</div>';
+
+    MailApp.sendEmail({
+      to: toEmail,
+      subject: '[' + appName + '] ' + subject,
+      htmlBody: htmlBody
+    });
+    Logger.log('Email notifikasi terkirim ke ' + toEmail + ': ' + subject);
+    return true;
+  } catch (err) {
+    Logger.log('Gagal mengirim email ke ' + toEmail + ': ' + err);
+    return false;
+  }
+}
+
+/**
+ * kirimNotifikasiKeRole_: kirim email ke seluruh akun aktif dengan peran tertentu.
+ */
+function kirimNotifikasiKeRole_(role, subject, title, messageHtml, actionText, actionUrl) {
+  try {
+    var users = Database.findMany(TABS.USERS, { role: role, is_active: 'TRUE' });
+    users.forEach(function (u) {
+      if (u.email) {
+        kirimNotifikasiEmail_(u.email, subject, title, messageHtml, actionText, actionUrl);
+      }
+    });
+  } catch (e) {
+    Logger.log('Error kirimNotifikasiKeRole_: ' + e);
+  }
+}
+
+/**
+ * kirimNotifikasiKeUser_: kirim email ke akun tertentu berdasarkan username.
+ */
+function kirimNotifikasiKeUser_(username, subject, title, messageHtml, actionText, actionUrl) {
+  try {
+    var user = Database.findOne(TABS.USERS, { username: username });
+    if (user && user.email) {
+      kirimNotifikasiEmail_(user.email, subject, title, messageHtml, actionText, actionUrl);
+    }
+  } catch (e) {
+    Logger.log('Error kirimNotifikasiKeUser_: ' + e);
+  }
+}
