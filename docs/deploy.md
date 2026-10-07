@@ -58,39 +58,25 @@ Di dashboard DNS manajemen domain (Cloudflare / Registrar cPanel):
 
 ---
 
-## 3. Langkah Deployment Frontend ke Vercel
+## 3. Langkah Deployment Frontend ke Vercel (100% Otomatis CI/CD)
 
-### 3.1 Otomatisasi GitHub CI/CD (Rekomendasi Utama)
-Project Vercel telah terhubung langsung dengan repository GitHub:
+Untuk memastikan kedua portal berjalan secara otomatis tanpa perlu mengunggah berkas secara manual ke server web (Nginx/cPanel/VPS), sistem menggunakan arsitektur **Dual-Project Vercel** dari satu repositori GitHub yang sama (`sisigitadi/siap-apii`).
+
+### 3.1 Proyek 1: Portal Pengurus (`siapii.sigitadi.id`)
 - **Repository:** `sisigitadi/siap-apii`
 - **Branch Produksi:** `main`
-- **Output Directory:** `portal` (dikonfigurasi pada `vercel.json` di root)
-- **Framework Preset:** `Other` (Static Site)
+- **Root Directory:** `portal` (atau `.` dengan `outputDirectory: portal` pada `vercel.json`)
+- **Custom Domain:** `siapii.sigitadi.id`
+- **DNS Record:** CNAME `siapii` $\to$ `cname.vercel-dns.com` (Sudah Aktif)
 
-Setiap kali Anda melakukan perintah `git push origin main`, Vercel secara otomatis mendeteksi perubahan, mengompilasi aset, dan memperbarui deployment produksi di `https://siapii.sigitadi.id` dalam hitungan detik.
+### 3.2 Proyek 2: Portal Publik (`apii.sigitadi.id`)
+- **Repository:** `sisigitadi/siap-apii` (Repositori yang sama)
+- **Branch Produksi:** `main`
+- **Root Directory:** `public` (menggunakan konfigurasi otomatis `public/vercel.json`)
+- **Custom Domain:** `apii.sigitadi.id`
+- **DNS Record:** CNAME `apii` $\to$ `cname.vercel-dns.com`
 
-### 3.2 Konfigurasi `vercel.json`
-Konfigurasi `vercel.json` di root proyek:
-```json
-{
-  "version": 2,
-  "outputDirectory": "portal",
-  "cleanUrls": true,
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "X-XSS-Protection", "value": "1; mode=block" }
-      ]
-    }
-  ],
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
-```
+Setiap kali perintah `git push origin main` dieksekusi, Vercel secara otomatis mendeteksi perubahan dan memperbarui kedua portal secara serentak tanpa perlu login ke server VPS/Nginx selamanya.
 
 ---
 
