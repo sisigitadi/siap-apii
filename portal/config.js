@@ -50,7 +50,8 @@ window.STATUS_LABELS = {
   PUBLISHED: 'Diterbitkan', REJECTED: 'Ditolak',
   PENDING: 'Menunggu Verifikasi', VERIFIED_BY_BENDAHARA: 'Diverifikasi Bendahara',
   VERIFIED_BY_KETUM: 'Diverifikasi Ketua', APPROVED: 'Disetujui',
-  AJUKAN: 'Diajukan', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak'
+  AJUKAN: 'Diajukan', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak',
+  PELAKSANAAN: 'Pelaksanaan', LPJ_SELESAI: 'LPJ Selesai'
 };
 
 // Akun demo (dibuat setup() di Code.gs; password: apii2026).

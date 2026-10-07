@@ -387,6 +387,9 @@
         '📅 *Tanggal:* ' + (k.transaction_date || '-') + '\n' +
         '⚡ *Status:* ' + stat + '\n' +
         '👤 *Dibuat Oleh:* ' + (k.created_by || '-') + '\n';
+      if (k.receipt_url) {
+        text += '📎 *Bukti Kas:* ' + k.receipt_url + '\n';
+      }
       if (k.verified_by_bendahara) {
         text += '✅ *Verifikasi Bendahara:* ' + k.verified_by_bendahara + '\n';
       }
@@ -410,10 +413,19 @@
         '🔖 *Tracking ID:* ' + (d.tracking_id || '-') + '\n' +
         '💡 *Program:* ' + (d.program_title || '-') + '\n' +
         '🏢 *Divisi:* ' + (d.division_label || d.division || '-') + '\n' +
-        '💰 *Estimasi Anggaran:* ' + (d.budget_label || ('Rp ' + Number(d.budget_estimate || 0).toLocaleString('id-ID'))) + '\n' +
-        '📅 *Target Pelaksanaan:* ' + (d.execution_date || '-') + '\n' +
+        '💰 *Estimasi Anggaran:* ' + (d.budget_label || ('Rp ' + Number(d.budget_estimate || 0).toLocaleString('id-ID'))) + '\n';
+      if (d.realisasi_anggaran) {
+        text += '💵 *Realisasi Anggaran:* ' + (d.realisasi_label || ('Rp ' + Number(d.realisasi_anggaran).toLocaleString('id-ID'))) + '\n';
+      }
+      text += '📅 *Target Pelaksanaan:* ' + (d.execution_date || '-') + '\n' +
         '👥 *Target Peserta:* ' + (d.target_audience || '-') + '\n' +
         '⚡ *Status:* ' + stat + '\n';
+      if (d.started_at) {
+        text += '🚀 *Mulai Pelaksanaan:* ' + d.started_at.slice(0, 10) + '\n';
+      }
+      if (d.lpj_url) {
+        text += '📄 *Dokumen LPJ:* ' + d.lpj_url + '\n';
+      }
       if (d.rejection_notes) {
         text += '⚠️ *Catatan Penolakan:* ' + d.rejection_notes + '\n';
       }
@@ -1321,9 +1333,13 @@
           }
           if (!acts) acts = '<span class="text-xs text-gray-300">—</span>';
 
+          var receiptLink = k.receipt_url ?
+            '<div class="mt-1"><a href="' + Auth.esc(k.receipt_url) + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200 transition" title="Buka Bukti Transaksi di Google Drive">' +
+            '<svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg> Bukti Kas ↗</a></div>' : '';
+
           return '<tr data-id="' + k.id + '">' +
             '<td><div class="font-mono text-xs text-gray-500">' + Auth.esc(k.voucher_number) + '</div>' +
-              '<div class="text-sm font-semibold text-gray-900 leading-snug">' + Auth.esc(k.description) + '</div></td>' +
+              '<div class="text-sm font-semibold text-gray-900 leading-snug">' + Auth.esc(k.description) + '</div>' + receiptLink + '</td>' +
             '<td><span class="badge ' + (k.type === 'MASUK' ? 'badge-PUBLISHED' : 'badge-DRAFT') + '">' +
               (k.type === 'MASUK' ? 'Kas Masuk' : 'Kas Keluar') + '</span></td>' +
             '<td class="font-bold whitespace-nowrap ' + (k.type === 'MASUK' ? 'text-emerald' : 'text-red-600') + '">' +
@@ -1426,6 +1442,17 @@
           '<div class="text-3xl font-black ' + amountColor + ' tracking-tight">' + (isMasuk ? '+ ' : '− ') + Auth.esc(k.amount_label) + '</div>' +
           '<div class="text-sm font-semibold text-gray-800 mt-2 max-w-md mx-auto">' + Auth.esc(k.description) + '</div>' +
         '</div>' +
+        (k.receipt_url ?
+          '<div class="mb-5 p-4 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex items-center justify-between gap-3">' +
+            '<div class="flex items-center gap-3">' +
+              '<div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">' +
+                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
+              '</div>' +
+              '<div><div class="text-xs font-bold text-emerald-950">Bukti Kas / Nota Transaksi</div>' +
+                '<div class="text-[11px] text-emerald-700">Tersimpan di Google Drive / Cloud</div></div>' +
+            '</div>' +
+            '<a href="' + Auth.esc(k.receipt_url) + '" target="_blank" rel="noopener noreferrer" class="btn text-xs bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm inline-flex items-center gap-1.5 transition">Buka Bukti ↗</a>' +
+          '</div>' : '') +
         '<div class="space-y-1 divide-y divide-gray-100">' +
           metaRows.map(function (r) {
             var val = r[2] === 'mono' ? '<span class="font-mono text-xs text-gray-700 font-semibold">' + Auth.esc(r[1]) + '</span>'
@@ -1437,6 +1464,18 @@
             '</div>';
           }).join('') +
         '</div>' +
+        (canWrite ?
+          '<div class="mt-4 pt-3 border-t border-gray-100">' +
+            '<details class="text-xs text-gray-600 group">' +
+              '<summary class="font-semibold cursor-pointer text-emerald-700 hover:text-emerald-800 select-none flex items-center gap-1 py-1">' +
+                '<span>' + (k.receipt_url ? '✏️ Ganti Tautan Bukti Kas' : '➕ Tambah Tautan Bukti Kas Google Drive') + '</span>' +
+              '</summary>' +
+              '<div class="mt-2.5 flex gap-2">' +
+                '<input id="vDetailReceiptInput" type="url" class="field text-xs flex-1" placeholder="https://drive.google.com/..." value="' + Auth.esc(k.receipt_url || '') + '" />' +
+                '<button type="button" id="btnSaveVoucherReceipt" class="btn btn-primary text-xs px-3.5 py-2 rounded-xl font-bold">Simpan</button>' +
+              '</div>' +
+            '</details>' +
+          '</div>' : '') +
         (canWrite && k.status === 'PENDING' ?
           '<div class="mt-6 pt-4 border-t border-gray-100 flex gap-2">' +
             '<button type="button" id="vDetailVerifyBend" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Verifikasi Bendahara</button>' +
@@ -1455,6 +1494,23 @@
       if (waBtn) {
         waBtn.addEventListener('click', function () {
           self.openWhatsApp(self.buildKeuanganWaText(k));
+        });
+      }
+
+      var btnSaveReceipt = document.getElementById('btnSaveVoucherReceipt');
+      if (btnSaveReceipt) {
+        btnSaveReceipt.addEventListener('click', function () {
+          var newUrl = (document.getElementById('vDetailReceiptInput').value || '').trim();
+          btnSaveReceipt.disabled = true;
+          btnSaveReceipt.textContent = 'Menyimpan...';
+          Auth.fetch('updateVoucherReceipt', { id: k.id, receipt_url: newUrl }).then(function () {
+            self.toast('Tautan bukti kas berhasil disimpan.', 'success');
+            self.closeModal();
+            self.refreshKeuangan();
+          }).catch(function () {
+            btnSaveReceipt.disabled = false;
+            btnSaveReceipt.textContent = 'Simpan';
+          });
         });
       }
 
@@ -1514,6 +1570,9 @@
               '<textarea id="vfDesc" required rows="3" class="field" placeholder="Keterangan transaksi…"></textarea></div>' +
             '<div><label class="lbl">Tanggal Transaksi</label>' +
               '<input id="vfTanggal" type="date" class="field" value="' + new Date().toISOString().slice(0, 10) + '" /></div>' +
+            '<div><label class="lbl">Tautan Bukti Kas / Google Drive (Opsional)</label>' +
+              '<input id="vfReceipt" type="url" class="field" placeholder="https://drive.google.com/file/d/.../view" />' +
+              '<p class="text-[11px] text-gray-400 mt-1">Lampirkan tautan bukti transfer, kuitansi, atau nota dari Google Drive.</p></div>' +
             '<p class="text-xs text-gray-400">Voucher dibuat berstatus "Menunggu Verifikasi" &amp; butuh persetujuan Bendahara + Ketua.</p>' +
             '<div class="flex gap-3 pt-2">' +
               '<button type="submit" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">Simpan Voucher</button>' +
@@ -1534,7 +1593,8 @@
           amount: Number(document.getElementById('vfAmount').value),
           category: document.getElementById('vfCategory').value.trim(),
           description: document.getElementById('vfDesc').value.trim(),
-          transaction_date: document.getElementById('vfTanggal').value
+          transaction_date: document.getElementById('vfTanggal').value,
+          receipt_url: (document.getElementById('vfReceipt').value || '').trim()
         };
         Auth.fetch('createVoucher', payload).then(function () {
           self.closeModal();
@@ -1548,6 +1608,7 @@
               account: payload.account,
               account_label: window.ACCOUNTS[payload.account] || payload.account,
               transaction_date: payload.transaction_date,
+              receipt_url: payload.receipt_url,
               status: 'PENDING',
               status_label: 'Menunggu Verifikasi',
               created_by: self.state.user.full_name || self.state.user.username
@@ -1582,6 +1643,7 @@
           '<select id="divStatus" class="field sm:w-48">' +
             '<option value="">Semua Status</option><option value="DRAFT">Draf</option>' +
             '<option value="AJUKAN">Diajukan</option><option value="DISETUJUI">Disetujui</option>' +
+            '<option value="PELAKSANAAN">Pelaksanaan</option><option value="LPJ_SELESAI">LPJ Selesai</option>' +
             '<option value="DITOLAK">Ditolak</option>' +
           '</select>' +
         '</div>' +
@@ -1631,6 +1693,12 @@
             acts += self.aBtn('approve', 'Setujui', 'Setujui program');
             acts += self.aBtn('danger reject', 'Tolak', 'Tolak program');
           }
+          if (d.can_start) {
+            acts += self.aBtn('start', 'Mulai', 'Mulai pelaksanaan program kerja di lapangan');
+          }
+          if (d.can_lpj) {
+            acts += self.aBtn('lpj', 'Kirim LPJ', 'Serahkan Laporan Pertanggungjawaban (LPJ)');
+          }
           if (!acts) acts = '<span class="text-xs text-gray-300">—</span>';
 
           return '<tr data-id="' + d.id + '">' +
@@ -1656,6 +1724,8 @@
               else if (act === 'submit') self.submissionAjukan(item);
               else if (act === 'approve') self.submissionApprove(item);
               else if (act === 'reject') self.submissionReject(item);
+              else if (act === 'start') self.submissionStart(item);
+              else if (act === 'lpj') self.submissionLPJForm(item);
             });
           });
         });
@@ -1675,6 +1745,60 @@
       var self = this;
       var u = this.state.user;
       var canApprove = ['SUPERADMIN', 'KETUA'].indexOf(u.role) !== -1;
+
+      var lifecycleSteps = [
+        { k: 'DRAFT', l: 'Draf', icon: '📝' },
+        { k: 'AJUKAN', l: 'Pengajuan', icon: '📤' },
+        { k: 'DISETUJUI', l: 'Disetujui', icon: '✅' },
+        { k: 'PELAKSANAAN', l: 'Pelaksanaan', icon: '🚀' },
+        { k: 'LPJ_SELESAI', l: 'LPJ Selesai', icon: '🏆' }
+      ];
+      var stepRank = { DRAFT: 0, AJUKAN: 1, DISETUJUI: 2, PELAKSANAAN: 3, LPJ_SELESAI: 4 };
+      var currentRank = stepRank[d.status] !== undefined ? stepRank[d.status] : (d.status === 'DITOLAK' ? -1 : 0);
+
+      var stepperHtml = '';
+      if (d.status === 'DITOLAK') {
+        stepperHtml = '<div class="p-3.5 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-800 text-xs mb-5 font-semibold">' +
+          '<span class="text-xl">❌</span> <div><div>Usulan Ditolak / Perlu Perbaikan</div><div class="text-[11px] text-red-600 font-normal">Silakan perbaiki poin-poin yang diminta oleh Ketua DPW.</div></div>' +
+        '</div>';
+      } else {
+        stepperHtml = '<div class="mb-5 bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">' +
+          '<div class="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider mb-3">Siklus Program Kerja (5 Tahap)</div>' +
+          '<div class="grid grid-cols-5 gap-1.5 text-center">' +
+            lifecycleSteps.map(function (st, idx) {
+              var isPassed = idx < currentRank;
+              var isCurrent = idx === currentRank;
+              var circleCls = isPassed ? 'bg-emerald-600 text-white shadow-xs' :
+                isCurrent ? 'bg-emerald-500 text-white ring-4 ring-emerald-200 shadow-sm' :
+                'bg-gray-100 text-gray-400';
+              var textCls = (isPassed || isCurrent) ? 'font-bold text-gray-800' : 'text-gray-400';
+              return '<div class="flex flex-col items-center">' +
+                '<div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold mb-1.5 transition ' + circleCls + '">' +
+                  (isPassed ? '✓' : st.icon) +
+                '</div>' +
+                '<div class="text-[10px] leading-tight ' + textCls + '">' + st.l + '</div>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+        '</div>';
+      }
+
+      var lpjHtml = (d.status === 'LPJ_SELESAI' || d.lpj_url) ?
+        '<div class="mt-5 p-4 bg-teal-50/90 border border-teal-200 rounded-2xl">' +
+          '<div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-teal-100">' +
+            '<div class="flex items-center gap-2">' +
+              '<span class="text-lg">📋</span>' +
+              '<span class="text-xs font-bold text-teal-950 uppercase tracking-wide">Laporan Pertanggungjawaban (LPJ)</span>' +
+            '</div>' +
+            '<span class="badge badge-LPJ_SELESAI">Selesai Akuntabel</span>' +
+          '</div>' +
+          '<div class="grid sm:grid-cols-2 gap-2 text-xs mb-3">' +
+            '<div><span class="text-gray-500">Estimasi Awal:</span> <div class="font-bold text-gray-800">' + Auth.esc(d.budget_label) + '</div></div>' +
+            '<div><span class="text-gray-500">Realisasi Anggaran:</span> <div class="font-bold text-teal-700">' + Auth.esc(d.realisasi_label || ('Rp ' + Number(d.realisasi_anggaran || 0).toLocaleString('id-ID'))) + '</div></div>' +
+          '</div>' +
+          (d.lpj_notes ? '<div class="text-xs text-gray-700 bg-white p-3 rounded-xl border border-teal-100 mb-3 leading-relaxed"><strong class="text-gray-900">Catatan Pelaksanaan:</strong> ' + Auth.esc(d.lpj_notes) + '</div>' : '') +
+          (d.lpj_url ? '<a href="' + Auth.esc(d.lpj_url) + '" target="_blank" rel="noopener noreferrer" class="btn text-xs bg-teal-700 hover:bg-teal-800 text-white px-4 py-2.5 rounded-xl font-bold shadow-sm inline-flex items-center gap-1.5 w-full justify-center transition">Buka Berkas LPJ di Google Drive ↗</a>' : '') +
+        '</div>' : '';
 
       var metaRows = [
         ['Tracking ID', d.tracking_id, 'mono'],
@@ -1703,6 +1827,7 @@
             '</button>' +
           '</div>' +
         '</div>' +
+        stepperHtml +
         '<div class="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-6 border border-emerald-100 mb-5">' +
           '<div class="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">' + Auth.esc(d.division_label || d.division) + '</div>' +
           '<h3 class="text-xl font-extrabold text-gray-900 leading-snug">' + Auth.esc(d.program_title) + '</h3>' +
@@ -1717,7 +1842,8 @@
             Auth.esc(d.description) +
           '</div>' +
         '</div>' +
-        '<div class="space-y-1 divide-y divide-gray-100">' +
+        lpjHtml +
+        '<div class="space-y-1 divide-y divide-gray-100 mt-4">' +
           metaRows.map(function (r) {
             var val = r[2] === 'badge' ? self.badge(d.status, d.status_label)
               : r[2] === 'mono' ? '<span class="font-mono text-xs text-gray-700 font-semibold">' + Auth.esc(r[1]) + '</span>'
@@ -1736,6 +1862,8 @@
           (canApprove && d.status === 'AJUKAN' ?
             '<button type="button" id="subDetailApprove" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Setujui Program</button>' +
             '<button type="button" id="subDetailReject" class="btn btn-danger px-4 py-2.5 rounded-xl font-bold text-xs">Tolak</button>' : '') +
+          (d.can_start ? '<button type="button" id="subDetailStart" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">🚀 Mulai Pelaksanaan</button>' : '') +
+          (d.can_lpj ? '<button type="button" id="subDetailLPJ" class="btn bg-teal-700 hover:bg-teal-800 text-white flex-1 py-2.5 rounded-xl font-bold text-xs">📋 Serahkan LPJ</button>' : '') +
         '</div>' +
       '</div>';
 
@@ -1777,6 +1905,22 @@
         btnReject.addEventListener('click', function () {
           self.closeModal();
           self.submissionReject(d);
+        });
+      }
+
+      var btnStart = document.getElementById('subDetailStart');
+      if (btnStart) {
+        btnStart.addEventListener('click', function () {
+          self.closeModal();
+          self.submissionStart(d);
+        });
+      }
+
+      var btnLPJ = document.getElementById('subDetailLPJ');
+      if (btnLPJ) {
+        btnLPJ.addEventListener('click', function () {
+          self.closeModal();
+          self.submissionLPJForm(d);
         });
       }
 
@@ -1900,6 +2044,90 @@
       this.rejectModal('Tolak Program',
         'Usulan <b>' + Auth.esc(item.program_title) + '</b> akan ditolak dengan alasan di bawah ini.',
         'rejectSubmission', item.id, function () { self.refreshDivisi(); });
+    },
+
+    submissionStart: function (item) {
+      var self = this;
+      this.confirm('Mulai Pelaksanaan Program',
+        'Program <b>' + Auth.esc(item.program_title) + '</b> (' + Auth.esc(item.tracking_id) + ') dari divisi <b>' +
+        Auth.esc(item.division_label) + '</b> akan masuk tahap <b>Pelaksanaan</b> di lapangan. Lanjutkan?', function () {
+        Auth.fetch('startExecution', { id: item.id }).then(function () {
+          self.toast('Program kerja resmi masuk tahap Pelaksanaan!', 'success', '📲 Bagikan WA', function () {
+            self.openWhatsApp(self.buildDivisiWaText(Object.assign({}, item, {
+              status: 'PELAKSANAAN',
+              status_label: 'Pelaksanaan',
+              started_at: new Date().toISOString()
+            })));
+          });
+          self.refreshDivisi();
+        }).catch(function () {});
+      });
+    },
+
+    /** Modal serahkan Laporan Pertanggungjawaban (LPJ). */
+    submissionLPJForm: function (item) {
+      var self = this;
+      var defaultRealisasi = item.realisasi_anggaran || item.budget_estimate || '';
+
+      this.openModal(
+        '<div class="p-6">' +
+          '<div class="flex items-center justify-between mb-4">' +
+            '<div>' +
+              '<h3 class="text-lg font-extrabold text-teal-900">Serahkan LPJ Program Kerja</h3>' +
+              '<p class="text-xs text-gray-500 font-mono">' + Auth.esc(item.tracking_id) + ' — ' + Auth.esc(item.program_title) + '</p>' +
+            '</div>' +
+            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
+            '</button>' +
+          '</div>' +
+          '<div class="bg-teal-50/70 border border-teal-100 rounded-2xl p-4 mb-4 text-xs text-teal-900">' +
+            '<div class="flex justify-between items-center mb-1 font-semibold">' +
+              '<span>Divisi: ' + Auth.esc(item.division_label) + '</span>' +
+              '<span>Estimasi Awal: ' + Auth.esc(item.budget_label) + '</span>' +
+            '</div>' +
+            '<p class="text-gray-600">Setelah LPJ diserahkan, status program menjadi <strong>LPJ Selesai</strong> secara akuntabel.</p>' +
+          '</div>' +
+          '<form id="lpjFormEl" class="space-y-4">' +
+            '<div><label class="lbl">Tautan Dokumen LPJ (Google Drive / Cloud) <span class="text-red-500">*</span></label>' +
+              '<input id="lpjUrl" type="url" required class="field" placeholder="https://drive.google.com/drive/folders/..." value="' + Auth.esc(item.lpj_url || '') + '" />' +
+              '<p class="text-[11px] text-gray-400 mt-1">Lampirkan tautan folder/file dokumen LPJ, laporan kegiatan, &amp; bukti pengeluaran di Google Drive.</p></div>' +
+            '<div><label class="lbl">Realisasi Anggaran Akhir (Rp) <span class="text-red-500">*</span></label>' +
+              '<input id="lpjRealisasi" type="number" min="0" step="1" required class="field" placeholder="cth: 4800000" value="' + defaultRealisasi + '" /></div>' +
+            '<div><label class="lbl">Catatan &amp; Evaluasi Pelaksanaan</label>' +
+              '<textarea id="lpjNotes" rows="3" class="field" placeholder="Catatan keberhasilan, kendala, atau evaluasi kegiatan…">' + Auth.esc(item.lpj_notes || '') + '</textarea></div>' +
+            '<div class="flex gap-3 pt-2">' +
+              '<button type="submit" class="btn bg-teal-700 hover:bg-teal-800 text-white flex-1 py-3 rounded-xl font-bold shadow-sm">Kirim LPJ Selesai</button>' +
+              '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
+            '</div>' +
+          '</form>' +
+        '</div>');
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+        b.addEventListener('click', function () { self.closeModal(); });
+      });
+
+      document.getElementById('lpjFormEl').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var payload = {
+          id: item.id,
+          lpj_url: document.getElementById('lpjUrl').value.trim(),
+          realisasi_anggaran: Number(document.getElementById('lpjRealisasi').value) || 0,
+          lpj_notes: document.getElementById('lpjNotes').value.trim()
+        };
+        Auth.fetch('submitLPJ', payload).then(function () {
+          self.closeModal();
+          self.toast('LPJ berhasil diserahkan. Siklus program selesai!', 'success', '📲 Bagikan WA', function () {
+            self.openWhatsApp(self.buildDivisiWaText(Object.assign({}, item, {
+              status: 'LPJ_SELESAI',
+              status_label: 'LPJ Selesai',
+              realisasi_anggaran: payload.realisasi_anggaran,
+              realisasi_label: 'Rp ' + payload.realisasi_anggaran.toLocaleString('id-ID'),
+              lpj_url: payload.lpj_url
+            })));
+          });
+          self.refreshDivisi();
+        }).catch(function () {});
+      });
     },
 
     // ---------------------------------------------------------------

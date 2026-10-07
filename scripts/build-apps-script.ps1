@@ -35,10 +35,10 @@ $fnNames = @(
   'uuid','audit','formatRupiah','formatTanggal','toRoman','sanitizeUser','getDashboard',
   'getListSurat','createSurat','updateSurat','submitSurat','approveSurat',
   'rejectSurat','verifySurat','getPublishedSurat',
-  'getSaldo','getListKeuangan','createVoucher','verifyVoucherBendahara',
+  'getSaldo','getListKeuangan','createVoucher','updateVoucherReceipt','verifyVoucherBendahara',
   'verifyVoucherKetum','rejectVoucher','buildVoucherNumber',
   'getListDivisi','createSubmission','updateSubmission','ajukanSubmission',
-  'approveSubmission','rejectSubmission','buildTrackingId',
+  'approveSubmission','rejectSubmission','startExecution','submitLPJ','buildTrackingId',
   'siapkanFolderPdf_','siapkanTemplateSurat_','generateTemplateSurat',
   'getLogoBlob_','getStempelBlob_','urlVerifikasiSurat_','parSurat_'
 )

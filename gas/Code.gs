@@ -89,6 +89,7 @@ var ROUTES = {
   getListKeuangan:     { auth: true,  roles: KEUANGAN_READ_ROLES, handler: Keuangan.getListKeuangan },
   getSaldo:            { auth: true,  roles: KEUANGAN_READ_ROLES, handler: Keuangan.getSaldo },
   createVoucher:       { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.BENDAHARA], handler: Keuangan.createVoucher },
+  updateVoucherReceipt:{ auth: true,  roles: [ROLES.SUPERADMIN, ROLES.BENDAHARA], handler: Keuangan.updateVoucherReceipt },
   verifyVoucherBendahara: { auth: true, roles: [ROLES.SUPERADMIN, ROLES.BENDAHARA], handler: Keuangan.verifyVoucherBendahara },
   verifyVoucherKetum:  { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Keuangan.verifyVoucherKetum },
   rejectVoucher:       { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Keuangan.rejectVoucher },
@@ -99,7 +100,9 @@ var ROUTES = {
   updateSubmission:    { auth: true,  roles: DIVISI_SUBMIT_ROLES, handler: Divisi.updateSubmission },
   ajukanSubmission:    { auth: true,  roles: DIVISI_SUBMIT_ROLES, handler: Divisi.ajukanSubmission },
   approveSubmission:   { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Divisi.approveSubmission },
-  rejectSubmission:    { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Divisi.rejectSubmission }
+  rejectSubmission:    { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Divisi.rejectSubmission },
+  startExecution:      { auth: true,  roles: DIVISI_SUBMIT_ROLES, handler: Divisi.startExecution },
+  submitLPJ:           { auth: true,  roles: DIVISI_SUBMIT_ROLES, handler: Divisi.submitLPJ }
 };
 
 // ==========================================================================

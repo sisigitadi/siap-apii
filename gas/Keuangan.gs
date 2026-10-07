@@ -91,6 +91,7 @@ function getListKeuangan(ctx) {
       transaction_date: k.transaction_date,
       tanggal_label: formatTanggal(k.transaction_date),
       status: k.status, status_label: STATUS_LABELS[k.status] || k.status,
+      receipt_url: k.receipt_url || '',
       verified_by_bendahara: k.verified_by_bendahara,
       verified_by_bendahara_at: k.verified_by_bendahara_at,
       verified_by_ketum: k.verified_by_ketum, verified_by_ketum_at: k.verified_by_ketum_at,
@@ -105,7 +106,7 @@ function getListKeuangan(ctx) {
 /**
  * createVoucher: buat voucher baru berstatus PENDING. SUPERADMIN, BENDAHARA.
  * @param {object} ctx.payload { type, account, amount, category, description,
- *                                transaction_date }
+ *                                transaction_date, receipt_url }
  */
 function createVoucher(ctx) {
   var p = ctx.payload || {};
@@ -129,6 +130,7 @@ function createVoucher(ctx) {
     type: p.type, account: p.account, amount: amount,
     category: p.category || '', description: String(p.description).trim(),
     transaction_date: tanggal, status: 'PENDING',
+    receipt_url: String(p.receipt_url || '').trim(),
     verified_by_bendahara: '', verified_by_bendahara_at: '',
     verified_by_ketum: '', verified_by_ketum_at: '',
     rejection_notes: '', created_by: ctx.user.username,
@@ -244,4 +246,20 @@ function rejectVoucher(ctx) {
     (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/keuangan');
 
   return { ok: true, data: null, message: 'Voucher ' + k.voucher_number + ' telah ditolak.' };
+}
+
+/**
+ * updateVoucherReceipt: perbarui tautan bukti transaksi / nota di Google Drive.
+ * SUPERADMIN, BENDAHARA, atau pembuat voucher.
+ */
+function updateVoucherReceipt(ctx) {
+  var p = ctx.payload || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID voucher wajib diisi.' };
+  var k = Database.findOne(TABS.KEUANGAN, { id: p.id });
+  if (!k) return { ok: false, data: null, message: 'Voucher tidak ditemukan.' };
+  var receiptUrl = String(p.receipt_url || '').trim();
+  Database.updateRow(TABS.KEUANGAN, k._row, { receipt_url: receiptUrl });
+  audit(ctx.user.username, 'KEU_UPDATE_RECEIPT', 'Voucher ' + k.voucher_number);
+  return { ok: true, data: { receipt_url: receiptUrl },
+    message: 'Bukti transaksi berhasil diperbarui.' };
 }

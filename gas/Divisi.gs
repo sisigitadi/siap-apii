@@ -72,8 +72,16 @@ function getListDivisi(ctx) {
       submitted_by: d.submitted_by, submitted_by_name: d.submitted_by_name,
       submitted_at: d.submitted_at, reviewed_by: d.reviewed_by,
       reviewed_at: d.reviewed_at, approval_notes: d.approval_notes,
+      started_at: d.started_at || '',
+      lpj_url: d.lpj_url || '',
+      lpj_notes: d.lpj_notes || '',
+      realisasi_anggaran: Number(d.realisasi_anggaran) || 0,
+      realisasi_label: formatRupiah(d.realisasi_anggaran || 0),
+      lpj_submitted_at: d.lpj_submitted_at || '',
       can_edit: d.status === 'DRAFT' && (isDivisionRole || user.role === ROLES.SUPERADMIN),
-      can_submit: d.status === 'DRAFT' && (isDivisionRole || user.role === ROLES.SUPERADMIN)
+      can_submit: d.status === 'DRAFT' && (isDivisionRole || user.role === ROLES.SUPERADMIN),
+      can_start: d.status === 'DISETUJUI' && (isDivisionRole || user.role === ROLES.SUPERADMIN),
+      can_lpj: (d.status === 'PELAKSANAAN' || d.status === 'DISETUJUI') && (isDivisionRole || user.role === ROLES.SUPERADMIN)
     };
   });
 
@@ -126,6 +134,7 @@ function createSubmission(ctx) {
     status: 'DRAFT',
     submitted_by: user.username, submitted_by_name: user.full_name || user.username,
     submitted_at: '', reviewed_by: '', reviewed_at: '', approval_notes: '',
+    started_at: '', lpj_url: '', lpj_notes: '', realisasi_anggaran: 0, lpj_submitted_at: '',
     created_at: new Date().toISOString()
   });
 
@@ -266,4 +275,81 @@ function rejectSubmission(ctx) {
     (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/divisi');
 
   return { ok: true, data: null, message: 'Usulan ' + d.tracking_id + ' ditolak.' };
+}
+
+/**
+ * startExecution: transisi DISETUJUI -> PELAKSANAAN.
+ * Dilakukan oleh Divisi terkait atau SUPERADMIN ketika program mulai berjalan.
+ */
+function startExecution(ctx) {
+  var p = ctx.payload || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID usulan wajib diisi.' };
+  var d = assertOwnDivision_(ctx, p.id, false);
+
+  if (d.status !== 'DISETUJUI') {
+    return { ok: false, data: null,
+      message: 'Hanya usulan berstatus Disetujui yang dapat dimulai pelaksanaannya (status: ' +
+               (STATUS_LABELS[d.status] || d.status) + ').' };
+  }
+
+  Database.updateRow(TABS.DIVISI, d._row, {
+    status: 'PELAKSANAAN',
+    started_at: new Date().toISOString()
+  });
+  audit(ctx.user.username, 'DIVISI_MULAI', 'Usulan ' + d.tracking_id);
+
+  return { ok: true, data: null,
+    message: 'Program ' + d.tracking_id + ' telah masuk tahap Pelaksanaan.' };
+}
+
+/**
+ * submitLPJ: serahkan Laporan Pertanggungjawaban (LPJ).
+ * Status berubah menjadi LPJ_SELESAI.
+ * Menyimpan lpj_url (tautan Google Drive / dokumen), lpj_notes, dan realisasi_anggaran.
+ */
+function submitLPJ(ctx) {
+  var p = ctx.payload || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID usulan wajib diisi.' };
+  var d = assertOwnDivision_(ctx, p.id, false);
+
+  if (d.status !== 'PELAKSANAAN' && d.status !== 'DISETUJUI') {
+    return { ok: false, data: null,
+      message: 'Hanya usulan berstatus Pelaksanaan atau Disetujui yang dapat menyerahkan LPJ (status: ' +
+               (STATUS_LABELS[d.status] || d.status) + ').' };
+  }
+
+  var lpjUrl = String(p.lpj_url || '').trim();
+  if (!lpjUrl) {
+    return { ok: false, data: null, message: 'Tautan dokumen LPJ (Google Drive / Cloud) wajib diisi.' };
+  }
+
+  var realisasi = Number(p.realisasi_anggaran);
+  if (isNaN(realisasi) || realisasi < 0) {
+    realisasi = Number(d.budget_estimate) || 0;
+  }
+
+  var lpjNotes = String(p.lpj_notes || '').trim();
+
+  Database.updateRow(TABS.DIVISI, d._row, {
+    status: 'LPJ_SELESAI',
+    lpj_url: lpjUrl,
+    lpj_notes: lpjNotes,
+    realisasi_anggaran: realisasi,
+    lpj_submitted_at: new Date().toISOString()
+  });
+  audit(ctx.user.username, 'DIVISI_LPJ', 'LPJ ' + d.tracking_id + ' (Realisasi: ' + formatRupiah(realisasi) + ')');
+
+  // Notifikasi email ke Ketua DPW
+  kirimNotifikasiKeRole_(ROLES.KETUA,
+    'LPJ Program Kerja Selesai: ' + d.tracking_id,
+    'Laporan Pertanggungjawaban (LPJ) Program Telah Diserahkan',
+    'Divisi <strong>' + (DIVISION_LABELS[d.division] || d.division) + '</strong> telah menyelesaikan pelaksanaan program <strong>' + d.program_title + '</strong> (ID: <code>' + d.tracking_id + '</code>) dan menyerahkan LPJ.<br/>' +
+    '<strong>Realisasi Anggaran:</strong> ' + formatRupiah(realisasi) + ' (Estimasi awal: ' + formatRupiah(d.budget_estimate) + ')<br/>' +
+    (lpjNotes ? '<strong>Catatan LPJ:</strong> ' + Auth.esc(lpjNotes) + '<br/>' : '') +
+    '<strong>Tautan LPJ:</strong> <a href="' + lpjUrl + '" target="_blank">' + lpjUrl + '</a>',
+    'Tinjau Laporan di Portal',
+    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/divisi');
+
+  return { ok: true, data: null,
+    message: 'LPJ Program ' + d.tracking_id + ' berhasil diserahkan. Siklus program selesai!' };
 }

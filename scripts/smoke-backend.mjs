@@ -30,10 +30,10 @@ const expectedRoutes = [
   'getDashboard',
   'getListSurat', 'createSurat', 'updateSurat', 'submitSurat', 'approveSurat', 'rejectSurat',
   'verifySurat', 'getPublishedSurat',
-  'getListKeuangan', 'getSaldo', 'createVoucher', 'verifyVoucherBendahara',
+  'getListKeuangan', 'getSaldo', 'createVoucher', 'updateVoucherReceipt', 'verifyVoucherBendahara',
   'verifyVoucherKetum', 'rejectVoucher',
   'getListDivisi', 'createSubmission', 'updateSubmission', 'ajukanSubmission',
-  'approveSubmission', 'rejectSubmission',
+  'approveSubmission', 'rejectSubmission', 'startExecution', 'submitLPJ',
 ];
 for (const r of expectedRoutes) {
   const re = new RegExp(`\\b${r}:\\s*\\{\\s*auth:`);

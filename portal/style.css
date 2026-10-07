@@ -47,6 +47,8 @@ body { -webkit-font-smoothing: antialiased; }
 .badge-PUBLISHED, .badge-APPROVED,
 .badge-DISETUJUI                  { background: #D1FAE5; color: #047857; }
 .badge-REJECTED, .badge-DITOLAK   { background: #FEE2E2; color: #B91C1C; }
+.badge-PELAKSANAAN                { background: #EDE9FE; color: #6D28D9; }
+.badge-LPJ_SELESAI                { background: #CCFBF1; color: #0F766E; }
 
 /* ---- Tabel ---- */
 .tbl { border-collapse: separate; border-spacing: 0; width: 100%; }

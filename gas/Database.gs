@@ -32,11 +32,11 @@ SCHEMA[TABS.SURAT] = ['id', 'letter_number', 'title', 'letter_type', 'content', 
 SCHEMA[TABS.KEUANGAN] = ['id', 'voucher_number', 'type', 'account', 'amount', 'category',
   'description', 'transaction_date', 'status', 'verified_by_bendahara',
   'verified_by_bendahara_at', 'verified_by_ketum', 'verified_by_ketum_at',
-  'rejection_notes', 'created_by', 'created_at'];
+  'rejection_notes', 'created_by', 'created_at', 'receipt_url'];
 SCHEMA[TABS.DIVISI] = ['id', 'tracking_id', 'division', 'program_title', 'description',
   'budget_estimate', 'target_audience', 'execution_date', 'status', 'submitted_by',
   'submitted_by_name', 'submitted_at', 'reviewed_by', 'reviewed_at', 'approval_notes',
-  'created_at'];
+  'created_at', 'started_at', 'lpj_url', 'lpj_notes', 'realisasi_anggaran', 'lpj_submitted_at'];
 SCHEMA[TABS.AUDIT] = ['timestamp', 'actor', 'action', 'detail'];
 SCHEMA[TABS.SEQUENCES] = ['key', 'value'];
 
@@ -58,6 +58,16 @@ function initSchema() {
       sheet.getRange(1, 1, 1, SCHEMA[tab].length)
         .setFontWeight('bold')
         .setBackground('#E6F4EC');
+    } else {
+      // Auto-migrate: tambahkan kolom baru jika belum ada di header baris 1
+      var lastCol = sheet.getLastColumn();
+      var currentHeaders = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+      SCHEMA[tab].forEach(function(col) {
+        if (currentHeaders.indexOf(col) === -1) {
+          lastCol++;
+          sheet.getRange(1, lastCol).setValue(col).setFontWeight('bold').setBackground('#E6F4EC');
+        }
+      });
     }
   }
   return true;
