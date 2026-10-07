@@ -31,7 +31,7 @@ SCHEMA[TABS.SESSIONS] = ['token', 'user_id', 'username', 'role', 'division',
   'created_at', 'expired_at'];
 SCHEMA[TABS.SURAT] = ['id', 'letter_number', 'title', 'letter_type', 'content', 'status',
   'tanggal_surat', 'created_by', 'created_by_name', 'created_at', 'submitted_at',
-  'published_at', 'approved_by', 'rejection_notes', 'sha256_hash', 'pdf_url', 'qr_verify_url'];
+  'published_at', 'approved_by', 'rejection_notes', 'sha256_hash', 'pdf_url', 'qr_verify_url', 'attachment_url'];
 SCHEMA[TABS.KEUANGAN] = ['id', 'voucher_number', 'type', 'account', 'amount', 'category',
   'description', 'transaction_date', 'status', 'verified_by_bendahara',
   'verified_by_bendahara_at', 'verified_by_ketum', 'verified_by_ketum_at',
@@ -133,18 +133,34 @@ function seedDefaultSettings_() {
     setIfMissing('letter_kop', {
       mode: 'text',
       custom_kop_image: '',
+      custom_footer_image: '',
+      footer_mode: 'text',
+      footer_text: 'Yayasan Apologet Islam Indonesia (APII) • Dewan Pimpinan Wilayah Jabodetabek',
+      stempel_image: '',
+      ttd_ketua_image: '',
+      ttd_sekretaris_image: '',
+      stempel_scale: 95,
+      stempel_overlap: 30,
       org_name: 'DEWAN PIMPINAN WILAYAH APOLOGET ISLAM INDONESIA (APII) JABODETABEK',
       address: 'DKI Jakarta & Sekitarnya, Indonesia',
       phone: '0812-8888-2026',
       email: 'sekretariat@apii.sigitadi.id',
       website: 'https://apii.sigitadi.id'
-    }, 'Pengaturan KOP surat dan logo');
+    }, 'Pengaturan KOP surat, stempel, dan tanda tangan digital');
+
+    setIfMissing('finance_config', {
+      voucher_pattern: '{urut}/KEU-APII/JABO/{bulanRomawi}/{tahun}',
+      income_categories: ['Infaq & Sedekah', 'Zakat Maal', 'Wakaf Tunai', 'Donasi Dakwah Operasional', 'Usaha Mandiri', 'Lain-lain'],
+      expense_categories: ['Program Dakwah & Kajian', 'Bantuan Sosial & Santunan', 'Kesekretariatan & ATK', 'Advokasi Hukum & Keumatan', 'Media IT & Publikasi', 'Operasional & Utilitas Kantor', 'Lain-lain']
+    }, 'Pengaturan operasional dan kategori kas keuangan');
 
     setIfMissing('public_config', {
       show_verification: true,
       show_finance: true,
       show_programs: true,
       show_accounts: true,
+      show_registration: true,
+      announcement_banner_active: true,
       announcement_banner: 'Selamat datang di Portal Resmi Yayasan APII DPW Jabodetabek.'
     }, 'Pengaturan visibilitas portal publik');
 
@@ -154,9 +170,11 @@ function seedDefaultSettings_() {
     }, 'Pengaturan penyimpanan Google Drive');
 
     setIfMissing('registration_config', {
+      status: 'BUKA',
       is_open: true,
+      quota_limit: 0,
       closed_title: 'Pendaftaran Anggota Sementara Ditutup',
-      closed_message: 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
+      closed_message: 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses seleksi berkas. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
       instructions: 'Silakan isi formulir pendaftaran anggota Yayasan APII DPW Jabodetabek dengan data yang valid sesuai identitas KTP resmi.',
       require_ktp: true,
       require_selfie: true,
@@ -175,6 +193,7 @@ function seedDefaultSettings_() {
       contact_wa: '081288882026',
       wa_template: 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
       notify_email: 'sekretariat@apii.sigitadi.id',
+      notify_pendaftar_email: true,
       agreement_text: 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
     }, 'Pengaturan pendaftaran anggota dan rekrutmen');
   } catch (e) {

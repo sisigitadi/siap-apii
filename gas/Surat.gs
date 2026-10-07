@@ -129,6 +129,7 @@ function getListSurat(ctx) {
       published_at: s.published_at, approved_by: s.approved_by,
       rejection_notes: s.rejection_notes,
       content: s.content || '',
+      attachment_url: s.attachment_url || '',
       pdf_url: s.status === 'PUBLISHED' ? s.pdf_url : '',
       qr_verify_url: s.status === 'PUBLISHED' ? s.qr_verify_url : ''
     };
@@ -141,7 +142,8 @@ function getListSurat(ctx) {
 /**
  * createSurat: buat draf surat. SUPERADMIN, SEKRETARIS.
  * @param {object} ctx.payload { title, letter_type, content{menimbang,mengingat,memutuskan},
- *                                tanggal_surat?, letter_number?, custom_type_code?, custom_type_label? }
+ *                                tanggal_surat?, letter_number?, custom_type_code?, custom_type_label?,
+ *                                attachment_base64?, attachment_name? }
  */
 function createSurat(ctx) {
   var p = ctx.payload || {};
@@ -184,6 +186,13 @@ function createSurat(ctx) {
     return { ok: false, data: null, message: 'Nomor surat sudah digunakan.' };
   }
 
+  // Upload berkas lampiran jika dilampirkan
+  var attachmentUrl = String(p.attachment_url || '').trim();
+  if (p.attachment_base64) {
+    var safeName = (p.attachment_name || ('Lampiran_' + letterNumber.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf'));
+    attachmentUrl = saveUploadToDrive_(p.attachment_base64, safeName, 'Surat_Lampiran') || attachmentUrl;
+  }
+
   var now = new Date().toISOString();
   var created = Database.insert(TABS.SURAT, {
     id: uuid(), letter_number: letterNumber, title: p.title,
@@ -191,10 +200,11 @@ function createSurat(ctx) {
     tanggal_surat: tanggal,
     created_by: ctx.user.username, created_by_name: ctx.user.full_name || ctx.user.username,
     created_at: now, submitted_at: '', published_at: '', approved_by: '',
-    rejection_notes: '', sha256_hash: '', pdf_url: '', qr_verify_url: ''
+    rejection_notes: '', sha256_hash: '', pdf_url: '', qr_verify_url: '',
+    attachment_url: attachmentUrl
   });
 
-  return { ok: true, data: { id: created.id, letter_number: created.letter_number },
+  return { ok: true, data: { id: created.id, letter_number: created.letter_number, attachment_url: attachmentUrl },
     message: 'Draf surat berhasil dibuat dengan nomor ' + created.letter_number + '.' };
 }
 
@@ -228,6 +238,14 @@ function updateSurat(ctx) {
       values.letter_number = ln;
     }
   }
+  if (p.attachment_base64) {
+    var sNumber = values.letter_number || s.letter_number;
+    var safeName = (p.attachment_name || ('Lampiran_' + sNumber.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf'));
+    values.attachment_url = saveUploadToDrive_(p.attachment_base64, safeName, 'Surat_Lampiran');
+  } else if (p.attachment_url !== undefined) {
+    values.attachment_url = p.attachment_url;
+  }
+
   if (!Object.keys(values).length) {
     return { ok: false, data: null, message: 'Tidak ada perubahan yang dikirim.' };
   }

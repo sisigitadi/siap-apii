@@ -433,6 +433,15 @@ function getSettings(ctx) {
   var kop = settings.letter_kop || {};
   settings.kop_mode = settings.kop_mode || kop.mode || 'text';
   settings.kop_image_base64 = settings.kop_image_base64 || kop.custom_kop_image || '';
+  settings.custom_footer_image = settings.custom_footer_image || kop.custom_footer_image || '';
+  settings.footer_mode = settings.footer_mode || kop.footer_mode || 'text';
+  settings.footer_text = settings.footer_text || kop.footer_text || 'Yayasan Apologet Islam Indonesia (APII) • Dewan Pimpinan Wilayah Jabodetabek';
+  settings.stempel_image = settings.stempel_image || kop.stempel_image || '';
+  settings.ttd_ketua_image = settings.ttd_ketua_image || kop.ttd_ketua_image || '';
+  settings.ttd_sekretaris_image = settings.ttd_sekretaris_image || kop.ttd_sekretaris_image || '';
+  settings.stempel_scale = Number(settings.stempel_scale || kop.stempel_scale) || 95;
+  settings.stempel_overlap = Number(settings.stempel_overlap || kop.stempel_overlap) || 30;
+
   var numCfg = settings.letter_numbering || {};
   settings.letter_pattern = settings.letter_pattern || numCfg.pattern || '{urut}/{kode}/{org}/{bulanRomawi}/{tahun}';
   var pub = settings.public_config || {};
@@ -444,12 +453,27 @@ function getSettings(ctx) {
   settings.google_drive_folder_id = settings.google_drive_folder_id || drv.custom_folder_id || '';
   settings.auto_annual_subfolders = settings.auto_annual_subfolders !== undefined ? settings.auto_annual_subfolders : true;
 
+  // Konfigurasi Keuangan & Kategori Kas
+  var fin = settings.finance_config || {};
+  settings.finance_config = {
+    voucher_pattern: fin.voucher_pattern || '{urut}/KEU-APII/JABO/{bulanRomawi}/{tahun}',
+    income_categories: Array.isArray(fin.income_categories) ? fin.income_categories : [
+      'Infaq & Sedekah', 'Zakat Maal', 'Wakaf Tunai', 'Donasi Dakwah Operasional', 'Usaha Mandiri', 'Lain-lain'
+    ],
+    expense_categories: Array.isArray(fin.expense_categories) ? fin.expense_categories : [
+      'Program Dakwah & Kajian', 'Bantuan Sosial & Santunan', 'Kesekretariatan & ATK', 'Advokasi Hukum & Keumatan', 'Media IT & Publikasi', 'Operasional & Utilitas Kantor', 'Lain-lain'
+    ]
+  };
+
   // Konfigurasi Pendaftaran Anggota & Rekrutmen
   var regCfg = settings.registration_config || {};
+  var regStatusVal = regCfg.status || (regCfg.is_open !== false ? 'BUKA' : 'DITUTUP');
   settings.registration_config = {
-    is_open: regCfg.is_open !== false,
+    status: regStatusVal,
+    is_open: regStatusVal === 'BUKA',
+    quota_limit: Number(regCfg.quota_limit) || 0,
     closed_title: regCfg.closed_title || 'Pendaftaran Anggota Sementara Ditutup',
-    closed_message: regCfg.closed_message || 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
+    closed_message: regCfg.closed_message || 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses seleksi berkas. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
     instructions: regCfg.instructions || 'Silakan isi formulir pendaftaran anggota Yayasan APII DPW Jabodetabek dengan data yang valid sesuai identitas KTP resmi.',
     require_ktp: regCfg.require_ktp !== false,
     require_selfie: regCfg.require_selfie !== false,
@@ -462,11 +486,14 @@ function getSettings(ctx) {
     contact_wa: regCfg.contact_wa || '081288882026',
     wa_template: regCfg.wa_template || 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
     notify_email: regCfg.notify_email || 'sekretariat@apii.sigitadi.id',
+    notify_pendaftar_email: regCfg.notify_pendaftar_email !== false,
     agreement_text: regCfg.agreement_text || 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
   };
 
   // Flattened aliases untuk kemudahan akses form
+  settings.registration_status = settings.registration_config.status;
   settings.registration_is_open = settings.registration_config.is_open;
+  settings.registration_quota_limit = settings.registration_config.quota_limit;
   settings.registration_closed_title = settings.registration_config.closed_title;
   settings.registration_closed_message = settings.registration_config.closed_message;
   settings.registration_instructions = settings.registration_config.instructions;
@@ -478,6 +505,7 @@ function getSettings(ctx) {
   settings.registration_open_divisions = settings.registration_config.open_divisions;
   settings.registration_contact_wa = settings.registration_config.contact_wa;
   settings.registration_notify_email = settings.registration_config.notify_email;
+  settings.registration_notify_pendaftar_email = settings.registration_config.notify_pendaftar_email;
   settings.registration_wa_template = settings.registration_config.wa_template;
   settings.registration_agreement_text = settings.registration_config.agreement_text;
 
@@ -486,7 +514,7 @@ function getSettings(ctx) {
 
 /**
  * saveSettings: perbarui satu atau beberapa pengaturan.
- * SUPERADMIN.
+ * SUPERADMIN & KETUA.
  */
 function saveSettings(ctx) {
   var p = ctx.payload || {};
@@ -506,11 +534,14 @@ function saveSettings(ctx) {
 function getPublicSettings(ctx) {
   var pubConfig = getSettingValue_('public_config', {
     show_verification: true, show_finance: true, show_programs: true, show_accounts: true,
+    show_registration: true, announcement_banner_active: true,
     announcement_banner: 'Selamat datang di Portal Resmi Yayasan APII DPW Jabodetabek.'
   });
   var kop = getSettingValue_('letter_kop', {});
   var reg = getSettingValue_('registration_config', {
+    status: 'BUKA',
     is_open: true,
+    quota_limit: 0,
     closed_title: 'Pendaftaran Anggota Sementara Ditutup',
     closed_message: 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
     instructions: 'Silakan isi formulir pendaftaran anggota Yayasan APII DPW Jabodetabek dengan data yang valid sesuai identitas KTP resmi.',
@@ -528,8 +559,8 @@ function getPublicSettings(ctx) {
       config: pubConfig,
       registration: reg,
       kop: {
-        org_name: kop.org_name || 'YAYASAN APII DPW JABODETABEK',
-        address: kop.address || 'Jakarta, Indonesia',
+        org_name: kop.org_name || 'DEWAN PIMPINAN WILAYAH APOLOGET ISLAM INDONESIA (APII) JABODETABEK',
+        address: kop.address || 'DKI Jakarta & Sekitarnya, Indonesia',
         email: kop.email || 'sekretariat@apii.sigitadi.id',
         phone: kop.phone || '0812-8888-2026'
       }

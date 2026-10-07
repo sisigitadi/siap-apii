@@ -395,7 +395,29 @@
         var reg = d.registration || {};
         self.state.registration = reg;
 
-        // 1. Visibilitas Menu Pendaftaran Publik (RBAC)
+        // 1. Banner Pengumuman Resmi Portal Publik
+        var bannerBox = document.getElementById('announcementBannerContainer');
+        if (bannerBox) {
+          if (d.announcement_banner_active && d.announcement_banner) {
+            var bType = d.announcement_banner_type || 'info';
+            var bBg = 'bg-blue-600 text-white';
+            var bIcon = '📢';
+            if (bType === 'warning') {
+              bBg = 'bg-amber-600 text-white';
+              bIcon = '⚠️';
+            } else if (bType === 'success') {
+              bBg = 'bg-emerald-700 text-white';
+              bIcon = '🌟';
+            }
+            bannerBox.className = bBg + ' px-4 py-2.5 text-xs sm:text-sm font-bold text-center flex items-center justify-center gap-2 shadow-xs';
+            bannerBox.innerHTML = '<span>' + bIcon + '</span> <span>' + self.esc(d.announcement_banner) + '</span>';
+          } else {
+            bannerBox.className = 'hidden';
+            bannerBox.innerHTML = '';
+          }
+        }
+
+        // 2. Visibilitas Menu Pendaftaran Publik (RBAC)
         if (d.config && d.config.show_registration === false) {
           var pendaftarNav = document.querySelectorAll('a[href="#pendaftaran"]');
           for (var i = 0; i < pendaftarNav.length; i++) {
@@ -406,30 +428,51 @@
           return;
         }
 
-        // 2. Status Buka / Tutup Pendaftaran
+        // 3. Status Pendaftaran 4 Opsi (BUKA, DITUTUP, PENUH, SELEKSI)
         var form = document.getElementById('regMemberForm');
         var closedBox = document.getElementById('regClosedStateBox');
         var heroBadge = document.getElementById('heroRegBadge');
+        var rawStatus = reg.status || (reg.is_open === false ? 'DITUTUP' : 'BUKA');
 
-        if (reg.is_open === false) {
+        if (rawStatus === 'BUKA' && reg.is_open !== false) {
           if (heroBadge) {
-            heroBadge.textContent = 'PENDAFTARAN DITUTUP SEMENTARA';
-            heroBadge.className = 'absolute -top-4 -right-4 bg-amber-500 text-white text-xs font-black px-3.5 py-1.5 rounded-xl shadow-lg';
+            heroBadge.textContent = 'PENERIMAAN ANGGOTA BARU DIBUKA';
+            heroBadge.className = 'absolute -top-4 -right-4 bg-gold text-emerald-dark text-xs font-black px-3.5 py-1.5 rounded-xl shadow-lg';
           }
+          if (form) form.classList.remove('hidden');
+          if (closedBox) closedBox.classList.add('hidden');
+        } else {
           if (form) form.classList.add('hidden');
           if (closedBox) {
             closedBox.classList.remove('hidden');
             var cTitle = closedBox.querySelector('.closed-title');
             var cMsg = closedBox.querySelector('.closed-msg');
-            if (cTitle) cTitle.textContent = reg.closed_title || 'Pendaftaran Anggota Sementara Ditutup';
-            if (cMsg) cMsg.textContent = reg.closed_message || 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.';
+            var badgeText = 'PENDAFTARAN DITUTUP SEMENTARA';
+            var badgeClass = 'absolute -top-4 -right-4 bg-amber-500 text-white text-xs font-black px-3.5 py-1.5 rounded-xl shadow-lg';
+
+            if (rawStatus === 'PENUH') {
+              badgeText = 'KUOTA PENDAFTARAN PENUH';
+              badgeClass = 'absolute -top-4 -right-4 bg-red-600 text-white text-xs font-black px-3.5 py-1.5 rounded-xl shadow-lg';
+              if (cTitle) cTitle.textContent = reg.closed_title || 'Kuota Pendaftaran Telah Terpenuhi';
+              if (cMsg) cMsg.textContent = reg.closed_message || 'Batas kuota target penerimaan anggota baru DPW Jabodetabek telah terpenuhi. Pantau pembukaan gelombang berikutnya.';
+            } else if (rawStatus === 'SELEKSI') {
+              badgeText = 'TAHAP SELEKSI & VERIFIKASI';
+              badgeClass = 'absolute -top-4 -right-4 bg-blue-600 text-white text-xs font-black px-3.5 py-1.5 rounded-xl shadow-lg';
+              if (cTitle) cTitle.textContent = reg.closed_title || 'Tahap Seleksi & Verifikasi Berkas';
+              if (cMsg) cMsg.textContent = reg.closed_message || 'Saat ini panitia dan sekretariat sedang melakukan proses verifikasi serta seleksi administrasi berkas pendaftar.';
+            } else {
+              if (cTitle) cTitle.textContent = reg.closed_title || 'Pendaftaran Anggota Sementara Ditutup';
+              if (cMsg) cMsg.textContent = reg.closed_message || 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.';
+            }
+
+            if (heroBadge) {
+              heroBadge.textContent = badgeText;
+              heroBadge.className = badgeClass;
+            }
           }
-        } else {
-          if (form) form.classList.remove('hidden');
-          if (closedBox) closedBox.classList.add('hidden');
         }
 
-        // 3. Filter Pilihan Divisi yang Membuka Rekrutmen
+        // 4. Filter Pilihan Divisi yang Membuka Rekrutmen
         var selDiv = document.getElementById('regDivision');
         if (selDiv && Array.isArray(reg.open_divisions) && reg.open_divisions.length > 0) {
           var divisionsMap = {
@@ -449,7 +492,7 @@
           selDiv.innerHTML = optHtml;
         }
 
-        // 4. Petunjuk & Pengantar
+        // 5. Petunjuk & Pengantar
         if (reg.instructions) {
           var pDesc = document.querySelector('#pendaftaran p.text-gray-600');
           if (pDesc) pDesc.textContent = reg.instructions;

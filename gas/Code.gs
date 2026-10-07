@@ -73,6 +73,7 @@ var ROUTES = {
   verifyPendaftarSekretaris: { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.SEKRETARIS], handler: Auth.verifyPendaftarSekretaris },
   approvePendaftarKetum:     { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Auth.approvePendaftarKetum },
   rejectPendaftar:           { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS], handler: Auth.rejectPendaftar },
+  exportPendaftar:           { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS], handler: Auth.exportPendaftar },
 
   // --- Dashboard ---
   getDashboard:        { auth: true,  roles: null, handler: Utils.getDashboard },

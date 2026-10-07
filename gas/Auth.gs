@@ -297,21 +297,55 @@ function registerAnggota(ctx) {
 
   // Validasi konfigurasi pendaftaran
   var regCfg = getSettingValue_('registration_config', {
+    status: 'BUKA',
     is_open: true,
+    quota_limit: 0,
     closed_title: 'Pendaftaran Anggota Sementara Ditutup',
     closed_message: 'Pendaftaran anggota saat ini sedang ditutup oleh sekretariat yayasan.',
     require_ktp: true,
     require_selfie: true,
     reg_prefix: 'REG',
-    reg_digits: 4
+    reg_digits: 4,
+    notify_pendaftar_email: true
   });
 
-  if (regCfg.is_open === false) {
+  var regStatus = String(regCfg.status || (regCfg.is_open === false ? 'DITUTUP' : 'BUKA')).toUpperCase();
+  if (regStatus === 'DITUTUP' || regCfg.is_open === false) {
     return {
       ok: false,
       data: null,
       message: regCfg.closed_message || 'Pendaftaran anggota saat ini sedang ditutup oleh sekretariat yayasan.'
     };
+  }
+  if (regStatus === 'PENUH') {
+    return {
+      ok: false,
+      data: null,
+      message: 'Kuota pendaftaran anggota gelombang ini telah terpenuhi.'
+    };
+  }
+  if (regStatus === 'SELEKSI') {
+    return {
+      ok: false,
+      data: null,
+      message: 'Pendaftaran anggota telah ditutup, saat ini sedang dalam proses verifikasi dan seleksi berkas oleh sekretariat.'
+    };
+  }
+
+  // Cek batas kuota jika diaktifkan (quota_limit > 0)
+  var quotaLimit = Number(regCfg.quota_limit) || 0;
+  if (quotaLimit > 0) {
+    var allExisting = Database.readAll(TABS.PENDAFTAR);
+    var countActive = allExisting.filter(function (x) {
+      return x.status !== 'REJECTED' && x.status !== 'DITOLAK';
+    }).length;
+    if (countActive >= quotaLimit) {
+      return {
+        ok: false,
+        data: null,
+        message: 'Mohon maaf, kuota target pendaftaran sebanyak ' + quotaLimit + ' orang telah terpenuhi.'
+      };
+    }
   }
 
   if (!p.full_name || !String(p.full_name).trim()) {
@@ -373,6 +407,25 @@ function registerAnggota(ctx) {
     created_at: now
   });
 
+  // Kirim email tanda terima ke pendaftar jika alamat email diisi
+  if (p.email && regCfg.notify_pendaftar_email !== false) {
+    try {
+      kirimNotifikasiKeUser_(p.email,
+        'Bukti Pendaftaran Anggota APII: ' + regNumber,
+        'Tanda Terima Pendaftaran Calon Anggota',
+        'Assalamu’alaikum wr. wb., <strong>' + p.full_name + '</strong>.<br><br>' +
+        'Pendaftaran Anda sebagai calon anggota Yayasan APII DPW Jabodetabek telah berhasil diterima.<br><br>' +
+        '• <strong>Nomor Registrasi:</strong> ' + regNumber + '<br>' +
+        '• <strong>Minat Divisi:</strong> ' + (p.division_interest || 'Umum') + '<br>' +
+        '• <strong>Waktu Pengajuan:</strong> ' + formatTanggal(now) + '<br><br>' +
+        'Berkas foto identitas Anda saat ini sedang dalam proses verifikasi administratif oleh Sekretariat DPW. Silakan konfirmasi berkas melalui nomor hotline WhatsApp pengurus.',
+        'Kunjungi Portal Resmi',
+        (KONFIG.PUBLIC_URL || 'https://apii.sigitadi.id'));
+    } catch (eMailErr) {
+      Logger.log('Gagal kirim email pendaftar: ' + eMailErr);
+    }
+  }
+
   audit('public', 'MEMBER_REGISTERED', 'Pendaftaran baru ' + regNumber + ' a.n ' + p.full_name, 'PENDAFTARAN');
 
   return {
@@ -384,6 +437,63 @@ function registerAnggota(ctx) {
       message: 'Pendaftaran Anda telah berhasil dikirim dengan Nomor Registrasi: ' + regNumber
     },
     message: 'Pendaftaran berhasil dikirim. Tim sekretariat akan memverifikasi berkas Anda.'
+  };
+}
+
+/**
+ * exportPendaftar: Ekspor seluruh data pendaftar dalam format CSV UTF-8 BOM.
+ * SUPERADMIN, KETUA, SEKRETARIS.
+ */
+function exportPendaftar(ctx) {
+  var rows = Database.readAll(TABS.PENDAFTAR);
+  rows.sort(function (a, b) { return (b.created_at || '').localeCompare(a.created_at || ''); });
+
+  var headers = [
+    'No. Registrasi', 'Nama Lengkap', 'NIK', 'Tempat Lahir', 'Tanggal Lahir',
+    'Jenis Kelamin', 'Pekerjaan', 'No. WhatsApp', 'Email', 'Alamat Domisili',
+    'Minat Divisi', 'Link KTP Drive', 'Link Selfie Drive', 'Status Registrasi',
+    'Verifikasi Sekretaris', 'Persetujuan Ketua', 'Catatan', 'Tanggal Daftar'
+  ];
+
+  var csvLines = [];
+  csvLines.push(headers.map(function (h) { return '"' + h.replace(/"/g, '""') + '"'; }).join(','));
+
+  rows.forEach(function (r) {
+    var line = [
+      r.reg_number || '',
+      r.full_name || '',
+      "'" + (r.nik || ''), // kutip satu agar NIK 16 digit tidak terpotong atau diubah format saintifik oleh Excel
+      r.birth_place || '',
+      r.birth_date || '',
+      r.gender === 'P' ? 'Perempuan' : 'Laki-laki',
+      r.job || '',
+      "'" + (r.phone || ''),
+      r.email || '',
+      r.address || '',
+      r.division_interest || '',
+      r.ktp_drive_url || '',
+      r.selfie_drive_url || '',
+      r.status || 'PENDING',
+      r.verified_by_sekretaris || '—',
+      r.approved_by_ketum || '—',
+      r.rejection_notes || '',
+      formatTanggal(r.created_at)
+    ];
+    csvLines.push(line.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','));
+  });
+
+  // UTF-8 BOM agar Excel membacanya dengan encoding karakter yang benar
+  var csvString = '\uFEFF' + csvLines.join('\r\n');
+  var filename = 'Data_Pendaftar_APII_' + new Date().toISOString().slice(0, 10) + '.csv';
+
+  return {
+    ok: true,
+    data: {
+      csv: csvString,
+      filename: filename,
+      total: rows.length
+    },
+    message: 'Data pendaftar berhasil diekspor (' + rows.length + ' baris).'
   };
 }
 

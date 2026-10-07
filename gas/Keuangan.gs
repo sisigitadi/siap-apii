@@ -39,7 +39,15 @@ function buildVoucherNumber(transactionDate) {
   var urut = Database.nextSequence('KEU:' + tahun);
   var urutStr = String(urut);
   while (urutStr.length < 3) urutStr = '0' + urutStr;
-  return urutStr + '/KEU-APII/JABO/' + bulan + '/' + tahun;
+
+  var finCfg = getSettingValue_('finance_config', {
+    voucher_pattern: '{urut}/KEU-APII/JABO/{bulanRomawi}/{tahun}'
+  });
+  var pat = (finCfg && finCfg.voucher_pattern) || '{urut}/KEU-APII/JABO/{bulanRomawi}/{tahun}';
+  return pat
+    .replace('{urut}', urutStr)
+    .replace('{bulanRomawi}', bulan)
+    .replace('{tahun}', String(tahun));
 }
 
 /**
@@ -144,33 +152,51 @@ function createVoucher(ctx) {
   }
 
   var tanggal = p.transaction_date || new Date().toISOString().slice(0, 10);
+  var vNumber = buildVoucherNumber(tanggal);
+  var receiptUrl = String(p.receipt_url || '').trim();
+
+  // Unggah berkas nota/kuitansi ke Drive jika ada
+  if (p.receipt_base64) {
+    var safeName = (p.receipt_name || ('Nota_' + vNumber.replace(/[^a-zA-Z0-9]/g, '_') + '.jpg'));
+    receiptUrl = saveUploadToDrive_(p.receipt_base64, safeName, 'Keuangan_Bukti_Nota') || receiptUrl;
+  }
+
+  var now = new Date().toISOString();
+  var isBendaharaOrAdmin = ctx.user && (ctx.user.role === ROLES.BENDAHARA || ctx.user.role === ROLES.SUPERADMIN);
+  // Kas MASUK yang diinput Bendahara langsung disahkan (APPROVED); selain itu PENDING
+  var initialStatus = (p.type === 'MASUK' && isBendaharaOrAdmin) ? 'APPROVED' : 'PENDING';
+
   var created = Database.insert(TABS.KEUANGAN, {
-    id: uuid(), voucher_number: buildVoucherNumber(tanggal),
+    id: uuid(), voucher_number: vNumber,
     type: p.type, account: p.account, amount: amount,
     category: p.category || '', description: String(p.description).trim(),
-    transaction_date: tanggal, status: 'PENDING',
-    receipt_url: String(p.receipt_url || '').trim(),
-    verified_by_bendahara: '', verified_by_bendahara_at: '',
+    transaction_date: tanggal, status: initialStatus,
+    receipt_url: receiptUrl,
+    verified_by_bendahara: (initialStatus === 'APPROVED' ? ctx.user.username : ''),
+    verified_by_bendahara_at: (initialStatus === 'APPROVED' ? now : ''),
     verified_by_ketum: '', verified_by_ketum_at: '',
     rejection_notes: '', created_by: ctx.user.username,
-    created_at: new Date().toISOString()
+    created_at: now
   });
 
-  // Notifikasi email ke Bendahara
-  kirimNotifikasiKeRole_(ROLES.BENDAHARA,
-    'Voucher Kas Baru: ' + created.voucher_number,
-    'Pemberitahuan Voucher Kas Menunggu Verifikasi',
-    'Voucher kas baru <strong>' + created.voucher_number + '</strong> bernilai <strong>' + formatRupiah(amount) + '</strong> (' + (p.type === 'MASUK' ? 'Kas Masuk' : 'Kas Keluar') + ') telah dibuat oleh <strong>' + (ctx.user.full_name || ctx.user.username) + '</strong> dan menunggu verifikasi Anda.',
-    'Verifikasi Voucher Kas',
-    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/keuangan');
+  if (initialStatus === 'PENDING') {
+    // Notifikasi email ke Bendahara
+    kirimNotifikasiKeRole_(ROLES.BENDAHARA,
+      'Voucher Kas Baru: ' + created.voucher_number,
+      'Pemberitahuan Voucher Kas Menunggu Verifikasi',
+      'Voucher kas baru <strong>' + created.voucher_number + '</strong> bernilai <strong>' + formatRupiah(amount) + '</strong> (' + (p.type === 'MASUK' ? 'Kas Masuk' : 'Kas Keluar') + ') telah dibuat oleh <strong>' + (ctx.user.full_name || ctx.user.username) + '</strong> dan menunggu verifikasi Anda.',
+      'Verifikasi Voucher Kas',
+      (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/keuangan');
+  }
 
-  return { ok: true, data: { id: created.id, voucher_number: created.voucher_number },
-    message: 'Voucher ' + created.voucher_number + ' berhasil dibuat.' };
+  return { ok: true, data: { id: created.id, voucher_number: created.voucher_number, receipt_url: receiptUrl, status: initialStatus },
+    message: 'Voucher ' + created.voucher_number + ' berhasil dibuat.' + (initialStatus === 'APPROVED' ? ' (Langsung disahkan)' : '') };
 }
 
 /**
  * verifyVoucherBendahara: verifikasi tahap 1. SUPERADMIN, BENDAHARA.
- * PENDING -> VERIFIED_BY_BENDAHARA.
+ * Jika MASUK -> langsung APPROVED.
+ * Jika KELUAR -> VERIFIED_BY_BENDAHARA (menunggu Ketua).
  */
 function verifyVoucherBendahara(ctx) {
   var p = ctx.payload || {};
@@ -183,22 +209,32 @@ function verifyVoucherBendahara(ctx) {
                (STATUS_LABELS[k.status] || k.status) + ').' };
   }
   var now = new Date().toISOString();
+
+  // Kas MASUK otomatis disahkan oleh Bendahara (APPROVED). Kas KELUAR wajib 2 tahap (menunggu Ketua).
+  var isMasuk = (k.type === 'MASUK');
+  var nextStatus = isMasuk ? 'APPROVED' : 'VERIFIED_BY_BENDAHARA';
+
   Database.updateRow(TABS.KEUANGAN, k._row, {
-    status: 'VERIFIED_BY_BENDAHARA',
+    status: nextStatus,
     verified_by_bendahara: ctx.user.username, verified_by_bendahara_at: now
   });
-  audit(ctx.user.username, 'KEU_VERIFY_BENDAHARA', 'Voucher ' + k.voucher_number);
+  audit(ctx.user.username, 'KEU_VERIFY_BENDAHARA', 'Voucher ' + k.voucher_number + ' -> ' + nextStatus);
 
-  // Notifikasi email ke Ketua DPW untuk persetujuan final
+  if (isMasuk) {
+    return { ok: true, data: null,
+      message: 'Voucher kas masuk ' + k.voucher_number + ' berhasil disahkan oleh Bendahara dan masuk saldo.' };
+  }
+
+  // Notifikasi email ke Ketua DPW untuk persetujuan final kas KELUAR
   kirimNotifikasiKeRole_(ROLES.KETUA,
     'Persetujuan Final Kas: ' + k.voucher_number,
     'Voucher Kas Menunggu Persetujuan Ketua',
-    'Voucher kas <strong>' + k.voucher_number + '</strong> senilai <strong>' + formatRupiah(k.amount) + '</strong> (' + k.description + ') telah diverifikasi oleh Bendahara dan kini menunggu persetujuan final Anda.',
+    'Voucher kas keluar <strong>' + k.voucher_number + '</strong> senilai <strong>' + formatRupiah(k.amount) + '</strong> (' + k.description + ') telah diverifikasi oleh Bendahara dan kini menunggu persetujuan final Anda.',
     'Tinjau & Setujui Kas',
     (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/keuangan');
 
   return { ok: true, data: null,
-    message: 'Voucher ' + k.voucher_number + ' diverifikasi Bendahara. Menunggu verifikasi Ketua.' };
+    message: 'Voucher ' + k.voucher_number + ' diverifikasi Bendahara. Menunggu persetujuan final Ketua DPW.' };
 }
 
 /**
