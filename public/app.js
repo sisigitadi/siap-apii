@@ -268,8 +268,9 @@
       }
 
       var regCfg = self.state.registration || {};
-      if (regCfg.is_open === false) {
-        return showAlert(regCfg.closed_message || 'Pendaftaran anggota saat ini sedang ditutup oleh panitia/sekretariat.', true);
+      var rawStatus = regCfg.status || (regCfg.is_open === false ? 'DITUTUP' : 'BUKA');
+      if (rawStatus !== 'BUKA' || regCfg.is_open === false) {
+        return showAlert(regCfg.closed_message || 'Pengiriman formulir pendaftaran saat ini sedang dinonaktifkan.', true);
       }
 
       var requireKtp = regCfg.require_ktp !== false;
@@ -432,6 +433,12 @@
         var form = document.getElementById('regMemberForm');
         var closedBox = document.getElementById('regClosedStateBox');
         var heroBadge = document.getElementById('heroRegBadge');
+        var actionSec = document.getElementById('regActionSection');
+        var agreeWrapper = document.getElementById('regAgreementWrapper');
+        var agreeInput = document.getElementById('regAgreement');
+        var submitRow = document.getElementById('regSubmitBtnRow');
+        var submitBtn = document.getElementById('regSubmitBtn');
+        var inlineNotice = document.getElementById('regClosedInlineNotice');
         var rawStatus = reg.status || (reg.is_open === false ? 'DITUTUP' : 'BUKA');
 
         if (rawStatus === 'BUKA' && reg.is_open !== false) {
@@ -441,8 +448,25 @@
           }
           if (form) form.classList.remove('hidden');
           if (closedBox) closedBox.classList.add('hidden');
+
+          // Tampilkan tombol kirim formulir dan centang & teks persetujuan HANYA jika status BUKA
+          if (actionSec) actionSec.classList.remove('hidden');
+          if (agreeWrapper) agreeWrapper.classList.remove('hidden');
+          if (agreeInput) agreeInput.required = true;
+          if (submitRow) submitRow.classList.remove('hidden');
+          if (submitBtn) submitBtn.classList.remove('hidden');
+          if (inlineNotice) inlineNotice.classList.add('hidden');
         } else {
-          if (form) form.classList.add('hidden');
+          // SELAIN PENDAFTARAN DIBUKA: JANGAN MENAMPILKAN TOMBOL KIRIM DAN CENTANG & TEKS PERSETUJUAN
+          if (actionSec) actionSec.classList.add('hidden');
+          if (agreeWrapper) agreeWrapper.classList.add('hidden');
+          if (agreeInput) {
+            agreeInput.required = false;
+            agreeInput.checked = false;
+          }
+          if (submitRow) submitRow.classList.add('hidden');
+          if (submitBtn) submitBtn.classList.add('hidden');
+
           if (closedBox) {
             closedBox.classList.remove('hidden');
             var cTitle = closedBox.querySelector('.closed-title');
@@ -470,6 +494,24 @@
               heroBadge.className = badgeClass;
             }
           }
+
+          if (inlineNotice) {
+            inlineNotice.classList.remove('hidden');
+            var inTitle = inlineNotice.querySelector('.inline-notice-title');
+            var inDesc = inlineNotice.querySelector('.inline-notice-desc');
+            if (rawStatus === 'PENUH') {
+              if (inTitle) inTitle.textContent = 'Kuota Pendaftaran Telah Terpenuhi';
+              if (inDesc) inDesc.textContent = reg.closed_message || 'Batas kuota target penerimaan anggota baru DPW Jabodetabek telah terpenuhi. Pengiriman formulir dinonaktifkan.';
+            } else if (rawStatus === 'SELEKSI') {
+              if (inTitle) inTitle.textContent = 'Tahap Seleksi & Verifikasi Berkas';
+              if (inDesc) inDesc.textContent = reg.closed_message || 'Saat ini panitia sedang melakukan proses verifikasi dan seleksi berkas. Pengiriman formulir dinonaktifkan.';
+            } else {
+              if (inTitle) inTitle.textContent = 'Pendaftaran Sementara Ditutup';
+              if (inDesc) inDesc.textContent = reg.closed_message || 'Pendaftaran saat ini sedang tidak dibuka. Pengiriman formulir pendaftaran dinonaktifkan.';
+            }
+          }
+
+          if (form) form.classList.add('hidden');
         }
 
         // 4. Filter Pilihan Divisi yang Membuka Rekrutmen

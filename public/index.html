@@ -381,11 +381,11 @@
             </div>
           </div>
 
-          <!-- Section 4: Persetujuan & Submit -->
-          <div class="pt-4 border-t border-gray-100">
-            <label class="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" id="regAgreement" required class="mt-1 h-5 w-5 text-emerald rounded border-gray-300 focus:ring-emerald" />
-              <span class="text-xs text-gray-600 leading-relaxed">
+          <!-- Section 4: Persetujuan & Submit (Hanya Ditampilkan Saat Pendaftaran BUKA) -->
+          <div id="regActionSection" class="pt-4 border-t border-gray-100 hidden">
+            <label id="regAgreementWrapper" class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" id="regAgreement" class="mt-1 h-5 w-5 text-emerald rounded border-gray-300 focus:ring-emerald" />
+              <span id="regAgreementText" class="text-xs text-gray-600 leading-relaxed">
                 Saya menyatakan dengan sungguh-sungguh bahwa seluruh data dan dokumen yang saya unggah adalah <strong>benar, sah, dan dapat dipertanggungjawabkan</strong>. Saya bersedia menaati Anggaran Dasar &amp; Anggaran Rumah Tangga (AD/ART) serta kode etik Perkumpulan Ahli Pengkaji Indonesia (APII) DPW Jabodetabek.
               </span>
             </label>
@@ -393,7 +393,7 @@
             <!-- Alert Box Error/Success -->
             <div id="regAlertBox" class="hidden mt-4 p-4 rounded-xl text-sm font-medium"></div>
 
-            <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div id="regSubmitBtnRow" class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
               <span class="text-xs text-gray-500 flex items-center gap-1.5">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                 Transmisi data terenkripsi SSL 256-bit
@@ -403,6 +403,19 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 <span>Kirim Formulir Pendaftaran</span>
               </button>
+            </div>
+          </div>
+
+          <!-- Notice Status Saat Pendaftaran Bukan BUKA -->
+          <div id="regClosedInlineNotice" class="hidden pt-4 border-t border-gray-100">
+            <div class="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-start gap-3.5 shadow-xs">
+              <span class="text-2xl flex-shrink-0">🔒</span>
+              <div class="leading-relaxed">
+                <strong class="block font-black text-amber-900 text-sm mb-1 inline-notice-title">Pengiriman Formulir Pendaftaran Dinonaktifkan</strong>
+                <p class="inline-notice-desc text-amber-800 text-xs">
+                  Tombol pengiriman formulir dan persetujuan keanggotaan dinonaktifkan karena pendaftaran saat ini sedang tidak dibuka (ditutup sementara / kuota terpenuhi / dalam tahap seleksi).
+                </p>
+              </div>
             </div>
           </div>
 
