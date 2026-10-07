@@ -444,6 +444,43 @@ function getSettings(ctx) {
   settings.google_drive_folder_id = settings.google_drive_folder_id || drv.custom_folder_id || '';
   settings.auto_annual_subfolders = settings.auto_annual_subfolders !== undefined ? settings.auto_annual_subfolders : true;
 
+  // Konfigurasi Pendaftaran Anggota & Rekrutmen
+  var regCfg = settings.registration_config || {};
+  settings.registration_config = {
+    is_open: regCfg.is_open !== false,
+    closed_title: regCfg.closed_title || 'Pendaftaran Anggota Sementara Ditutup',
+    closed_message: regCfg.closed_message || 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
+    instructions: regCfg.instructions || 'Silakan isi formulir pendaftaran anggota Yayasan APII DPW Jabodetabek dengan data yang valid sesuai identitas KTP resmi.',
+    require_ktp: regCfg.require_ktp !== false,
+    require_selfie: regCfg.require_selfie !== false,
+    max_file_size_mb: Number(regCfg.max_file_size_mb) || 3,
+    reg_prefix: regCfg.reg_prefix || 'REG',
+    reg_digits: Number(regCfg.reg_digits) || 4,
+    open_divisions: Array.isArray(regCfg.open_divisions) ? regCfg.open_divisions : [
+      'DIV_DAKWAH', 'DIV_HUKUM', 'DIV_HUMAS', 'DIV_MEDIA', 'DIV_SOSIAL', 'DIV_LITBANG', 'DIV_EKONOMI'
+    ],
+    contact_wa: regCfg.contact_wa || '081288882026',
+    wa_template: regCfg.wa_template || 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
+    notify_email: regCfg.notify_email || 'sekretariat@apii.sigitadi.id',
+    agreement_text: regCfg.agreement_text || 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
+  };
+
+  // Flattened aliases untuk kemudahan akses form
+  settings.registration_is_open = settings.registration_config.is_open;
+  settings.registration_closed_title = settings.registration_config.closed_title;
+  settings.registration_closed_message = settings.registration_config.closed_message;
+  settings.registration_instructions = settings.registration_config.instructions;
+  settings.registration_require_ktp = settings.registration_config.require_ktp;
+  settings.registration_require_selfie = settings.registration_config.require_selfie;
+  settings.registration_max_file_size_mb = settings.registration_config.max_file_size_mb;
+  settings.registration_reg_prefix = settings.registration_config.reg_prefix;
+  settings.registration_reg_digits = settings.registration_config.reg_digits;
+  settings.registration_open_divisions = settings.registration_config.open_divisions;
+  settings.registration_contact_wa = settings.registration_config.contact_wa;
+  settings.registration_notify_email = settings.registration_config.notify_email;
+  settings.registration_wa_template = settings.registration_config.wa_template;
+  settings.registration_agreement_text = settings.registration_config.agreement_text;
+
   return { ok: true, data: settings, settings: settings, message: 'Pengaturan berhasil dimuat.' };
 }
 
@@ -472,10 +509,24 @@ function getPublicSettings(ctx) {
     announcement_banner: 'Selamat datang di Portal Resmi Yayasan APII DPW Jabodetabek.'
   });
   var kop = getSettingValue_('letter_kop', {});
+  var reg = getSettingValue_('registration_config', {
+    is_open: true,
+    closed_title: 'Pendaftaran Anggota Sementara Ditutup',
+    closed_message: 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
+    instructions: 'Silakan isi formulir pendaftaran anggota Yayasan APII DPW Jabodetabek dengan data yang valid sesuai identitas KTP resmi.',
+    require_ktp: true,
+    require_selfie: true,
+    max_file_size_mb: 3,
+    open_divisions: ['DIV_DAKWAH', 'DIV_HUKUM', 'DIV_HUMAS', 'DIV_MEDIA', 'DIV_SOSIAL', 'DIV_LITBANG', 'DIV_EKONOMI'],
+    contact_wa: '081288882026',
+    wa_template: 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
+    agreement_text: 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
+  });
   return {
     ok: true,
     data: {
       config: pubConfig,
+      registration: reg,
       kop: {
         org_name: kop.org_name || 'YAYASAN APII DPW JABODETABEK',
         address: kop.address || 'Jakarta, Indonesia',

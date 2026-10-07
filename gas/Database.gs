@@ -152,6 +152,31 @@ function seedDefaultSettings_() {
       custom_folder_id: '',
       folder_name: 'APII Jabo - PDF Surat Resmi'
     }, 'Pengaturan penyimpanan Google Drive');
+
+    setIfMissing('registration_config', {
+      is_open: true,
+      closed_title: 'Pendaftaran Anggota Sementara Ditutup',
+      closed_message: 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
+      instructions: 'Silakan isi formulir pendaftaran anggota Yayasan APII DPW Jabodetabek dengan data yang valid sesuai identitas KTP resmi.',
+      require_ktp: true,
+      require_selfie: true,
+      max_file_size_mb: 3,
+      reg_prefix: 'REG',
+      reg_digits: 4,
+      open_divisions: [
+        'DIV_DAKWAH',
+        'DIV_HUKUM',
+        'DIV_HUMAS',
+        'DIV_MEDIA',
+        'DIV_SOSIAL',
+        'DIV_LITBANG',
+        'DIV_EKONOMI'
+      ],
+      contact_wa: '081288882026',
+      wa_template: 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
+      notify_email: 'sekretariat@apii.sigitadi.id',
+      agreement_text: 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
+    }, 'Pengaturan pendaftaran anggota dan rekrutmen');
   } catch (e) {
     Logger.log('Gagal seed settings: ' + e);
   }

@@ -261,7 +261,7 @@
       divisi: { t: 'Divisi Kerja', s: 'Usulan program dari 7 divisi kerja', fn: 'renderDivisi' },
       pengguna: { t: 'Manajemen Pengguna', s: 'Kelola akun pengurus sistem & pendaftar anggota', fn: 'renderPengguna' },
       audit: { t: 'Jejak Audit', s: 'Catatan keamanan & log kepatuhan (WORM - Anti-Hapus)', fn: 'renderAudit' },
-      pengaturan: { t: 'Pengaturan & Master Data', s: 'Master rekening kas, format & KOP surat, RBAC, dan Google Drive', fn: 'renderPengaturan' },
+      pengaturan: { t: 'Pengaturan & Master Data', s: 'Master rekening kas, format KOP surat, pendaftaran anggota, RBAC, dan Google Drive', fn: 'renderPengaturan' },
       profil: { t: 'Profil Saya', s: 'Informasi akun Anda', fn: 'renderProfil' }
     },
 
@@ -2948,10 +2948,11 @@
       var currentTab = this.state.pengaturan.tab || 'rekening';
 
       main.innerHTML = this.pageHead('Pengaturan &amp; Master Data',
-        'Kelola master rekening kas, format penomoran & KOP surat resmi, RBAC, dan Google Drive.', '') +
-        '<div class="flex items-center gap-2 p-1.5 bg-gray-100 rounded-2xl mb-6 flex-wrap max-w-2xl">' +
+        'Kelola master rekening kas, format penomoran & KOP surat resmi, pendaftaran anggota, RBAC, dan Google Drive.', '') +
+        '<div class="flex items-center gap-2 p-1.5 bg-gray-100 rounded-2xl mb-6 flex-wrap max-w-3xl">' +
           '<button type="button" data-ptab="rekening" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rekening' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💳 Master Rekening</button>' +
           '<button type="button" data-ptab="surat" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'surat' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📄 Format &amp; KOP Surat</button>' +
+          '<button type="button" data-ptab="pendaftaran" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'pendaftaran' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📝 Pendaftaran</button>' +
           '<button type="button" data-ptab="rbac" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rbac' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">🛡️ RBAC &amp; Publik</button>' +
           '<button type="button" data-ptab="drive" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'drive' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">☁️ Google Drive</button>' +
         '</div>' +
@@ -2966,6 +2967,7 @@
 
       if (currentTab === 'rekening') this.renderPengaturanRekening();
       else if (currentTab === 'surat') this.renderPengaturanSurat();
+      else if (currentTab === 'pendaftaran') this.renderPengaturanPendaftaran();
       else if (currentTab === 'rbac') this.renderPengaturanRbac();
       else if (currentTab === 'drive') this.renderPengaturanDrive();
     },
@@ -3295,6 +3297,262 @@
         });
       }).catch(function (err) {
         box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat pengaturan surat: ' + Auth.esc(err.message) + '</div>';
+      });
+    },
+
+    renderPengaturanPendaftaran: function () {
+      var box = document.getElementById('pengaturanBox');
+      var self = this;
+      box.innerHTML = '<div class="card bg-white rounded-2xl p-8 border border-emerald-100 text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-dark mx-auto mb-2"></div><p class="text-xs text-gray-500 font-semibold">Memuat pengaturan pendaftaran...</p></div>';
+
+      Auth.getCached('getSettings', null).then(function (sData) {
+        var s = (sData && (sData.settings || sData.data)) || sData || {};
+        var reg = s.registration_config || {};
+        var isOpen = s.registration_is_open !== undefined ? s.registration_is_open : (reg.is_open !== false);
+        var closedTitle = s.registration_closed_title || reg.closed_title || 'Pendaftaran Anggota Sementara Ditutup';
+        var closedMsg = s.registration_closed_message || reg.closed_message || 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.';
+        var instructions = s.registration_instructions || reg.instructions || 'Silakan isi formulir pendaftaran anggota Yayasan APII DPW Jabodetabek dengan data yang valid sesuai identitas KTP resmi.';
+        var requireKtp = s.registration_require_ktp !== undefined ? s.registration_require_ktp : (reg.require_ktp !== false);
+        var requireSelfie = s.registration_require_selfie !== undefined ? s.registration_require_selfie : (reg.require_selfie !== false);
+        var maxFileSize = Number(s.registration_max_file_size_mb || reg.max_file_size_mb) || 3;
+        var regPrefix = s.registration_reg_prefix || reg.reg_prefix || 'REG';
+        var regDigits = Number(s.registration_reg_digits || reg.reg_digits) || 4;
+        var contactWa = s.registration_contact_wa || reg.contact_wa || '081288882026';
+        var notifyEmail = s.registration_notify_email || reg.notify_email || 'sekretariat@apii.sigitadi.id';
+        var waTemplate = s.registration_wa_template || reg.wa_template || 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.';
+        var agreementText = s.registration_agreement_text || reg.agreement_text || 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.';
+        var openDivs = s.registration_open_divisions || reg.open_divisions || [
+          'DIV_DAKWAH', 'DIV_HUKUM', 'DIV_HUMAS', 'DIV_MEDIA', 'DIV_SOSIAL', 'DIV_LITBANG', 'DIV_EKONOMI'
+        ];
+
+        var divisionsList = [
+          { id: 'DIV_DAKWAH', name: 'Divisi Dakwah & Pembinaan', desc: 'Kajian, tabligh, dakwah apologetika & pembinaan mualaf' },
+          { id: 'DIV_HUKUM', name: 'Divisi Advokasi & Hukum', desc: 'Bantuan hukum, advokasi keumatan & kepatuhan' },
+          { id: 'DIV_HUMAS', name: 'Divisi Humas & Kemitraan', desc: 'Hubungan ormas, instansi pemerintah & lintas pihak' },
+          { id: 'DIV_MEDIA', name: 'Divisi Media, IT & Publikasi', desc: 'Portal web, konten sosmed, podcast & sistem IT' },
+          { id: 'DIV_SOSIAL', name: 'Divisi Sosial & Kemanusiaan', desc: 'Tanggap bencana, santunan dhuafa & aksi kemanusiaan' },
+          { id: 'DIV_LITBANG', name: 'Divisi Litbang & Diklat', desc: 'Riset apologetika komparatif & kaderisasi' },
+          { id: 'DIV_EKONOMI', name: 'Divisi Pemberdayaan Ekonomi & Logistik', desc: 'Koperasi, unit usaha & logistik inventaris' }
+        ];
+
+        box.innerHTML =
+          '<div class="space-y-6">' +
+            // KARTU 1: STATUS PEMBUKAAN PENDAFTARAN
+            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+              '<div class="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-gray-100">' +
+                '<div>' +
+                  '<h3 class="text-base font-extrabold text-emerald-dark">Status Pembukaan Pendaftaran Anggota</h3>' +
+                  '<p class="text-xs text-gray-500">Kendalikan apakah formulir pendaftaran anggota di portal publik (apii.sigitadi.id) menerima pengisian pendaftar baru.</p>' +
+                '</div>' +
+                '<label class="relative inline-flex items-center cursor-pointer select-none">' +
+                  '<input type="checkbox" id="regIsOpen" class="sr-only peer" ' + (isOpen ? 'checked' : '') + ' />' +
+                  '<div class="w-14 h-7.5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[\'\'] after:absolute after:top-[3px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-600"></div>' +
+                  '<span id="regStatusLabel" class="ml-3 text-xs font-extrabold ' + (isOpen ? 'text-emerald-700' : 'text-gray-500') + '">' +
+                    (isOpen ? '🟢 Dibuka untuk Publik' : '🔴 Ditutup Sementara') + '</span>' +
+                '</label>' +
+              '</div>' +
+
+              // KONDISI SAAT PENDAFTARAN DITUTUP
+              '<div id="closedSettingsGroup" class="' + (isOpen ? 'hidden' : '') + ' p-4 bg-amber-50/80 rounded-xl border border-amber-200/80 space-y-3">' +
+                '<h4 class="text-xs font-extrabold text-amber-950 flex items-center gap-1.5">' +
+                  '<span>⚠️ Pengumuman Saat Pendaftaran Ditutup</span></h4>' +
+                '<div>' +
+                  '<label class="lbl text-amber-900">Judul Pengumuman Penutupan</label>' +
+                  '<input id="regClosedTitle" type="text" class="field text-xs bg-white" value="' + Auth.esc(closedTitle) + '" />' +
+                '</div>' +
+                '<div>' +
+                  '<label class="lbl text-amber-900">Pesan / Alasan Penutupan (Tampil di Layar Pengunjung)</label>' +
+                  '<textarea id="regClosedMsg" rows="2" class="field text-xs bg-white">' + Auth.esc(closedMsg) + '</textarea>' +
+                '</div>' +
+              '</div>' +
+
+              // INSTRUKSI PENDAFTARAN
+              '<div>' +
+                '<label class="lbl">Teks Petunjuk / Pengantar Pendaftaran</label>' +
+                '<textarea id="regInstructions" rows="2" class="field text-xs">' + Auth.esc(instructions) + '</textarea>' +
+                '<p class="text-[11px] text-gray-400 mt-1">Teks ini tampil di atas formulir pendaftaran anggota di portal publik.</p>' +
+              '</div>' +
+            '</div>' +
+
+            // KARTU 2 & 3: BERKAS & PENOMORAN
+            '<div class="grid lg:grid-cols-2 gap-6">' +
+              '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+                '<h3 class="text-base font-extrabold text-emerald-dark">Ketentuan Berkas Identitas</h3>' +
+                '<div class="space-y-3">' +
+                  '<label class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+                    '<input type="checkbox" id="regReqKtp" class="h-4 w-4 accent-emerald" ' + (requireKtp ? 'checked' : '') + ' />' +
+                    '<div><strong class="text-xs text-gray-900 block">Wajib Unggah Foto KTP Asli</strong><span class="text-[11px] text-gray-500">Diperlukan untuk validasi NIK dan domisili calon anggota.</span></div>' +
+                  '</label>' +
+                  '<label class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+                    '<input type="checkbox" id="regReqSelfie" class="h-4 w-4 accent-emerald" ' + (requireSelfie ? 'checked' : '') + ' />' +
+                    '<div><strong class="text-xs text-gray-900 block">Wajib Unggah Pas Foto / Selfie</strong><span class="text-[11px] text-gray-500">Diperlukan untuk penerbitan Kartu Tanda Anggota (KTA).</span></div>' +
+                  '</label>' +
+                '</div>' +
+                '<div>' +
+                  '<label class="lbl">Batas Maksimal Ukuran Unggahan Foto (MB)</label>' +
+                  '<select id="regMaxFile" class="field text-xs">' +
+                    '<option value="1"' + (maxFileSize === 1 ? ' selected' : '') + '>1 MB (Hemat penyimpanan Drive)</option>' +
+                    '<option value="2"' + (maxFileSize === 2 ? ' selected' : '') + '>2 MB (Standar foto HP)</option>' +
+                    '<option value="3"' + (maxFileSize === 3 ? ' selected' : '') + '>3 MB (Rekomendasi optimal)</option>' +
+                    '<option value="5"' + (maxFileSize === 5 ? ' selected' : '') + '>5 MB (Kualitas tinggi)</option>' +
+                  '</select>' +
+                '</div>' +
+              '</div>' +
+
+              '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+                '<h3 class="text-base font-extrabold text-emerald-dark">Format Penomoran &amp; Notifikasi</h3>' +
+                '<div class="grid grid-cols-2 gap-3">' +
+                  '<div>' +
+                    '<label class="lbl">Prefix Kode Registrasi</label>' +
+                    '<input id="regPrefixInput" type="text" class="field font-mono text-xs uppercase font-bold" value="' + Auth.esc(regPrefix) + '" />' +
+                  '</div>' +
+                  '<div>' +
+                    '<label class="lbl">Jumlah Digit Urut</label>' +
+                    '<select id="regDigitsInput" class="field text-xs font-mono">' +
+                      '<option value="3"' + (regDigits === 3 ? ' selected' : '') + '>3 Digit (cth: 001)</option>' +
+                      '<option value="4"' + (regDigits === 4 ? ' selected' : '') + '>4 Digit (cth: 0001)</option>' +
+                      '<option value="5"' + (regDigits === 5 ? ' selected' : '') + '>5 Digit (cth: 00001)</option>' +
+                    '</select>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs">' +
+                  '<span class="text-gray-500">Contoh Hasil Nomor Registrasi:</span> ' +
+                  '<span id="regPreviewBadge" class="font-mono font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg">' +
+                    regPrefix + '-' + new Date().getFullYear() + '-' + ('0'.repeat(regDigits - 1) + '1') + '</span>' +
+                '</div>' +
+                '<div>' +
+                  '<label class="lbl">Hotline WhatsApp Pendaftaran (Sekretariat)</label>' +
+                  '<input id="regContactWa" type="text" class="field font-mono text-xs" placeholder="cth: 081288882026 atau 6281288882026" value="' + Auth.esc(contactWa) + '" />' +
+                '</div>' +
+                '<div>' +
+                  '<label class="lbl">Email Notifikasi Pendaftar Baru Masuk</label>' +
+                  '<input id="regNotifyEmail" type="email" class="field text-xs" placeholder="sekretariat@apii.sigitadi.id" value="' + Auth.esc(notifyEmail) + '" />' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+
+            // KARTU 4: PILIHAN DIVISI YANG MEMBUKA REKRUTMEN
+            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+              '<div>' +
+                '<h3 class="text-base font-extrabold text-emerald-dark">Divisi Kerja yang Membuka Rekrutmen</h3>' +
+                '<p class="text-xs text-gray-500">Centang divisi yang saat ini menerima pendaftaran anggota. Divisi yang tidak dicentang tidak akan muncul pada pilihan minat di formulir publik.</p>' +
+              '</div>' +
+              '<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2" id="divChecklistContainer">' +
+                divisionsList.map(function (d) {
+                  var isChecked = openDivs.indexOf(d.id) !== -1;
+                  return '<label class="flex items-start gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition">' +
+                    '<input type="checkbox" name="openDiv" value="' + d.id + '" class="h-4 w-4 mt-0.5 accent-emerald" ' + (isChecked ? 'checked' : '') + ' />' +
+                    '<div class="min-w-0 flex-1">' +
+                      '<strong class="text-xs font-bold text-gray-900 block">' + Auth.esc(d.name) + '</strong>' +
+                      '<span class="text-[11px] text-gray-500 block leading-tight mt-0.5">' + Auth.esc(d.desc) + '</span>' +
+                    '</div>' +
+                  '</label>';
+                }).join('') +
+              '</div>' +
+            '</div>' +
+
+            // KARTU 5: PAKTA INTEGRITAS & TEMPLATE PESAN WA
+            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+              '<h3 class="text-base font-extrabold text-emerald-dark">Pakta Integritas &amp; Konfirmasi Pesan WhatsApp</h3>' +
+              '<div>' +
+                '<label class="lbl">Teks Pernyataan Persetujuan AD/ART (Pakta Integritas)</label>' +
+                '<textarea id="regAgreementText" rows="2" class="field text-xs">' + Auth.esc(agreementText) + '</textarea>' +
+              '</div>' +
+              '<div>' +
+                '<label class="lbl">Template Pesan Konfirmasi WhatsApp Calon Anggota</label>' +
+                '<textarea id="regWaTemplate" rows="2" class="field text-xs font-mono">' + Auth.esc(waTemplate) + '</textarea>' +
+                '<p class="text-[11px] text-gray-400 mt-1">Tag dinamis: <code class="bg-gray-100 px-1 rounded">{reg_number}</code>, <code class="bg-gray-100 px-1 rounded">{full_name}</code></p>' +
+              '</div>' +
+              '<div class="pt-3 border-t border-gray-100">' +
+                '<button type="button" id="btnSaveRegSettings" class="btn btn-primary px-6 py-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm inline-flex items-center gap-2">' +
+                  '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
+                  '<span>Simpan Pengaturan Pendaftaran</span></button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+
+        // Interaksi Toggle Status
+        var chkOpen = document.getElementById('regIsOpen');
+        var lblStatus = document.getElementById('regStatusLabel');
+        var grpClosed = document.getElementById('closedSettingsGroup');
+        if (chkOpen) {
+          chkOpen.addEventListener('change', function () {
+            if (chkOpen.checked) {
+              lblStatus.textContent = '🟢 Dibuka untuk Publik';
+              lblStatus.className = 'ml-3 text-xs font-extrabold text-emerald-700';
+              if (grpClosed) grpClosed.classList.add('hidden');
+            } else {
+              lblStatus.textContent = '🔴 Ditutup Sementara';
+              lblStatus.className = 'ml-3 text-xs font-extrabold text-gray-500';
+              if (grpClosed) grpClosed.classList.remove('hidden');
+            }
+          });
+        }
+
+        // Live preview nomor registrasi
+        var prefixIn = document.getElementById('regPrefixInput');
+        var digitsIn = document.getElementById('regDigitsInput');
+        var badgePreview = document.getElementById('regPreviewBadge');
+        var updateBadge = function () {
+          var p = (prefixIn.value || 'REG').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || 'REG';
+          var d = Number(digitsIn.value) || 4;
+          if (badgePreview) badgePreview.textContent = p + '-' + new Date().getFullYear() + '-' + ('0'.repeat(d - 1) + '1');
+        };
+        if (prefixIn) prefixIn.addEventListener('input', updateBadge);
+        if (digitsIn) digitsIn.addEventListener('change', updateBadge);
+
+        // Handler Simpan
+        document.getElementById('btnSaveRegSettings').addEventListener('click', function () {
+          var openDivSelected = [];
+          Array.prototype.forEach.call(document.querySelectorAll('input[name="openDiv"]:checked'), function (c) {
+            openDivSelected.push(c.value);
+          });
+
+          var pfix = (document.getElementById('regPrefixInput').value || 'REG').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || 'REG';
+          var dgts = Number(document.getElementById('regDigitsInput').value) || 4;
+
+          var regConfigPayload = {
+            is_open: document.getElementById('regIsOpen').checked,
+            closed_title: document.getElementById('regClosedTitle').value.trim() || 'Pendaftaran Anggota Sementara Ditutup',
+            closed_message: document.getElementById('regClosedMsg').value.trim(),
+            instructions: document.getElementById('regInstructions').value.trim(),
+            require_ktp: document.getElementById('regReqKtp').checked,
+            require_selfie: document.getElementById('regReqSelfie').checked,
+            max_file_size_mb: Number(document.getElementById('regMaxFile').value) || 3,
+            reg_prefix: pfix,
+            reg_digits: dgts,
+            contact_wa: document.getElementById('regContactWa').value.trim(),
+            notify_email: document.getElementById('regNotifyEmail').value.trim(),
+            open_divisions: openDivSelected,
+            agreement_text: document.getElementById('regAgreementText').value.trim(),
+            wa_template: document.getElementById('regWaTemplate').value.trim()
+          };
+
+          var payload = {
+            registration_config: regConfigPayload,
+            registration_is_open: regConfigPayload.is_open,
+            registration_closed_title: regConfigPayload.closed_title,
+            registration_closed_message: regConfigPayload.closed_message,
+            registration_instructions: regConfigPayload.instructions,
+            registration_require_ktp: regConfigPayload.require_ktp,
+            registration_require_selfie: regConfigPayload.require_selfie,
+            registration_max_file_size_mb: regConfigPayload.max_file_size_mb,
+            registration_reg_prefix: regConfigPayload.reg_prefix,
+            registration_reg_digits: regConfigPayload.reg_digits,
+            registration_contact_wa: regConfigPayload.contact_wa,
+            registration_notify_email: regConfigPayload.notify_email,
+            registration_open_divisions: regConfigPayload.open_divisions,
+            registration_agreement_text: regConfigPayload.agreement_text,
+            registration_wa_template: regConfigPayload.wa_template
+          };
+
+          Auth.fetch('saveSettings', payload).then(function () {
+            Auth.cache.invalidate(['settings', 'pendaftar', 'dashboard']);
+            self.toast('Pengaturan pendaftaran anggota berhasil disimpan.', 'success');
+          }).catch(function () {});
+        });
+      }).catch(function (err) {
+        box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat pengaturan pendaftaran: ' + Auth.esc(err.message) + '</div>';
       });
     },
 

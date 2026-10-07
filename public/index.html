@@ -131,7 +131,7 @@
       </div>
       <div class="hidden lg:block">
         <div class="bg-white rounded-3xl shadow-2xl p-8 relative border border-emerald-100">
-          <div class="absolute -top-4 -right-4 bg-gold text-emerald-dark text-xs font-black px-3.5 py-1.5 rounded-xl shadow-lg">
+          <div id="heroRegBadge" class="absolute -top-4 -right-4 bg-gold text-emerald-dark text-xs font-black px-3.5 py-1.5 rounded-xl shadow-lg">
             PENDAFTARAN DIBUKA
           </div>
           <div class="flex items-center gap-4 pb-5 border-b border-gray-100">
@@ -201,6 +201,22 @@
 
       <!-- Registration Form -->
       <div class="bg-white rounded-3xl shadow-xl border border-gray-200 p-6 sm:p-10">
+        <!-- Kotak jika pendaftaran ditutup sementara -->
+        <div id="regClosedStateBox" class="hidden text-center py-12 px-4 space-y-4">
+          <div class="h-16 w-16 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center mx-auto text-3xl shadow-sm">
+            🔒
+          </div>
+          <h3 class="text-xl sm:text-2xl font-black text-gray-900 closed-title">Pendaftaran Anggota Sementara Ditutup</h3>
+          <p class="text-sm sm:text-base text-gray-600 max-w-lg mx-auto leading-relaxed closed-msg">
+            Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.
+          </p>
+          <div class="pt-2">
+            <a href="#kontak" class="inline-flex items-center gap-2 bg-emerald text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow hover:bg-emerald-dark transition">
+              Hubungi Sekretariat Yayasan →
+            </a>
+          </div>
+        </div>
+
         <form id="regMemberForm" class="space-y-6">
 
           <!-- Section 1: Data Diri -->

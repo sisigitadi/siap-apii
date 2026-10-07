@@ -294,6 +294,26 @@ function saveUploadToDrive_(base64Data, filename, subfolderName) {
  */
 function registerAnggota(ctx) {
   var p = ctx.payload || {};
+
+  // Validasi konfigurasi pendaftaran
+  var regCfg = getSettingValue_('registration_config', {
+    is_open: true,
+    closed_title: 'Pendaftaran Anggota Sementara Ditutup',
+    closed_message: 'Pendaftaran anggota saat ini sedang ditutup oleh sekretariat yayasan.',
+    require_ktp: true,
+    require_selfie: true,
+    reg_prefix: 'REG',
+    reg_digits: 4
+  });
+
+  if (regCfg.is_open === false) {
+    return {
+      ok: false,
+      data: null,
+      message: regCfg.closed_message || 'Pendaftaran anggota saat ini sedang ditutup oleh sekretariat yayasan.'
+    };
+  }
+
   if (!p.full_name || !String(p.full_name).trim()) {
     return { ok: false, data: null, message: 'Nama lengkap wajib diisi.' };
   }
@@ -303,13 +323,21 @@ function registerAnggota(ctx) {
   if (!p.phone || !String(p.phone).trim()) {
     return { ok: false, data: null, message: 'Nomor WhatsApp / HP aktif wajib diisi.' };
   }
+  if (regCfg.require_ktp !== false && !p.ktp_base64) {
+    return { ok: false, data: null, message: 'Foto KTP wajib diunggah untuk verifikasi identitas resmi.' };
+  }
+  if (regCfg.require_selfie !== false && !p.selfie_base64) {
+    return { ok: false, data: null, message: 'Pas Foto / Selfie wajib diunggah untuk pencocokan identitas.' };
+  }
 
   var now = new Date().toISOString();
   var tahun = new Date().getFullYear();
   var urut = Database.nextSequence('PENDAFTAR:' + tahun);
+  var digits = Number(regCfg.reg_digits) || 4;
   var urutStr = String(urut);
-  while (urutStr.length < 4) urutStr = '0' + urutStr;
-  var regNumber = 'REG-' + tahun + '-' + urutStr;
+  while (urutStr.length < digits) urutStr = '0' + urutStr;
+  var prefix = String(regCfg.reg_prefix || 'REG').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || 'REG';
+  var regNumber = prefix + '-' + tahun + '-' + urutStr;
 
   // Simpan foto KTP dan selfie ke Drive
   var ktpUrl = '';

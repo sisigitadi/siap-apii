@@ -11,12 +11,14 @@
   var Public = {
     state: {
       ktpBase64: '',
-      selfieBase64: ''
+      selfieBase64: '',
+      registration: null
     },
 
     init: function () {
       this.bindMobileNav();
       this.bindRegistrationForm();
+      this.loadPublicConfig();
       this.loadPublicSurat();
       this.loadPublicAccounts();
     },
@@ -265,11 +267,19 @@
         alertBox.classList.remove('hidden');
       }
 
+      var regCfg = self.state.registration || {};
+      if (regCfg.is_open === false) {
+        return showAlert(regCfg.closed_message || 'Pendaftaran anggota saat ini sedang ditutup oleh panitia/sekretariat.', true);
+      }
+
+      var requireKtp = regCfg.require_ktp !== false;
+      var requireSelfie = regCfg.require_selfie !== false;
+
       if (!fullName) return showAlert('Mohon isi Nama Lengkap sesuai KTP.', true);
       if (!nik || nik.length !== 16 || !/^\d+$/.test(nik)) return showAlert('Nomor NIK KTP harus terdiri dari 16 digit angka.', true);
       if (!phone) return showAlert('Nomor WhatsApp aktif wajib diisi.', true);
-      if (!self.state.ktpBase64) return showAlert('Foto KTP wajib diunggah untuk verifikasi identitas resmi.', true);
-      if (!self.state.selfieBase64) return showAlert('Pas Foto / Selfie wajib diunggah untuk pencocokan wajah.', true);
+      if (requireKtp && !self.state.ktpBase64) return showAlert('Foto KTP wajib diunggah untuk verifikasi identitas resmi.', true);
+      if (requireSelfie && !self.state.selfieBase64) return showAlert('Pas Foto / Selfie wajib diunggah untuk pencocokan wajah.', true);
       if (!agreement) return showAlert('Anda harus menyetujui pernyataan keabsahan data dan AD/ART.', true);
 
       if (alertBox) alertBox.classList.add('hidden');
@@ -357,19 +367,96 @@
           '2. Klik tombol di bawah untuk konfirmasi ke WhatsApp Pengurus agar proses verifikasi lebih cepat.' +
         '</div>';
 
-      var waMsg = encodeURIComponent(
-        'Assalamu’alaikum / Halo Sekretariat APII DPW Jabodetabek,\n\n' +
-        'Saya telah mendaftar sebagai calon anggota baru:\n' +
-        '• No. Registrasi: ' + regNum + '\n' +
-        '• Nama: ' + data.full_name + '\n' +
-        '• Divisi: ' + (data.division_interest || 'Umum') + '\n\n' +
-        'Mohon konfirmasi dan verifikasi berkas pendaftaran saya. Terima kasih.'
-      );
+      var regCfg = this.state.registration || {};
+      var rawWa = String(regCfg.contact_wa || '081288882026').replace(/[^0-9]/g, '');
+      var waPhone = rawWa.startsWith('0') ? '62' + rawWa.slice(1) : (rawWa.startsWith('62') ? rawWa : '62' + rawWa);
+      var tmpl = regCfg.wa_template || 'Assalamu’alaikum / Halo Sekretariat APII DPW Jabodetabek,\n\nSaya telah mendaftar sebagai calon anggota baru:\n• No. Registrasi: {reg_number}\n• Nama: {full_name}\n• Divisi: {division}\n\nMohon konfirmasi dan verifikasi berkas pendaftaran saya. Terima kasih.';
+
+      var waText = tmpl
+        .replace(/\{reg_number\}/g, regNum)
+        .replace(/\{full_name\}/g, data.full_name || '')
+        .replace(/\{division\}/g, data.division_interest || 'Umum');
+
       if (waBtn) {
-        waBtn.href = 'https://wa.me/6281283626100?text=' + waMsg;
+        waBtn.href = 'https://wa.me/' + waPhone + '?text=' + encodeURIComponent(waText);
       }
 
       modal.classList.remove('hidden');
+    },
+
+    // ---------------------------------------------------------------
+    // KONFIGURASI PUBLIK & PENDAFTARAN DINAMIS
+    // ---------------------------------------------------------------
+    loadPublicConfig: function () {
+      var self = this;
+      this.get('getPublicSettings').then(function (res) {
+        if (!res || !res.success || !res.data) return;
+        var d = res.data;
+        var reg = d.registration || {};
+        self.state.registration = reg;
+
+        // 1. Visibilitas Menu Pendaftaran Publik (RBAC)
+        if (d.config && d.config.show_registration === false) {
+          var pendaftarNav = document.querySelectorAll('a[href="#pendaftaran"]');
+          for (var i = 0; i < pendaftarNav.length; i++) {
+            pendaftarNav[i].classList.add('hidden');
+          }
+          var secPendaftaran = document.getElementById('pendaftaran');
+          if (secPendaftaran) secPendaftaran.classList.add('hidden');
+          return;
+        }
+
+        // 2. Status Buka / Tutup Pendaftaran
+        var form = document.getElementById('regMemberForm');
+        var closedBox = document.getElementById('regClosedStateBox');
+        var heroBadge = document.getElementById('heroRegBadge');
+
+        if (reg.is_open === false) {
+          if (heroBadge) {
+            heroBadge.textContent = 'PENDAFTARAN DITUTUP SEMENTARA';
+            heroBadge.className = 'absolute -top-4 -right-4 bg-amber-500 text-white text-xs font-black px-3.5 py-1.5 rounded-xl shadow-lg';
+          }
+          if (form) form.classList.add('hidden');
+          if (closedBox) {
+            closedBox.classList.remove('hidden');
+            var cTitle = closedBox.querySelector('.closed-title');
+            var cMsg = closedBox.querySelector('.closed-msg');
+            if (cTitle) cTitle.textContent = reg.closed_title || 'Pendaftaran Anggota Sementara Ditutup';
+            if (cMsg) cMsg.textContent = reg.closed_message || 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.';
+          }
+        } else {
+          if (form) form.classList.remove('hidden');
+          if (closedBox) closedBox.classList.add('hidden');
+        }
+
+        // 3. Filter Pilihan Divisi yang Membuka Rekrutmen
+        var selDiv = document.getElementById('regDivision');
+        if (selDiv && Array.isArray(reg.open_divisions) && reg.open_divisions.length > 0) {
+          var divisionsMap = {
+            'DIV_DAKWAH': 'Divisi Dakwah & Pembinaan',
+            'DIV_HUKUM': 'Divisi Advokasi & Hukum',
+            'DIV_HUMAS': 'Divisi Humas & Kemitraan',
+            'DIV_MEDIA': 'Divisi Media, IT & Publikasi',
+            'DIV_SOSIAL': 'Divisi Sosial & Kemanusiaan',
+            'DIV_LITBANG': 'Divisi Litbang & Diklat',
+            'DIV_EKONOMI': 'Divisi Pemberdayaan Ekonomi & Logistik'
+          };
+          var optHtml = '<option value="">-- Pilih Minat Divisi Kerja --</option>';
+          reg.open_divisions.forEach(function (code) {
+            var label = divisionsMap[code] || code;
+            optHtml += '<option value="' + self.esc(label) + '">' + self.esc(label) + '</option>';
+          });
+          selDiv.innerHTML = optHtml;
+        }
+
+        // 4. Petunjuk & Pengantar
+        if (reg.instructions) {
+          var pDesc = document.querySelector('#pendaftaran p.text-gray-600');
+          if (pDesc) pDesc.textContent = reg.instructions;
+        }
+      }).catch(function (err) {
+        console.warn('Gagal memuat konfigurasi publik:', err);
+      });
     },
 
 
