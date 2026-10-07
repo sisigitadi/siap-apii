@@ -321,7 +321,7 @@
 
     /** Baris skeleton saat tabel masih memuat. */
     loadingRow: function (cols) {
-      return '<tr><td colspan="' + cols + '" class="text-center text-gray-400 py-10">Memuat data…</td></tr>';
+      return '<tr class="tbl-empty"><td colspan="' + cols + '" class="text-center text-gray-400 py-10">Memuat data…</td></tr>';
     },
 
     /** Tombol aksi kecil. */
@@ -358,6 +358,7 @@
 
       main.innerHTML = this.pageHead('Selamat datang, ' + Auth.esc(u.full_name || u.username) + ' 👋',
         'Ringkasan aktivitas Yayasan APII DPW Jabodetabek hari ini.', '') +
+        '<div id="dashInbox" class="mb-8"></div>' +
         '<div id="dashCards" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">' +
           '<div class="card bg-white rounded-2xl p-6 animate-pulse h-28"></div>'.repeat(4) +
         '</div>' +
@@ -366,9 +367,9 @@
             '<h3 class="font-bold text-emerald-dark">Surat Terbaru</h3>' +
             '<button data-nav="surat" class="text-sm text-emerald font-semibold hover:underline">Lihat semua →</button>' +
           '</div>' +
-          '<div class="overflow-x-auto"><table class="tbl"><thead><tr>' +
-            '<th>Nomor</th><th>Judul</th><th>Status</th><th>Tanggal</th>' +
-            '</tr></thead><tbody id="dashSurat">' + this.loadingRow(4) + '</tbody></table></div>' +
+          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+            '<th>Nomor &amp; Judul</th><th>Status</th><th>Tanggal</th>' +
+            '</tr></thead><tbody id="dashSurat">' + this.loadingRow(3) + '</tbody></table></div>' +
         '</div>';
 
       // Klik "Lihat semua".
@@ -378,6 +379,81 @@
 
       Auth.get('getDashboard').then(function (data) {
         if (!data) return;
+
+        // 1) Unified Action Inbox
+        var inboxEl = document.getElementById('dashInbox');
+        if (inboxEl) {
+          var items = data.action_items || [];
+          if (items.length > 0) {
+            var itemsHtml = items.map(function (it) {
+              var modColor = it.module === 'surat'
+                ? 'bg-amber-100 text-amber-700'
+                : it.module === 'keuangan'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-blue-100 text-blue-700';
+
+              var iconSvg = it.module === 'surat'
+                ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>'
+                : it.module === 'keuangan'
+                  ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>'
+                  : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>';
+
+              return '<div class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-emerald-50/50 transition border-b border-gray-100 last:border-b-0">' +
+                '<div class="flex items-start gap-3.5 min-w-0">' +
+                  '<div class="mt-0.5 w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center ' + modColor + '">' +
+                    iconSvg +
+                  '</div>' +
+                  '<div class="min-w-0 flex-1">' +
+                    '<div class="flex items-center gap-2 flex-wrap mb-1">' +
+                      '<span class="badge ' + Auth.esc(it.badge_class || 'badge-PENDING') + '">' + Auth.esc(it.badge) + '</span>' +
+                      '<span class="text-xs font-mono text-gray-500">' + Auth.esc(it.subtitle) + '</span>' +
+                    '</div>' +
+                    '<h4 class="text-sm font-bold text-gray-900 truncate">' + Auth.esc(it.title) + '</h4>' +
+                    '<p class="text-xs text-gray-500 mt-0.5">' + Auth.esc(it.detail) + '</p>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="flex items-center sm:self-center flex-shrink-0">' +
+                  '<button type="button" data-nav-target="' + Auth.esc(it.target_nav) + '" data-item-id="' + Auth.esc(it.id) + '" class="w-full sm:w-auto btn btn-primary text-xs px-4 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm">' +
+                    '<span>' + Auth.esc(it.action_label || 'Tinjau') + '</span>' +
+                    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>' +
+                  '</button>' +
+                '</div>' +
+              '</div>';
+            }).join('');
+
+            inboxEl.innerHTML = '<div class="card bg-white rounded-2xl shadow-sm border border-amber-200 overflow-hidden ring-4 ring-amber-50/50">' +
+              '<div class="px-5 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white flex items-center justify-between">' +
+                '<div class="flex items-center gap-2.5">' +
+                  '<div class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></div>' +
+                  '<h3 class="font-extrabold text-sm tracking-wide flex items-center gap-1.5">' +
+                    '<span>⚡ PERLU TINDAKAN ANDA</span>' +
+                  '</h3>' +
+                '</div>' +
+                '<span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm text-white">' +
+                  items.length + ' Menunggu' +
+                '</span>' +
+              '</div>' +
+              '<div class="divide-y divide-gray-100">' + itemsHtml + '</div>' +
+            '</div>';
+
+            inboxEl.querySelectorAll('[data-nav-target]').forEach(function (btn) {
+              btn.addEventListener('click', function () {
+                var target = this.getAttribute('data-nav-target');
+                window.location.hash = '#/' + target;
+              });
+            });
+          } else {
+            inboxEl.innerHTML = '<div class="rounded-2xl p-4 bg-emerald-50/80 border border-emerald-200/80 text-emerald-900 flex items-center gap-3.5">' +
+              '<div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">' +
+                '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
+              '</div>' +
+              '<div class="text-xs sm:text-sm">' +
+                '<span class="font-bold text-emerald-950">Semua Beres!</span> Tidak ada dokumen atau permohonan yang memerlukan tindakan Anda saat ini.' +
+              '</div>' +
+            '</div>';
+          }
+        }
+
         var c = data.counts || {};
         var cards = [];
 
@@ -403,11 +479,13 @@
         var list = (data.lists && data.lists.surat_terbaru) || [];
         var tb = document.getElementById('dashSurat');
         tb.innerHTML = list.length ? list.map(function (s) {
-          return '<tr><td class="font-mono text-xs">' + Auth.esc(s.letter_number) + '</td>' +
-            '<td class="font-semibold line-clamp-1 max-w-xs">' + Auth.esc(s.title) + '</td>' +
-            '<td>' + self.badge(s.status, s.status_label) + '</td>' +
-            '<td class="text-gray-500 whitespace-nowrap">' + Auth.esc(s.tanggal) + '</td></tr>';
-        }).join('') : '<tr><td colspan="4" class="text-center text-gray-400 py-8">Belum ada surat.</td></tr>';
+          return '<tr>' +
+            '<td><div class="font-mono text-xs text-gray-500">' + Auth.esc(s.letter_number) + '</div>' +
+              '<div class="font-semibold text-emerald-dark">' + Auth.esc(s.title) + '</div></td>' +
+            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(s.status, s.status_label) + '</td>' +
+            '<td class="text-gray-500 whitespace-nowrap text-xs"><span class="sm:hidden text-gray-400 font-medium">Tanggal: </span>' + Auth.esc(s.tanggal) + '</td>' +
+          '</tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="3" class="text-center text-gray-400 py-8">Belum ada surat.</td></tr>';
       }).catch(function () { /* Auth.fetch sudah menampilkan toast */ });
     },
 
@@ -450,7 +528,7 @@
           '<button id="suratCari" class="btn btn-ghost px-5 py-2.5 rounded-xl font-semibold text-sm">Cari</button>' +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
-          '<div class="overflow-x-auto"><table class="tbl"><thead><tr>' +
+          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
           '<th>Nomor &amp; Judul</th><th>Jenis</th><th>Status</th><th>Dibuat Oleh</th><th>Tanggal</th><th>Aksi</th>' +
           '</tr></thead><tbody id="suratRows">' + this.loadingRow(6) + '</tbody></table></div>' +
         '</div>';
@@ -502,14 +580,14 @@
           }
           return '<tr data-id="' + s.id + '">' +
             '<td><div class="font-mono text-xs text-gray-500">' + Auth.esc(s.letter_number) + '</div>' +
-              '<div class="font-semibold line-clamp-1 max-w-xs">' + Auth.esc(s.title) + '</div></td>' +
-            '<td class="whitespace-nowrap text-gray-600">' + Auth.esc(s.letter_type_label) + '</td>' +
-            '<td>' + self.badge(s.status, s.status_label) + '</td>' +
-            '<td class="whitespace-nowrap text-gray-600">' + Auth.esc(s.created_by_name || s.created_by) + '</td>' +
-            '<td class="whitespace-nowrap text-gray-500 text-xs">' + Auth.esc(s.tanggal_label) + '</td>' +
-            '<td><div class="flex gap-1.5 flex-wrap min-w-[120px]">' + acts + '</div></td>' +
+              '<div class="font-semibold text-gray-900 leading-snug">' + Auth.esc(s.title) + '</div></td>' +
+            '<td class="whitespace-nowrap text-gray-600 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Jenis: </span>' + Auth.esc(s.letter_type_label) + '</td>' +
+            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(s.status, s.status_label) + '</td>' +
+            '<td class="whitespace-nowrap text-gray-600 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Dibuat: </span>' + Auth.esc(s.created_by_name || s.created_by) + '</td>' +
+            '<td class="whitespace-nowrap text-gray-500 text-xs"><span class="sm:hidden text-gray-400 font-medium">Tanggal: </span>' + Auth.esc(s.tanggal_label) + '</td>' +
+            '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap min-w-[120px]">' + acts + '</div></td>' +
           '</tr>';
-        }).join('') : '<tr><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada surat yang ditemukan.</td></tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada surat yang ditemukan.</td></tr>';
 
         // Binding aksi baris.
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
@@ -766,7 +844,7 @@
           '</select>' +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
-          '<div class="overflow-x-auto"><table class="tbl"><thead><tr>' +
+          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
           '<th>Nomor Voucher</th><th>Jenis</th><th>Jumlah</th><th>Akun</th><th>Status</th><th>Aksi</th>' +
           '</tr></thead><tbody id="keuRows">' + this.loadingRow(6) + '</tbody></table></div>' +
         '</div>';
@@ -839,17 +917,17 @@
           if (!acts) acts = '<span class="text-xs text-gray-300">—</span>';
 
           return '<tr data-id="' + k.id + '">' +
-            '<td><div class="font-mono text-xs">' + Auth.esc(k.voucher_number) + '</div>' +
-              '<div class="text-xs text-gray-500 line-clamp-1 max-w-xs">' + Auth.esc(k.description) + '</div></td>' +
+            '<td><div class="font-mono text-xs text-gray-500">' + Auth.esc(k.voucher_number) + '</div>' +
+              '<div class="text-sm font-semibold text-gray-900 leading-snug">' + Auth.esc(k.description) + '</div></td>' +
             '<td><span class="badge ' + (k.type === 'MASUK' ? 'badge-PUBLISHED' : 'badge-DRAFT') + '">' +
               (k.type === 'MASUK' ? 'Kas Masuk' : 'Kas Keluar') + '</span></td>' +
             '<td class="font-bold whitespace-nowrap ' + (k.type === 'MASUK' ? 'text-emerald' : 'text-red-600') + '">' +
               (k.type === 'MASUK' ? '+ ' : '− ') + Auth.esc(k.amount_label.replace('Rp ', '')) + '</td>' +
-            '<td class="whitespace-nowrap text-gray-600">' + Auth.esc(k.account_label) + '</td>' +
-            '<td>' + self.badge(k.status, k.status_label) + '</td>' +
-            '<td><div class="flex gap-1.5 flex-wrap min-w-[110px]">' + acts + '</div></td>' +
+            '<td class="whitespace-nowrap text-gray-600 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Akun: </span>' + Auth.esc(k.account_label) + '</td>' +
+            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(k.status, k.status_label) + '</td>' +
+            '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap min-w-[110px]">' + acts + '</div></td>' +
           '</tr>';
-        }).join('') : '<tr><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada voucher yang ditemukan.</td></tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada voucher yang ditemukan.</td></tr>';
 
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
           var id = tr.getAttribute('data-id');
@@ -866,7 +944,7 @@
           });
         });
       }).catch(function () {
-        tb.innerHTML = '<tr><td colspan="6" class="text-center text-red-400 py-10">Gagal memuat data voucher.</td></tr>';
+        tb.innerHTML = '<tr class="tbl-empty"><td colspan="6" class="text-center text-red-400 py-10">Gagal memuat data voucher.</td></tr>';
       });
     },
 
@@ -980,7 +1058,7 @@
           '</select>' +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
-          '<div class="overflow-x-auto"><table class="tbl"><thead><tr>' +
+          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
           '<th>Tracking</th><th>Program</th><th>Divisi</th><th>Anggaran</th><th>Status</th><th>Aksi</th>' +
           '</tr></thead><tbody id="divRows">' + this.loadingRow(6) + '</tbody></table></div>' +
         '</div>';
@@ -1026,15 +1104,15 @@
           if (!acts) acts = '<span class="text-xs text-gray-300">—</span>';
 
           return '<tr data-id="' + d.id + '">' +
-            '<td class="font-mono text-xs">' + Auth.esc(d.tracking_id) + '</td>' +
-            '<td><div class="font-semibold line-clamp-1 max-w-xs">' + Auth.esc(d.program_title) + '</div>' +
-              '<div class="text-xs text-gray-500 line-clamp-1 max-w-xs">' + Auth.esc(d.description) + '</div></td>' +
-            '<td class="whitespace-nowrap text-gray-600">' + Auth.esc(d.division_label) + '</td>' +
-            '<td class="whitespace-nowrap font-semibold">' + Auth.esc(d.budget_label) + '</td>' +
-            '<td>' + self.badge(d.status, d.status_label) + '</td>' +
-            '<td><div class="flex gap-1.5 flex-wrap min-w-[110px]">' + acts + '</div></td>' +
+            '<td><div class="font-mono text-xs text-gray-500">' + Auth.esc(d.tracking_id) + '</div>' +
+              '<div class="font-semibold text-gray-900 leading-snug">' + Auth.esc(d.program_title) + '</div>' +
+              '<div class="text-xs text-gray-500 line-clamp-1 mt-0.5">' + Auth.esc(d.description) + '</div></td>' +
+            '<td class="whitespace-nowrap text-gray-600 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Divisi: </span>' + Auth.esc(d.division_label) + '</td>' +
+            '<td class="whitespace-nowrap font-bold text-gray-800 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Anggaran: </span>' + Auth.esc(d.budget_label) + '</td>' +
+            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(d.status, d.status_label) + '</td>' +
+            '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap min-w-[110px]">' + acts + '</div></td>' +
           '</tr>';
-        }).join('') : '<tr><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada usulan yang ditemukan.</td></tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada usulan yang ditemukan.</td></tr>';
 
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
           var id = tr.getAttribute('data-id');
@@ -1050,7 +1128,7 @@
           });
         });
       }).catch(function () {
-        tb.innerHTML = '<tr><td colspan="6" class="text-center text-red-400 py-10">Gagal memuat data usulan.</td></tr>';
+        tb.innerHTML = '<tr class="tbl-empty"><td colspan="6" class="text-center text-red-400 py-10">Gagal memuat data usulan.</td></tr>';
       });
     },
 
@@ -1178,7 +1256,7 @@
           '<input id="usrQ" type="text" placeholder="Cari username / nama…" class="field" />' +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
-          '<div class="overflow-x-auto"><table class="tbl"><thead><tr>' +
+          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
           '<th>Username</th><th>Nama</th><th>Peran</th><th>Divisi</th><th>Status</th><th>Aksi</th>' +
           '</tr></thead><tbody id="usrRows">' + this.loadingRow(6) + '</tbody></table></div>' +
         '</div>';
@@ -1219,15 +1297,15 @@
         }
         tb.innerHTML = users.length ? users.map(function (u) {
           return '<tr data-id="' + u.id + '">' +
-            '<td class="font-mono text-xs font-semibold">' + Auth.esc(u.username) + '</td>' +
-            '<td class="font-semibold">' + Auth.esc(u.full_name || '—') +
+            '<td><div class="font-mono text-xs font-semibold text-emerald-dark">' + Auth.esc(u.username) + '</div>' +
+              '<div class="font-semibold text-gray-900 leading-snug">' + Auth.esc(u.full_name || '—') + '</div>' +
               '<div class="text-xs text-gray-400 font-normal">' + Auth.esc(u.email || '') + '</div></td>' +
-            '<td><span class="badge badge-PUBLISHED">' + Auth.esc(u.role_label || u.role) + '</span></td>' +
-            '<td class="text-gray-600 whitespace-nowrap">' + Auth.esc(u.division_label || '—') + '</td>' +
-            '<td>' + (u.is_active === 'TRUE'
+            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Peran: </span><span class="badge badge-PUBLISHED">' + Auth.esc(u.role_label || u.role) + '</span></td>' +
+            '<td class="text-gray-600 whitespace-nowrap text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Divisi: </span>' + Auth.esc(u.division_label || '—') + '</td>' +
+            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + (u.is_active === 'TRUE'
               ? '<span class="badge badge-PUBLISHED">Aktif</span>'
               : '<span class="badge badge-REJECTED">Nonaktif</span>') + '</td>' +
-            '<td><div class="flex gap-1.5">' +
+            '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap">' +
               (Auth.isSuperadmin()
                 ? self.aBtn('edit', 'Ubah', 'Ubah akun') +
                   self.aBtn(u.is_active === 'TRUE' ? 'danger toggle' : 'toggle',
@@ -1235,7 +1313,7 @@
                 : '<span class="text-xs text-gray-300">—</span>') +
               '</div></td>' +
           '</tr>';
-        }).join('') : '<tr><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada pengguna.</td></tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada pengguna.</td></tr>';
 
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
           var id = tr.getAttribute('data-id');
@@ -1249,7 +1327,7 @@
           });
         });
       }).catch(function () {
-        tb.innerHTML = '<tr><td colspan="6" class="text-center text-red-400 py-10">Gagal memuat data pengguna.</td></tr>';
+        tb.innerHTML = '<tr class="tbl-empty"><td colspan="6" class="text-center text-red-400 py-10">Gagal memuat data pengguna.</td></tr>';
       });
     },
 
@@ -1351,7 +1429,7 @@
       main.innerHTML = this.pageHead('Jejak Audit',
         'Catatan keamanan setiap aksi penting: login, persetujuan, penolakan, &amp; aksi sensitif lainnya.', '') +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
-          '<div class="overflow-x-auto"><table class="tbl"><thead><tr>' +
+          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
           '<th>Waktu</th><th>Pelaku</th><th>Aksi</th><th>Keterangan</th>' +
           '</tr></thead><tbody id="auditRows">' + this.loadingRow(4) + '</tbody></table></div>' +
         '</div>';
@@ -1366,15 +1444,15 @@
           else if (/REJECT|DITOLAK|FAILED|FORBIDDEN/.test(l.action)) cls = 'badge-REJECTED';
           else if (/LOGIN|LOGOUT|SUBMIT|AJUKAN|CREATE|UPDATE/.test(l.action)) cls = 'badge-PENDING_APPROVAL';
           return '<tr>' +
-            '<td class="whitespace-nowrap text-xs text-gray-500 font-mono">' + Auth.esc(l.timestamp) + '</td>' +
-            '<td class="font-semibold font-mono text-xs">' + Auth.esc(l.actor) + '</td>' +
-            '<td><span class="badge ' + cls + '">' + Auth.esc(l.action) + '</span></td>' +
-            '<td class="text-sm text-gray-700">' + Auth.esc(l.detail) + '</td>' +
+            '<td class="whitespace-nowrap text-xs text-gray-500 font-mono"><span class="sm:hidden text-gray-400 font-sans font-medium">Waktu: </span>' + Auth.esc(l.timestamp) + '</td>' +
+            '<td class="font-semibold font-mono text-xs text-emerald-dark"><span class="sm:hidden text-gray-400 font-sans font-medium">Pelaku: </span>' + Auth.esc(l.actor) + '</td>' +
+            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Aksi: </span><span class="badge ' + cls + '">' + Auth.esc(l.action) + '</span></td>' +
+            '<td class="text-sm text-gray-700 leading-snug">' + Auth.esc(l.detail) + '</td>' +
           '</tr>';
-        }).join('') : '<tr><td colspan="4" class="text-center text-gray-400 py-10">Belum ada catatan audit.</td></tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="4" class="text-center text-gray-400 py-10">Belum ada catatan audit.</td></tr>';
       }).catch(function () {
         document.getElementById('auditRows').innerHTML =
-          '<tr><td colspan="4" class="text-center text-red-400 py-10">Gagal memuat jejak audit.</td></tr>';
+          '<tr class="tbl-empty"><td colspan="4" class="text-center text-red-400 py-10">Gagal memuat jejak audit.</td></tr>';
       });
     },
 

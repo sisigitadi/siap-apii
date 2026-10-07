@@ -168,5 +168,108 @@ function getDashboard(ctx) {
     data.counts.pengguna_total = Database.readAll(TABS.USERS).length;
   }
 
+  // --- Kotak Aksi Terpadu (Action Items / Approval Inbox) ---
+  var actionItems = [];
+  var isLead = user.role === ROLES.KETUA || user.role === ROLES.SUPERADMIN;
+
+  // 1) Surat menunggu persetujuan Ketua:
+  if (isLead) {
+    allSurat.filter(function (s) { return s.status === 'PENDING_APPROVAL'; }).forEach(function (s) {
+      actionItems.push({
+        id: s.id,
+        module: 'surat',
+        badge: 'Surat Resmi',
+        badge_class: 'badge-PENDING_APPROVAL',
+        title: s.title,
+        subtitle: s.letter_number,
+        detail: 'Diajukan oleh ' + (s.created_by_name || s.created_by) + ' • ' + formatTanggal(s.submitted_at || s.created_at),
+        action_label: 'Tinjau & Setujui',
+        target_nav: 'surat'
+      });
+    });
+  } else if (user.role === ROLES.SEKRETARIS) {
+    allSurat.filter(function (s) { return s.status === 'REJECTED'; }).forEach(function (s) {
+      actionItems.push({
+        id: s.id,
+        module: 'surat',
+        badge: 'Surat Ditolak',
+        badge_class: 'badge-REJECTED',
+        title: s.title,
+        subtitle: s.letter_number,
+        detail: 'Catatan: ' + (s.rejection_notes || 'Perlu perbaikan draf'),
+        action_label: 'Perbaiki Draf',
+        target_nav: 'surat'
+      });
+    });
+  }
+
+  // 2) Voucher kas menunggu verifikasi:
+  if (KEUANGAN_READ_ROLES.indexOf(user.role) !== -1) {
+    var rawKeu = Database.readAll(TABS.KEUANGAN);
+    if (user.role === ROLES.BENDAHARA || user.role === ROLES.SUPERADMIN) {
+      rawKeu.filter(function (k) { return k.status === 'PENDING'; }).forEach(function (k) {
+        actionItems.push({
+          id: k.id,
+          module: 'keuangan',
+          badge: 'Voucher Kas',
+          badge_class: 'badge-PENDING',
+          title: k.description,
+          subtitle: k.voucher_number + ' • ' + formatRupiah(k.amount) + ' (' + (k.type === 'MASUK' ? 'Masuk' : 'Keluar') + ')',
+          detail: 'Akun: ' + (ACCOUNT_LABELS[k.account] || k.account) + ' • Dibuat oleh ' + k.created_by,
+          action_label: 'Verifikasi Bendahara',
+          target_nav: 'keuangan'
+        });
+      });
+    }
+    if (isLead) {
+      rawKeu.filter(function (k) { return k.status === 'VERIFIED_BY_BENDAHARA'; }).forEach(function (k) {
+        actionItems.push({
+          id: k.id,
+          module: 'keuangan',
+          badge: 'Persetujuan Kas Final',
+          badge_class: 'badge-VERIFIED_BY_BENDAHARA',
+          title: k.description,
+          subtitle: k.voucher_number + ' • ' + formatRupiah(k.amount),
+          detail: 'Diverifikasi Bendahara (' + (k.verified_by_bendahara || '—') + ') • Menunggu Ketua',
+          action_label: 'Setujui Pengeluaran',
+          target_nav: 'keuangan'
+        });
+      });
+    }
+  }
+
+  // 3) Usulan divisi menunggu persetujuan:
+  if (isLead) {
+    allDiv.filter(function (d) { return d.status === 'AJUKAN'; }).forEach(function (d) {
+      actionItems.push({
+        id: d.id,
+        module: 'divisi',
+        badge: 'Usulan Divisi',
+        badge_class: 'badge-PENDING',
+        title: d.program_title,
+        subtitle: d.tracking_id + ' • ' + (DIVISION_LABELS[d.division] || d.division),
+        detail: 'Estimasi: ' + formatRupiah(d.budget_estimate) + ' • Pengusul: ' + (d.submitted_by_name || d.submitted_by),
+        action_label: 'Tinjau Usulan',
+        target_nav: 'divisi'
+      });
+    });
+  } else if (user.role === ROLES.KETUA_DIVISI || user.role === ROLES.ANGGOTA_DIVISI) {
+    allDiv.filter(function (d) { return d.division === user.division && d.status === 'DITOLAK'; }).forEach(function (d) {
+      actionItems.push({
+        id: d.id,
+        module: 'divisi',
+        badge: 'Usulan Ditolak',
+        badge_class: 'badge-REJECTED',
+        title: d.program_title,
+        subtitle: d.tracking_id,
+        detail: 'Catatan Ketua: ' + (d.approval_notes || 'Perlu diperbaiki'),
+        action_label: 'Perbaiki Usulan',
+        target_nav: 'divisi'
+      });
+    });
+  }
+
+  data.action_items = actionItems;
+
   return { ok: true, data: data, message: 'Dashboard berhasil dimuat.' };
 }
