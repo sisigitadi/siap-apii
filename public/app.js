@@ -339,16 +339,16 @@
       content.innerHTML = '' +
         '<div class="text-center pb-4 border-b border-gray-100">' +
           '<div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Nomor Registrasi Anda</div>' +
-          '<div class="text-2xl font-black text-emerald font-mono bg-emerald-light/40 py-2 px-4 rounded-xl inline-block border border-emerald/20">' + this.esc(regNum) + '</div>' +
-          '<div class="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">' +
+          '<div class="text-xl sm:text-2xl font-black text-emerald font-mono bg-emerald-light/40 py-2 px-3 sm:px-4 rounded-xl inline-block border border-emerald/20 break-all max-w-full">' + this.esc(regNum) + '</div>' +
+          '<div class="mt-2 inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full text-center flex-wrap justify-center">' +
             '<span class="h-2 w-2 rounded-full bg-amber-500 animate-ping"></span>' +
             'MENUNGGU VERIFIKASI SEKRETARIAT' +
           '</div>' +
         '</div>' +
-        '<div class="grid grid-cols-2 gap-3 text-xs">' +
-          '<div><div class="text-gray-400 font-bold uppercase">Nama Pendaftar</div><div class="font-extrabold text-gray-800 text-sm mt-0.5">' + this.esc(data.full_name) + '</div></div>' +
-          '<div><div class="text-gray-400 font-bold uppercase">NIK Terlindungi</div><div class="font-bold text-gray-700 text-sm font-mono mt-0.5">' + this.esc(maskedNik) + '</div></div>' +
-          '<div><div class="text-gray-400 font-bold uppercase">Minat Divisi</div><div class="font-bold text-gray-700 mt-0.5">' + this.esc(data.division_interest || 'Umum') + '</div></div>' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">' +
+          '<div><div class="text-gray-400 font-bold uppercase">Nama Pendaftar</div><div class="font-extrabold text-gray-800 text-sm mt-0.5 break-words">' + this.esc(data.full_name) + '</div></div>' +
+          '<div><div class="text-gray-400 font-bold uppercase">NIK Terlindungi</div><div class="font-bold text-gray-700 text-sm font-mono mt-0.5 break-all">' + this.esc(maskedNik) + '</div></div>' +
+          '<div><div class="text-gray-400 font-bold uppercase">Minat Divisi</div><div class="font-bold text-gray-700 mt-0.5 break-words">' + this.esc(data.division_interest || 'Umum') + '</div></div>' +
           '<div><div class="text-gray-400 font-bold uppercase">Waktu Pengajuan</div><div class="font-medium text-gray-600 mt-0.5">' + this.esc(dateStr) + ' WIB</div></div>' +
         '</div>' +
         '<div class="bg-gray-50 rounded-2xl p-4 text-xs text-gray-600 border border-gray-200 leading-relaxed">' +
@@ -390,12 +390,12 @@
           listEl.innerHTML = res.data.items.map(function (s) {
             return '' +
               '<div class="p-4 rounded-2xl bg-gray-50/80 hover:bg-emerald-50/50 border border-gray-200/90 hover:border-emerald-300 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">' +
-                '<div class="flex-1">' +
-                  '<div class="flex items-center gap-2 mb-1">' +
+                '<div class="flex-1 min-w-0">' +
+                  '<div class="flex items-center gap-2 mb-1 flex-wrap">' +
                     '<span class="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full">' + self.esc(s.letter_type_label || s.letter_type) + '</span>' +
                     '<span class="text-xs text-gray-400 font-medium">' + self.esc(s.tanggal_label || '') + '</span>' +
                   '</div>' +
-                  '<h4 class="font-bold text-gray-900 text-sm leading-snug">' + self.esc(s.title) + '</h4>' +
+                  '<h4 class="font-bold text-gray-900 text-sm leading-snug break-words">' + self.esc(s.title) + '</h4>' +
                   '<div class="text-xs text-gray-500 font-mono mt-0.5 break-all">' + self.esc(s.letter_number) + '</div>' +
                 '</div>' +
                 '<div class="sm:flex-shrink-0">' +
@@ -436,18 +436,18 @@
 
             return '' +
               '<div class="p-4 rounded-2xl bg-gradient-to-br ' + colorBg + ' border">' +
-                '<div class="flex items-center justify-between mb-2">' +
+                '<div class="flex items-center justify-between mb-2 flex-wrap gap-1">' +
                   '<span class="text-xs font-black text-gray-900 uppercase tracking-wider">' + self.esc(acc.bank_name || acc.name) + '</span>' +
                   '<span class="text-[10px] font-bold ' + colorBadge + ' px-2.5 py-0.5 rounded-full">' + self.esc(acc.category || 'Operasional DPW') + '</span>' +
                 '</div>' +
-                '<div class="flex items-center justify-between gap-2 mt-1">' +
-                  '<div class="text-xl font-extrabold font-mono text-gray-900 tracking-wider">' + self.esc(acc.account_number) + '</div>' +
+                '<div class="flex items-center justify-between gap-2 mt-1 flex-wrap sm:flex-nowrap">' +
+                  '<div class="text-base sm:text-xl font-extrabold font-mono text-gray-900 tracking-wider break-all min-w-0">' + self.esc(acc.account_number) + '</div>' +
                   '<button type="button" onclick="navigator.clipboard.writeText(\'' + self.esc(acc.account_number) + '\'); window.Public && window.Public.showToast(\'Nomor rekening berhasil disalin!\');" ' +
-                          'class="text-xs font-bold bg-white ' + colorBtn + ' px-3 py-1.5 rounded-xl border shadow-xs transition">' +
+                          'class="text-xs font-bold bg-white ' + colorBtn + ' px-3 py-1.5 rounded-xl border shadow-xs transition flex-shrink-0">' +
                     'Salin' +
                   '</button>' +
                 '</div>' +
-                '<div class="text-xs text-gray-600 mt-2 font-medium">a.n. <strong>' + self.esc(acc.holder_name || 'YAYASAN APII DPW JABODETABEK') + '</strong></div>' +
+                '<div class="text-xs text-gray-600 mt-2 font-medium break-words">a.n. <strong>' + self.esc(acc.holder_name || 'YAYASAN APII DPW JABODETABEK') + '</strong></div>' +
               '</div>';
           }).join('');
         }

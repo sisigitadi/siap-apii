@@ -12,7 +12,6 @@
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
-  <link rel="manifest" href="site.webmanifest" />
   <meta name="theme-color" content="#022C22" />
 
   <!-- Open Graph Meta Tags (WhatsApp, Telegram, Facebook, LinkedIn) -->
@@ -60,11 +59,11 @@
   <!-- ====================== NAVBAR ====================== -->
   <header id="navbar" class="fixed top-0 inset-x-0 z-50 bg-white/95 backdrop-blur-md border-b border-emerald-100 shadow-sm">
     <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-      <a href="#beranda" class="flex items-center gap-3">
-        <img src="logo.png" alt="Logo APII" class="h-12 w-12 object-contain" onerror="this.style.display='none'" />
-        <div class="leading-tight">
-          <div class="font-extrabold text-emerald-dark text-base sm:text-lg">Yayasan APII</div>
-          <div class="text-xs sm:text-sm text-gray-500 font-medium">DPW Jabodetabek</div>
+      <a href="#beranda" class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <img src="logo.png" alt="Logo APII" class="h-10 w-10 sm:h-12 sm:w-12 object-contain flex-shrink-0" onerror="this.style.display='none'" />
+        <div class="leading-tight min-w-0">
+          <div class="font-extrabold text-emerald-dark text-base sm:text-lg truncate">Yayasan APII</div>
+          <div class="text-xs sm:text-sm text-gray-500 font-medium truncate">DPW Jabodetabek</div>
         </div>
       </a>
       <ul class="hidden lg:flex items-center gap-8 font-medium text-gray-700">
@@ -115,19 +114,19 @@
         <p class="text-lg text-emerald-light/90 mb-8 max-w-xl leading-relaxed">
           Wadah sinergi para ahli, akademisi, dan praktisi pengkaji Indonesia. Bergabunglah bersama kami untuk memajukan riset, pemberdayaan masyarakat, dan kemaslahatan umat.
         </p>
-        <div class="flex flex-wrap gap-4">
-          <a href="#pendaftaran" class="inline-flex items-center justify-center gap-2.5 bg-gold hover:bg-gold-light text-emerald-dark px-7 py-4 rounded-xl font-extrabold shadow-lg hover:shadow-xl transition text-base">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-            Formulir Pendaftaran Calon Anggota
+        <div class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
+          <a href="#pendaftaran" class="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-gold hover:bg-gold-light text-emerald-dark px-5 sm:px-7 py-3.5 sm:py-4 rounded-xl font-extrabold shadow-lg hover:shadow-xl transition text-sm sm:text-base text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+            <span>Formulir Pendaftaran Calon Anggota</span>
           </a>
-          <a href="#informasi" class="inline-flex items-center justify-center gap-2 border-2 border-white/40 hover:bg-white/10 text-white px-6 py-4 rounded-xl font-semibold transition text-base">
-            Info Surat &amp; Keuangan
+          <a href="#informasi" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 border-2 border-white/40 hover:bg-white/10 text-white px-5 sm:px-6 py-3.5 sm:py-4 rounded-xl font-semibold transition text-sm sm:text-base text-center">
+            <span>Info Surat &amp; Keuangan</span>
           </a>
         </div>
-        <div class="flex gap-8 mt-12 pt-8 border-t border-white/20">
-          <div><div class="text-3xl font-extrabold text-gold-light">Resmi</div><div class="text-sm text-emerald-light/80">Publikasi Surat</div></div>
-          <div><div class="text-3xl font-extrabold text-gold-light">Transparan</div><div class="text-sm text-emerald-light/80">Rekening Kas Yayasan</div></div>
-          <div><div class="text-3xl font-extrabold text-gold-light">100%</div><div class="text-sm text-emerald-light/80">Terproteksi UU PDP</div></div>
+        <div class="grid grid-cols-3 gap-2 sm:gap-6 mt-10 sm:mt-12 pt-6 sm:pt-8 border-t border-white/20 text-center sm:text-left">
+          <div><div class="text-xl sm:text-3xl font-extrabold text-gold-light">Resmi</div><div class="text-[10px] sm:text-sm text-emerald-light/80 leading-tight mt-0.5">Publikasi Surat</div></div>
+          <div><div class="text-xl sm:text-3xl font-extrabold text-gold-light">Transparan</div><div class="text-[10px] sm:text-sm text-emerald-light/80 leading-tight mt-0.5">Rekening Kas Yayasan</div></div>
+          <div><div class="text-xl sm:text-3xl font-extrabold text-gold-light">100%</div><div class="text-[10px] sm:text-sm text-emerald-light/80 leading-tight mt-0.5">Terproteksi UU PDP</div></div>
         </div>
       </div>
       <div class="hidden lg:block">
@@ -189,8 +188,8 @@
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
         </div>
         <div class="text-sm">
-          <div class="font-extrabold text-emerald-dark flex items-center gap-2">
-            Perlindungan Data Pribadi (UU PDP No. 27/2022)
+          <div class="font-extrabold text-emerald-dark flex flex-wrap items-center gap-2">
+            <span>Perlindungan Data Pribadi (UU PDP No. 27/2022)</span>
             <span class="bg-emerald text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Watermark Otomatis</span>
           </div>
           <p class="text-gray-600 mt-1 leading-relaxed">
@@ -328,9 +327,8 @@
                 <canvas id="ktpCanvas" class="hidden"></canvas>
 
                 <!-- Preview Area -->
-                <div id="ktpPreviewBox" class="w-full mt-4 hidden">
-                  <div class="relative rounded-xl overflow-hidden border-2 border-emerald shadow bg-black/5">
-                    <img id="ktpPreviewImg" src="" alt="Preview KTP Ter-watermark" class="w-full h-44 object-cover" />
+                  <div class="relative rounded-xl overflow-hidden border-2 border-emerald shadow bg-black/5 flex items-center justify-center p-1">
+                    <img id="ktpPreviewImg" src="" alt="Preview KTP Ter-watermark" class="max-w-full max-h-56 object-contain rounded-lg" />
                     <div class="absolute bottom-0 inset-x-0 bg-emerald/90 text-white text-[10px] font-bold py-1 px-2 flex items-center justify-center gap-1">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                       Watermark Digital Berhasil Disematkan
@@ -357,7 +355,7 @@
                 <!-- Selfie Preview Box -->
                 <div id="selfiePreviewBox" class="w-full mt-4 hidden">
                   <div class="flex justify-center">
-                    <img id="selfiePreviewImg" src="" alt="Preview Selfie" class="h-32 w-32 object-cover rounded-full border-4 border-emerald shadow-lg" />
+                    <img id="selfiePreviewImg" src="" alt="Preview Selfie" class="h-28 w-28 sm:h-32 sm:w-32 object-cover rounded-full border-4 border-emerald shadow-lg" />
                   </div>
                   <button type="button" id="btnHapusSelfie" class="text-xs text-red-500 hover:text-red-700 font-semibold mt-2">Hapus &amp; Ganti Pas Foto</button>
                 </div>
@@ -397,28 +395,28 @@
   </section>
 
   <!-- ====================== MODAL BUKTI PENDAFTARAN DIGITAL ====================== -->
-  <div id="regReceiptModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-emerald-100 animate-[fadeUp_0.3s_ease]">
+  <div id="regReceiptModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4">
+    <div class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-lg w-full max-h-[92vh] flex flex-col overflow-hidden border border-emerald-100 animate-[fadeUp_0.3s_ease]">
       <!-- Header Stempel -->
-      <div class="bg-gradient-to-r from-emerald-dark via-emerald to-emerald-dark text-white p-6 text-center relative">
-        <div class="h-16 w-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gold-light" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+      <div class="bg-gradient-to-r from-emerald-dark via-emerald to-emerald-dark text-white p-5 sm:p-6 text-center relative flex-shrink-0">
+        <div class="h-14 w-14 sm:h-16 sm:w-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-2.5 shadow-inner">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 sm:h-10 sm:w-10 text-gold-light" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
         </div>
-        <h3 class="text-xl font-extrabold tracking-tight">Tanda Terima Pendaftaran Digital</h3>
-        <p class="text-xs text-emerald-light/90 mt-1">Yayasan APII DPW Jabodetabek</p>
+        <h3 class="text-lg sm:text-xl font-extrabold tracking-tight">Tanda Terima Pendaftaran Digital</h3>
+        <p class="text-xs text-emerald-light/90 mt-0.5">Yayasan APII DPW Jabodetabek</p>
       </div>
 
-      <!-- Content Receipt Body -->
-      <div class="p-6 sm:p-8 space-y-5" id="receiptContent">
+      <!-- Content Receipt Body (Scrollable!) -->
+      <div class="p-5 sm:p-7 space-y-4 overflow-y-auto flex-1 text-gray-800" id="receiptContent">
         <!-- Akan diisi secara dinamis oleh JavaScript -->
       </div>
 
-      <!-- Footer Action Buttons -->
-      <div class="p-6 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row gap-3">
+      <!-- Footer Action Buttons (Always Visible at Bottom) -->
+      <div class="p-4 sm:p-6 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row gap-2.5 flex-shrink-0">
         <a id="receiptWaBtn" href="#" target="_blank" rel="noopener"
-           class="flex-1 inline-flex items-center justify-center gap-2 bg-emerald hover:bg-emerald-dark text-white py-3 px-4 rounded-xl font-bold text-sm shadow transition">
-          <svg class="h-5 w-5 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
-          Konfirmasi WhatsApp
+           class="flex-1 inline-flex items-center justify-center gap-2 bg-emerald hover:bg-emerald-dark text-white py-3 px-4 rounded-xl font-bold text-sm shadow transition text-center">
+          <svg class="h-5 w-5 fill-current flex-shrink-0" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+          <span>Konfirmasi WhatsApp</span>
         </a>
         <button type="button" id="closeReceiptBtn"
                 class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 px-5 rounded-xl font-bold text-sm transition">
@@ -511,9 +509,9 @@
                 <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2.5 py-0.5 rounded-full">Operasional DPW</span>
               </div>
               <div class="flex items-center justify-between gap-2 mt-1">
-                <div class="text-xl font-extrabold font-mono text-gray-900 tracking-wider">7218390881</div>
+                <div class="text-base sm:text-xl font-extrabold font-mono text-gray-900 tracking-wider break-all">7218390881</div>
                 <button type="button" onclick="navigator.clipboard.writeText('7218390881'); window.Public &amp;&amp; window.Public.showToast('Nomor rekening BSI berhasil disalin!');"
-                        class="text-xs font-bold bg-white hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-300 shadow-sm transition">
+                        class="text-xs font-bold bg-white hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-300 shadow-sm transition flex-shrink-0">
                   Salin
                 </button>
               </div>
@@ -526,9 +524,9 @@
                 <span class="text-[10px] font-bold text-amber-800 bg-amber-100/70 px-2.5 py-0.5 rounded-full">Wakaf &amp; Dakwah</span>
               </div>
               <div class="flex items-center justify-between gap-2 mt-1">
-                <div class="text-xl font-extrabold font-mono text-gray-900 tracking-wider">1240019283741</div>
+                <div class="text-base sm:text-xl font-extrabold font-mono text-gray-900 tracking-wider break-all">1240019283741</div>
                 <button type="button" onclick="navigator.clipboard.writeText('1240019283741'); window.Public &amp;&amp; window.Public.showToast('Nomor rekening Mandiri berhasil disalin!');"
-                        class="text-xs font-bold bg-white hover:bg-amber-100 text-amber-900 px-3 py-1.5 rounded-xl border border-amber-300 shadow-sm transition">
+                        class="text-xs font-bold bg-white hover:bg-amber-100 text-amber-900 px-3 py-1.5 rounded-xl border border-amber-300 shadow-sm transition flex-shrink-0">
                   Salin
                 </button>
               </div>

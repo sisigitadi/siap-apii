@@ -494,7 +494,7 @@
     /** Buka modal dengan HTML bebas. */
     openModal: function (html, maxWidthClass) {
       var panel = document.getElementById('modalPanel');
-      panel.className = 'modal-panel bg-white rounded-3xl shadow-2xl w-full ' + (maxWidthClass || 'max-w-lg') + ' max-h-[92vh] overflow-y-auto';
+      panel.className = 'modal-panel bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full ' + (maxWidthClass || 'max-w-lg') + ' max-h-[92vh] overflow-y-auto';
       panel.innerHTML = html;
       document.getElementById('modalRoot').classList.remove('hidden');
     },
@@ -502,7 +502,7 @@
     closeModal: function () {
       document.getElementById('modalRoot').classList.add('hidden');
       var panel = document.getElementById('modalPanel');
-      panel.className = 'modal-panel bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto';
+      panel.className = 'modal-panel bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto';
       panel.innerHTML = '';
     },
 
@@ -833,27 +833,27 @@
       }).join('') + '<option value="CUSTOM">+ Jenis Surat Baru (Kustom)...</option>';
 
       this.openModal(
-        '<div class="p-6">' +
-          '<div class="flex items-center justify-between mb-5">' +
-            '<div class="flex items-center gap-3">' +
-              '<h3 class="text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Draf Surat' : 'Buat Surat Baru') + '</h3>' +
-              (!isEdit ? '<button type="button" id="sfBookingBtn" class="btn btn-ghost px-3 py-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 rounded-xl inline-flex items-center gap-1 shadow-sm" title="Ambil/reservasi nomor surat resmi terlebih dahulu">🔖 Booking Nomor</button>' : '') +
+        '<div class="p-4 sm:p-6">' +
+          '<div class="flex items-center justify-between gap-2 mb-5 flex-wrap">' +
+            '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
+              '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Draf Surat' : 'Buat Surat Baru') + '</h3>' +
+              (!isEdit ? '<button type="button" id="sfBookingBtn" class="btn btn-ghost px-2.5 py-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 rounded-xl inline-flex items-center gap-1 shadow-sm flex-shrink-0" title="Ambil/reservasi nomor surat resmi terlebih dahulu">🔖 Booking Nomor</button>' : '') +
             '</div>' +
-            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
+            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 ml-auto">' +
               '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
           '</div>' +
           '<form id="suratFormEl" class="space-y-4">' +
             '<div><label class="lbl">Jenis Surat</label><select id="sfType" class="field">' + typeOpts + '</select></div>' +
             '<div id="sfCustomBox" class="hidden p-3.5 bg-amber-50 rounded-xl border border-amber-200 space-y-2">' +
               '<div class="text-xs font-bold text-amber-900">Jenis Surat Kustom Baru:</div>' +
-              '<div class="grid sm:grid-cols-2 gap-2">' +
+              '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">' +
                 '<input id="sfCustomCode" type="text" placeholder="Kode (cth: NOTULEN_KHUSUS)" class="field text-xs font-mono uppercase" />' +
                 '<input id="sfCustomLabel" type="text" placeholder="Nama Jenis (cth: Notulen Rapat Khusus)" class="field text-xs" />' +
               '</div>' +
             '</div>' +
             '<div><label class="lbl">Judul / Perihal Surat <span class="text-red-500">*</span></label>' +
               '<input id="sfTitle" type="text" required class="field" placeholder="cth: Undangan Rapat Kerja DPW" value="' + Auth.esc(item ? item.title : '') + '" /></div>' +
-            '<div class="grid sm:grid-cols-2 gap-4">' +
+            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
               '<div><label class="lbl">Tanggal Surat</label><input id="sfTanggal" type="date" class="field" value="' + (item ? item.tanggal_surat : new Date().toISOString().slice(0, 10)) + '" /></div>' +
               '<div><label class="lbl">Nomor Surat</label><input id="sfNomor" type="text" class="field font-mono text-xs" placeholder="(otomatis bila kosong)" value="' + Auth.esc(item ? item.letter_number : '') + '" /></div>' +
             '</div>' +
@@ -1010,14 +1010,14 @@
       var modalHtml = '<div class="p-4 sm:p-6">' +
         // Header Modal
         '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-100 no-print">' +
-          '<div class="flex items-center gap-3">' +
+          '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
             '<div class="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl">' +
               '<button type="button" id="tabPaperBtn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-emerald-dark shadow-sm transition">📄 Kertas A4</button>' +
               '<button type="button" id="tabMetaBtn" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-900 transition">📋 Metadata</button>' +
             '</div>' +
             self.badge(s.status, s.status_label) +
           '</div>' +
-          '<div class="flex items-center gap-2 self-end sm:self-center flex-wrap">' +
+          '<div class="flex items-center gap-1.5 self-start sm:self-center flex-wrap w-full sm:w-auto justify-start sm:justify-end">' +
             '<button type="button" id="btnWaShareLetter" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-wa-ghost shadow-sm" title="Bagikan Ringkasan ke WhatsApp">' +
               '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
               '<span>Share WA</span>' +
@@ -1043,21 +1043,21 @@
         '</div>' +
 
         // Tab A: Kertas Virtual A4
-        '<div id="viewPaper" class="overflow-x-auto py-2">' +
-          '<div id="printPaperArea" class="paper-a4 p-6 sm:p-12 text-gray-900 shadow-xl border border-gray-200 rounded-xl relative overflow-hidden bg-white max-w-[760px] mx-auto select-text">' +
+        '<div id="viewPaper" class="overflow-x-auto py-2 -mx-1 sm:mx-0">' +
+          '<div id="printPaperArea" class="paper-a4 p-3.5 sm:p-10 text-gray-900 shadow-xl border border-gray-200 rounded-xl relative overflow-hidden bg-white max-w-[760px] mx-auto select-text">' +
             watermarkHtml +
 
             // KOP SURAT (Dukungan Gambar KOP Resmi Uploaded vs Teks Standar)
             (window._kopSettings && window._kopSettings.kop_mode === 'image' && window._kopSettings.kop_image_base64
               ? '<div class="mb-2 text-center"><img src="' + window._kopSettings.kop_image_base64 + '" alt="KOP Surat Resmi" class="w-full max-h-36 object-contain mx-auto" /></div>'
-              : '<div class="flex items-center gap-4 sm:gap-6 mb-2">' +
-                  '<img src="logo.png" alt="Logo DPW APII" class="w-16 h-16 sm:w-20 sm:h-20 object-contain flex-shrink-0" />' +
-                  '<div class="flex-1 text-center font-serif leading-tight">' +
-                    '<div class="text-[11px] sm:text-xs font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
-                    '<div class="text-sm sm:text-lg font-black text-gray-900 tracking-tight mt-0.5">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
-                    '<div class="text-xs sm:text-sm font-bold text-gray-800 tracking-normal">WILAYAH JABODETABEK</div>' +
-                    '<div class="text-[9px] sm:text-[10.5px] text-gray-600 font-sans mt-1 leading-snug">' +
-                      'Gedung Pusat Dakwah APII Wilayah Jabodetabek Lt. 3, Jl. Kramat Raya No. 45, Senen, Jakarta Pusat 10450<br/>' +
+              : '<div class="flex items-center gap-2.5 sm:gap-6 mb-2">' +
+                  '<img src="logo.png" alt="Logo DPW APII" class="w-12 h-12 sm:w-20 sm:h-20 object-contain flex-shrink-0" />' +
+                  '<div class="flex-1 text-center font-serif leading-tight min-w-0">' +
+                    '<div class="text-[10px] sm:text-xs font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
+                    '<div class="text-xs sm:text-lg font-black text-gray-900 tracking-tight mt-0.5 break-words">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
+                    '<div class="text-[11px] sm:text-sm font-bold text-gray-800 tracking-normal">WILAYAH JABODETABEK</div>' +
+                    '<div class="text-[8.5px] sm:text-[10.5px] text-gray-600 font-sans mt-1 leading-snug">' +
+                      'Gedung Pusat Dakwah APII Wilayah Jabodetabek Lt. 3, Jl. Kramat Raya No. 45, Senen, Jakarta Pusat 10450<br class="hidden sm:inline"/>' +
                       'Telp: (021) 390-8812 &bull; Email: sekretariat.dpw@apii-jabodetabek.or.id &bull; Website: siapii.sigitadi.id' +
                     '</div>' +
                   '</div>' +
@@ -1243,16 +1243,16 @@
     confirm: function (title, html, onYes) {
       var self = this;
       this.openModal(
-        '<div class="p-6">' +
-          '<div class="flex gap-4 mb-5">' +
-            '<div class="h-11 w-11 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></div>' +
-            '<div><h3 class="text-lg font-extrabold text-emerald-dark">' + title + '</h3>' +
-            '<p class="text-sm text-gray-600 mt-1">' + html + '</p></div>' +
+        '<div class="p-4 sm:p-6">' +
+          '<div class="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-5">' +
+            '<div class="h-10 w-10 sm:h-11 sm:w-11 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></div>' +
+            '<div class="min-w-0"><h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + title + '</h3>' +
+            '<p class="text-xs sm:text-sm text-gray-600 mt-1 break-words">' + html + '</p></div>' +
           '</div>' +
-          '<div class="flex gap-3">' +
-            '<button id="confirmYes" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">Ya, Lanjutkan</button>' +
-            '<button data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
+          '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3">' +
+            '<button id="confirmYes" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">Ya, Lanjutkan</button>' +
+            '<button data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
           '</div>' +
         '</div>');
       Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
@@ -1268,15 +1268,15 @@
     rejectModal: function (title, descHtml, action, id, onDone) {
       var self = this;
       this.openModal(
-        '<div class="p-6">' +
-          '<h3 class="text-lg font-extrabold text-red-600 mb-2">' + title + '</h3>' +
-          '<p class="text-sm text-gray-600 mb-4">' + descHtml + '</p>' +
+        '<div class="p-4 sm:p-6">' +
+          '<h3 class="text-base sm:text-lg font-extrabold text-red-600 mb-2 break-words">' + title + '</h3>' +
+          '<p class="text-xs sm:text-sm text-gray-600 mb-4 break-words">' + descHtml + '</p>' +
           '<form id="rejectFormEl">' +
             '<label class="lbl">Alasan Penolakan <span class="text-red-500">*</span></label>' +
             '<textarea id="rejectNotes" required rows="3" class="field" placeholder="Tulis alasan penolakan…"></textarea>' +
-            '<div class="flex gap-3 pt-4">' +
-              '<button type="submit" class="btn btn-danger flex-1 py-3 rounded-xl font-bold">Tolak</button>' +
-              '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
+            '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-4">' +
+              '<button type="submit" class="btn btn-danger flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">Tolak</button>' +
+              '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
             '</div>' +
           '</form>' +
         '</div>');
@@ -1520,13 +1520,13 @@
       ];
       if (k.rejection_notes) metaRows.push(['Alasan Penolakan', k.rejection_notes, 'warn']);
 
-      var modalHtml = '<div class="p-5 sm:p-7">' +
-        '<div class="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">' +
-          '<div class="flex items-center gap-2.5">' +
-            '<span class="font-mono text-xs font-bold text-gray-500">' + Auth.esc(k.voucher_number) + '</span>' +
+      var modalHtml = '<div class="p-4 sm:p-6">' +
+        '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-100">' +
+          '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
+            '<span class="font-mono text-xs font-bold text-gray-500 break-all">' + Auth.esc(k.voucher_number) + '</span>' +
             self.badge(k.status, k.status_label) +
           '</div>' +
-          '<div class="flex items-center gap-2 flex-wrap">' +
+          '<div class="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end">' +
             '<button type="button" id="btnPrintKwitansi" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-ghost shadow-sm" title="Cetak Kwitansi / Slip Pembayaran">' +
               '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
               '<span>Cetak Kwitansi</span>' +
@@ -1540,13 +1540,13 @@
             '</button>' +
           '</div>' +
         '</div>' +
-        '<div class="bg-gradient-to-br ' + bgBanner + ' rounded-2xl p-6 border border-gray-200/80 mb-5 text-center">' +
+        '<div class="bg-gradient-to-br ' + bgBanner + ' rounded-2xl p-4 sm:p-6 border border-gray-200/80 mb-5 text-center">' +
           '<div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">' + (isMasuk ? 'Total Kas Masuk' : 'Total Pengeluaran Kas') + '</div>' +
-          '<div class="text-3xl font-black ' + amountColor + ' tracking-tight">' + (isMasuk ? '+ ' : '− ') + Auth.esc(k.amount_label) + '</div>' +
-          '<div class="text-sm font-semibold text-gray-800 mt-2 max-w-md mx-auto">' + Auth.esc(k.description) + '</div>' +
+          '<div class="text-2xl sm:text-3xl font-black ' + amountColor + ' tracking-tight break-words">' + (isMasuk ? '+ ' : '− ') + Auth.esc(k.amount_label) + '</div>' +
+          '<div class="text-xs sm:text-sm font-semibold text-gray-800 mt-2 max-w-md mx-auto break-words">' + Auth.esc(k.description) + '</div>' +
         '</div>' +
         (k.receipt_url ?
-          '<div class="mb-5 p-4 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex items-center justify-between gap-3">' +
+          '<div class="mb-5 p-3.5 sm:p-4 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">' +
             '<div class="flex items-center gap-3">' +
               '<div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">' +
                 '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
@@ -1554,7 +1554,7 @@
               '<div><div class="text-xs font-bold text-emerald-950">Bukti Kas / Nota Transaksi</div>' +
                 '<div class="text-[11px] text-emerald-700">Tersimpan di Google Drive / Cloud</div></div>' +
             '</div>' +
-            '<a href="' + Auth.esc(k.receipt_url) + '" target="_blank" rel="noopener noreferrer" class="btn text-xs bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm inline-flex items-center gap-1.5 transition">Buka Bukti ↗</a>' +
+            '<a href="' + Auth.esc(k.receipt_url) + '" target="_blank" rel="noopener noreferrer" class="btn text-xs bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm inline-flex items-center gap-1.5 transition self-start sm:self-center">Buka Bukti ↗</a>' +
           '</div>' : '') +
         '<div class="space-y-1 divide-y divide-gray-100">' +
           metaRows.map(function (r) {
@@ -1660,25 +1660,25 @@
       var terbilangText = this.terbilang(k.amount);
       var kopHtml = (window._kopSettings && window._kopSettings.kop_mode === 'image' && window._kopSettings.kop_image_base64)
         ? '<div class="mb-3 text-center"><img src="' + window._kopSettings.kop_image_base64 + '" alt="KOP APII" class="w-full max-h-28 object-contain mx-auto" /></div>'
-        : '<div class="flex items-center gap-4 mb-2 pb-2 border-b-2 border-emerald-900">' +
-            '<img src="logo.png" alt="Logo DPW APII" class="w-14 h-14 object-contain flex-shrink-0" />' +
-            '<div class="flex-1 text-center font-serif leading-tight">' +
-              '<div class="text-[11px] font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
-              '<div class="text-base font-black text-gray-900 tracking-tight">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
-              '<div class="text-xs font-bold text-gray-800">WILAYAH JABODETABEK</div>' +
-              '<div class="text-[9px] text-gray-600 font-sans mt-0.5">' +
+        : '<div class="flex items-center gap-3 sm:gap-4 mb-2 pb-2 border-b-2 border-emerald-900">' +
+            '<img src="logo.png" alt="Logo DPW APII" class="w-10 h-10 sm:w-14 sm:h-14 object-contain flex-shrink-0" />' +
+            '<div class="flex-1 text-center font-serif leading-tight min-w-0">' +
+              '<div class="text-[9px] sm:text-[11px] font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
+              '<div class="text-xs sm:text-base font-black text-gray-900 tracking-tight break-words">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
+              '<div class="text-[10px] sm:text-xs font-bold text-gray-800">WILAYAH JABODETABEK</div>' +
+              '<div class="text-[8px] sm:text-[9px] text-gray-600 font-sans mt-0.5 break-words">' +
                 'Gedung Pusat Dakwah APII Wilayah Jabodetabek &bull; Telp: (021) 390-8812 &bull; Website: siapii.sigitadi.id' +
               '</div>' +
             '</div>' +
           '</div>';
 
-      var modalHtml = '<div class="p-4 sm:p-6">' +
-        '<div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-100 no-print">' +
-          '<h3 class="text-sm font-bold text-gray-700">Pratinjau Cetak Kwitansi Resmi</h3>' +
-          '<div class="flex items-center gap-2">' +
-            '<button type="button" id="btnDoPrintKwitansi" class="btn btn-primary text-xs px-4 py-2 rounded-xl font-bold inline-flex items-center gap-1.5 shadow-sm">' +
+      var modalHtml = '<div class="p-3.5 sm:p-6">' +
+        '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-gray-100 no-print">' +
+          '<h3 class="text-xs sm:text-sm font-bold text-gray-700">Pratinjau Cetak Kwitansi Resmi</h3>' +
+          '<div class="flex items-center gap-2 justify-end">' +
+            '<button type="button" id="btnDoPrintKwitansi" class="btn btn-primary text-xs px-3 sm:px-4 py-2 rounded-xl font-bold inline-flex items-center gap-1.5 shadow-sm">' +
               '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
-              '<span>Cetak / Simpan PDF</span>' +
+              '<span>Cetak / PDF</span>' +
             '</button>' +
             '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
               '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
@@ -1687,51 +1687,51 @@
         '</div>' +
 
         // Kertas Kwitansi Area
-        '<div id="printKwitansiArea" class="p-6 sm:p-8 bg-white border border-gray-300 rounded-2xl shadow-lg max-w-[700px] mx-auto text-gray-900 select-text text-xs sm:text-sm font-sans">' +
+        '<div id="printKwitansiArea" class="p-4 sm:p-8 bg-white border border-gray-300 rounded-2xl shadow-lg max-w-[700px] w-full mx-auto text-gray-900 select-text text-xs sm:text-sm font-sans overflow-x-hidden">' +
           kopHtml +
           '<div class="text-center my-3">' +
-            '<h2 class="text-sm sm:text-base font-extrabold uppercase tracking-wider underline decoration-2 underline-offset-4">' +
+            '<h2 class="text-xs sm:text-base font-extrabold uppercase tracking-wider underline decoration-2 underline-offset-4 break-words">' +
               (isMasuk ? 'BUKTI PENERIMAAN KAS / KWITANSI' : 'BUKTI PENGELUARAN KAS / KWITANSI') +
             '</h2>' +
-            '<div class="font-mono text-xs text-gray-600 mt-1">Nomor: ' + Auth.esc(k.voucher_number) + '</div>' +
+            '<div class="font-mono text-xs text-gray-600 mt-1 break-all">Nomor: ' + Auth.esc(k.voucher_number) + '</div>' +
           '</div>' +
-          '<div class="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-4 pb-2 border-b border-gray-200">' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2 text-xs text-gray-600 mb-4 pb-2 border-b border-gray-200">' +
             '<div>Tanggal Transaksi: <strong class="text-gray-900">' + Auth.esc(k.transaction_date) + '</strong></div>' +
-            '<div class="text-right">Akun Kas: <strong class="text-gray-900">' + Auth.esc(k.account_label || k.account) + '</strong></div>' +
+            '<div class="text-left sm:text-right">Akun Kas: <strong class="text-gray-900 break-words">' + Auth.esc(k.account_label || k.account) + '</strong></div>' +
           '</div>' +
           '<div class="space-y-3 leading-relaxed">' +
-            '<div class="flex items-start gap-3"><span class="w-36 text-gray-500 font-semibold flex-shrink-0">' + (isMasuk ? 'Telah Diterima Dari' : 'Diserahkan Kepada') + ' :</span>' +
-              '<span class="font-bold text-gray-900">' + Auth.esc(k.created_by || 'Bendahara DPW APII') + '</span></div>' +
-            '<div class="flex items-start gap-3"><span class="w-36 text-gray-500 font-semibold flex-shrink-0">Jumlah Uang :</span>' +
-              '<span class="font-black text-emerald-800 text-base sm:text-lg">' + Auth.esc(k.amount_label) + '</span></div>' +
-            '<div class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs sm:text-sm font-serif italic text-gray-800">' +
+            '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">' + (isMasuk ? 'Telah Diterima Dari' : 'Diserahkan Kepada') + ' :</span>' +
+              '<span class="font-bold text-gray-900 break-words">' + Auth.esc(k.created_by || 'Bendahara DPW APII') + '</span></div>' +
+            '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">Jumlah Uang :</span>' +
+              '<span class="font-black text-emerald-800 text-base sm:text-lg break-words">' + Auth.esc(k.amount_label) + '</span></div>' +
+            '<div class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs sm:text-sm font-serif italic text-gray-800 break-words">' +
               'Terbilang: &ldquo;<strong>' + Auth.esc(terbilangText) + '</strong>&rdquo;' +
             '</div>' +
-            '<div class="flex items-start gap-3 pt-1"><span class="w-36 text-gray-500 font-semibold flex-shrink-0">Kategori :</span>' +
-              '<span class="text-gray-800">' + Auth.esc(k.category || 'Operasional') + '</span></div>' +
-            '<div class="flex items-start gap-3"><span class="w-36 text-gray-500 font-semibold flex-shrink-0">Untuk Keperluan :</span>' +
-              '<span class="font-medium text-gray-900 flex-1">' + Auth.esc(k.description) + '</span></div>' +
+            '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3 pt-1"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">Kategori :</span>' +
+              '<span class="text-gray-800 break-words">' + Auth.esc(k.category || 'Operasional') + '</span></div>' +
+            '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">Untuk Keperluan :</span>' +
+              '<span class="font-medium text-gray-900 flex-1 break-words">' + Auth.esc(k.description) + '</span></div>' +
           '</div>' +
 
-          // 3 Kolom Tanda Tangan
-          '<div class="grid grid-cols-3 gap-2 mt-8 pt-4 border-t border-gray-200 text-center text-xs">' +
+          // 3 Kolom Tanda Tangan: responsif mobile
+          '<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-2 mt-8 pt-4 border-t border-gray-200 text-center text-xs">' +
             '<div>' +
               '<div class="text-gray-500 mb-1">' + (isMasuk ? 'Penyetor / Penerima' : 'Penerima Dana') + '</div>' +
-              '<div class="h-16 flex items-center justify-center text-[10px] text-gray-300 italic">(Tanda Tangan)</div>' +
-              '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1">( ..................................... )</div>' +
+              '<div class="h-10 sm:h-16 flex items-center justify-center text-[10px] text-gray-300 italic">(Tanda Tangan)</div>' +
+              '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1 break-words">( ..................................... )</div>' +
             '</div>' +
             '<div>' +
               '<div class="text-gray-500 mb-1">Bendahara DPW</div>' +
-              '<div class="h-16 flex items-center justify-center font-serif text-emerald-900 font-semibold text-xs">' + Auth.esc(k.verified_by_bendahara || 'M. Yusuf Ramadhan, S.E') + '</div>' +
-              '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1">M. Yusuf Ramadhan, S.E</div>' +
+              '<div class="h-10 sm:h-16 flex items-center justify-center font-serif text-emerald-900 font-semibold text-xs break-words">' + Auth.esc(k.verified_by_bendahara || 'M. Yusuf Ramadhan, S.E') + '</div>' +
+              '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1 break-words">M. Yusuf Ramadhan, S.E</div>' +
             '</div>' +
             '<div>' +
               '<div class="text-gray-500 mb-1">Mengetahui, Ketua DPW</div>' +
-              '<div class="h-16 flex items-center justify-center font-serif text-emerald-900 font-semibold text-xs">' + Auth.esc(k.approved_by_ketum || 'Dr. H. Ahmad Fauzi, M.Pd') + '</div>' +
-              '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1">Dr. H. Ahmad Fauzi, M.Pd</div>' +
+              '<div class="h-10 sm:h-16 flex items-center justify-center font-serif text-emerald-900 font-semibold text-xs break-words">' + Auth.esc(k.approved_by_ketum || 'Dr. H. Ahmad Fauzi, M.Pd') + '</div>' +
+              '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1 break-words">Dr. H. Ahmad Fauzi, M.Pd</div>' +
             '</div>' +
           '</div>' +
-          '<div class="mt-6 pt-2 border-t border-gray-100 flex justify-between text-[10px] text-gray-400 font-mono">' +
+          '<div class="mt-6 pt-2 border-t border-gray-100 flex flex-col sm:flex-row justify-between gap-1 text-[10px] text-gray-400 font-mono">' +
             '<span>SIAP APII DPW Jabodetabek</span>' +
             '<span>Status: ' + Auth.esc(k.status) + '</span>' +
           '</div>' +
@@ -1771,14 +1771,14 @@
         }).join('');
 
         self.openModal(
-          '<div class="p-6">' +
-            '<div class="flex items-center justify-between mb-5">' +
-              '<h3 class="text-lg font-extrabold text-emerald-dark">Buat Voucher Baru</h3>' +
+          '<div class="p-4 sm:p-6">' +
+            '<div class="flex items-center justify-between gap-2 mb-5">' +
+              '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark">Buat Voucher Baru</h3>' +
               '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
                 '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
             '</div>' +
             '<form id="voucherFormEl" class="space-y-4">' +
-              '<div class="grid sm:grid-cols-2 gap-4">' +
+              '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
                 '<div><label class="lbl">Jenis Transaksi</label><select id="vfType" class="field">' +
                   '<option value="MASUK">Kas Masuk</option><option value="KELUAR">Kas Keluar</option></select></div>' +
                 '<div><label class="lbl">Akun Kas</label><select id="vfAccount" class="field">' + accOpts + '</select></div>' +
@@ -1798,9 +1798,9 @@
                 '<input id="vfReceipt" type="url" class="field" placeholder="https://drive.google.com/file/d/.../view" />' +
                 '<p class="text-[11px] text-gray-400 mt-1">Lampirkan tautan bukti transfer, kuitansi, atau nota dari Google Drive.</p></div>' +
               '<p class="text-xs text-gray-400">Voucher dibuat berstatus "Menunggu Verifikasi" &amp; butuh persetujuan Bendahara + Ketua.</p>' +
-              '<div class="flex gap-3 pt-2">' +
-                '<button type="submit" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">Simpan Voucher</button>' +
-                '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
+              '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
+                '<button type="submit" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">Simpan Voucher</button>' +
+                '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
               '</div>' +
             '</form>' +
           '</div>');
@@ -2002,9 +2002,10 @@
           '<span class="text-xl">❌</span> <div><div>Usulan Ditolak / Perlu Perbaikan</div><div class="text-[11px] text-red-600 font-normal">Silakan perbaiki poin-poin yang diminta oleh Ketua DPW.</div></div>' +
         '</div>';
       } else {
-        stepperHtml = '<div class="mb-5 bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">' +
+        stepperHtml = '<div class="mb-5 bg-emerald-50/50 p-3.5 sm:p-4 rounded-2xl border border-emerald-100">' +
           '<div class="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider mb-3">Siklus Program Kerja (5 Tahap)</div>' +
-          '<div class="grid grid-cols-5 gap-1.5 text-center">' +
+          '<div class="overflow-x-auto pb-1 -mx-1 px-1">' +
+            '<div class="grid grid-cols-5 gap-1.5 text-center min-w-[320px]">' +
             lifecycleSteps.map(function (st, idx) {
               var isPassed = idx < currentRank;
               var isCurrent = idx === currentRank;
@@ -2019,6 +2020,7 @@
                 '<div class="text-[10px] leading-tight ' + textCls + '">' + st.l + '</div>' +
               '</div>';
             }).join('') +
+          '</div>' +
           '</div>' +
         '</div>';
       }
@@ -2051,13 +2053,13 @@
       ];
       if (d.rejection_notes) metaRows.push(['Alasan Penolakan', d.rejection_notes, 'warn']);
 
-      var modalHtml = '<div class="p-5 sm:p-7">' +
-        '<div class="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">' +
-          '<div class="flex items-center gap-2.5">' +
-            '<span class="font-mono text-xs font-bold text-gray-500">' + Auth.esc(d.tracking_id) + '</span>' +
+      var modalHtml = '<div class="p-4 sm:p-6">' +
+        '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-100">' +
+          '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
+            '<span class="font-mono text-xs font-bold text-gray-500 break-all">' + Auth.esc(d.tracking_id) + '</span>' +
             self.badge(d.status, d.status_label) +
           '</div>' +
-          '<div class="flex items-center gap-2">' +
+          '<div class="flex items-center gap-2 justify-end">' +
             '<button type="button" id="btnWaShareSub" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-wa-ghost shadow-sm" title="Bagikan ke WhatsApp">' +
               '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
               '<span>Share WA</span>' +
@@ -2068,11 +2070,11 @@
           '</div>' +
         '</div>' +
         stepperHtml +
-        '<div class="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-6 border border-emerald-100 mb-5">' +
+        '<div class="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-4 sm:p-6 border border-emerald-100 mb-5">' +
           '<div class="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">' + Auth.esc(d.division_label || d.division) + '</div>' +
-          '<h3 class="text-xl font-extrabold text-gray-900 leading-snug">' + Auth.esc(d.program_title) + '</h3>' +
+          '<h3 class="text-lg sm:text-xl font-extrabold text-gray-900 leading-snug break-words">' + Auth.esc(d.program_title) + '</h3>' +
           '<div class="flex items-center gap-3 mt-3 flex-wrap text-xs text-gray-600">' +
-            '<span>💰 Anggaran: <strong class="text-emerald-dark font-bold">' + Auth.esc(d.budget_label) + '</strong></span>' +
+            '<span>💰 Anggaran: <strong class="text-emerald-dark font-bold break-words">' + Auth.esc(d.budget_label) + '</strong></span>' +
             '<span>📅 Rencana: <strong>' + Auth.esc(d.execution_date || 'Fleksibel') + '</strong></span>' +
           '</div>' +
         '</div>' +
@@ -2187,9 +2189,9 @@
         : '<div><label class="lbl">Divisi</label><select id="dfDivision" class="field">' + divOpts + '</select></div>';
 
       this.openModal(
-        '<div class="p-6">' +
-          '<div class="flex items-center justify-between mb-5">' +
-            '<h3 class="text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Usulan Program' : 'Usulkan Program Divisi') + '</h3>' +
+        '<div class="p-4 sm:p-6">' +
+          '<div class="flex items-center justify-between gap-2 mb-5">' +
+            '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + (isEdit ? 'Ubah Usulan Program' : 'Usulkan Program Divisi') + '</h3>' +
             '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
               '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
           '</div>' +
@@ -2198,7 +2200,7 @@
               '<input id="dfTitle" type="text" required class="field" placeholder="cth: Workshop Kepenulisan Islam" value="' + Auth.esc(item ? item.program_title : '') + '" /></div>' +
             '<div><label class="lbl">Deskripsi Program <span class="text-red-500">*</span></label>' +
               '<textarea id="dfDesc" required rows="4" class="field" placeholder="Rincian program…">' + Auth.esc(item ? item.description : '') + '</textarea></div>' +
-            '<div class="grid sm:grid-cols-2 gap-4">' +
+            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
               '<div><label class="lbl">Estimasi Anggaran (Rp)</label>' +
                 '<input id="dfBudget" type="number" min="0" step="1" class="field" placeholder="cth: 5000000" value="' + (item ? item.budget_estimate : '') + '" /></div>' +
               '<div><label class="lbl">Target Peserta</label>' +
@@ -2208,9 +2210,9 @@
             '<div><label class="lbl">Tanggal Pelaksanaan</label>' +
               '<input id="dfTanggal" type="date" class="field" value="' + (item ? item.execution_date : '') + '" /></div>' +
             '<p class="text-xs text-gray-400">Usulan disimpan sebagai Draf. Ajukan ke Ketua setelah siap — divisi tidak dapat mempublikasi sendiri.</p>' +
-            '<div class="flex gap-3 pt-2">' +
-              '<button type="submit" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">' + (isEdit ? 'Simpan Perubahan' : 'Simpan Draf') + '</button>' +
-              '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
+            '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
+              '<button type="submit" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">' + (isEdit ? 'Simpan Perubahan' : 'Simpan Draf') + '</button>' +
+              '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
             '</div>' +
           '</form>' +
         '</div>');
@@ -2310,18 +2312,18 @@
       var defaultRealisasi = item.realisasi_anggaran || item.budget_estimate || '';
 
       this.openModal(
-        '<div class="p-6">' +
-          '<div class="flex items-center justify-between mb-4">' +
-            '<div>' +
-              '<h3 class="text-lg font-extrabold text-teal-900">Serahkan LPJ Program Kerja</h3>' +
-              '<p class="text-xs text-gray-500 font-mono">' + Auth.esc(item.tracking_id) + ' — ' + Auth.esc(item.program_title) + '</p>' +
+        '<div class="p-4 sm:p-6">' +
+          '<div class="flex items-center justify-between gap-2 mb-4">' +
+            '<div class="min-w-0">' +
+              '<h3 class="text-base sm:text-lg font-extrabold text-teal-900 break-words">Serahkan LPJ Program Kerja</h3>' +
+              '<p class="text-xs text-gray-500 font-mono break-all">' + Auth.esc(item.tracking_id) + ' — ' + Auth.esc(item.program_title) + '</p>' +
             '</div>' +
-            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
+            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0">' +
               '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
             '</button>' +
           '</div>' +
           '<div class="bg-teal-50/70 border border-teal-100 rounded-2xl p-4 mb-4 text-xs text-teal-900">' +
-            '<div class="flex justify-between items-center mb-1 font-semibold">' +
+            '<div class="flex flex-col sm:flex-row justify-between sm:items-center gap-1 mb-1 font-semibold">' +
               '<span>Divisi: ' + Auth.esc(item.division_label) + '</span>' +
               '<span>Estimasi Awal: ' + Auth.esc(item.budget_label) + '</span>' +
             '</div>' +
@@ -2335,9 +2337,9 @@
               '<input id="lpjRealisasi" type="number" min="0" step="1" required class="field" placeholder="cth: 4800000" value="' + defaultRealisasi + '" /></div>' +
             '<div><label class="lbl">Catatan &amp; Evaluasi Pelaksanaan</label>' +
               '<textarea id="lpjNotes" rows="3" class="field" placeholder="Catatan keberhasilan, kendala, atau evaluasi kegiatan…">' + Auth.esc(item.lpj_notes || '') + '</textarea></div>' +
-            '<div class="flex gap-3 pt-2">' +
-              '<button type="submit" class="btn bg-teal-700 hover:bg-teal-800 text-white flex-1 py-3 rounded-xl font-bold shadow-sm">Kirim LPJ Selesai</button>' +
-              '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
+            '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
+              '<button type="submit" class="btn bg-teal-700 hover:bg-teal-800 text-white flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm">Kirim LPJ Selesai</button>' +
+              '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
             '</div>' +
           '</form>' +
         '</div>');
@@ -2590,7 +2592,7 @@
       var ktpHtml = p.ktp_image_url
         ? '<div class="mt-2 text-center">' +
             '<a href="' + Auth.esc(p.ktp_image_url) + '" target="_blank" rel="noopener">' +
-              '<img src="' + Auth.esc(p.ktp_image_url) + '" alt="KTP Watermarked" class="max-h-48 rounded-xl border border-gray-200 mx-auto shadow-sm hover:opacity-95 transition" />' +
+              '<img src="' + Auth.esc(p.ktp_image_url) + '" alt="KTP Watermarked" class="max-h-48 max-w-full object-contain rounded-xl border border-gray-200 mx-auto shadow-sm hover:opacity-95 transition" />' +
             '</a>' +
             '<p class="text-[11px] text-gray-500 mt-1 italic">Klik gambar untuk melihat resolusi penuh (Watermarked ARSIP APII)</p>' +
           '</div>'
@@ -2599,19 +2601,19 @@
       var selfieHtml = p.selfie_image_url
         ? '<div class="mt-2 text-center">' +
             '<a href="' + Auth.esc(p.selfie_image_url) + '" target="_blank" rel="noopener">' +
-              '<img src="' + Auth.esc(p.selfie_image_url) + '" alt="Pas Foto / Selfie" class="max-h-48 rounded-xl border border-gray-200 mx-auto shadow-sm hover:opacity-95 transition" />' +
+              '<img src="' + Auth.esc(p.selfie_image_url) + '" alt="Pas Foto / Selfie" class="max-h-48 max-w-full object-contain rounded-xl border border-gray-200 mx-auto shadow-sm hover:opacity-95 transition" />' +
             '</a>' +
             '<p class="text-[11px] text-gray-500 mt-1 italic">Foto Verifikasi Wajah Pemohon</p>' +
           '</div>'
         : '<div class="p-6 bg-gray-50 rounded-xl text-center text-xs text-gray-400">Tidak ada lampiran foto selfie</div>';
 
-      var modalHtml = '<div class="p-5 sm:p-7">' +
-        '<div class="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">' +
-          '<div>' +
-            '<div class="font-mono text-xs text-gray-500 font-bold">' + Auth.esc(p.registration_no) + '</div>' +
-            '<h3 class="text-lg font-black text-emerald-dark">' + Auth.esc(p.nama_lengkap) + '</h3>' +
+      var modalHtml = '<div class="p-4 sm:p-6">' +
+        '<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-gray-100 gap-2">' +
+          '<div class="min-w-0">' +
+            '<div class="font-mono text-xs text-gray-500 font-bold break-all">' + Auth.esc(p.registration_no) + '</div>' +
+            '<h3 class="text-base sm:text-lg font-black text-emerald-dark break-words">' + Auth.esc(p.nama_lengkap) + '</h3>' +
           '</div>' +
-          '<div class="flex items-center gap-2">' +
+          '<div class="flex items-center gap-2 justify-end flex-wrap">' +
             self.badge(p.status, p.status_label || p.status) +
             '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
               '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
@@ -2620,29 +2622,29 @@
         '</div>' +
 
         // Detail Biodata
-        '<div class="grid sm:grid-cols-2 gap-4 text-xs mb-6">' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs mb-6">' +
           '<div class="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-100">' +
-            '<div><span class="text-gray-400 block">NIK:</span><span class="font-mono font-bold text-gray-900">' + Auth.esc(p.nik) + '</span></div>' +
-            '<div><span class="text-gray-400 block">Tempat, Tanggal Lahir:</span><span class="font-semibold text-gray-800">' + Auth.esc(p.tempat_lahir || '-') + ', ' + Auth.esc(p.tanggal_lahir || '-') + '</span></div>' +
-            '<div><span class="text-gray-400 block">Jenis Kelamin:</span><span class="font-semibold text-gray-800">' + Auth.esc(p.jenis_kelamin || '-') + '</span></div>' +
-            '<div><span class="text-gray-400 block">Profesi / Keahlian:</span><span class="font-semibold text-gray-800">' + Auth.esc(p.profesi || '-') + '</span></div>' +
+            '<div><span class="text-gray-400 block">NIK:</span><span class="font-mono font-bold text-gray-900 break-all">' + Auth.esc(p.nik) + '</span></div>' +
+            '<div><span class="text-gray-400 block">Tempat, Tanggal Lahir:</span><span class="font-semibold text-gray-800 break-words">' + Auth.esc(p.tempat_lahir || '-') + ', ' + Auth.esc(p.tanggal_lahir || '-') + '</span></div>' +
+            '<div><span class="text-gray-400 block">Jenis Kelamin:</span><span class="font-semibold text-gray-800 break-words">' + Auth.esc(p.jenis_kelamin || '-') + '</span></div>' +
+            '<div><span class="text-gray-400 block">Profesi / Keahlian:</span><span class="font-semibold text-gray-800 break-words">' + Auth.esc(p.profesi || '-') + '</span></div>' +
           '</div>' +
           '<div class="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-100">' +
-            '<div><span class="text-gray-400 block">WhatsApp:</span><a href="https://wa.me/' + encodeURIComponent((p.whatsapp || '').replace(/[^0-9]/g, '')) + '" target="_blank" class="font-bold text-emerald font-mono hover:underline">' + Auth.esc(p.whatsapp) + ' ↗</a></div>' +
-            '<div><span class="text-gray-400 block">Email:</span><span class="font-semibold text-gray-800">' + Auth.esc(p.email || '-') + '</span></div>' +
-            '<div><span class="text-gray-400 block">Kota / Domisili:</span><span class="font-semibold text-gray-800">' + Auth.esc(p.kota || '-') + '</span></div>' +
-            '<div><span class="text-gray-400 block">Alamat Lengkap:</span><span class="text-gray-800">' + Auth.esc(p.alamat || '-') + '</span></div>' +
+            '<div><span class="text-gray-400 block">WhatsApp:</span><a href="https://wa.me/' + encodeURIComponent((p.whatsapp || '').replace(/[^0-9]/g, '')) + '" target="_blank" class="font-bold text-emerald font-mono hover:underline break-all">' + Auth.esc(p.whatsapp) + ' ↗</a></div>' +
+            '<div><span class="text-gray-400 block">Email:</span><span class="font-semibold text-gray-800 break-all">' + Auth.esc(p.email || '-') + '</span></div>' +
+            '<div><span class="text-gray-400 block">Kota / Domisili:</span><span class="font-semibold text-gray-800 break-words">' + Auth.esc(p.kota || '-') + '</span></div>' +
+            '<div><span class="text-gray-400 block">Alamat Lengkap:</span><span class="text-gray-800 break-words">' + Auth.esc(p.alamat || '-') + '</span></div>' +
           '</div>' +
         '</div>' +
 
         (p.alasan_bergabung ?
           '<div class="p-3 bg-amber-50/70 rounded-xl border border-amber-200 mb-6 text-xs text-amber-950">' +
             '<span class="font-bold block mb-1">Motivasi &amp; Alasan Bergabung APII:</span>' +
-            '<p class="italic">' + Auth.esc(p.alasan_bergabung) + '</p>' +
+            '<p class="italic break-words">' + Auth.esc(p.alasan_bergabung) + '</p>' +
           '</div>' : '') +
 
         // Berkas Gambar KTP & Selfie
-        '<div class="grid sm:grid-cols-2 gap-4 mb-6">' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">' +
           '<div class="p-3 bg-white rounded-xl border border-emerald-100">' +
             '<div class="text-xs font-bold text-emerald-dark">Foto KTP (Watermarked)</div>' +
             ktpHtml +
@@ -2721,14 +2723,14 @@
       }).join('');
 
       this.openModal(
-        '<div class="p-6">' +
-          '<div class="flex items-center justify-between mb-5">' +
-            '<h3 class="text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Akun Pengurus' : 'Buat Akun Pengurus Baru') + '</h3>' +
+        '<div class="p-4 sm:p-6">' +
+          '<div class="flex items-center justify-between gap-2 mb-5">' +
+            '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + (isEdit ? 'Ubah Akun Pengurus' : 'Buat Akun Pengurus Baru') + '</h3>' +
             '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
               '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
           '</div>' +
           '<form id="userFormEl" class="space-y-4">' +
-            '<div class="grid sm:grid-cols-2 gap-4">' +
+            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
               '<div><label class="lbl">Username <span class="text-red-500">*</span></label>' +
                 '<input id="ufUsername" type="text" ' + (isEdit ? 'readonly' : 'required') +
                 ' class="field font-mono" placeholder="cth: sekretaris2" value="' + Auth.esc(item ? item.username : '') + '" /></div>' +
@@ -2737,7 +2739,7 @@
             '</div>' +
             '<div><label class="lbl">Email</label>' +
               '<input id="ufEmail" type="email" class="field" placeholder="email@contoh.com" value="' + Auth.esc(item ? item.email : '') + '" /></div>' +
-            '<div class="grid sm:grid-cols-2 gap-4">' +
+            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
               '<div><label class="lbl">Peran Organisasi <span class="text-red-500">*</span></label><select id="ufRole" class="field">' + roleOpts + '</select></div>' +
               '<div><label class="lbl">Divisi Kerja</label><select id="ufDivisi" class="field">' + divOpts + '</select></div>' +
             '</div>' +
@@ -2747,9 +2749,9 @@
             '<label class="flex items-center gap-2.5 text-sm cursor-pointer">' +
               '<input id="ufAktif" type="checkbox" class="h-4 w-4 accent-emerald" ' +
               (!isEdit || item.is_active === 'TRUE' ? 'checked' : '') + ' /> Akun aktif</label>' +
-            '<div class="flex gap-3 pt-2">' +
-              '<button type="submit" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">' + (isEdit ? 'Simpan Perubahan' : 'Buat Akun Pengurus') + '</button>' +
-              '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
+            '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
+              '<button type="submit" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">' + (isEdit ? 'Simpan Perubahan' : 'Buat Akun Pengurus') + '</button>' +
+              '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
             '</div>' +
           '</form>' +
         '</div>');
@@ -3033,16 +3035,16 @@
       var isEdit = !!item;
 
       this.openModal(
-        '<div class="p-6">' +
-          '<div class="flex items-center justify-between mb-5">' +
-            '<h3 class="text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Rekening Kas' : 'Tambah Rekening Kas Baru') + '</h3>' +
+        '<div class="p-4 sm:p-6">' +
+          '<div class="flex items-center justify-between gap-2 mb-5">' +
+            '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + (isEdit ? 'Ubah Rekening Kas' : 'Tambah Rekening Kas Baru') + '</h3>' +
             '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
               '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
           '</div>' +
           '<form id="accFormEl" class="space-y-4">' +
             '<div><label class="lbl">Nama Akun Rekening <span class="text-red-500">*</span></label>' +
               '<input id="afNama" type="text" required class="field" placeholder="cth: Kas Operasional Sekretariat / Rekening Giro BCA" value="' + Auth.esc(item ? item.nama_rekening : '') + '" /></div>' +
-            '<div class="grid sm:grid-cols-2 gap-4">' +
+            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
               '<div><label class="lbl">Jenis Akun</label><select id="afJenis" class="field">' +
                 '<option value="BANK"' + (item && item.jenis === 'BANK' ? ' selected' : '') + '>Rekening Bank</option>' +
                 '<option value="KAS"' + (item && item.jenis === 'KAS' ? ' selected' : '') + '>Kas Tunai / Brankas</option>' +
@@ -3050,15 +3052,15 @@
               '<div><label class="lbl">Bank / Vendor</label>' +
                 '<input id="afVendor" type="text" class="field" placeholder="BCA / BSI / Mandiri / Tunai" value="' + Auth.esc(item ? item.bank_vendor : '') + '" /></div>' +
             '</div>' +
-            '<div class="grid sm:grid-cols-2 gap-4">' +
+            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
               '<div><label class="lbl">Nomor Rekening</label>' +
                 '<input id="afNomor" type="text" class="field font-mono" placeholder="cth: 712-345-6789" value="' + Auth.esc(item ? item.nomor_rekening : '') + '" /></div>' +
               '<div><label class="lbl">Atas Nama</label>' +
                 '<input id="afAtasNama" type="text" class="field" placeholder="cth: Yayasan APII DPW Jabodetabek" value="' + Auth.esc(item ? item.atas_nama : '') + '" /></div>' +
             '</div>' +
-            '<div class="flex gap-3 pt-2">' +
-              '<button type="submit" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">' + (isEdit ? 'Simpan Perubahan' : 'Tambah Rekening') + '</button>' +
-              '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
+            '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
+              '<button type="submit" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">' + (isEdit ? 'Simpan Perubahan' : 'Tambah Rekening') + '</button>' +
+              '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
             '</div>' +
           '</form>' +
         '</div>');
@@ -3104,7 +3106,7 @@
               '<h3 class="text-base font-extrabold text-emerald-dark">Pengaturan KOP &amp; Penomoran Surat</h3>' +
               '<div>' +
                 '<label class="lbl">Mode KOP Surat</label>' +
-                '<div class="grid grid-cols-2 gap-3 mt-1.5">' +
+                '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1.5">' +
                   '<label class="flex items-center gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
                     '<input type="radio" name="kopMode" value="image" ' + (kopMode === 'image' ? 'checked' : '') + ' class="accent-emerald" />' +
                     '<span class="text-xs font-bold text-gray-800">🖼️ Gambar KOP Resmi (PNG/JPG)</span>' +
