@@ -4,6 +4,26 @@ Seluruh perubahan penting pada proyek **SIAP APII (Sistem Informasi & Administra
 
 ---
 
+## [2.0.1] — 2026-10-08 (Google Drive Storage Engine & Folder Management Fix)
+
+### 🌟 Fitur Baru & Perbaikan Google Drive
+- **Sinkronisasi Dua Arah Root Storage Folder**:
+  - Memperbaiki `siapkanFolderPdf_()` agar membaca konfigurasi custom folder dari `Sheet_Settings` dan menyinkronkannya dengan `ScriptProperties.DRIVE_FOLDER_ID`.
+  - Memperbarui `saveSettings` agar langsung memperbarui `ScriptProperties` secara seketika saat ID folder diubah.
+- **Fitur Buat Folder Baru Langsung (`createDriveFolder`)**:
+  - Admin dapat membuat folder baru langsung di Google Drive via antarmuka tanpa perlu keluar dari aplikasi.
+  - Otomatis membuatkan subfolder standar: `/Surat_Resmi`, `/Surat_Lampiran`, `/Keuangan_Bukti_Nota`, `/Pendaftaran_KTP`, `/Pendaftaran_Selfie`.
+- **Fitur Pindah Folder ke Induk (`moveDriveFolder`)**:
+  - Memindahkan folder aktif ke dalam parent folder tujuan (misal ke Shared Drive atau folder Yayasan Pusat).
+- **Pengujian Koneksi & Validasi Izin Tulis Real-Time (`testDriveStorage`)**:
+  - `testDriveStorage` kini membaca dan menguji folder ID spesifik yang dimasukkan pengguna serta memverifikasi izin TULIS/EDIT dengan uji file temporer.
+- **Fitur Reset ke Folder Bawaan (`resetDriveStorage`)**:
+  - Menyediakan opsi reset satu-klik untuk mengembalikan folder penyimpanan ke default organisasi.
+- **Modernisasi UI Pengaturan Drive di Portal Pengurus**:
+  - Kartu status folder aktif (Nama folder, ID folder, tombol salin ID, dan tautan langsung `📂 Buka Folder di Drive ↗`).
+
+---
+
 ## [2.0.0] — 2026-10-07 (Enterprise Modernization & RBAC Hardening)
 
 ### 🌟 Fitur Baru & Peningkatan Utama

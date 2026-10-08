@@ -31,11 +31,12 @@ $fnNames = @(
   'hashPassword','login','logout','verifySession','me','getListPengguna',
   'createPengguna','updatePengguna','getAuditLogs',
   'registerAnggota','getListPendaftar','verifyPendaftarSekretaris','approvePendaftarKetum','rejectPendaftar',
-  'saveUploadToDrive_',
+  'exportPendaftar','saveUploadToDrive_',
   'initSchema','readAll','findOne','findMany','insert','updateRow','deleteRow',
   'nextSequence','seedDefaultAccounts_','seedDefaultSettings_',
   'uuid','audit','formatRupiah','formatTanggal','toRoman','sanitizeUser','getDashboard',
   'terbilang','getSettingValue_','setSettingValue_','getSettings','saveSettings','getPublicSettings','uploadKopImage','testDriveStorage',
+  'createDriveFolder','moveDriveFolder','resetDriveStorage',
   'getListSurat','createSurat','updateSurat','submitSurat','approveSurat',
   'rejectSurat','verifySurat','getPublishedSurat','reserveLetterNumber','getLetterTypesMap_',
   'getSaldo','getListKeuangan','createVoucher','updateVoucherReceipt','verifyVoucherBendahara',
@@ -58,9 +59,10 @@ foreach ($name in $order) {
   $path = Join-Path $srcDir "$name.gs"
   if (-not (Test-Path $path)) { throw "File tidak ditemukan: $path" }
   $content = Get-Content $path -Raw -Encoding UTF8
+  # Hitung sebelum diganti
+  $totalReplaced += [regex]::Matches($content, $nsPattern).Count
   # Ganti `Auth.login(` -> `login(`, `Database.findOne(` -> `findOne(`, dst.
   $content = [regex]::Replace($content, $nsPattern, '$1')
-  $totalReplaced += [regex]::Matches($content, $nsPattern).Count # sudah 0 setelah replace
   [void]$sb.AppendLine("/" + "*" * 76)
   [void]$sb.AppendLine(" * $name.gs")
   [void]$sb.AppendLine(" " + "*" * 77 + "/")
@@ -70,9 +72,17 @@ foreach ($name in $order) {
 $backend = $sb.ToString()
 $backendChars = $backend.Length
 
+# Verifikasi tidak ada namespace tertinggal (kecuali referensi file *.gs)
+$unreplaced = [regex]::Matches($backend, '(?<![\w.])(?:Auth|Database|Utils|Surat|Keuangan|Divisi)\.(?!gs\b)[a-zA-Z0-9_]+')
+if ($unreplaced.Count -gt 0) {
+  $bad = ($unreplaced | ForEach-Object { $_.Value } | Select-Object -Unique) -join ', '
+  throw "Ditemukan referensi namespace yang belum diganti di Backend.gs: $bad"
+}
+
 $outBackend = Join-Path $outDir 'Backend.gs'
 Set-Content -Path $outBackend -Value $backend -Encoding UTF8 -NoNewline
-Write-Output "Namespace terganti: $totalReplaced referensi (0 = semua bersih)"
+Write-Output "Namespace terganti: $totalReplaced referensi (semua bersih, 0 namespace tertinggal)"
+
 
 
 
