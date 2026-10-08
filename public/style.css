@@ -71,6 +71,22 @@ section [class*="grid"], section .bg-white { animation: fadeUp .5s ease both; }
 /* Seleksi teks berwarna emerald */
 ::selection { background: #A7F3D0; color: #022C22; }
 
+/* Kredit footer: hati berdenyut ("Develop with ❤ @2026- sigitadi.id ©") */
+.heart-pulse {
+  transform-origin: center;
+  will-change: transform;
+  animation: heartPulse 1.6s ease-in-out infinite;
+}
+@keyframes heartPulse {
+  0%, 60%, 100% { transform: scale(1); }
+  15%           { transform: scale(1.28); }
+  30%           { transform: scale(1); }
+  45%           { transform: scale(1.18); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .heart-pulse { animation: none; }
+}
+
 /* ======== PENDAFTARAN ANGGOTA — Form Enhancements ======== */
 
 /* Custom radio button */
