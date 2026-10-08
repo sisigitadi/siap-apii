@@ -45,15 +45,43 @@ function urlVerifikasiSurat_(letterNumber) {
 
 /**
  * siapkanFolderPdf_: pastikan folder Drive penyimpanan PDF ada (buat bila belum).
+ * Prioritaskan konfigurasi di Sheet_Settings, lalu ScriptProperties, lalu buat default.
  * @return {string} ID folder
  */
 function siapkanFolderPdf_() {
   var props = PropertiesService.getScriptProperties();
+
+  // 1. Cek konfigurasi custom di Sheet_Settings
+  var customId = '';
+  try {
+    customId = getSettingValue_('google_drive_folder_id', '');
+    if (!customId) {
+      var drv = getSettingValue_('drive_storage', {});
+      if (drv && drv.custom_folder_id) customId = drv.custom_folder_id;
+    }
+  } catch (e) {
+    customId = '';
+  }
+
+  if (customId) {
+    try {
+      var customFolder = DriveApp.getFolderById(customId);
+      props.setProperty('DRIVE_FOLDER_ID', customId);
+      return customId;
+    } catch (e) {
+      Logger.log('Custom folder ID ' + customId + ' tidak valid / tidak dapat diakses: ' + e);
+      // Fallback ke ScriptProperties atau buat default di bawah
+    }
+  }
+
+  // 2. Cek di ScriptProperties bila ada
   var folderId = props.getProperty('DRIVE_FOLDER_ID');
   if (folderId) {
     try { DriveApp.getFolderById(folderId); return folderId; }
     catch (e) { /* folder terhapus — buat ulang di bawah */ }
   }
+
+  // 3. Buat folder default bila belum ada
   var folder = DriveApp.createFolder(KONFIG.DRIVE_FOLDER_NAME);
   props.setProperty('DRIVE_FOLDER_ID', folder.getId());
   Logger.log('Folder PDF dibuat: ' + folder.getUrl());

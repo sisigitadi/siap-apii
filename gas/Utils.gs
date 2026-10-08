@@ -1265,6 +1265,26 @@ function getSettings(ctx) {
   settings.google_drive_folder_id = settings.google_drive_folder_id || drv.custom_folder_id || '';
   settings.auto_annual_subfolders = settings.auto_annual_subfolders !== undefined ? settings.auto_annual_subfolders : true;
 
+  // Resolusi metadata folder aktif aktual (nama, ID, url, custom/default)
+  try {
+    var activeFId = siapkanFolderPdf_();
+    var activeFolder = DriveApp.getFolderById(activeFId);
+    settings.active_drive_folder = {
+      folder_id: activeFolder.getId(),
+      folder_name: activeFolder.getName(),
+      folder_url: activeFolder.getUrl(),
+      is_custom: !!settings.google_drive_folder_id
+    };
+  } catch (e) {
+    settings.active_drive_folder = {
+      folder_id: settings.google_drive_folder_id || '',
+      folder_name: drv.folder_name || 'APII Jabo - PDF Surat Resmi',
+      folder_url: '',
+      is_custom: !!settings.google_drive_folder_id,
+      error: e.message
+    };
+  }
+
   // Konfigurasi Keuangan & Kategori Kas
   var fin = settings.finance_config || {};
   settings.finance_config = {
@@ -1379,6 +1399,33 @@ function saveSettings(ctx) {
     setSettingValue_(key, prepared[key], user);
   }
 
+  // 3) Sinkronisasi khusus Google Drive: bila google_drive_folder_id / custom_folder_id
+  //    diubah, verifikasi foldernya lalu simpan sebagai folder aktif (Script Properties)
+  //    agar surat & berkas berikutnya tersimpan di folder yang benar.
+  var targetFolderId = toSave.google_drive_folder_id;
+  if (targetFolderId === undefined && toSave.drive_storage) {
+    targetFolderId = toSave.drive_storage.custom_folder_id;
+  }
+  if (targetFolderId !== undefined) {
+    targetFolderId = String(targetFolderId).trim();
+    var props = PropertiesService.getScriptProperties();
+    if (targetFolderId) {
+      try {
+        var f = DriveApp.getFolderById(targetFolderId);
+        props.setProperty('DRIVE_FOLDER_ID', targetFolderId);
+        var drvObj = getSettingValue_('drive_storage', {});
+        drvObj.custom_folder_id = targetFolderId;
+        drvObj.folder_name = f.getName();
+        setSettingValue_('drive_storage', drvObj, user);
+      } catch (err) {
+        Logger.log('Gagal verifikasi folder ID saat saveSettings: ' + err);
+      }
+    } else {
+      props.deleteProperty('DRIVE_FOLDER_ID');
+      siapkanFolderPdf_();
+    }
+  }
+
   audit(user, 'SETTINGS_UPDATED', 'Memperbarui pengaturan: ' + Object.keys(prepared).join(', '), 'SETTINGS');
   return { ok: true, data: prepared, settings: prepared, warnings: warnings, message: 'Pengaturan berhasil disimpan.' };
 }
@@ -1446,13 +1493,31 @@ function uploadKopImage(ctx) {
 }
 
 /**
- * testDriveStorage: verifikasi koneksi Google Drive penyimpanan berkas.
+ * testDriveStorage: verifikasi koneksi Google Drive penyimpanan berkas dan izin tulis.
  * SUPERADMIN.
  */
 function testDriveStorage(ctx) {
   try {
-    var folderId = siapkanFolderPdf_();
+    var p = ctx.payload || {};
+    var folderId = p.folder_id ? String(p.folder_id).trim() : '';
+    var isCustom = Boolean(folderId);
+    if (!folderId) {
+      folderId = siapkanFolderPdf_();
+    }
     var folder = DriveApp.getFolderById(folderId);
+
+    // Uji izin tulis (buat file sementara lalu hapus langsung)
+    try {
+      var testFile = folder.createFile('.test_permission_' + new Date().getTime() + '.tmp', 'OK');
+      testFile.setTrashed(true);
+    } catch (testErr) {
+      return {
+        ok: false,
+        data: null,
+        message: 'Folder ' + folder.getName() + ' ditemukan, namun akun tidak memiliki izin tulis: ' + testErr.message
+      };
+    }
+
     var user = (ctx.user && ctx.user.username) || 'admin';
     audit(user, 'DRIVE_TESTED', 'Uji koneksi penyimpanan Google Drive: ' + folder.getName(), 'STORAGE');
     return {
@@ -1461,12 +1526,166 @@ function testDriveStorage(ctx) {
         folder_id: folder.getId(),
         folder_name: folder.getName(),
         folder_url: folder.getUrl(),
+        is_custom: isCustom,
         status: 'CONNECTED'
       },
-      message: 'Koneksi Google Drive berhasil terverifikasi.'
+      message: 'Koneksi Google Drive terhubung dan izin tulis aktif: ' + folder.getName()
     };
   } catch (err) {
     return { ok: false, data: null, message: 'Gagal terhubung ke Google Drive: ' + err.message };
   }
 }
+
+/**
+ * createDriveFolder: buat folder baru di Google Drive untuk penyimpanan resmi organisasi.
+ * SUPERADMIN.
+ */
+function createDriveFolder(ctx) {
+  try {
+    var p = ctx.payload || {};
+    var currentYear = new Date().getFullYear();
+    var defaultName = 'APII Jabo - Arsip ' + currentYear;
+    var folderName = p.folder_name ? String(p.folder_name).trim() : defaultName;
+    if (!folderName) folderName = defaultName;
+    var parentFolderId = p.parent_folder_id ? String(p.parent_folder_id).trim() : '';
+
+    var parentFolder = null;
+    if (parentFolderId) {
+      parentFolder = DriveApp.getFolderById(parentFolderId);
+    }
+
+    var newFolder = parentFolder ? parentFolder.createFolder(folderName) : DriveApp.createFolder(folderName);
+    var newFolderId = newFolder.getId();
+
+    // Inisialisasi subfolder standar organisasi
+    var subfolders = ['Surat_Resmi', 'Surat_Lampiran', 'Keuangan_Bukti_Nota', 'Pendaftaran_KTP', 'Pendaftaran_Selfie'];
+    for (var i = 0; i < subfolders.length; i++) {
+      try { newFolder.createFolder(subfolders[i]); } catch (subErr) {}
+    }
+
+    // Setel folder baru ini sebagai folder aktif di ScriptProperties dan Sheet_Settings
+    PropertiesService.getScriptProperties().setProperty('DRIVE_FOLDER_ID', newFolderId);
+
+    var user = (ctx.user && ctx.user.username) || 'admin';
+    setSettingValue_('google_drive_folder_id', newFolderId, user);
+    setSettingValue_('drive_storage', {
+      custom_folder_id: newFolderId,
+      folder_name: newFolder.getName(),
+      auto_annual_subfolders: true,
+      created_at: new Date().toISOString()
+    }, user);
+
+    audit(user, 'DRIVE_FOLDER_CREATED', 'Membuat folder penyimpanan Drive baru: ' + folderName, 'STORAGE');
+
+    return {
+      ok: true,
+      data: {
+        folder_id: newFolderId,
+        folder_name: newFolder.getName(),
+        folder_url: newFolder.getUrl(),
+        status: 'CONNECTED'
+      },
+      message: 'Folder baru ' + folderName + ' berhasil dibuat dan disetel sebagai penyimpanan aktif.'
+    };
+  } catch (err) {
+    return { ok: false, data: null, message: 'Gagal membuat folder di Google Drive: ' + err.message };
+  }
+}
+
+/**
+ * moveDriveFolder: pindahkan folder penyimpanan aktif ke dalam folder parent lain di Google Drive.
+ * SUPERADMIN.
+ */
+function moveDriveFolder(ctx) {
+  try {
+    var p = ctx.payload || {};
+    var parentFolderId = p.parent_folder_id ? String(p.parent_folder_id).trim() : '';
+    if (!parentFolderId) {
+      return { ok: false, data: null, message: 'ID folder induk tujuan wajib diisi.' };
+    }
+
+    var targetParent = DriveApp.getFolderById(parentFolderId);
+    var activeFolderId = siapkanFolderPdf_();
+    var activeFolder = DriveApp.getFolderById(activeFolderId);
+
+    if (targetParent.getId() === activeFolder.getId()) {
+      return { ok: false, data: null, message: 'Folder tujuan tidak boleh sama dengan folder aktif.' };
+    }
+
+    // Pindahkan folder aktif ke dalam parent baru
+    try {
+      if (typeof activeFolder.moveTo === 'function') {
+        activeFolder.moveTo(targetParent);
+      } else {
+        targetParent.addFolder(activeFolder);
+        var parents = activeFolder.getParents();
+        while (parents.hasNext()) {
+          var oldParent = parents.next();
+          if (oldParent.getId() !== targetParent.getId()) {
+            oldParent.removeFolder(activeFolder);
+          }
+        }
+      }
+    } catch (moveErr) {
+      targetParent.addFolder(activeFolder);
+    }
+
+    var user = (ctx.user && ctx.user.username) || 'admin';
+    audit(user, 'DRIVE_FOLDER_MOVED', 'Memindahkan folder ke dalam ' + targetParent.getName(), 'STORAGE');
+
+    return {
+      ok: true,
+      data: {
+        folder_id: activeFolder.getId(),
+        folder_name: activeFolder.getName(),
+        folder_url: activeFolder.getUrl(),
+        parent_name: targetParent.getName(),
+        parent_id: targetParent.getId(),
+        status: 'CONNECTED'
+      },
+      message: 'Folder ' + activeFolder.getName() + ' berhasil dipindahkan ke dalam ' + targetParent.getName() + '.'
+    };
+  } catch (err) {
+    return { ok: false, data: null, message: 'Gagal memindahkan folder di Google Drive: ' + err.message };
+  }
+}
+
+/**
+ * resetDriveStorage: kembalikan folder penyimpanan ke folder default sistem.
+ * SUPERADMIN.
+ */
+function resetDriveStorage(ctx) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    props.deleteProperty('DRIVE_FOLDER_ID');
+
+    var user = (ctx.user && ctx.user.username) || 'admin';
+    setSettingValue_('google_drive_folder_id', '', user);
+
+    var defaultFolderId = siapkanFolderPdf_();
+    var defaultFolder = DriveApp.getFolderById(defaultFolderId);
+
+    setSettingValue_('drive_storage', {
+      custom_folder_id: '',
+      folder_name: defaultFolder.getName(),
+      auto_annual_subfolders: true
+    }, user);
+
+    audit(user, 'DRIVE_STORAGE_RESET', 'Mereset penyimpanan Drive ke default: ' + defaultFolder.getName(), 'STORAGE');
+
+    return {
+      ok: true,
+      data: {
+        folder_id: defaultFolder.getId(),
+        folder_name: defaultFolder.getName(),
+        folder_url: defaultFolder.getUrl(),
+        status: 'CONNECTED'
+      },
+      message: 'Penyimpanan Google Drive berhasil dikembalikan ke folder default organisasi.'
+    };
+  } catch (err) {
+    return { ok: false, data: null, message: 'Gagal mereset penyimpanan Google Drive: ' + err.message };
+  }
+}
+
 
