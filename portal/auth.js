@@ -171,7 +171,7 @@
             if (/Voucher|Account/i.test(action)) self.cache.invalidate(['keuangan', 'accounts', 'dashboard']);
             if (/Submission|LPJ/i.test(action)) self.cache.invalidate(['divisi', 'dashboard']);
             if (/Pengguna|Pendaftar/i.test(action)) self.cache.invalidate(['pengguna', 'pendaftar']);
-            if (/Settings|Kop/i.test(action)) self.cache.invalidate(['settings', 'surat', 'dashboard']);
+            if (/Settings|Kop|Editorial/i.test(action)) self.cache.invalidate(['settings', 'surat', 'dashboard']);
           }
           return b.data;
         }

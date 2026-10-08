@@ -12,13 +12,16 @@
     state: {
       ktpBase64: '',
       selfieBase64: '',
-      registration: null
+      registration: null,
+      editorial: { bulletinsExpanded: false, eventsExpanded: false },
+      editorialLists: { bulletins: [], events: [] }
     },
 
     init: function () {
       this.bindMobileNav();
       this.bindRegistrationForm();
       this.bindRegistrationModal();
+      this.bindEditorialUi();
       this.loadPublicConfig();
       this.loadPublicSurat();
       this.loadPublicAccounts();
@@ -562,9 +565,406 @@
       modal.classList.remove('hidden');
     },
 
-    // ---------------------------------------------------------------
-    // KONFIGURASI PUBLIK & PENDAFTARAN DINAMIS
-    // ---------------------------------------------------------------
+  // ---------------------------------------------------------------
+  // KONTEN REDAKSI DINAMIS (MINI-CMS)
+  // Hero, profil lembaga, warta maklumat, agenda acara, FAQ, kontak & sosmed.
+  // Semua teks dari server WAJIB melewati Public.esc(); bila data kosong atau
+  // gagal dimuat, markup bawaan di index.html tetap tampil rapi (graceful fallback).
+  // ---------------------------------------------------------------
+
+  /** Sembunyikan seksi beserta tautan navigasinya (untuk toggle redaksi). */
+  hideSection: function (id) {
+    var sec = document.getElementById(id);
+    if (sec) sec.classList.add('hidden');
+    var links = document.querySelectorAll('[data-nav-sec="' + id + '"]');
+    Array.prototype.forEach.call(links, function (l) { l.classList.add('hidden'); });
+  },
+
+  /** Inisial nama pimpinan untuk kartu sambutan (mengabaikan gelar umum). */
+  initials: function (name) {
+    var words = String(name || '').split(/\s+/).map(function (w) {
+      return w.replace(/[^\w\u00C0-\u024F]/g, '');
+    });
+    var clean = words.filter(function (w) {
+      return w && !/^(ust|hj|h|kh|dr|drs|ir|prof|ny|muh|s|st|m)$/i.test(w);
+    });
+    var picks = clean.slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); });
+    return picks.join('') || 'AP';
+  },
+
+  /** Format YYYY-MM-DD (atau ISO) menjadi "1 Maret 2026". */
+  formatTanggal: function (iso) {
+    if (!iso) return '';
+    var bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
+    if (!m) return String(iso);
+    var idx = Number(m[2]) - 1;
+    if (idx < 0 || idx > 11) return String(iso);
+    return Number(m[3]) + ' ' + bulan[idx] + ' ' + m[1];
+  },
+
+  /** Binding interaksi: tab warta, akordeon FAQ, tombol ekspansi daftar. */
+  bindEditorialUi: function () {
+    var self = this;
+
+    // Akordeon FAQ (event delegation: bekerja untuk konten bawaan HTML maupun hasil render server).
+    var faqList = document.getElementById('faqList');
+    if (faqList) {
+      faqList.addEventListener('click', function (e) {
+        var btn = e.target.closest('.faq-q');
+        if (!btn) return;
+        var item = btn.closest('.faq-item');
+        if (!item) return;
+        var willOpen = !item.classList.contains('open');
+        item.classList.toggle('open', willOpen);
+        btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        var body = item.querySelector('.faq-a');
+        if (body) body.style.gridTemplateRows = willOpen ? '1fr' : '0fr';
+        var chev = item.querySelector('.faq-chevron');
+        if (chev) chev.style.transform = willOpen ? 'rotate(180deg)' : 'none';
+      });
+    }
+
+    // Tab switcher Maklumat / Agenda.
+    var tabs = document.querySelectorAll('[data-wtab]');
+    Array.prototype.forEach.call(tabs, function (btn) {
+      btn.addEventListener('click', function () {
+        var tab = btn.getAttribute('data-wtab');
+        Array.prototype.forEach.call(tabs, function (b) {
+          var active = b.getAttribute('data-wtab') === tab;
+          b.classList.toggle('bg-emerald', active);
+          b.classList.toggle('text-white', active);
+          b.classList.toggle('shadow-sm', active);
+          b.classList.toggle('text-gray-500', !active);
+        });
+        var p1 = document.getElementById('wartaPanelMaklumat');
+        var p2 = document.getElementById('wartaPanelAgenda');
+        if (p1) p1.classList.toggle('hidden', tab !== 'maklumat');
+        if (p2) p2.classList.toggle('hidden', tab !== 'agenda');
+      });
+    });
+
+    // Ekspansi daftar (maks 6 item default).
+    var moreB = document.getElementById('wartaBulletinMore');
+    if (moreB) {
+      moreB.addEventListener('click', function () {
+        self.state.editorial.bulletinsExpanded = !self.state.editorial.bulletinsExpanded;
+        self.renderBulletinCards();
+      });
+    }
+    var moreE = document.getElementById('wartaEventMore');
+    if (moreE) {
+      moreE.addEventListener('click', function () {
+        self.state.editorial.eventsExpanded = !self.state.editorial.eventsExpanded;
+        self.renderEventCards();
+      });
+    }
+  },
+
+  /** Distribusi konten redaksi ke masing-masing seksi. */
+  renderEditorial: function (ed) {
+    if (!ed || typeof ed !== 'object') return;
+    this.renderEditorialHero(ed.hero || {});
+    this.renderEditorialProfile(ed.profile || {});
+    this.renderEditorialWarta(ed.bulletins_events || {});
+    this.renderEditorialFaq(ed);
+    this.renderEditorialContact(ed.contact || {}, ed.social || {});
+  },
+
+  renderEditorialHero: function (hero) {
+    var badge = document.getElementById('heroBadgeText');
+    if (badge && hero.badge) badge.textContent = hero.badge;
+
+    var h1 = document.getElementById('heroHeadline');
+    if (h1 && hero.headline) {
+      // Escape lebih dulu, baru beri aksen emas pada frasa identitas lembaga (aman dari XSS).
+      var safe = this.esc(hero.headline);
+      safe = safe.replace(/Yayasan APII/g, '<span class="text-gold-light">Yayasan APII</span>');
+      h1.innerHTML = safe;
+    }
+
+    var sub = document.getElementById('heroSubheadline');
+    if (sub && hero.subheadline) sub.textContent = hero.subheadline;
+
+    var ctaText = document.getElementById('heroCtaText');
+    if (ctaText && hero.cta_text) ctaText.textContent = hero.cta_text;
+
+    var ctaBtn = document.getElementById('heroCtaBtn');
+    if (ctaBtn && hero.cta_link) ctaBtn.setAttribute('href', hero.cta_link);
+  },
+
+  renderEditorialProfile: function (prof) {
+    if (prof.show_section === false) {
+      this.hideSection('profil');
+      return;
+    }
+    var self = this;
+
+    var greeting = document.getElementById('profileGreeting');
+    if (greeting && prof.greeting) greeting.textContent = prof.greeting;
+
+    var name = document.getElementById('profileKetuaName');
+    if (name && prof.ketua_name) name.textContent = prof.ketua_name;
+
+    var title = document.getElementById('profileKetuaTitle');
+    if (title && prof.ketua_title) title.textContent = prof.ketua_title;
+
+    var avatar = document.getElementById('profileKetuaInitial');
+    if (avatar && prof.ketua_name) avatar.textContent = this.initials(prof.ketua_name);
+
+    var vision = document.getElementById('profileVision');
+    if (vision && prof.vision) vision.textContent = prof.vision;
+
+    var missions = document.getElementById('profileMissions');
+    if (missions && Array.isArray(prof.missions) && prof.missions.length) {
+      missions.innerHTML = prof.missions.map(function (m, i) {
+        return '<li class="flex items-start gap-3">' +
+          '<span class="h-6 w-6 rounded-full bg-emerald text-white text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">' + (i + 1) + '</span>' +
+          '<span>' + self.esc(m) + '</span></li>';
+      }).join('');
+    }
+  },
+
+  renderEditorialWarta: function (be) {
+    if (be.show_section === false) {
+      this.hideSection('warta');
+      return;
+    }
+
+    var title = document.getElementById('wartaTitle');
+    if (title && be.section_title) title.textContent = be.section_title;
+
+    var sub = document.getElementById('wartaSubtitle');
+    if (sub && be.section_subtitle) sub.textContent = be.section_subtitle;
+
+    this.state.editorialLists = {
+      bulletins: Array.isArray(be.bulletins) ? be.bulletins : [],
+      events: Array.isArray(be.events) ? be.events : []
+    };
+    this.renderBulletinCards();
+    this.renderEventCards();
+  },
+
+  /** Grid kartu maklumat & siaran resmi (maks 6 item + tombol ekspansi). */
+  renderBulletinCards: function () {
+    var self = this;
+    var list = document.getElementById('wartaBulletinList');
+    var statusEl = document.getElementById('wartaBulletinStatus');
+    var wrap = document.getElementById('wartaBulletinListWrap');
+    var moreWrap = document.getElementById('wartaBulletinMoreWrap');
+    var moreText = document.getElementById('wartaBulletinMoreText');
+    if (!list || !statusEl) return;
+
+    var items = this.state.editorialLists.bulletins || [];
+    var limit = 6;
+
+    if (!items.length) {
+      list.innerHTML = '';
+      if (wrap) wrap.classList.add('hidden');
+      if (moreWrap) moreWrap.classList.add('hidden');
+      statusEl.textContent = 'Belum ada maklumat resmi yang diterbitkan.';
+      statusEl.classList.remove('hidden');
+      return;
+    }
+
+    var expanded = !!this.state.editorial.bulletinsExpanded;
+    var shown = expanded ? items.length : Math.min(limit, items.length);
+
+    list.innerHTML = items.slice(0, shown).map(function (b) {
+      var dateLabel = self.formatTanggal(b.date);
+      return '<article class="bg-white rounded-2xl p-5 sm:p-6 border border-emerald-100 shadow-sm hover:shadow-md hover:border-emerald-300 transition flex flex-col">' +
+          '<div class="flex items-center gap-2 mb-3 flex-wrap">' +
+            '<span class="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full">' + self.esc(b.category || 'Maklumat Resmi') + '</span>' +
+            (dateLabel ? '<span class="text-xs text-gray-400 font-medium">' + self.esc(dateLabel) + '</span>' : '') +
+          '</div>' +
+          '<h3 class="font-bold text-gray-900 text-sm sm:text-base leading-snug mb-2 break-words">' + self.esc(b.title) + '</h3>' +
+          (b.summary ? '<p class="text-xs text-gray-600 leading-relaxed flex-1">' + self.esc(b.summary) + '</p>' : '<div class="flex-1"></div>') +
+          '<div class="mt-4 pt-3.5 border-t border-gray-100">' +
+            (b.link
+              ? '<a href="' + self.esc(b.link) + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald hover:text-emerald-dark transition">' +
+                  '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
+                  '<span>Buka Dokumen Resmi</span></a>'
+              : '<span class="text-[11px] font-semibold text-gray-400">Arsip Sekretariat</span>') +
+          '</div>' +
+        '</article>';
+    }).join('');
+
+    statusEl.classList.add('hidden');
+    if (wrap) wrap.classList.remove('hidden');
+
+    if (moreWrap && moreText) {
+      if (items.length > limit) {
+        moreWrap.classList.remove('hidden');
+        moreText.textContent = expanded
+          ? 'Ringkas Kembali'
+          : 'Tampilkan Semua Maklumat (' + items.length + ')';
+      } else {
+        moreWrap.classList.add('hidden');
+      }
+    }
+  },
+
+  /** Grid kartu agenda: MENDATANG diprioritaskan, SELESAI diarsipkan berlabel abu-abu. */
+  renderEventCards: function () {
+    var self = this;
+    var list = document.getElementById('wartaEventList');
+    var statusEl = document.getElementById('wartaEventStatus');
+    var wrap = document.getElementById('wartaEventListWrap');
+    var moreWrap = document.getElementById('wartaEventMoreWrap');
+    var moreText = document.getElementById('wartaEventMoreText');
+    if (!list || !statusEl) return;
+
+    var items = (this.state.editorialLists.events || []).slice();
+    var limit = 6;
+
+    if (!items.length) {
+      list.innerHTML = '';
+      if (wrap) wrap.classList.add('hidden');
+      if (moreWrap) moreWrap.classList.add('hidden');
+      statusEl.textContent = 'Belum ada agenda kegiatan yang dijadwalkan.';
+      statusEl.classList.remove('hidden');
+      return;
+    }
+
+    // Acara MENDATANG selalu tampil di atas; urutan asli redaksi dipertahankan.
+    items.sort(function (a, b) {
+      var aDone = String(a.status || '').toUpperCase() === 'SELESAI' ? 1 : 0;
+      var bDone = String(b.status || '').toUpperCase() === 'SELESAI' ? 1 : 0;
+      return aDone - bDone;
+    });
+
+    var expanded = !!this.state.editorial.eventsExpanded;
+    var shown = expanded ? items.length : Math.min(limit, items.length);
+
+    list.innerHTML = items.slice(0, shown).map(function (e) {
+      var done = String(e.status || '').toUpperCase() === 'SELESAI';
+      var meta = [];
+      if (e.date_str || e.time_str) {
+        meta.push('🗓️ ' + [e.date_str, e.time_str].filter(function (x) { return !!x; }).join(' • '));
+      }
+      if (e.location) meta.push('📍 ' + e.location);
+      if (e.speaker) meta.push('🎤 ' + e.speaker);
+
+      return '<article class="bg-white rounded-2xl p-5 sm:p-6 border shadow-sm transition flex flex-col ' +
+          (done ? 'border-gray-200 hover:border-gray-300' : 'border-emerald-200 hover:shadow-md hover:border-emerald-400') + '">' +
+          '<div class="flex items-center justify-between gap-2 mb-3 flex-wrap">' +
+            '<span class="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ' +
+              (done ? 'text-gray-600 bg-gray-100' : 'text-emerald-800 bg-emerald-100/80') + '">' + self.esc(e.category || 'Kajian') + '</span>' +
+            (done
+              ? '<span class="text-[10px] font-bold text-gray-500 bg-gray-100 border border-gray-200 px-2.5 py-0.5 rounded-full">⚪ Selesai (Arsip Kegiatan)</span>'
+              : '<span class="text-[10px] font-black text-emerald-dark bg-gold px-2.5 py-0.5 rounded-full shadow-xs">🟢 MENDATANG</span>') +
+          '</div>' +
+          '<h3 class="font-bold text-sm sm:text-base leading-snug mb-3 break-words ' + (done ? 'text-gray-600' : 'text-gray-900') + '">' + self.esc(e.title) + '</h3>' +
+          (meta.length
+            ? '<ul class="space-y-1.5 text-xs text-gray-600 leading-relaxed flex-1">' + meta.map(function (m) {
+                return '<li class="break-words">' + self.esc(m) + '</li>';
+              }).join('') + '</ul>'
+            : '<div class="flex-1"></div>') +
+          '<div class="mt-4 pt-3.5 border-t border-gray-100">' +
+            (e.link && !done
+              ? '<a href="' + self.esc(e.link) + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 w-full bg-emerald hover:bg-emerald-dark text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm transition">' +
+                  '<span>Daftar / Info Acara</span><span aria-hidden="true">→</span></a>'
+              : '<span class="text-[11px] font-semibold ' + (done ? 'text-gray-400' : 'text-gray-400') + '">' +
+                  (done ? 'Kegiatan telah terlaksana' : 'Informasi pendaftaran melalui sekretariat') + '</span>') +
+          '</div>' +
+        '</article>';
+    }).join('');
+
+    statusEl.classList.add('hidden');
+    if (wrap) wrap.classList.remove('hidden');
+
+    if (moreWrap && moreText) {
+      if (items.length > limit) {
+        moreWrap.classList.remove('hidden');
+        moreText.textContent = expanded
+          ? 'Ringkas Kembali'
+          : 'Tampilkan Semua Agenda (' + items.length + ')';
+      } else {
+        moreWrap.classList.add('hidden');
+      }
+    }
+  },
+
+  /** Akordeon FAQ dinamis (mempertahankan konten bawaan HTML bila daftar kosong). */
+  renderEditorialFaq: function (ed) {
+    if (ed.faqs_show === false) {
+      this.hideSection('faq');
+      return;
+    }
+    var self = this;
+    var list = document.getElementById('faqList');
+    var items = Array.isArray(ed.faqs) ? ed.faqs : [];
+    if (!list || !items.length) return;
+
+    list.innerHTML = items.map(function (f) {
+      return '<div class="faq-item bg-white rounded-2xl border border-emerald-100 shadow-xs overflow-hidden transition hover:border-emerald-300">' +
+          '<button type="button" class="faq-q w-full flex items-center justify-between gap-4 text-left px-5 sm:px-6 py-4 cursor-pointer" aria-expanded="false">' +
+            '<span class="font-bold text-sm sm:text-base text-gray-900 break-words">' + self.esc(f.q) + '</span>' +
+            '<svg class="faq-chevron h-5 w-5 text-emerald flex-shrink-0 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>' +
+          '</button>' +
+          '<div class="faq-a grid transition-all duration-300 ease-out" style="grid-template-rows: 0fr;">' +
+            '<div class="overflow-hidden"><p class="px-5 sm:px-6 pb-5 text-sm text-gray-600 leading-relaxed">' + self.esc(f.a) + '</p></div>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+  },
+
+  /** Kontak pelayanan & kanal media sosial resmi. */
+  renderEditorialContact: function (contact, social) {
+    var self = this;
+
+    var addr = document.getElementById('contactAddress');
+    if (addr && contact.address) addr.textContent = contact.address;
+
+    var mail = document.getElementById('contactEmail');
+    if (mail && contact.email) {
+      mail.textContent = contact.email;
+      mail.setAttribute('href', 'mailto:' + contact.email);
+    }
+
+    var hours = document.getElementById('contactHours');
+    if (hours && contact.service_hours) hours.textContent = contact.service_hours;
+
+    var wa = document.getElementById('contactWa');
+    if (wa && contact.whatsapp_helpdesk) {
+      var digits = String(contact.whatsapp_helpdesk).replace(/[^0-9]/g, '');
+      if (digits.charAt(0) === '0') digits = '62' + digits.slice(1);
+      wa.textContent = contact.whatsapp_helpdesk;
+      wa.setAttribute('href', 'https://wa.me/' + digits);
+    }
+
+    var box = document.getElementById('contactSocial');
+    if (!box) return;
+
+    var svg = function (path) {
+      return '<svg class="h-4 w-4 fill-current flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true"><path d="' + path + '"/></svg>';
+    };
+    var channels = [
+      { key: 'youtube', label: 'YouTube', icon: svg('M23.5 6.2a3 3 0 00-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 00.5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 002.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 002.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.5 15.6V8.4l6.3 3.6-6.3 3.6z') },
+      { key: 'instagram', label: 'Instagram', icon: svg('M12 2.2c3.2 0 3.6 0 4.9.1 1.2.1 1.8.2 2.2.4.6.2 1 .5 1.4.9.4.4.7.8.9 1.4.2.4.4 1 .4 2.2.1 1.3.1 1.7.1 4.9s0 3.6-.1 4.9c-.1 1.2-.2 1.8-.4 2.2-.2.6-.5 1-.9 1.4-.4.4-.8.7-1.4.9-.4.2-1 .4-2.2.4-1.3.1-1.7.1-4.9.1s-3.6 0-4.9-.1c-1.2-.1-1.8-.2-2.2-.4-.6-.2-1-.5-1.4-.9-.4-.4-.7-.8-.9-1.4-.2-.4-.4-1-.4-2.2-.1-1.3-.1-1.7-.1-4.9s0-3.6.1-4.9c.1-1.2.2-1.8.4-2.2.2-.6.5-1 .9-1.4.4-.4.8-.7 1.4-.9.4-.2 1-.4 2.2-.4 1.3-.1 1.7-.1 4.9-.1zm0 3.2a6.6 6.6 0 100 13.2 6.6 6.6 0 000-13.2zm0 10.9a4.3 4.3 0 110-8.6 4.3 4.3 0 010 8.6zm6.9-11.1a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z') },
+      { key: 'whatsapp_channel', label: 'Saluran WhatsApp', icon: svg('M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z') },
+      { key: 'facebook', label: 'Facebook', icon: svg('M22 12a10 10 0 10-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.3v7A10 10 0 0022 12z') },
+      { key: 'tiktok', label: 'TikTok', icon: svg('M16.6 5.8a4.8 4.8 0 01-1.1-3.1h-3.3v13.2a2.7 2.7 0 11-1.9-2.6V9.9a6 6 0 105.1 5.9V9.4a8 8 0 004.6 1.5V7.6a4.7 4.7 0 01-3.4-1.8z') }
+    ];
+
+    var html = channels.map(function (c) {
+      var url = social[c.key];
+      if (!url) return '';
+      return '<a href="' + self.esc(url) + '" target="_blank" rel="noopener noreferrer" ' +
+        'class="inline-flex items-center gap-2 bg-white/10 hover:bg-gold hover:text-emerald-dark border border-white/20 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition">' +
+        c.icon + '<span>' + c.label + '</span></a>';
+    }).join('');
+
+    if (html) {
+      box.innerHTML = html;
+      box.classList.remove('hidden');
+    }
+  },
+
+  // ---------------------------------------------------------------
+  // KONFIGURASI PUBLIK & PENDAFTARAN DINAMIS
+  // ---------------------------------------------------------------
     loadPublicConfig: function () {
       var self = this;
       this.get('getPublicSettings').then(function (res) {
@@ -572,6 +972,9 @@
         var d = res.data;
         var reg = d.registration || {};
         self.state.registration = reg;
+
+        // 0. Konten redaksi dinamis (mini-CMS): hero, profil, warta, agenda, FAQ, kontak.
+        self.renderEditorial(d.editorial || {});
 
         // 1. Banner Pengumuman Resmi Portal Publik
         var bannerBox = document.getElementById('announcementBannerContainer');
