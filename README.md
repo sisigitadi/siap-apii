@@ -111,6 +111,8 @@ npm run deploy:gas
 
 Perintah ini menjalankan seluruh rangkaian secara otomatis: kompilasi bundel → validasi sintaks → preflight daftar berkas yang akan diunggah → `clasp push` → pembuatan **Versi baru** → pembaruan **deployment yang sama** (URL `/exec` tidak berubah, jadi tidak perlu menyunting `portal/config.js` / `public/config.js`).
 
+> **Status produksi (2026-10-09):** backend tayang sebagai **Versi 13** dari `main` dengan URL `/exec` yang tidak berubah, isinya identik dengan `apps-script/` lokal. Ringkasan lengkap: [CHANGELOG.md](./CHANGELOG.md) → **Status Produksi Terkini**.
+
 Prasyarat **sekali saja**:
 1. Login CLI (membuka peramban akun Google yayasan):
    ```bash

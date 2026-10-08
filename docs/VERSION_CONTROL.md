@@ -88,6 +88,8 @@ npm run deploy:gas:check    # uji tanpa mengunggah (dry-run)
 ```
 Skrip `scripts/deploy-gas.mjs` memakai deployment ID yang sama, sehingga URL Web App (`https://script.google.com/macros/s/.../exec`) tidak berubah dan `portal/config.js` / `public/config.js` tidak perlu diedit.
 
+> **Terbukti di produksi (2026-10-08 – 2026-10-09):** alur ini sudah dijalankan penuh — `push` → `create-version` → `update-deployment` — dan menghasilkan **Versi 12** lalu **Versi 13** (perbaikan Reset ke Default Drive, 2026-10-09 00:53 WIB) pada deployment `/exec` yang sama (`…NJdg`) dari `main` (`7f87fee`). Isi berkas versi tayang **identik** dengan `apps-script/` lokal dan manifest-nya sama dengan `gas/appsscript.json`. Ini menutup catatan lama "langkah versi & deployment belum pernah tuntas dari sisi agent". Ringkasan keadaan produksi ada di [CHANGELOG.md](CHANGELOG.md) → **Status Produksi Terkini**.
+
 Prasyarat sekali saja: `npx --yes @google/clasp@3 login`, `GAS_SCRIPT_ID` pada `.env`, dan **Google Apps Script API** diaktifkan untuk akun tersebut di [script.google.com/home/usersettings](https://script.google.com/home/usersettings).
 
 **Alternatif manual** (bila CLI belum dapat digunakan):
@@ -125,6 +127,11 @@ cd public && npx vercel --prod --yes
   - [ ] Klik periksa pendaftar memunculkan pratinjau KTP ber-watermark dan tombol verifikasi.
   - [ ] Modal Kertas Virtual A4 surat dan Kwitansi Kas dapat dibuka dan dicetak.
   - [ ] Menu Pengaturan memuat master rekening, jenis surat baru (`NOTULEN`, `RAPAT`, `BA`), dan KOP.
+  - [ ] Tab `📰 Redaksi Konten` memuat kartu 1–8 (hero, profil, warta, kontak, FAQ, simpan, **Riwayat Versi**, **Ekspor/Impor JSON**).
+  - [ ] Kartu **Riwayat Versi & Pemulihan** termuat (daftar kosong berarti belum ada penyimpanan perubahan, bukan kegagalan).
+  - [ ] **Ekspor Konten Aktif** mengunduh berkas `redaksi-apii-YYYY-MM-DD-HHMM.json`; mengimpor ulang berkas yang sama dijawab *"Isi berkas sama dengan konten aktif"*.
+  - [ ] Kartu **Google Drive**: **Uji Koneksi** menjawab *"Koneksi Google Drive terhubung dan izin tulis aktif"* dan nama/ID folder aktif tampil.
+  - [ ] Aksi baru tidak pernah dijawab *"Aksi tidak dikenali"*; tanpa token, aksi redaksi & Drive ditolak dengan *"Sesi berakhir atau tidak valid"*.
 - [ ] **Portal Publik (`apii.sigitadi.id`)**:
   - [ ] Halaman landing memuat profil yayasan dan 7 divisi kerja.
   - [ ] Formulir Pendaftaran Calon Anggota muncul dengan kartu UU PDP.
@@ -132,3 +139,8 @@ cd public && npx vercel --prod --yes
   - [ ] Unggah foto selfie memunculkan pratinjau thumbnail.
   - [ ] Pengiriman pendaftaran berhasil memunculkan modal Tanda Terima Digital dengan nomor `REG-YYYY-XXXX` dan tombol WA.
   - [ ] **Tidak ada** tautan menuju Portal Pengurus maupun formulir verifikasi surat SHA-256.
+  - [ ] Seksi dinamis (hero, profil, warta maklumat & agenda, FAQ, kontak) mengikuti data redaksi backend, tanpa error konsol baru.
+- [ ] **Backend (langsung ke `/exec`)**:
+  - [ ] `?action=ping` → `{"status":"online"}`.
+  - [ ] Seluruh aksi yang dipakai `portal/portal.js` dikenali router (tanpa *"Aksi tidak dikenali"*); kontrol dengan satu aksi ngawur tetap ditolak.
+  - [ ] Versi Apps Script yang tayang sama dengan bundel `apps-script/` hasil build terakhir.

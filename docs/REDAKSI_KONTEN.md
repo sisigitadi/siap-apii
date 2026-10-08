@@ -2,6 +2,8 @@
 
 Dokumen ini adalah **sumber acuan tunggal (*single source of truth*)** bagi arsitektur dan implementasi konten pada **Portal Publik SIAP-APII (`apii.sigitadi.id`)** dan modul pengelolaannya di **Portal Pengurus (`siapii.sigitadi.id`)**.
 
+> **Status produksi (2026-10-09):** seluruh fitur pada dokumen ini — mini-CMS, **Riwayat Versi**, serta **Ekspor & Impor Berkas JSON** — sudah **tayang**, bukan lagi menunggu redeploy. Backend Apps Script **Versi 13** (deployment `/exec` yang sama; fitur ini tayang sejak Versi 12 pada 2026-10-08 23:30 WIB, diteruskan Versi 13 pada 2026-10-09 00:53 WIB) menyajikan ketiga route redaksi (`getEditorialHistory`, `exportEditorialContent`, `importEditorialContent`, plus `getEditorialRevision` & `restoreEditorialRevision`) yang dikenali router dan menuntut sesi login. Rincian: [CHANGELOG.md](../CHANGELOG.md) → **Status Produksi Terkini**.
+
 ---
 
 ## 1. Filosofi & Pemisahan Konten
@@ -289,3 +291,14 @@ node -c portal/auth.js
 node -c public/app.js
 ```
 Semua uji harus berstatus **LULUS (0 GAGAL)** sebelum perubahan di-deploy ke produksi.
+
+### Verifikasi Produksi (setelah `npm run deploy:gas`)
+Bukti yang dikumpulkan pada rilis Versi 12 (2026-10-09) — dan diulang pada Versi 13 — layak diperiksa setiap rilis backend:
+
+1. **Route dikenali + dijaga RBAC** — tanpa token, kelima route redaksi ditolak dengan *"Sesi berakhir atau tidak valid. Silakan login kembali."* (bukan *"Aksi tidak dikenali"*); kontrol dengan aksi ngawur tetap *"Aksi tidak dikenali."*
+2. **Ekspor nyata** — login superadmin → `exportEditorialContent` menghasilkan berkas `redaksi-apii-«tanggal»-«jam».json` berformat `apii-editorial-v1` beserta jumlah item (mis. 3 misi / 1 maklumat / 1 agenda / 3 FAQ).
+3. **Impor tanpa efek samping** — mengimpor ulang berkas yang **sama** dijawab *"Isi berkas sama dengan konten aktif"* dan tidak menambah versi riwayat.
+4. **Konten publik tidak berubah** — hitung sidik jari `getPublicSettings.data.editorial` sebelum & sesudah langkah 2–3; keduanya harus identik (`f23cb4cbfcd1b224` pada uji tersebut).
+5. **Portal publik dimuat ulang di peramban** — seksi dinamis (hero, profil, warta, FAQ, kontak) tetap tampil dan tidak ada error konsol **baru** (peringatan Tailwind CDN memang sudah ada sebelumnya).
+
+> Jangan menguji dengan mengubah konten produksi hanya untuk mengisi Riwayat Versi. Riwayat yang kosong (0 versi) berarti belum pernah ada penyimpanan perubahan — bukan kerusakan.

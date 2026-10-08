@@ -4,6 +4,27 @@ Seluruh perubahan penting pada proyek **SIAP APII (Sistem Informasi & Administra
 
 ---
 
+## Status Produksi Terkini (dipembarui 2026-10-09)
+
+Ringkasan keadaan produksi sungguhan — dipakai sebagai acuan cepat sebelum/ setelah rilis berikutnya.
+
+| Komponen | Keadaan Produksi |
+|---|---|
+| **Backend Apps Script** | **Versi 13** tayang pada deployment `/exec` yang sama (`…NJdg`, tidak pernah berubah), dibuat **2026-10-09 00:53 WIB** dari `main` ("Perbaikan Reset ke Default + pakai ulang folder default Drive"). Versi 12 (2026-10-08 23:30 WIB) adalah rilis sebelumnya. |
+| **Kesetaraan kode** | Isi ketiga berkas di versi tayang **identik** dengan bundel `apps-script/` hasil build lokal (`Backend.gs` 200.682 karakter, `AsetLogo.gs` 31.999, `AsetStempel.gs` 53.447) dan manifest-nya sama dengan `gas/appsscript.json`. |
+| **Fitur redaksi 2.4.0** | **Live.** `getEditorialHistory`, `getEditorialRevision`, `restoreEditorialRevision`, `exportEditorialContent`, `importEditorialContent` dikenali router dan menuntut sesi login (bukan lagi *"Aksi tidak dikenali"*). |
+| **Fitur Google Drive 2.0.1** | **Live.** `testDriveStorage`, `createDriveFolder`, `moveDriveFolder`, `resetDriveStorage` dikenali dan dijaga RBAC. Koneksi Drive diuji dengan sesi superadmin: folder aktif `APII Jabo - Arsip 2026`, izin tulis aktif. |
+| **Portal** | `siapii.sigitadi.id` (portal pengurus, termasuk tab `📰 Redaksi Konten` dan kartu Drive) dan `apii.sigitadi.id` (konten dinamis dari backend) menyajikan berkas yang identik dengan repo. |
+| **Tanpa regresi** | Ekspor → impor ulang berkas yang sama menjawab *"Isi berkas sama dengan konten aktif"*; sidik jari konten publik **identik** sebelum & sesudah uji (`f23cb4cbfcd1b224`). |
+| **Uji Drive nyata (2026-10-09)** | Ketiga tombol pengubah Drive **benar-benar dijalankan terhadap produksi** lewat `npm run smoke:drive -- --confirm`: `createDriveFolder` 2× (masing-masing + 5 subfolder standar), 2 penjagaan `moveDriveFolder`, 1 pemindahan nyata, dan `resetDriveStorage`. Setelah bug `resetDriveStorage` diperbaiki dan di-deploy sebagai **Versi 13**, uji yang sama dijalankan ulang: **20 pemeriksaan lulus, 0 gagal**. Folder aktif produksi **dipulihkan lalu diverifikasi** dan konten publik tidak tersentuh. Berkas: [scripts/smoke-drive-prod.mjs](scripts/smoke-drive-prod.mjs) (produksi) & [scripts/smoke-drive-local.mjs](scripts/smoke-drive-local.mjs) (lokal, stub DriveApp). |
+| **🐞 → ✅ Bug `resetDriveStorage`** (ditemukan 2026-10-09, **diperbaiki di Versi 13**) | Sebelumnya tombol **Reset ke Default tidak benar-benar kembali ke folder default**: `siapkanFolderPdf_()` masih membaca `drive_storage.custom_folder_id` karena konfigurasi baru dibersihkan *setelah* folder dibaca, sehingga folder custom lama tetap dipakai dan catatan `drive_storage` menjadi tidak konsisten. Kini `resetDriveStorage` membersihkan seluruh penunjuk folder custom **sebelum** memanggil `siapkanFolderPdf_()`, dan `siapkanFolderPdf_()` **memakai ulang folder default yang sudah ada** (tidak lagi menumpuk folder bernama sama saat reset dijalankan berulang). Dikunci uji lokal 16 pemeriksaan + diverifikasi di produksi. Riwayat lengkap: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md). |
+| **Sisa artefak uji** | Satu folder sandbox `UJI-OTOMATIS-APII-…` (berisi 9 folder uji + subfoldernya) masih ada di My Drive: Google Drive menolak penghapusannya dengan `403 appNotAuthorizedToChild` karena aplikasi uji tidak berhak atas folder yang dibuat backend Apps Script → perlu **1× hapus manual** (tautan ada di keluaran skrip). |
+| **Riwayat Versi Produksi** | Sudah terisi sejak 2026-10-09 (1 versi: penyimpanan "Profil & sambutan" oleh superadmin dari portal) — bukan lagi 0 versi. |
+
+> Perlu diperhatikan: `ping` masih melaporkan `version: '2.0.0'` dari konstanta di `gas/Code.gs`, sedangkan versi rilisnya sudah 2.4.0. Angka itu tidak dipakai pengecekan rilis (acuan rilis = Versi Apps Script, lihat [docs/deploy.md §4](docs/deploy.md)), tetapi sebaiknya diselaraskan pada rilis berikutnya.
+
+---
+
 ## [2.4.0] — 2026-10-08 (Ekspor & Impor Konten Redaksi sebagai Berkas JSON)
 
 ### 🌟 Fitur Baru
@@ -26,7 +47,10 @@ Seluruh perubahan penting pada proyek **SIAP APII (Sistem Informasi & Administra
 - `scripts/smoke-backend.mjs` diperluas (64 → **66 pemeriksaan**) untuk memastikan kedua route baru terdaftar di tabel `ROUTES`; `scripts/build-apps-script.ps1` memuat 7 nama fungsi baru agar pola namespace tetap tergantikan bersih.
 - Diuji juga di peramban dengan backend tiruan: ekspor menghasilkan berkas nyata, dan impor berkas dari perangkat membalik konten editor ke isi berkas dengan riwayat berlabel `IMPOR BERKAS`.
 - `docs/REDAKSI_KONTEN.md` menambah **bagian 7 — Ekspor & Impor Berkas JSON** (format berkas, tiga bentuk berkas, penjagaan keamanan) serta dua endpoint baru pada tabel RBAC.
-- **Belum tayang sampai backend di-redeploy** (`npm run deploy:gas`); fitur ini murni backend + portal pengurus, tidak mengubah portal publik.
+- **Tayang di produksi sejak 2026-10-08 23:30 WIB sebagai Backend Versi 12** — bukan lagi "menunggu redeploy". Fitur ini murni backend + portal pengurus, **tidak mengubah portal publik**.
+- Verifikasi pasca-rilis di produksi sungguhan: ekspor konten aktif (`redaksi-apii-2026-10-08-2334.json`, 4.006 karakter, 3 misi/1 maklumat/1 agenda/3 FAQ) → impor ulang berkas yang sama dijawab *"Isi berkas sama dengan konten aktif"* → sidik jari konten publik identik sebelum & sesudah (`f23cb4cbfcd1b224`). Portal publik dimuat ulang di peramban: seksi dinamis tetap tampil, tanpa error konsol baru.
+- Verifikasi yang sama **diulang pada 2026-10-09** (ekspor baru `redaksi-apii-2026-10-09-0023.json`, jumlah item tetap 3/1/1/3, sidik jari tetap `f23cb4cbfcd1b224`, riwayat versi tetap 0 karena memang belum ada penyimpanan perubahan) — hasilnya konsisten, tanpa regresi.
+- Rincian keadaan produksi: lihat **Status Produksi Terkini** di bagian atas dokumen ini dan [docs/deploy.md §4](docs/deploy.md).
 
 ---
 
@@ -45,9 +69,10 @@ Seluruh perubahan penting pada proyek **SIAP APII (Sistem Informasi & Administra
 - Diuji langsung di repo: `--help`, jalur gagal tanpa `GAS_SCRIPT_ID` (exit 1, tanpa perubahan apa pun), dan `--dry-run` penuh (build + validasi + `clasp status` nyata melaporkan tepat 4 berkas yang akan diunggah; perintah `push`/`create-version`/`update-deployment` hanya ditampilkan).
 - **Diuji terhadap project produksi sungguhan** (akun clasp terautentikasi, Script ID terpasang): daftar berkas di editor Apps Script diperiksa langsung lewat Apps Script API dan berisi **tepat** `Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`, dan `appsscript.json` — tidak ada modul pra-bundel yang tersisa sehingga tidak ada risiko definisi fungsi ganda. Manifest lokal terbukti **identik** dengan manifest project.
 - Dua kegagalan nyata ditemukan dan diperbaiki pada uji ini: (1) `clasp push` selalu gagal karena folder unggahan tidak memuat `appsscript.json` — kini manifest ikut dibangun & divalidasi; (2) unggahan ditolak Google dengan `User has not enabled the Apps Script API` bila setelan akun belum dinyalakan — kini skrip berhenti dengan instruksi spesifik beserta alamat email akun yang sedang login.
-- **Tidak diverifikasi:** langkah `push`/`create-version`/`update-deployment` belum pernah tuntas dari sisi agent karena setelan akun `Google Apps Script API` masih perlu dinyalakan pemilik project.
+- **Sudah tuntas (catatan awal dipertahankan sebagai jejak).** Saat rilis 2.3.0 ditulis, langkah `push`/`create-version`/`update-deployment` memang belum pernah dijalankan karena setelan akun *Google Apps Script API* belum dinyalakan pemilik project. Setelah setelan itu aktif, seluruh delapan tahap `npm run deploy:gas` benar-benar dijalankan terhadap project produksi sampai tuntas; versi tayang terakhirnya adalah **Versi 12** (2026-10-08 23:30 WIB) pada deployment `/exec` yang sama — lihat **Status Produksi Terkini** di atas.
 
 ### ⚠️ Catatan Operasional
+- **Ukuran berkas mendekati batas:** `Backend.gs` hasil bundel kini 199.360 karakter; skrip build memperingatkan kedekatan batas ukuran berkas Apps Script. Pertimbangkan memecah modul bila menambah fitur backend berikutnya.
 - `clasp` **tidak** menghapus berkas yang ada di editor Apps Script. Project harus hanya berisi `Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`, dan `appsscript.json`; sisa berkas lama (mis. `Aset.gs`) berpotensi menimbulkan definisi fungsi ganda dan perlu dihapus sekali secara manual.
 
 ---

@@ -82,6 +82,13 @@ Setiap kali perintah `git push origin main` dieksekusi, Vercel secara otomatis m
 
 ## 4. Alur Pembaruan Backend (Google Apps Script)
 
+> **Status rilis terakhir — 2026-10-09 00:53 WIB.**
+> Backend produksi menyajikan **Versi 13** pada deployment `/exec` yang sama (`…NJdg`), dibangun dari `main` — perbaikan **Reset ke Default** + pemakaian ulang folder default Drive. Isi ketiga berkasnya **identik** dengan bundel `apps-script/` hasil build lokal (`Backend.gs` 200.682 karakter) dan manifest-nya sama dengan `gas/appsscript.json`, sehingga yang tayang benar-benar kode di repositori. Seluruh delapan tahap alur di bawah ini sudah **dijalankan penuh dan terbukti** — `push`, `create-version`, dan `update-deployment` tidak lagi berstatus "belum pernah diuji" — dan URL `/exec` tidak pernah berubah sejak rilis pertama.
+>
+> Delta rilis: v11 = 190.118 → v12 = 199.360 (+9.242, modul Google Drive + mini-CMS redaksi) → **v13 = 200.682 karakter (+1.322, perbaikan reset folder Drive)**.
+>
+> **Cara memeriksa ulang kapan pun:** `npm run deploy:gas:check` (dry-run: build + validasi + `clasp status`, memastikan **tepat** empat berkas) lalu bandingkan Versi Apps Script terakhir dengan `apps-script/` melalui Apps Script API (`projects/{scriptId}/versions` dan `.../deployments`).
+
 Setiap kali terdapat pembaruan kode pada folder `gas/`:
 
 ### Langkah 1 — Kompilasi Bundle Lokal
@@ -169,6 +176,37 @@ Prasyarat sekali saja:
 | 11 | **Formulir Pendaftaran** | Validasi + Canvas Watermark | Unggah KTP di portal publik, cek cap watermark |
 | 12 | **Verifikasi Pendaftar** | Approval ganda berfungsi | Sekretaris verifikasi berkas $\to$ Ketua sahkan anggota |
 | 13 | **Privasi & Kerahasiaan** | Bebas link admin | Pastikan portal publik tidak memuat link portal pengurus |
+| 14 | **Route baru terdaftar** | Dikenali router (bukan *"Aksi tidak dikenali"*) | Kumpulkan seluruh aksi dari `portal/portal.js`: 40 aksi unik → 36 menuntut login, 4 publik menjawab normal, 0 tidak dikenali (per 2026-10-09) |
+| 15 | **Penjagaan RBAC** | Ditolak tanpa token | POST tiap aksi redaksi & Drive tanpa token → *"Sesi berakhir atau tidak valid. Silakan login kembali."*; kontrol aksi ngawur tetap *"Aksi tidak dikenali."* |
+| 16 | **Koneksi Google Drive** | Folder aktif + izin tulis | `testDriveStorage` dengan sesi superadmin → *"Koneksi Google Drive terhubung dan izin tulis aktif"* beserta ID/URL folder |
+| 17 | **Riwayat Versi Redaksi** | Daftar versi tampil | Buka tab `📰 Redaksi Konten` → kartu `7. Riwayat Versi & Pemulihan` (kosong = belum ada penyimpanan, bukan kegagalan) |
+| 18 | **Ekspor & Impor Redaksi** | Berkas bolak-balik konsisten | Ekspor `exportEditorialContent` → impor ulang berkas yang sama → *"Isi berkas sama dengan konten aktif"*, dan sidik jari `getPublicSettings.editorial` **identik** sebelum & sesudah |
+| 19 | **Konten dinamis publik** | Seksi tampil tanpa error | Muat ulang `apii.sigitadi.id`: hero, warta, profil, dan FAQ mengikuti backend; tidak ada error konsol baru (peringatan Tailwind CDN memang bawaan) |
+
+> **Catatan ukuran berkas:** `Backend.gs` sudah 199.360 karakter dan skrip build memperingatkan kedekatan batas ukuran berkas Apps Script. Bila menambah modul backend berikutnya, pecah bundel lebih dahulu.
+
+### 5b. Uji AMAN perubahan Drive sungguhan (`npm run smoke:drive`)
+
+Perubahan pada modul Google Drive (`createDriveFolder`, `moveDriveFolder`, `resetDriveStorage`) hanya terbukti lewat eksekusi nyata. Skrip `scripts/smoke-drive-prod.mjs` melakukannya dengan aman:
+
+```bash
+npm run smoke:drive                      # tampilkan rencana saja (tidak menyentuh apa pun)
+npm run smoke:drive -- --confirm         # jalankan uji produksi
+npm run smoke:drive -- --confirm --sandbox <folderId>   # pakai ulang sandbox yang sudah ada
+```
+
+Yang dilakukan: membuat satu folder sandbox `UJI-OTOMATIS-APII-<stempel>` lewat Drive API, menjalankan `createDriveFolder` 2× (memeriksa 5 subfolder standar + izin tulis), dua penjagaan `moveDriveFolder`, satu pemindahan nyata (dibuktikan lewat Drive API), lalu `resetDriveStorage` (harus benar-benar memakai folder default yang sudah ada); setelah itu **folder aktif produksi dipulihkan dan diverifikasi**, dan sandbox dicoba dibersihkan.
+
+Sebelum menyentuh produksi, jalankan versi lokalnya (tanpa jaringan, tanpa kredensial) yang mengunci perilaku folder default & reset:
+```bash
+npm run build:gas && node scripts/smoke-drive-local.mjs
+```
+
+Kode keluar: **0** semua lulus & bersih · **1** ada pemeriksaan gagal · **2** lulus tetapi sandbox perlu dihapus manual.
+
+> ⚠️ **Batasan yang sudah terbukti:** Google Drive menolak menghapus folder sandbox yang berisi folder buatan backend Apps Script (`403 appNotAuthorizedToChild`) karena kredensial uji (scope `drive.file`) tidak berhak atas berkas milik aplikasi lain. Karena itu penghapusan **tidak selalu otomatis** — skrip akan memberi tautan folder + status “perlu tindakan manual” alih-alih mengklaim bersih.
+>
+> Prasyarat: `npx --yes @google/clasp@3 login` (dipakai untuk Drive API) dan akun uji `SUPERADMIN` (ubah lewat `APII_TEST_USER` / `APII_TEST_PASS`).
 
 ---
 

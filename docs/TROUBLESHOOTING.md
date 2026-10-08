@@ -81,9 +81,34 @@ ID template & folder disimpan otomatis di Script Properties saat `setup()` jalan
 
 ## 8. Deploy ulang setelah mengubah kode backend
 
-Setiap kali kode `Backend.gs` diubah dan disimpan, **deployment lama tidak otomatis ter-update**:
+Setiap kali kode `Backend.gs` diubah dan disimpan, **deployment lama tidak otomatis ter-update**.
 
-**Deploy → Manage deployments → pilih deployment → ikon ✏️ (Edit) → Version: New version → Deploy.** URL tidak berubah, jadi `API_BASE` frontend tetap sama.
+**Cara yang disarankan (satu perintah, sudah terbukti di produksi):**
+```bash
+npm run deploy:gas          # build → validate → clasp push → Versi baru → perbarui deployment yang sama
+npm run deploy:gas:check    # dry-run: build + validasi + preflight berkas saja
+```
+
+**Cara manual:** **Deploy → Manage deployments → pilih deployment → ikon ✏️ (Edit) → Version: New version → Deploy.** URL tidak berubah, jadi `API_BASE` frontend tetap sama.
+
+> Keadaan produksi saat ini: **Versi 13** (2026-10-09 00:53 WIB dari `main`; sebelumnya Versi 12 pada 2026-10-08 23:30 WIB) pada deployment `/exec` yang sama. Rincian di [CHANGELOG.md](../CHANGELOG.md) → **Status Produksi Terkini** dan [deploy.md](deploy.md) §4.
+
+---
+
+## 9. Tombol “Reset ke Default” tidak mengembalikan folder Drive — DIPERBAIKI di Versi 13
+
+**Gejala:** menekan **Reset ke Default** di kartu Google Drive menjawab sukses ("berhasil dikembalikan ke folder default organisasi"), tetapi folder penyimpanan yang dipakai **tetap folder custom yang lama**; kartu Drive lalu menampilkan nama folder lama itu.
+
+**Bukti dari produksi (2026-10-09):** uji `npm run smoke:drive -- --confirm` melaporkan `resetDriveStorage` mengembalikan `folder_name` = folder uji custom (bukan `APII Jabo - PDF Surat Resmi`), dan `testDriveStorage` sesudahnya masih menunjuk folder custom tersebut. Jejak audit `DRIVE_STORAGE_RESET` juga tercatat padahal folder tidak berpindah.
+
+**Sebab (di `gas/Utils.gs`):** `resetDriveStorage` memanggil `siapkanFolderPdf_()` **sebelum** menghapus `drive_storage.custom_folder_id`. Urutan itu membuat `siapkanFolderPdf_()` (a) menemukan ID folder custom lama pada `drive_storage`, (b) menuliskannya kembali ke Script Property `DRIVE_FOLDER_ID`, lalu (c) mengembalikan folder custom tersebut sebagai "folder default". Setelah itu barulah `drive_storage` ditulis dengan `custom_folder_id: ''` — sehingga catatan setelan dan folder yang benar-benar dipakai menjadi tidak sinkron.
+
+**Perbaikan (dipasang pada Versi 13, 2026-10-09 00:53 WIB):**
+1. `resetDriveStorage` kini menghapus kedua sumber konfigurasi (`google_drive_folder_id` dan `drive_storage.custom_folder_id`) **lebih dahulu**, baru memanggil `siapkanFolderPdf_()`.
+2. `siapkanFolderPdf_` kini **memakai ulang** folder bernama `KONFIG.DRIVE_FOLDER_NAME` yang sudah ada (lewat `DriveApp.getFoldersByName`, folder di Trash dilewati) sebelum membuat yang baru — sehingga reset berulang tidak lagi menumpuk folder default.
+3. Penjaga regresinya ada di dua tempat: `node scripts/smoke-drive-local.mjs` (16 pemeriksaan, tanpa jaringan) dan `npm run smoke:drive -- --confirm` (produksi, memeriksa folder default benar-benar dipakai ulang).
+
+**Bukti setelah perbaikan:** uji produksi 2026-10-09 pada Versi 13 → **20 pemeriksaan lulus, 0 gagal**; `resetDriveStorage` mengembalikan folder `APII Jabo - PDF Surat Resmi` yang sudah ada (tanpa duplikat baru), lalu folder aktif produksi dipulihkan ke `APII Jabo - Arsip 2026` dan terverifikasi.
 
 ---
 
