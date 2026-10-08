@@ -30,12 +30,20 @@ $order = @('00-Konfig', 'Utils', 'Database', 'Auth', 'Surat', 'Keuangan', 'Divis
 $fnNames = @(
   'hashPassword','login','logout','verifySession','me','getListPengguna',
   'createPengguna','updatePengguna','getAuditLogs',
-  'registerAnggota','getListPendaftar','verifyPendaftarSekretaris','approvePendaftarKetum','rejectPendaftar',
+  'registerAnggota','getListPendaftar','verifyPendaftarSekretaris','approvePendaftarKetum','rejectPendaftar','exportPendaftar',
   'saveUploadToDrive_',
   'initSchema','readAll','findOne','findMany','insert','updateRow','deleteRow',
   'nextSequence','seedDefaultAccounts_','seedDefaultSettings_',
   'uuid','audit','formatRupiah','formatTanggal','toRoman','sanitizeUser','getDashboard',
   'terbilang','getSettingValue_','setSettingValue_','getSettings','saveSettings','getPublicSettings','uploadKopImage','testDriveStorage',
+  'defaultEditorialContent_','normalizeEditorialContent_','getEditorialContent_','editorialStr_','editorialUrl_','editorialBool_',
+  'editorialChangedSections_','editorialHistoryRows_','editorialHistoryList_','recordEditorialRevision_',
+  'editorialFmtStamp_',
+  'trimEditorialHistory_','getEditorialRevision_','editorialActionOf_',
+  'editorialExportFilename_','editorialCounts_','editorialExportFile_','parseEditorialImport_',
+  'getEditorialHistory','getEditorialRevision','restoreEditorialRevision',
+  'exportEditorialContent','importEditorialContent',
+  'escHtml_',
   'getListSurat','createSurat','updateSurat','submitSurat','approveSurat',
   'rejectSurat','verifySurat','getPublishedSurat','reserveLetterNumber','getLetterTypesMap_',
   'getSaldo','getListKeuangan','createVoucher','updateVoucherReceipt','verifyVoucherBendahara',
@@ -163,6 +171,18 @@ Set-Content -Path $outLogo -Value $asetLogo -Encoding UTF8 -NoNewline
 Set-Content -Path $outStempel -Value $asetStempel -Encoding UTF8 -NoNewline
 
 # ---------------------------------------------------------------------------
+# 2b) Manifest Apps Script (appsscript.json)
+#     WAJIB ikut dalam folder unggahan: `clasp push` menolak jalan bila manifest
+#     tidak ada. Disalin apa adanya dari gas/appsscript.json (sumber acuan),
+#     sehingga pengaturan timeZone/webapp tidak berubah saat rilis.
+# ---------------------------------------------------------------------------
+$manifestSrc = Join-Path $srcDir 'appsscript.json'
+if (-not (Test-Path $manifestSrc)) { throw "Manifest tidak ditemukan: $manifestSrc" }
+$manifestOut = Join-Path $outDir 'appsscript.json'
+Copy-Item -Path $manifestSrc -Destination $manifestOut -Force
+Write-Output "Manifest            : appsscript.json disalin ke $outDir"
+
+# ---------------------------------------------------------------------------
 # 3) Ringkasan & cek kasar.
 # ---------------------------------------------------------------------------
 $logoChars = $asetLogo.Length
@@ -171,6 +191,7 @@ Write-Output "Backend.gs     : $backendChars karakter"
 Write-Output "AsetLogo.gs    : $logoChars karakter"
 Write-Output "AsetStempel.gs : $stempelChars karakter"
 Write-Output "Total          : $($backendChars + $logoChars + $stempelChars) karakter"
+Write-Output "Manifest       : appsscript.json disalin utuh dari gas/"
 foreach ($c in @(@($backendChars, 'Backend.gs'), @($logoChars, 'AsetLogo.gs'), @($stempelChars, 'AsetStempel.gs'))) {
   if ($c[0] -gt 90000) { Write-Warning "$($c[1]) mendekati batas ukuran file Apps Script!" }
 }

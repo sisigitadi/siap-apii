@@ -99,15 +99,45 @@ Script akan:
    - `apps-script/AsetLogo.gs`
    - `apps-script/AsetStempel.gs`
 
-### Langkah 2 — Perbarui Kode di Google Apps Script
+### Langkah 2 — Deploy Satu Perintah (disarankan)
+
+```bash
+npm run deploy:gas            # deploy penuh (build → validate → push → versi baru → update deployment)
+npm run deploy:gas:check      # --dry-run: hanya build + validasi + preflight berkas
+npm run deploy:gas -- --desc "rilis 2.3.0 riwayat versi konten"
+```
+
+Yang dilakukan skrip `scripts/deploy-gas.mjs`:
+
+| Tahap | Tindakan | Catatan |
+|---|---|---|
+| 1 | Preflight konfigurasi | Membaca `GAS_SCRIPT_ID` dari `.env`; deployment ID diambil otomatis dari URL `/exec` di `portal/config.js` (gagal bila kedua config menunjuk deployment berbeda). |
+| 2 | Kompilasi bundel | Menjalankan `scripts/build-apps-script.ps1`. |
+| 3 | Validasi sintaks | Menjalankan `scripts/validate-apps-script.mjs` (bundel cacat dihentikan sebelum diunggah). |
+| 4 | Preflight berkas (tanpa kredensial) | `clasp status` — memastikan **tepat** empat berkas yang diunggah: `Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`, dan manifest `appsscript.json` (tidak ada berkas lain/rahasia/berkas sampah yang ikut terbawa). |
+| 5 | Cek login | `clasp show-authorized-user`; bila belum login, deploy dihentikan dengan instruksi. |
+| 6 | Unggah kode | `clasp push --force`. Bila Google menolak karena setelan akun, skrip berhenti dengan instruksi spesifik (lihat prasyarat 3). |
+| 7 | Versi baru | `clasp create-version` — versi *immutable* sebagai jejak rilis. |
+| 8 | Perbarui deployment | `clasp update-deployment -V <versi>` pada deployment ID yang sama sehingga URL `/exec` **tidak berubah**. |
+
+Prasyarat sekali saja:
+1. `npx --yes @google/clasp@3 login` (akun Google pemilik project Apps Script).
+2. `GAS_SCRIPT_ID=<Script ID>` pada `.env` — Apps Script → ⚙ Project Settings → IDs.
+3. **Aktifkan Google Apps Script API** untuk akun tersebut di [script.google.com/home/usersettings](https://script.google.com/home/usersettings) → *Google Apps Script API* → **ON**. Tanpa ini Google menolak setiap unggahan dengan pesan `User has not enabled the Apps Script API` (dapat membaca project, tetapi tidak boleh menulis).
+4. Opsional: `GAS_DEPLOYMENT_ID=<id>` pada `.env` untuk menimpa deployment ID yang dibaca dari `portal/config.js` (mis. bila URL `/exec` di config tersebut keliru atau berbeda dari yang ingin diperbarui).
+
+> **Penting:** `clasp` tidak menghapus berkas yang ada di editor Apps Script. Project tersebut harus hanya berisi `Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`, dan `appsscript.json`; sisa berkas lama (mis. `Aset.gs`, atau modul pra-bundel seperti `Code.gs`/`Utils.gs`) dapat menimbulkan definisi fungsi ganda dan wajib dihapus sekali secara manual dari editor.
+
+### Langkah 2b — Alternatif Manual
 1. Buka project Apps Script di browser: [script.google.com](https://script.google.com).
 2. Salin isi masing-masing file dari folder `apps-script/` ke editor Google Apps Script:
    - Isi `apps-script/Backend.gs` $\to$ file `Backend.gs`
    - Isi `apps-script/AsetLogo.gs` $\to$ file `AsetLogo.gs`
    - Isi `apps-script/AsetStempel.gs` $\to$ file `AsetStempel.gs`
+   - Isi `apps-script/appsscript.json` $\to$ **Project Settings** → centang *Show “appsscript.json” manifest file in editor* lalu sesuaikan bila perlu
 3. Tekan **Save** (Ctrl+S / ikon 💾).
 
-### Langkah 3 — Perbarui Versi Web App (New Deployment)
+### Langkah 3 — Perbarui Versi Web App (Manual)
 1. Klik tombol **Deploy** di pojok kanan atas editor Apps Script.
 2. Pilih **Manage deployments**.
 3. Klik ikon pensil (Edit) pada deployment aktif.

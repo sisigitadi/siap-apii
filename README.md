@@ -94,8 +94,31 @@ Hasil kompilasi siap-tempel akan diperbarui di folder `apps-script/`:
 - `apps-script/Backend.gs`
 - `apps-script/AsetLogo.gs`
 - `apps-script/AsetStempel.gs`
+- `apps-script/appsscript.json` (manifest, disalin dari `gas/appsscript.json` — wajib ada saat `clasp push`)
 
-### 2. Unggah ke Google Apps Script Editor
+### 2. Deploy ke Google Apps Script — SATU perintah
+
+```bash
+npm run deploy:gas
+```
+
+Perintah ini menjalankan seluruh rangkaian secara otomatis: kompilasi bundel → validasi sintaks → preflight daftar berkas yang akan diunggah → `clasp push` → pembuatan **Versi baru** → pembaruan **deployment yang sama** (URL `/exec` tidak berubah, jadi tidak perlu menyunting `portal/config.js` / `public/config.js`).
+
+Prasyarat **sekali saja**:
+1. Login CLI (membuka peramban akun Google yayasan):
+   ```bash
+   npx --yes @google/clasp@3 login
+   ```
+2. Isi **Script ID** di `.env` (tidak ikut ter-commit): buka Apps Script → ⚙ **Project Settings** → **IDs** → **Script ID**, lalu tulis `GAS_SCRIPT_ID=<nilai>`.
+3. Aktifkan **Google Apps Script API** untuk akun tersebut di [script.google.com/home/usersettings](https://script.google.com/home/usersettings). Tanpa ini unggahan ditolak Google dengan pesan `User has not enabled the Apps Script API`.
+4. Uji tanpa mengunggah apa pun (build + validasi + preflight berkas):
+   ```bash
+   npm run deploy:gas:check
+   ```
+
+> **Catatan:** `clasp` tidak pernah menghapus berkas di editor Apps Script. Pastikan project tersebut hanya berisi `Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`, dan `appsscript.json`; hapus sekali secara manual bila masih ada sisa berkas lama (mis. `Aset.gs`) agar tidak terjadi definisi fungsi ganda.
+
+### 2b. Alternatif Manual (bila CLI belum dapat digunakan)
 1. Buka [script.google.com](https://script.google.com) pada project yayasan Anda.
 2. Salin isi masing-masing file dari folder `apps-script/` ke file script di editor Apps Script.
 3. Simpan (Ctrl + S).

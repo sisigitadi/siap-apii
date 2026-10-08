@@ -20,6 +20,20 @@ for (const f of files) {
     console.log(`FAIL ${f}: ${e.message}`);
   }
 }
+// Manifest Apps Script wajib sah: `clasp push` menolak jalan bila manifest
+// hilang, dan manifest yang rusak membuat project gagal disimpan.
+const manifestPath = 'apps-script/appsscript.json';
+try {
+  const parsed = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  if (!parsed || typeof parsed !== 'object' || !parsed.webapp) {
+    throw new Error('manifest tidak memuat konfigurasi webapp');
+  }
+  console.log(`OK   ${manifestPath} (manifest sah, runtime ${parsed.runtimeVersion || '?'})`);
+} catch (e) {
+  failed++;
+  console.log(`FAIL ${manifestPath}: ${e.message}`);
+}
+
 if (failed) {
   console.log(`\n${failed} file gagal validasi syntax.`);
   process.exit(1);

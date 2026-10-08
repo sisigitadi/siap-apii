@@ -4,6 +4,111 @@ Seluruh perubahan penting pada proyek **SIAP APII (Sistem Informasi & Administra
 
 ---
 
+## [2.4.0] — 2026-10-08 (Ekspor & Impor Konten Redaksi sebagai Berkas JSON)
+
+### 🌟 Fitur Baru
+- **Cadangan & pemindahan konten redaksi lewat berkas JSON**: tab `📰 Redaksi Konten` kini memiliki kartu **`8. Cadangan & Pemindahan Konten (Ekspor/Impor JSON)`**.
+  - Panel **📤 Ekspor Konten Aktif** mengunduh satu berkas mandiri (`redaksi-apii-YYYY-MM-DD-HHMM.json`) berisi penanda format `apii-editorial-v1`, waktu & pelaku ekspor, asal lingkungan, ringkasan jumlah item, dan seluruh konten ternormalisasi.
+  - Panel **📥 Impor dari Berkas** memvalidasi & meringkas isi berkas pada modal konfirmasi (nama berkas, ukuran, waktu & pelaku ekspor, jumlah maklumat/agenda/FAQ/misi, badge & judul hero) sebelum konten diganti.
+  - Setelah impor, kartu editor dimuat ulang dengan konten hasil impor dan Riwayat Versi menandai aksi tersebut dengan label **`IMPOR BERKAS`**.
+- **Endpoint baru**: `exportEditorialContent` (GET) & `importEditorialContent` (POST), keduanya khusus `SUPERADMIN` & `KETUA` (wajib sesi login).
+- **Impor selalu dapat dibatalkan**: konten yang sedang aktif diarsipkan lebih dahulu (label `Sebelum impor berkas (…)`), lalu hasil impor dicatat sebagai aksi `IMPORT`; keduanya tercatat di `Sheet_AuditLogs` (`EDITORIAL_EXPORTED` / `EDITORIAL_IMPORTED`).
+
+### 🛡️ Ketahanan Impor
+- **Berkas tanpa satu pun bagian konten redaksi ditolak** (`hero`, `profile`, `bulletins_events`, `contact`, `social`, `faqs`, `faqs_show`), sehingga berkas JSON sembarang tidak dapat mengosongkan konten produksi menjadi nilai bawaan; tes juga memastikan penolakan **tidak menambah versi riwayat** dan tidak mengubah konten aktif.
+- **Penanda format diperiksa**: `format` yang bukan `apii-editorial*` ditolak dengan pesan yang menyebutkan format berkasnya. JSON tidak sah, array JSON, berkas kosong, dan payload kosong juga ditolak dengan pesan yang jelas.
+- **Tahan terhadap berkas yang disunting manual**: seluruh isi dinormalisasi ulang (trim, batas panjang, batas jumlah item, pembuangan tautan `javascript:`/`data:`), dan batas sel Google Sheets (`EDITORIAL_CELL_SAFE` 45.000 karakter) tetap berlaku — impor di atas batas ditolak **tanpa menulis apa pun**.
+- **Tiga bentuk berkas diterima**: berkas ekspor penuh, objek konten mentah (bentuk yang tampil pada *Lihat JSON lengkap versi ini* di Riwayat Versi), atau teks JSON — BOM di awal berkas ditoleransi.
+- Impor tanpa perubahan tidak menghasilkan versi riwayat baru, dan berkas ekspor tidak memuat data sensitif pengurus maupun baris riwayat versi.
+
+### 🧪 Verifikasi & Dokumentasi
+- `scripts/smoke-editorial.mjs` diperluas dari 93 → **138 pemeriksaan**: ekspor (nama berkas, penanda format, pelaku, asal lingkungan, audit, konten tidak berubah), pemindahan antar dua lingkungan yang isinya identik, pemulihan berkas pra-impor, tiga bentuk berkas yang diterima, enam bentuk berkas tidak sah yang ditolak tanpa menyentuh konten, sanitasi & batas sel, serta **jalur `doGet`/`doPost` sungguhan** (envelope sukses, penolakan tanpa token, dan penolakan peran read-only).
+- `scripts/smoke-backend.mjs` diperluas (64 → **66 pemeriksaan**) untuk memastikan kedua route baru terdaftar di tabel `ROUTES`; `scripts/build-apps-script.ps1` memuat 7 nama fungsi baru agar pola namespace tetap tergantikan bersih.
+- Diuji juga di peramban dengan backend tiruan: ekspor menghasilkan berkas nyata, dan impor berkas dari perangkat membalik konten editor ke isi berkas dengan riwayat berlabel `IMPOR BERKAS`.
+- `docs/REDAKSI_KONTEN.md` menambah **bagian 7 — Ekspor & Impor Berkas JSON** (format berkas, tiga bentuk berkas, penjagaan keamanan) serta dua endpoint baru pada tabel RBAC.
+- **Belum tayang sampai backend di-redeploy** (`npm run deploy:gas`); fitur ini murni backend + portal pengurus, tidak mengubah portal publik.
+
+---
+
+## [2.3.0] — 2026-10-08 (Deploy Backend Apps Script Satu Perintah)
+
+### 🌟 Fitur Baru
+- **`npm run deploy:gas`** — menggantikan alur salin-tempel manual ke editor Apps Script. Skrip baru `scripts/deploy-gas.mjs` menjalankan delapan tahap berurutan: preflight konfigurasi → kompilasi bundel → validasi sintaks → preflight daftar berkas → cek login → `clasp push` → pembuatan **Versi baru** → pembaruan **deployment yang sama**.
+- **URL `/exec` tidak pernah berubah**: deployment ID dibaca otomatis dari URL `/exec` pada `portal/config.js` (opsional ditimpa via `GAS_DEPLOYMENT_ID`), sehingga `portal/config.js` dan `public/config.js` tidak perlu disunting setiap rilis.
+- **Deploy berhenti sebelum menyentuh produksi bila ada masalah**: bundel cacat, daftar berkas tidak sesuai, belum login, atau `portal/config.js` & `public/config.js` menunjuk deployment yang berbeda — semuanya menghentikan proses dengan pesan yang jelas sebelum ada satu byte diunggah.
+- **Preflight berkas tanpa kredensial** (`clasp status`) memastikan **tepat** `Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`, dan manifest `appsscript.json` yang diunggah — tidak ada berkas rahasia/sampah yang terbawa.
+- **Mode uji `npm run deploy:gas:check`** (`--dry-run`) menjalankan build, validasi, dan preflight berkas secara nyata lalu hanya menampilkan perintah unggah yang akan dijalankan.
+- Prasyarat sekali saja: `npx --yes @google/clasp@3 login`, `GAS_SCRIPT_ID` pada `.env`, dan **Google Apps Script API aktif** untuk akun tersebut di [script.google.com/home/usersettings](https://script.google.com/home/usersettings) (`.clasp.json`, `.clasprc.json`, dan `.env` di-gitignore). Alur manual dipertahankan sebagai cadangan di README, `docs/deploy.md`, dan `docs/VERSION_CONTROL.md`.
+- **Manifest `appsscript.json` disertakan sebagai bagian bundel**: sumber acuan `gas/appsscript.json` (tracked) disalin oleh skrip build ke `apps-script/appsscript.json` dan divalidasi sebagai JSON yang sah sebelum unggah. Isinya identik dengan manifest di project produksi (`timeZone` Asia/Jakarta, `runtimeVersion` V8, `webapp.access` ANYONE_ANONYMOUS), sehingga rilis tidak mengubah pengaturan project.
+
+### 🧪 Verifikasi
+- Diuji langsung di repo: `--help`, jalur gagal tanpa `GAS_SCRIPT_ID` (exit 1, tanpa perubahan apa pun), dan `--dry-run` penuh (build + validasi + `clasp status` nyata melaporkan tepat 4 berkas yang akan diunggah; perintah `push`/`create-version`/`update-deployment` hanya ditampilkan).
+- **Diuji terhadap project produksi sungguhan** (akun clasp terautentikasi, Script ID terpasang): daftar berkas di editor Apps Script diperiksa langsung lewat Apps Script API dan berisi **tepat** `Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`, dan `appsscript.json` — tidak ada modul pra-bundel yang tersisa sehingga tidak ada risiko definisi fungsi ganda. Manifest lokal terbukti **identik** dengan manifest project.
+- Dua kegagalan nyata ditemukan dan diperbaiki pada uji ini: (1) `clasp push` selalu gagal karena folder unggahan tidak memuat `appsscript.json` — kini manifest ikut dibangun & divalidasi; (2) unggahan ditolak Google dengan `User has not enabled the Apps Script API` bila setelan akun belum dinyalakan — kini skrip berhenti dengan instruksi spesifik beserta alamat email akun yang sedang login.
+- **Tidak diverifikasi:** langkah `push`/`create-version`/`update-deployment` belum pernah tuntas dari sisi agent karena setelan akun `Google Apps Script API` masih perlu dinyalakan pemilik project.
+
+### ⚠️ Catatan Operasional
+- `clasp` **tidak** menghapus berkas yang ada di editor Apps Script. Project harus hanya berisi `Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`, dan `appsscript.json`; sisa berkas lama (mis. `Aset.gs`) berpotensi menimbulkan definisi fungsi ganda dan perlu dihapus sekali secara manual.
+
+---
+
+## [2.2.0] — 2026-10-08 (Riwayat Versi Konten Redaksi & Pemulihan)
+
+### 🌟 Fitur Baru
+- **Riwayat Versi Konten Redaksi (anti timpa permanen)**: setiap penyimpanan dari tab `📰 Redaksi Konten` kini mengarsipkan versi sebelumnya, sehingga perubahan keliru dapat dipulihkan kapan saja tanpa perlu koding.
+  - Kartu baru **`7. Riwayat Versi & Pemulihan`** di portal pengurus: daftar versi terbaru (waktu, pelaku, jenis aksi `PENYIMPANAN`/`PEMULIHAN`, ringkasan bagian yang berubah, ukuran berkas).
+  - Tombol `👁 Pratinjau` menampilkan ringkasan satu versi (hero, jumlah maklumat/agenda/FAQ, kontak, visibilitas seksi) beserta JSON lengkapnya sebelum dipulihkan.
+  - Tombol `↩ Pulihkan` mengembalikan konten aktif ke versi tersebut setelah konfirmasi; editor langsung dimuat ulang dengan konten hasil pemulihan.
+  - Daftar riwayat otomatis disegarkan setelah setiap penyimpanan berhasil.
+- **Endpoint baru**: `getEditorialHistory`, `getEditorialRevision`, `restoreEditorialRevision` (ketiganya khusus `SUPERADMIN` & `KETUA`, wajib sesi login).
+- **Arsip versi dua arah**: saat pemulihan, konten yang sedang aktif ikut diarsipkan lebih dahulu (label *Sebelum memulihkan versi …*) sehingga pemulihan selalu dapat dibatalkan; aksi pemulihan dicatat sebagai `RESTORE` dan tercatat di jejak audit (`EDITORIAL_RESTORED`).
+
+### 🛡️ Ketahanan & Batas Data
+- Tabel **baru** `Sheet_EditorialHistory` (`id`, `saved_at`, `saved_by`, `action`, `label`, `content`) dibuat otomatis oleh `initSchema()`/`getSheetSafe_()` — **tidak ada perubahan pada skema tabel yang sudah ada**; tabel terpisah agar payload `getSettings` tetap ringan dan riwayat tidak pernah bocor ke portal publik.
+- Riwayat dibatasi **15 versi terbaru** (`EDITORIAL_HISTORY_MAX`); pemangkasan mencari ulang baris berdasarkan `id` agar nomor baris yang bergeser tidak salah hapus.
+- **Perlindungan batas sel Google Sheets (50.000 karakter)**: batas aman `EDITORIAL_CELL_SAFE` = 45.000 karakter. Konten yang melampaui batas kini **ditolak dengan pesan yang jelas** dan penyimpanan bersifat *all-or-nothing* (sebelumnya akan gagal dengan pesan sistem yang tidak informatif); versi di atas batas aman tidak diarsipkan sehingga riwayat tidak pernah rusak.
+- Isi versi dinormalisasi ulang saat dibaca & dipulihkan, sehingga baris riwayat yang pernah disunting manual di spreadsheet tetap tersanitasi (tautan `javascript:`/`data:` tetap dibuang).
+- Penyimpanan tanpa perubahan tidak menghasilkan versi baru; menyimpan **satu payload berisi pengaturan lain** tetap tidak terpengaruh.
+
+### 🧪 Verifikasi & Dokumentasi
+- `scripts/smoke-editorial.mjs` diperluas dari 56 → **93 pemeriksaan**: pencatatan otomatis versi sebelumnya, ringkasan perubahan, daftar & pratinjau, pemulihan (termasuk pembatalan pemulihan), batas 15 versi, `TOO_LARGE`/penolakan batas sel, sanitasi baris hostil, pembuatan tabel riwayat otomatis pada spreadsheet lama (tanpa `setup()`), serta penjagaan RBAC + kebocoran riwayat ke publik.
+- `scripts/smoke-backend.mjs` diperluas (58 → **64 pemeriksaan**) untuk memastikan ketiga route riwayat terdaftar di tabel `ROUTES`.
+- `docs/REDAKSI_KONTEN.md` menambah bagian **6. Riwayat Versi Konten** (penyimpanan, semantik pemulihan, batas sel) serta tiga endpoint baru pada tabel RBAC.
+
+---
+
+## [2.1.0] — 2026-10-08 (Redaksi Konten Dinamis — Mini-CMS Portal Publik)
+
+### 🌟 Fitur Baru
+- **Mini-CMS Redaksi Konten (Portal Pengurus)**: sub-tab baru **`📰 Redaksi Konten`** pada menu Pengaturan & Master Data untuk mengelola seluruh konten dinamis portal publik tanpa koding maupun redeploy.
+  - **Hero & Tagline**: badge pengumuman, judul H1, subjudul, teks & tautan tombol CTA.
+  - **Profil Lembaga**: toggle visibilitas seksi, sambutan resmi Ketua DPW, visi, dan poin misi.
+  - **Maklumat & Siaran Resmi**: list builder (judul, kategori, tanggal, ringkasan, tautan PDF/Drive) dengan tambah/edit/hapus baris.
+  - **Agenda & Acara Kegiatan**: list builder (kategori, tanggal, waktu, tempat/platform, narasumber, tautan pendaftaran, status `MENDATANG`/`SELESAI`).
+  - **Kontak & Media Sosial Resmi**: alamat sekretariat, jam layanan, email, WhatsApp helpdesk, serta tautan YouTube, Instagram, WhatsApp Channel, Facebook, TikTok (kanal kosong otomatis disembunyikan).
+  - **Tanya Jawab Publik (FAQ)**: toggle visibilitas + list builder pertanyaan/jawaban.
+  - Tombol `💾 Simpan Seluruh Perubahan Redaksi` menyimpan keenam kartu sekaligus dengan feedback toast.
+- **Portal Publik (`apii.sigitadi.id`)**: seksi dinamis baru yang tayang langsung setelah disimpan:
+  - **Profil Lembaga (`#profil`)**: kartu sambutan pimpinan bergradasi emerald-gold, visi, dan misi bernomor.
+  - **Warta Maklumat & Agenda Kegiatan (`#warta`)**: tab switcher *📌 Maklumat & Siaran* / *📅 Agenda & Acara*, maksimum 6 kartu per tampilan dengan tombol ekspansi, badge emas **MENDATANG** diprioritaskan di atas, dan label abu-abu **Selesai (Arsip Kegiatan)** untuk acara yang telah lewat.
+  - **Tanya Jawab (`#faq`)**: akordeon interaktif dengan transisi halus (buka/tutup per pertanyaan).
+  - Hero beranda, kontak sekretariat, dan deretan ikon media sosial kini mengikuti data redaksi; tautan navigasi menyesuaikan bila sebuah seksi disembunyikan.
+- **Penyimpanan (tanpa perubahan skema tabel)**: seluruh konfigurasi redaksi disimpan sebagai satu objek JSON pada `Sheet_Settings` dengan key `editorial_content`, di-seed otomatis saat `setup()`/`initSchema()`.
+
+### 🛡️ Keamanan & Ketahanan
+- **Normalisasi server-side** `Utils.normalizeEditorialContent_`: koersi tipe (`show_section`, `faqs_show`, `status`), trim, batas panjang teks, batas jumlah item (misi 20, maklumat/acara/FAQ 60), serta pembuangan tautan berskema berbahaya (`javascript:`, `data:`) dengan allow-list `http(s)`/`mailto:`/`tel:`/anchor/relatif.
+- **Sanitasi XSS sisi klien**: seluruh string dari server melewati `Public.esc()` sebelum dirender ke `innerHTML`.
+- **Graceful fallback**: bila data belum tersedia atau field dikosongkan, portal publik tetap tampil rapi memakai teks bawaan HTML; seksi hanya disembunyikan jika toggle redaksi dimatikan.
+- `getPublicSettings` kini mengalirkan objek `editorial`; `getSettings` mengembalikan `editorial_content` yang sudah ternormalisasi beserta alias `editorial`.
+- **RBAC**: `saveSettings` kini juga terbuka untuk peran **KETUA** sesuai matriks RBAC (sebelumnya hanya `SUPERADMIN`, sehingga Ketua dapat membuka menu Pengaturan namun selalu gagal menyimpan).
+- **Perbaikan bug bundler/kritis (pre-existing)**: `exportPendaftar` ditambahkan ke daftar fungsi global di `scripts/build-apps-script.ps1` — tanpa ini, `Backend.gs` gagal dimuat total karena `Auth.exportPendaftar` tidak terdefinisi; dan pemanggilan fungsi frontend `Auth.esc()` pada `gas/Divisi.gs` diganti helper backend `Utils.escHtml_()`.
+
+### 🧪 Verifikasi & Dokumentasi
+- Skrip uji baru **`scripts/smoke-editorial.mjs`** (56 pemeriksaan): normalisasi & sanitasi, integrasi seed → `saveSettings` → `getSettings`/`getPublicSettings` dengan tiruan Google Sheets, serta penjagaan RBAC route.
+- **`docs/REDAKSI_KONTEN.md`** diperbarui: field `faqs_show`, catatan RBAC endpoint, prinsip defensif frontend, dan prosedur uji terbaru.
+
+---
+
 ## [2.0.0] — 2026-10-07 (Enterprise Modernization & RBAC Hardening)
 
 ### 🌟 Fitur Baru & Peningkatan Utama

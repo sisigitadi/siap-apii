@@ -234,7 +234,7 @@ function approveSubmission(ctx) {
   kirimNotifikasiKeUser_(d.submitted_by,
     'Usulan Program Disetujui: ' + d.tracking_id,
     'Usulan Program Divisi Disetujui',
-    'Usulan program <strong>' + d.program_title + '</strong> (ID: <code>' + d.tracking_id + '</code>) telah disetujui oleh Ketua DPW untuk pelaksanaan program kerja.' + (p.notes ? '<br/><strong>Catatan Ketua:</strong> ' + Auth.esc(p.notes) : ''),
+    'Usulan program <strong>' + d.program_title + '</strong> (ID: <code>' + d.tracking_id + '</code>) telah disetujui oleh Ketua DPW untuk pelaksanaan program kerja.' + (p.notes ? '<br/><strong>Catatan Ketua:</strong> ' + Utils.escHtml_(p.notes) : ''),
     'Buka Portal Divisi',
     (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/divisi');
 
@@ -343,7 +343,7 @@ function submitLPJ(ctx) {
     'Laporan Pertanggungjawaban (LPJ) Program Telah Diserahkan',
     'Divisi <strong>' + (DIVISION_LABELS[d.division] || d.division) + '</strong> telah menyelesaikan pelaksanaan program <strong>' + d.program_title + '</strong> (ID: <code>' + d.tracking_id + '</code>) dan menyerahkan LPJ.<br/>' +
     '<strong>Realisasi Anggaran:</strong> ' + formatRupiah(realisasi) + ' (Estimasi awal: ' + formatRupiah(d.budget_estimate) + ')<br/>' +
-    (lpjNotes ? '<strong>Catatan LPJ:</strong> ' + Auth.esc(lpjNotes) + '<br/>' : '') +
+    (lpjNotes ? '<strong>Catatan LPJ:</strong> ' + Utils.escHtml_(lpjNotes) + '<br/>' : '') +
     '<strong>Tautan LPJ:</strong> <a href="' + lpjUrl + '" target="_blank">' + lpjUrl + '</a>',
     'Tinjau Laporan di Portal',
     (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/divisi');

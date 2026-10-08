@@ -104,7 +104,12 @@ var ROUTES = {
 
   // --- Pengaturan & Penyimpanan (Utils.gs) ---
   getSettings:         { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Utils.getSettings },
-  saveSettings:        { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.saveSettings },
+  saveSettings:        { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Utils.saveSettings },
+  getEditorialHistory: { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Utils.getEditorialHistory },
+  getEditorialRevision: { auth: true, roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Utils.getEditorialRevision },
+  restoreEditorialRevision: { auth: true, roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Utils.restoreEditorialRevision },
+  exportEditorialContent: { auth: true, roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Utils.exportEditorialContent },
+  importEditorialContent: { auth: true, roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Utils.importEditorialContent },
   getPublicSettings:   { auth: false, roles: null, handler: Utils.getPublicSettings },
   uploadKopImage:      { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.uploadKopImage },
   testDriveStorage:    { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.testDriveStorage },

@@ -20,7 +20,8 @@ var TABS = {
   SEQUENCES: 'Sheet_Sequences',
   PENDAFTAR: 'Sheet_Pendaftar',
   ACCOUNTS: 'Sheet_Accounts',
-  SETTINGS: 'Sheet_Settings'
+  SETTINGS: 'Sheet_Settings',
+  EDITORIAL_HISTORY: 'Sheet_EditorialHistory'
 };
 
 // Definisi header tiap tab (dipakai initSchema & insert).
@@ -49,6 +50,9 @@ SCHEMA[TABS.PENDAFTAR] = ['id', 'reg_number', 'full_name', 'nik', 'birth_place',
 SCHEMA[TABS.ACCOUNTS] = ['id', 'code', 'name', 'bank_name', 'account_number', 'holder_name',
   'category', 'is_active', 'show_on_public', 'created_at', 'updated_at'];
 SCHEMA[TABS.SETTINGS] = ['key', 'value', 'description', 'updated_by', 'updated_at'];
+// Arsip versi konten redaksi (tabel BARU, terpisah dari Sheet_Settings agar
+// payload getSettings tetap ringan). Satu baris = satu versi konten.
+SCHEMA[TABS.EDITORIAL_HISTORY] = ['id', 'saved_at', 'saved_by', 'action', 'label', 'content'];
 
 /**
  * Inisialisasi semua tab + header. Idempoten.
@@ -196,6 +200,9 @@ function seedDefaultSettings_() {
       notify_pendaftar_email: true,
       agreement_text: 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
     }, 'Pengaturan pendaftaran anggota dan rekrutmen');
+
+    setIfMissing('editorial_content', Utils.defaultEditorialContent_(),
+      'Konten redaksi dinamis portal publik (hero, profil, maklumat, agenda, kontak, FAQ)');
   } catch (e) {
     Logger.log('Gagal seed settings: ' + e);
   }

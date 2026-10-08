@@ -34,6 +34,9 @@ const expectedRoutes = [
   'verifyVoucherKetum', 'rejectVoucher',
   'getListDivisi', 'createSubmission', 'updateSubmission', 'ajukanSubmission',
   'approveSubmission', 'rejectSubmission', 'startExecution', 'submitLPJ',
+  'getSettings', 'saveSettings', 'getPublicSettings',
+  'getEditorialHistory', 'getEditorialRevision', 'restoreEditorialRevision',
+  'exportEditorialContent', 'importEditorialContent',
 ];
 for (const r of expectedRoutes) {
   const re = new RegExp(`\\b${r}:\\s*\\{\\s*auth:`);

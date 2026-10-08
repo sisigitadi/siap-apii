@@ -10,6 +10,10 @@ dist/
 .env.*
 !.env.example
 
+# Google Apps Script CLI (clasp) — berisi Script ID project & kredensial lokal
+.clasp.json
+.clasprc.json
+
 # Kunci RS256 (lihat DESIGN.md §11.4)
 keys/
 
@@ -58,6 +62,7 @@ artifacts/
 apps-script/Backend.gs
 apps-script/AsetLogo.gs
 apps-script/AsetStempel.gs
+apps-script/appsscript.json
 *.log
 backend-dev-err.txt
 backend-dev-out.txt

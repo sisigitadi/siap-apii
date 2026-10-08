@@ -79,8 +79,18 @@ Script ini akan:
 1. Menggabungkan seluruh file modul `gas/*.gs` secara berurutan.
 2. Mengonversi pemanggilan namespace menjadi fungsi global (kompatibel penuh dengan runtime GAS).
 3. Memperbarui `apps-script/Backend.gs`, `apps-script/AsetLogo.gs`, dan `apps-script/AsetStempel.gs`.
+4. Menyalin manifest `gas/appsscript.json` $\to$ `apps-script/appsscript.json` (wajib ikut saat `clasp push`; isinya identik dengan manifest di project produksi sehingga pengaturan `timeZone`/`webapp` tidak berubah saat rilis).
 
-### Langkah 2: Deploy ke Google Apps Script
+### Langkah 2: Deploy ke Google Apps Script (satu perintah)
+```bash
+npm run deploy:gas          # build → validasi → push → versi baru → update deployment
+npm run deploy:gas:check    # uji tanpa mengunggah (dry-run)
+```
+Skrip `scripts/deploy-gas.mjs` memakai deployment ID yang sama, sehingga URL Web App (`https://script.google.com/macros/s/.../exec`) tidak berubah dan `portal/config.js` / `public/config.js` tidak perlu diedit.
+
+Prasyarat sekali saja: `npx --yes @google/clasp@3 login`, `GAS_SCRIPT_ID` pada `.env`, dan **Google Apps Script API** diaktifkan untuk akun tersebut di [script.google.com/home/usersettings](https://script.google.com/home/usersettings).
+
+**Alternatif manual** (bila CLI belum dapat digunakan):
 1. Buka editor project Google Apps Script yayasan.
 2. Salin isi `apps-script/Backend.gs`, `AsetLogo.gs`, dan `AsetStempel.gs` ke editor.
 3. Klik **Deploy** → **Manage deployments** → Klik ikon pensil (Edit) pada deployment aktif.
