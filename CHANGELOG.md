@@ -4,7 +4,27 @@ Seluruh perubahan penting pada proyek **SIAP APII (Sistem Informasi & Administra
 
 ---
 
-## [2.0.1] — 2026-10-08 (Google Drive Storage Engine & Folder Management Fix)
+## [2.1.0] — (Spesifikasi Final / Siap Eksekusi) — Redaksi Konten Dinamis Portal Publik
+- **Spesifikasi Mini-CMS Portal Pengurus**:
+  - Penambahan sub-tab ke-7 di menu Pengaturan: **`📰 Redaksi Konten Portal`** (Akses: Superadmin, Ketum, Sekum, Divisi Humas & Medsos).
+  - Formulir terstruktur dengan parsing paragraf aman (anti-XSS) dan preview instan.
+- **Dukungan 6 Domain Konten Dinamis**:
+  - Hero & Tagline (Headline H1, Subheadline, CTA Button & Link).
+  - Profil Lembaga & Sambutan Ketua DPW serta Visi-Misi (dengan sakelar Toggle ON/OFF).
+  - **Warta Maklumat & Siaran Resmi Kelembagaan** (Judul, Kategori, Tanggal, Ringkasan, Link Lampiran PDF/Drive).
+  - **Agenda & Acara Kegiatan DPW** (Nama Acara, Kategori, Tanggal/Waktu, Tempat/Platform, Narasumber, Link Pendaftaran, Status Mendatang/Selesai).
+  - Kontak & Jam Layanan Resmi serta Ikon Tautan Media Sosial (YouTube, IG, WA Channel, FB, TikTok).
+  - Tanya Jawab Publik / FAQ Akordeon Interaktif (dengan sakelar Toggle ON/OFF).
+- **Arsitektur Single Page Landing Page**:
+  - Alur beranda publik: `Navbar` → `Hero` → `Profil Lembaga` → `Warta & Acara (#warta)` → `Transparansi (#informasi)` → `FAQ (#faq)` → `Kontak (#kontak)` → `Footer`.
+  - Tab Switcher Interaktif pada seksi Warta untuk beralih antara Maklumat dan Acara secara responsif di smartphone.
+  - Batas default 6 item terbaru per kategori dengan tombol ekspansi.
+  - Terpusat pada satu baris JSON di database: `Sheet_Settings` → Key: `'editorial_content'`.
+  - Spesifikasi teknis lengkap: [docs/REDAKSI_KONTEN.md](./docs/REDAKSI_KONTEN.md).
+
+---
+
+## [2.0.1] — 2026-10-08 (Google Drive Storage Engine, Bundler Guard, & Cache-Busting)
 
 ### 🌟 Fitur Baru & Perbaikan Google Drive
 - **Sinkronisasi Dua Arah Root Storage Folder**:
@@ -21,6 +41,12 @@ Seluruh perubahan penting pada proyek **SIAP APII (Sistem Informasi & Administra
   - Menyediakan opsi reset satu-klik untuk mengembalikan folder penyimpanan ke default organisasi.
 - **Modernisasi UI Pengaturan Drive di Portal Pengurus**:
   - Kartu status folder aktif (Nama folder, ID folder, tombol salin ID, dan tautan langsung `📂 Buka Folder di Drive ↗`).
+  - 4 Kotak Aksi berwarna responsif: Buat Baru (Hijau), Gunakan Folder yang Ada (Biru), Pindahkan ke Induk (Ungu), dan Reset ke Default (Merah).
+- **Perbaikan Bundler Google Apps Script & Namespace Guard**:
+  - Memperbaiki `scripts/build-apps-script.ps1` dengan menambahkan `exportPendaftar` ke `$fnNames` untuk mengatasi `ReferenceError: Auth is not defined`.
+  - Menambahkan *automated safety guard* di build script yang otomatis menggagalkan kompilasi jika terdapat namespace yang tertinggal.
+- **Cache-Busting Frontend Vercel**:
+  - Menambahkan query parameter `?v=2.1.0` pada pemanggilan script `config.js`, `auth.js`, dan `portal.js` di `portal/index.html` untuk memastikan pembaruan langsung tampil tanpa tertahan cache browser.
 
 ---
 

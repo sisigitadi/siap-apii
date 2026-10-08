@@ -48,11 +48,18 @@ Sistem administrasi yayasan modern nir-server (*serverless enterprise*) yang dib
   - Master rekening bank kas yayasan (CRUD & toggle publik).
   - Master format penomoran dan jenis surat baru (`NOTULEN`, `RAPAT`, `BA`, dll).
   - Upload gambar KOP surat resmi dengan pratinjau Canvas.
-  - Uji koneksi penyimpanan Google Drive langsung dari UI.
+  - **Manajemen Penyimpanan Google Drive Terpadu (4 Kotak Aksi)**: Buat folder baru instan di Drive dengan subfolder resmi, gunakan custom ID folder, pindahkan folder aktif ke induk, dan tombol reset satu-klik ke default organisasi.
+  - **Modul Redaksi Konten Portal (Mini-CMS Pengurus)**: Sub-tab ke-7 di menu Pengaturan untuk mengelola teks Hero, Sambutan & Visi-Misi, Warta Maklumat Resmi, Agenda Kegiatan DPW, FAQ Akordeon, dan Media Sosial secara mandiri.
 - **Jejak Audit Permanen (WORM — Anti-Hapus)**:
   - Seluruh mutasi data dan aktivitas tercatat permanen di `Sheet_AuditLogs` tanpa tombol hapus.
 
 ### 2. Portal Publik (`apii.sigitadi.id`)
+- **Penyajian Konten Dinamis Terpadu (Single Page Landing)**:
+  - **Hero & Tagline Berdasarkan Momen**: Menampilkan headline, deskripsi, dan tombol aksi yang disinkronkan langsung dari panel redaksi.
+  - **Seksi Profil Lembaga & Sambutan Pimpinan**: Sambutan resmi Ketua DPW APII Jabodetabek dan komitmen visi-misi keumatan.
+  - **Seksi Warta Maklumat & Agenda Acara**: Tab switcher interaktif menyajikan instruksi/maklumat resmi pimpinan dan kalender kegiatan/kajian DPW mendatang lengkap dengan link registrasi dan unduh lampiran.
+  - **Akordeon Tanya Jawab (FAQ)**: Jawaban interaktif atas pertanyaan calon anggota dan masyarakat umum.
+  - **Kontak & Media Sosial Resmi**: Alamat, email, jam layanan, WhatsApp helpdesk, dan tautan kanal YouTube/Instagram/WA Channel.
 - **Formulir Pendaftaran Calon Anggota Baru**:
   - Entri biodata terstruktur: Nama KTP, NIK 16 digit, TTL, Gender, WhatsApp (+62), Email, Profesi, Domisili Jabodetabek, dan Minat 7 Divisi Kerja.
 - **Watermark KTP Otomatis Sisi Klien (HTML5 Canvas)**:
@@ -118,6 +125,7 @@ Vercel akan otomatis men-deploy versi terbaru ke domain produksi:
 ## 📚 Indeks Dokumentasi
 
 - **[CHANGELOG.md](./CHANGELOG.md)** — Catatan riwayat versi, fitur baru, dan perubahan sistem
+- **[docs/REDAKSI_KONTEN.md](./docs/REDAKSI_KONTEN.md)** — Spesifikasi teknis redaksi konten dinamis portal publik (Mini-CMS)
 - **[docs/VERSION_CONTROL.md](./docs/VERSION_CONTROL.md)** — Standar Git workflow, branching, dan deployment pipeline
 - **[docs/deploy.md](./docs/deploy.md)** — Panduan deployment produksi, konfigurasi DNS CNAME, dan checklist rilis
 - **[docs/DESIGN.md](./docs/DESIGN.md)** — Dokumen arsitektur teknis, relasi spreadsheet, dan diagram alur

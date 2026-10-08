@@ -441,6 +441,20 @@ Pola **Module (IIFE)** — setiap file satu tanggung jawab:
 - Pembina & Pengawas (`ROLES_READONLY`): **tidak ada** tombol create/edit/approve yang dirender (bukan disabled — disembunyikan total).
 - Status dokumen selalu pakai **label Indonesia**: `DRAFT` → "Draf", `PENDING_APPROVAL` → "Menunggu Persetujuan", `PUBLISHED` → "Diterbitkan", `REJECTED` → "Ditolak", dll.
 
+### 10.5 Arsitektur Redaksi Konten Dinamis (Mini-CMS Portal Publik)
+Portal Publik (`apii.sigitadi.id`) menerapkan pemisahan tegas antara:
+1. **Konten Statis (Koding):** Tata letak semantik HTML5, tema Tailwind (Emerald `#047857` & Gold `#F59E0B`), Canvas Watermark KTP (UU PDP No. 27/2022), verifikasi hash SHA-256 surat digital, dan komponen modal/dialog.
+2. **Konten Dinamis (Redaksi/CMS):**
+   - **Hero & Tagline:** Headline H1, Subheadline, Teks & Tautan CTA.
+   - **Profil Lembaga:** Sambutan Ketua DPW, Visi, Poin Misi (Toggle ON/OFF).
+   - **Warta Maklumat & Siaran Resmi:** Judul, Kategori, Tanggal, Ringkasan, Link Lampiran Dokumen/PDF.
+   - **Agenda & Acara Kegiatan DPW:** Nama Acara, Kategori, Tanggal/Waktu, Tempat/Platform, Narasumber, Link Pendaftaran, Status Mendatang/Selesai.
+   - **Tanya Jawab (FAQ):** Akordeon interaktif Q&A (Toggle ON/OFF).
+   - **Kontak & Media Sosial:** Alamat sekretariat, jam kerja, email, No WA helpdesk, serta tautan YouTube, Instagram, WhatsApp Channel, Facebook, TikTok.
+- **Penyimpanan:** Disimpan dalam satu objek JSON terstruktur di `Sheet_Settings` dengan key `'editorial_content'`.
+- **Pengelolaan:** Dikelola via sub-tab ke-7 di menu Pengaturan Portal Pengurus (**`📰 Redaksi Konten Portal`**) dengan hak akses: `SUPERADMIN`, `KETUA`, `SEKRETARIS`, serta Divisi Humas & Medsos (`DIV_HUMAS`, `DIV_SOSMED`).
+- **Dokumentasi Lengkap:** Lihat [docs/REDAKSI_KONTEN.md](./REDAKSI_KONTEN.md).
+
 ---
 
 ## 11. Deployment & Batasan Platform
