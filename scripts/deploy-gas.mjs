@@ -22,6 +22,7 @@
 //     ditolak Google dengan pesan "User has not enabled the Apps Script API")
 // ============================================================================
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { listBackendModules } from './backend-modules.mjs';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
@@ -31,7 +32,9 @@ const DRY = ARGS.includes('--dry-run') || ARGS.includes('-n');
 const SKIP_BUILD = ARGS.includes('--skip-build');
 const CLASP = 'npx --yes @google/clasp@3';
 // appsscript.json WAJIB ikut: `clasp push` menolak jalan tanpa manifest.
-const BUNDLE_FILES = ['Backend.gs', 'AsetLogo.gs', 'AsetStempel.gs', 'appsscript.json'];
+// appsscript.json WAJIB ikut: `clasp push` menolak jalan tanpa manifest.
+// Backend kini satu file per modul (lihat scripts/build-apps-script.ps1).
+const BUNDLE_FILES = [...listBackendModules(), 'AsetLogo.gs', 'AsetStempel.gs', 'appsscript.json'];
 
 const descIdx = ARGS.findIndex((a) => a === '--desc' || a === '-d');
 const DESC = descIdx !== -1 && ARGS[descIdx + 1] ? ARGS[descIdx + 1] : null;
@@ -167,7 +170,7 @@ if (SKIP_BUILD) {
   warn('Dilewati (--skip-build).');
 } else {
   run('powershell -ExecutionPolicy Bypass -File ./scripts/build-apps-script.ps1', { silent: true, real: true });
-  ok('Bundel diperbarui: apps-script/Backend.gs, AsetLogo.gs, AsetStempel.gs (+ manifest appsscript.json)');
+  ok('Bundel diperbarui: apps-script/<Modul>.gs per modul + AsetLogo.gs, AsetStempel.gs (+ manifest appsscript.json)');
 }
 for (const f of BUNDLE_FILES) {
   if (!existsSync(join(ROOT, 'apps-script', f))) {
@@ -303,7 +306,12 @@ if (DRY) {
   console.log('   2. Login portal → Pengaturan → 📰 Redaksi Konten → Simpan → cek Riwayat Versi bertambah.');
 }
 console.log('\n Catatan penting: clasp tidak pernah menghapus berkas di editor Apps Script.');
-console.log(' Pastikan project tersebut HANYA berisi: Backend.gs, AsetLogo.gs, AsetStempel.gs,');
-console.log(' dan appsscript.json. Jika masih ada sisa berkas lama (mis. Aset.gs, Code.gs),');
-console.log(' hapus sekali secara manual dari editor agar tidak ada definisi fungsi ganda.');
+console.log(' Project tersebut sekarang HARUS berisi output build per-modul:');
+console.log('   Konfig.gs, Utils.gs, Editorial.gs, Pengaturan.gs, Database.gs, Auth.gs,');
+console.log('   Surat.gs, Keuangan.gs, Divisi.gs, TemplateSurat.gs, TemplateSuratDocs.gs,');
+console.log('   Visitor.gs, Code.gs, AsetLogo.gs, AsetStempel.gs, appsscript.json.');
+console.log(' MIGRASI SEKALI: hapus Backend.gs lama dari editor (klik kanan -> Delete) -');
+console.log(' isinya kini tersebar di file-file di atas. Bila dibiarkan, definisi fungsi');
+console.log(' ganda membuat Apps Script memakai salinan yang usang. Hapus juga file');
+console.log(' lain yang tidak tercantum di atas (mis. Aset.gs peninggalan zaman dulu).');
 console.log('============================================================');

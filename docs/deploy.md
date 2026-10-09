@@ -83,7 +83,7 @@ Setiap kali perintah `git push origin main` dieksekusi, Vercel secara otomatis m
 ## 4. Alur Pembaruan Backend (Google Apps Script)
 
 > **Status rilis terakhir — 2026-10-09 00:53 WIB.**
-> Backend produksi menyajikan **Versi 13** pada deployment `/exec` yang sama (`…NJdg`), dibangun dari `main` — perbaikan **Reset ke Default** + pemakaian ulang folder default Drive. Isi ketiga berkasnya **identik** dengan bundel `apps-script/` hasil build lokal (`Backend.gs` 200.682 karakter) dan manifest-nya sama dengan `gas/appsscript.json`, sehingga yang tayang benar-benar kode di repositori. Seluruh delapan tahap alur di bawah ini sudah **dijalankan penuh dan terbukti** — `push`, `create-version`, dan `update-deployment` tidak lagi berstatus "belum pernah diuji" — dan URL `/exec` tidak pernah berubah sejak rilis pertama.
+> Backend produksi menyajikan **Versi 13** pada deployment `/exec` yang sama (`…NJdg`), dibangun dari `main` — perbaikan **Reset ke Default** + pemakaian ulang folder default Drive. Isi berkasnya **identik** dengan bundel `apps-script/` hasil build lokal saat itu (`Backend.gs` 200.682 karakter — sebelum build dipecah per-modul pada 2026-10-09) dan manifest-nya sama dengan `gas/appsscript.json`, sehingga yang tayang benar-benar kode di repositori. Seluruh delapan tahap alur di bawah ini sudah **dijalankan penuh dan terbukti** — `push`, `create-version`, dan `update-deployment` tidak lagi berstatus "belum pernah diuji" — dan URL `/exec` tidak pernah berubah sejak rilis pertama.
 >
 > Delta rilis: v11 = 190.118 → v12 = 199.360 (+9.242, modul Google Drive + mini-CMS redaksi) → **v13 = 200.682 karakter (+1.322, perbaikan reset folder Drive)**.
 >
@@ -99,12 +99,9 @@ npm run build:gas
 powershell -ExecutionPolicy Bypass -File scripts\build-apps-script.ps1
 ```
 Script akan:
-1. Menggabungkan seluruh modul `.gs` secara terurut (`00-Konfig`, `Utils`, `Database`, `Auth`, `Surat`, `Keuangan`, `Divisi`, `Code`, `99-TemplateSurat`).
+1. Membaca setiap modul `.gs` secara terurut (`00-Konfig`, `Utils`, `Editorial`, `Pengaturan`, `Database`, `Auth`, `Surat`, `Keuangan`, `Divisi`, `TemplateSurat`, `99-TemplateSurat`, `Visitor`, `Code`).
 2. Menghilangkan pola namespace `Modul.fn()` menjadi pemanggilan fungsi global Apps Script murni.
-3. Menghasilkan file siap-unggah:
-   - `apps-script/Backend.gs`
-   - `apps-script/AsetLogo.gs`
-   - `apps-script/AsetStempel.gs`
+3. Menghasilkan file siap-unggah — **satu file per modul** di `apps-script/` (`Konfig.gs` … `Code.gs`), plus `AsetLogo.gs` dan `AsetStempel.gs`, lalu menghapus output basi dari build lama (termasuk `Backend.gs` tunggal).
 
 ### Langkah 2 — Deploy Satu Perintah (disarankan)
 
@@ -121,7 +118,7 @@ Yang dilakukan skrip `scripts/deploy-gas.mjs`:
 | 1 | Preflight konfigurasi | Membaca `GAS_SCRIPT_ID` dari `.env`; deployment ID diambil otomatis dari URL `/exec` di `portal/config.js` (gagal bila kedua config menunjuk deployment berbeda). |
 | 2 | Kompilasi bundel | Menjalankan `scripts/build-apps-script.ps1`. |
 | 3 | Validasi sintaks | Menjalankan `scripts/validate-apps-script.mjs` (bundel cacat dihentikan sebelum diunggah). |
-| 4 | Preflight berkas (tanpa kredensial) | `clasp status` — memastikan **tepat** empat berkas yang diunggah: `Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`, dan manifest `appsscript.json` (tidak ada berkas lain/rahasia/berkas sampah yang ikut terbawa). |
+| 4 | Preflight berkas (tanpa kredensial) | `clasp status` — memastikan **tepat** berkas yang diunggah: 13 file `.gs` per-modul (`Konfig` … `Code`) + `AsetLogo.gs`, `AsetStempel.gs`, dan manifest `appsscript.json` (tidak ada berkas lain/rahasia/berkas sampah yang ikut terbawa). |
 | 5 | Cek login | `clasp show-authorized-user`; bila belum login, deploy dihentikan dengan instruksi. |
 | 6 | Unggah kode | `clasp push --force`. Bila Google menolak karena setelan akun, skrip berhenti dengan instruksi spesifik (lihat prasyarat 3). |
 | 7 | Versi baru | `clasp create-version` — versi *immutable* sebagai jejak rilis. |
@@ -133,14 +130,11 @@ Prasyarat sekali saja:
 3. **Aktifkan Google Apps Script API** untuk akun tersebut di [script.google.com/home/usersettings](https://script.google.com/home/usersettings) → *Google Apps Script API* → **ON**. Tanpa ini Google menolak setiap unggahan dengan pesan `User has not enabled the Apps Script API` (dapat membaca project, tetapi tidak boleh menulis).
 4. Opsional: `GAS_DEPLOYMENT_ID=<id>` pada `.env` untuk menimpa deployment ID yang dibaca dari `portal/config.js` (mis. bila URL `/exec` di config tersebut keliru atau berbeda dari yang ingin diperbarui).
 
-> **Penting:** `clasp` tidak menghapus berkas yang ada di editor Apps Script. Project tersebut harus hanya berisi `Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`, dan `appsscript.json`; sisa berkas lama (mis. `Aset.gs`, atau modul pra-bundel seperti `Code.gs`/`Utils.gs`) dapat menimbulkan definisi fungsi ganda dan wajib dihapus sekali secara manual dari editor.
+> **Penting:** `clasp` tidak menghapus berkas yang ada di editor Apps Script. Project tersebut harus hanya berisi output build per-modul (13 file `.gs` + `AsetLogo.gs`, `AsetStempel.gs`, `appsscript.json`). **Migrasi sekali dari build lama:** hapus `Backend.gs` tunggal dari editor — isinya kini tersebar di file-file per-modul; sisa berkas lama lain (mis. `Aset.gs`) juga harus dihapus agar tidak terjadi definisi fungsi ganda.
 
 ### Langkah 2b — Alternatif Manual
 1. Buka project Apps Script di browser: [script.google.com](https://script.google.com).
-2. Salin isi masing-masing file dari folder `apps-script/` ke editor Google Apps Script:
-   - Isi `apps-script/Backend.gs` $\to$ file `Backend.gs`
-   - Isi `apps-script/AsetLogo.gs` $\to$ file `AsetLogo.gs`
-   - Isi `apps-script/AsetStempel.gs` $\to$ file `AsetStempel.gs`
+2. Salin isi masing-masing file dari folder `apps-script/` ke editor Google Apps Script — buat satu file `.gs` baru per modul (`Konfig.gs`, `Utils.gs`, `Editorial.gs`, `Pengaturan.gs`, `Database.gs`, `Auth.gs`, `Surat.gs`, `Keuangan.gs`, `Divisi.gs`, `TemplateSurat.gs`, `TemplateSuratDocs.gs`, `Visitor.gs`, `Code.gs`, `AsetLogo.gs`, `AsetStempel.gs`), lalu hapus file lama (`Backend.gs` dan sisa lainnya) agar tidak ada definisi fungsi ganda.
    - Isi `apps-script/appsscript.json` $\to$ **Project Settings** → centang *Show “appsscript.json” manifest file in editor* lalu sesuaikan bila perlu
 3. Tekan **Save** (Ctrl+S / ikon 💾).
 
@@ -183,7 +177,7 @@ Prasyarat sekali saja:
 | 18 | **Ekspor & Impor Redaksi** | Berkas bolak-balik konsisten | Ekspor `exportEditorialContent` → impor ulang berkas yang sama → *"Isi berkas sama dengan konten aktif"*, dan sidik jari `getPublicSettings.editorial` **identik** sebelum & sesudah |
 | 19 | **Konten dinamis publik** | Seksi tampil tanpa error | Muat ulang `apii.sigitadi.id`: hero, warta, profil, dan FAQ mengikuti backend; tidak ada error konsol baru (peringatan Tailwind CDN memang bawaan) |
 
-> **Catatan ukuran berkas:** `Backend.gs` sudah 199.360 karakter dan skrip build memperingatkan kedekatan batas ukuran berkas Apps Script. Bila menambah modul backend berikutnya, pecah bundel lebih dahulu.
+> **Catatan ukuran berkas:** dulu seluruh backend digabung di satu `Backend.gs` yang tembus 199.360 karakter dan terus bertambah hingga 256.907 karakter — skrip build memperingatkan kedekatan batas ukuran berkas Apps Script. Sejak 2026-10-09 build dipecah per-modul: file backend terbesar kini `Auth.gs` (~29.700 karakter) dan hanya `AsetStempel.gs` (base64, ~53.400 karakter) yang mendekati separuh batas. Modul baru cukup ditambahkan ke `$order` di `scripts/build-apps-script.ps1`.
 
 ### 5b. Uji AMAN perubahan Drive sungguhan (`npm run smoke:drive`)
 

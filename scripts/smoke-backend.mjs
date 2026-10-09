@@ -1,11 +1,12 @@
 // Uji smoke logika backend SIAP APII (tanpa Google Apps Script).
-// Mengekstrak definisi fungsi & ROUTES dari apps-script/Backend.gs lalu
+// Mengekstrak definisi fungsi & ROUTES dari hasil build apps-script/*.gs lalu
 // menjalankan skenario inti: login, RBAC, alur surat, dan validasi KONFIG.
 //
 // Cara pakai: node scripts/smoke-backend.mjs
 import { readFileSync } from 'node:fs';
+import { readBackendBundle } from './backend-modules.mjs';
 
-const code = readFileSync('apps-script/Backend.gs', 'utf8');
+const code = readBackendBundle();
 
 let pass = 0, fail = 0;
 function check(name, cond, extra = '') {

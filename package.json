@@ -8,6 +8,9 @@
     "build:gas": "powershell -ExecutionPolicy Bypass -File scripts/build-apps-script.ps1",
     "deploy:gas": "node scripts/deploy-gas.mjs",
     "deploy:gas:check": "node scripts/deploy-gas.mjs --dry-run",
+    "smoke:backend": "node scripts/smoke-backend.mjs",
+    "smoke:editorial": "node scripts/smoke-editorial.mjs",
+    "smoke:drive:local": "node scripts/smoke-drive-local.mjs",
     "serve:portal": "npx -y serve portal -p 3000",
     "serve:public": "npx -y serve public -p 3001"
   }

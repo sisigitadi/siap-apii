@@ -11,17 +11,39 @@ Ringkasan keadaan produksi sungguhan — dipakai sebagai acuan cepat sebelum/ se
 | Komponen | Keadaan Produksi |
 |---|---|
 | **Backend Apps Script** | **Versi 13** tayang pada deployment `/exec` yang sama (`…NJdg`, tidak pernah berubah), dibuat **2026-10-09 00:53 WIB** dari `main` ("Perbaikan Reset ke Default + pakai ulang folder default Drive"). Versi 12 (2026-10-08 23:30 WIB) adalah rilis sebelumnya. |
-| **Kesetaraan kode** | Isi ketiga berkas di versi tayang **identik** dengan bundel `apps-script/` hasil build lokal (`Backend.gs` 200.682 karakter, `AsetLogo.gs` 31.999, `AsetStempel.gs` 53.447) dan manifest-nya sama dengan `gas/appsscript.json`. |
+| **Kesetaraan kode** | Bundel `apps-script/` lokal kini berisi rilis 2.5.0 + pemecahan build per-modul (16 file `.gs`/manifest; dulu satu `Backend.gs` 246.348 karakter) yang **belum di-deploy** — produksi masih Versi 13 (`Backend.gs` 200.682 karakter). Deploy sebagai Versi 14 untuk menyamakannya; ingat hapus `Backend.gs` lama dari editor sekali (lihat §[Belum Dirilis] di bawah). |
 | **Fitur redaksi 2.4.0** | **Live.** `getEditorialHistory`, `getEditorialRevision`, `restoreEditorialRevision`, `exportEditorialContent`, `importEditorialContent` dikenali router dan menuntut sesi login (bukan lagi *"Aksi tidak dikenali"*). |
 | **Fitur Google Drive 2.0.1** | **Live.** `testDriveStorage`, `createDriveFolder`, `moveDriveFolder`, `resetDriveStorage` dikenali dan dijaga RBAC. Koneksi Drive diuji dengan sesi superadmin: folder aktif `APII Jabo - Arsip 2026`, izin tulis aktif. |
 | **Portal** | `siapii.sigitadi.id` (portal pengurus, termasuk tab `📰 Redaksi Konten` dan kartu Drive) dan `apii.sigitadi.id` (konten dinamis dari backend) menyajikan berkas yang identik dengan repo. |
 | **Tanpa regresi** | Ekspor → impor ulang berkas yang sama menjawab *"Isi berkas sama dengan konten aktif"*; sidik jari konten publik **identik** sebelum & sesudah uji (`f23cb4cbfcd1b224`). |
-| **Uji Drive nyata (2026-10-09)** | Ketiga tombol pengubah Drive **benar-benar dijalankan terhadap produksi** lewat `npm run smoke:drive -- --confirm`: `createDriveFolder` 2× (masing-masing + 5 subfolder standar), 2 penjagaan `moveDriveFolder`, 1 pemindahan nyata, dan `resetDriveStorage`. Setelah bug `resetDriveStorage` diperbaiki dan di-deploy sebagai **Versi 13**, uji yang sama dijalankan ulang: **20 pemeriksaan lulus, 0 gagal**. Folder aktif produksi **dipulihkan lalu diverifikasi** dan konten publik tidak tersentuh. Berkas: [scripts/smoke-drive-prod.mjs](scripts/smoke-drive-prod.mjs) (produksi) & [scripts/smoke-drive-local.mjs](scripts/smoke-drive-local.mjs) (lokal, stub DriveApp). |
 | **🐞 → ✅ Bug `resetDriveStorage`** (ditemukan 2026-10-09, **diperbaiki di Versi 13**) | Sebelumnya tombol **Reset ke Default tidak benar-benar kembali ke folder default**: `siapkanFolderPdf_()` masih membaca `drive_storage.custom_folder_id` karena konfigurasi baru dibersihkan *setelah* folder dibaca, sehingga folder custom lama tetap dipakai dan catatan `drive_storage` menjadi tidak konsisten. Kini `resetDriveStorage` membersihkan seluruh penunjuk folder custom **sebelum** memanggil `siapkanFolderPdf_()`, dan `siapkanFolderPdf_()` **memakai ulang folder default yang sudah ada** (tidak lagi menumpuk folder bernama sama saat reset dijalankan berulang). Dikunci uji lokal 16 pemeriksaan + diverifikasi di produksi. Riwayat lengkap: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md). |
 | **Sisa artefak uji** | Satu folder sandbox `UJI-OTOMATIS-APII-…` (berisi 9 folder uji + subfoldernya) masih ada di My Drive: Google Drive menolak penghapusannya dengan `403 appNotAuthorizedToChild` karena aplikasi uji tidak berhak atas folder yang dibuat backend Apps Script → perlu **1× hapus manual** (tautan ada di keluaran skrip). |
 | **Riwayat Versi Produksi** | Sudah terisi sejak 2026-10-09 (1 versi: penyimpanan "Profil & sambutan" oleh superadmin dari portal) — bukan lagi 0 versi. |
 
 > Perlu diperhatikan: `ping` masih melaporkan `version: '2.0.0'` dari konstanta di `gas/Code.gs`, sedangkan versi rilisnya sudah 2.4.0. Angka itu tidak dipakai pengecekan rilis (acuan rilis = Versi Apps Script, lihat [docs/deploy.md §4](docs/deploy.md)), tetapi sebaiknya diselaraskan pada rilis berikutnya.
+
+## [Belum Dirilis] — Pemecahan Build Backend (internal, 2026-10-09)
+
+### 🔧 Maintenance
+- **Build backend dipecah per modul** ([scripts/build-apps-script.ps1](scripts/build-apps-script.ps1)): dulu seluruh backend digabung jadi satu `apps-script/Backend.gs` yang tembus **256.907 karakter** (hampir 3× ambang peringatan 90.000 di skrip build sendiri). Kini tiap modul `gas/*.gs` diemit ke file `.gs` sendiri di `apps-script/` — file backend terbesar `Auth.gs` (~29.700 karakter); hanya aset base64 (`AsetStempel.gs` ~53.400) yang lebih besar. Logika, urutan eksekusi, dan scope global Apps Script **tidak berubah** — murni pembagian file, memberi ruang untuk modul mendatang.
+- **Sumber `gas/Utils.gs` (74.968 karakter) dipecah** ([scripts/split-utils.mjs](scripts/split-utils.mjs), sekali jalan) menjadi:
+  - [gas/Utils.gs](gas/Utils.gs) — helper umum, audit log, dashboard, `getSettingValue_`/`setSettingValue_` (~18,5 ribu karakter).
+  - [gas/Editorial.gs](gas/Editorial.gs) — konten redaksi dinamis (mini-CMS portal publik).
+  - [gas/Pengaturan.gs](gas/Pengaturan.gs) — route pengaturan & penyimpanan Drive (`getSettings`, `saveSettings`, `createDriveFolder`, `moveDriveFolder`, `resetDriveStorage`, `syncEditorialContent`).
+- **Skrip uji & validasi disesuaikan** tanpa mengubah pengujian: [scripts/validate-apps-script.mjs](scripts/validate-apps-script.mjs) memvalidasi tiap file `.gs` sendiri, **memeriksa tidak ada function/var global ganda antar modul** (semua file .gs digabung jadi satu scope global di Apps Script — definisi ganda memakai salinan usang), dan gagal bila `Backend.gs` peninggalan masih ada; [scripts/smoke-backend.mjs](scripts/smoke-backend.mjs), [scripts/smoke-editorial.mjs](scripts/smoke-editorial.mjs), dan [scripts/smoke-drive-local.mjs](scripts/smoke-drive-local.mjs) memakai reader bersama baru [scripts/backend-modules.mjs](scripts/backend-modules.mjs).
+- **Deploy**: [scripts/deploy-gas.mjs](scripts/deploy-gas.mjs) mengunggah 13 file modul + 2 aset + manifest, dan kini mengingatkan **migrasi sekali**: hapus `Backend.gs` tunggal dari editor Apps Script agar tidak ada definisi fungsi ganda.
+
+### ✅ Verifikasi (semua lulus)
+| Pemeriksaan | Hasil |
+|---|---|
+| `npm run build:gas` (termasuk prebuild route-validator) | 16 file output, 0 namespace tertinggal, file backend terbesar 29.697 karakter |
+| `node scripts/validate-apps-script.mjs` | 15 file `.gs` + manifest lulus validasi syntax, 193 simbol global unik (0 ganda) |
+| `node scripts/smoke-backend.mjs` | 66 lulus, 0 gagal |
+| `node scripts/smoke-editorial.mjs` | 138 lulus, 0 gagal |
+| `node scripts/smoke-drive-local.mjs` | 16 lulus, 0 gagal (regresi bug reset Drive tetap terkunci) |
+| `node scripts/smoke-template-surat.mjs` | 60 lulus, 0 gagal |
+
+> Belum di-deploy. Deploy sebagai **Versi 14** memerlukan satu langkah manual di editor Apps Script: hapus `Backend.gs` lama (klik kanan → Delete) setelah `clasp push` — lihat [docs/deploy.md](docs/deploy.md) §Langkah 2b.
 
 ---
 

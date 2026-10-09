@@ -8,15 +8,15 @@ Daftar error yang paling sering muncul saat pemasangan pertama + cara memperbaik
 
 **Penyebab:** Anda menempatkan kode `gas/` lama (yang memakai pola `Auth.login(...)`) ke Apps Script.
 
-**Solusi:** Pakai file `apps-script/Backend.gs` yang sudah dirakit — di dalamnya pola tersebut sudah diganti jadi pemanggilan global. Jangan salin file-file di folder `gas/` langsung ke Apps Script; jalankan `scripts/build-apps-script.ps1` dulu.
+**Solusi:** Pakai file-file hasil build di `apps-script/*.gs` — di dalamnya pola tersebut sudah diganti jadi pemanggilan global. Jangan salin file-file di folder `gas/` langsung ke Apps Script; jalankan `scripts/build-apps-script.ps1` dulu.
 
 ---
 
 ## 2. `DB_SPREADSHEET_ID belum diset`
 
-**Penyebab:** `KONFIG.DB_SPREADSHEET_ID` di `Backend.gs` masih kosong / salah.
+**Penyebab:** `KONFIG.DB_SPREADSHEET_ID` di `Konfig.gs` masih kosong / salah.
 
-**Solusi:** Buka `apps-script/Backend.gs` → cari `var KONFIG` → pastikan `DB_SPREADSHEET_ID` berisi ID Spreadsheet Anda. ID ini diambil dari URL Sheets:
+**Solusi:** Buka `apps-script/Konfig.gs` → cari `var KONFIG` → pastikan `DB_SPREADSHEET_ID` berisi ID Spreadsheet Anda. ID ini diambil dari URL Sheets:
 
 ```
 https://docs.google.com/spreadsheets/d/<<<INI_ID_NYA>>>/edit
@@ -54,7 +54,7 @@ ID template & folder disimpan otomatis di Script Properties saat `setup()` jalan
 
 **Solusi:**
 
-1. Pastikan 3 file (`Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`) sudah disalin utuh.
+1. Pastikan seluruh file `apps-script/*.gs` sudah disalin utuh ke editor (13 modul + `AsetLogo.gs` & `AsetStempel.gs`).
 2. Jalankan ulang fungsi `generateTemplateSurat` (akan menulis ulang template dengan gambar terbaru).
 3. Bila gambar diganti: taruh gambar baru di `Dokumen Sumber/` dengan nama yang sama → jalankan `scripts/build-apps-script.ps1` → salin ulang `AsetLogo.gs` & `AsetStempel.gs` ke Apps Script → jalankan `generateTemplateSurat`.
 
@@ -81,7 +81,7 @@ ID template & folder disimpan otomatis di Script Properties saat `setup()` jalan
 
 ## 8. Deploy ulang setelah mengubah kode backend
 
-Setiap kali kode `Backend.gs` diubah dan disimpan, **deployment lama tidak otomatis ter-update**.
+Setiap kali kode backend (`gas/*.gs`) diubah dan disimpan, **deployment lama tidak otomatis ter-update**.
 
 **Cara yang disarankan (satu perintah, sudah terbukti di produksi):**
 ```bash

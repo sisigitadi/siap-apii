@@ -59,9 +59,9 @@ Thumbs.db
 
 # Hasil build & preview sementara
 artifacts/
-apps-script/Backend.gs
-apps-script/AsetLogo.gs
-apps-script/AsetStempel.gs
+# Output build Apps Script (semua dibangkitkan oleh scripts/build-apps-script.ps1;
+# jangan pernah commit — sumbernya di gas/, dan editor mengelola salinannya sendiri)
+apps-script/*.gs
 apps-script/appsscript.json
 *.log
 backend-dev-err.txt

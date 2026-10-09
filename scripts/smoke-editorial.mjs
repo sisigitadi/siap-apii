@@ -1,12 +1,13 @@
 // Uji smoke Redaksi Konten Dinamis (mini-CMS) SIAP APII.
-// Menguji fungsi backend dari apps-script/Backend.gs tanpa runtime Apps Script:
+// Menguji fungsi backend dari hasil build apps-script/*.gs tanpa runtime Apps Script:
 //   1) Normalisasi editorial_content (default, koersi tipe, tautan berbahaya, batas item)
 //   2) Integrasi seed skema -> saveSettings -> getSettings/getPublicSettings (fake Spreadsheet)
 //   3) RBAC route pengaturan
 // Pakai: node scripts/smoke-editorial.mjs
 import { readFileSync } from 'node:fs';
+import { readBackendBundle } from './backend-modules.mjs';
 
-const code = readFileSync('apps-script/Backend.gs', 'utf8');
+const code = readBackendBundle();
 
 let pass = 0, fail = 0;
 const check = (name, cond, extra = '') => {

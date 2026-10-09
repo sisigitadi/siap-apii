@@ -43,7 +43,7 @@ graph TD
     A --> C[portal/]
     A --> D[public/]
     
-    B -->|scripts/build-apps-script.ps1| E[apps-script/Backend.gs]
+    B -->|scripts/build-apps-script.ps1| E[apps-script/*.gs per modul]
     E -->|Deploy Web App| F[Google Apps Script Runtime]
     F -->|Google Sheets API| G[Spreadsheet Database]
     F -->|DriveApp API| H[Google Drive Storage]
@@ -56,8 +56,8 @@ graph TD
 ```
 
 1. **Backend & Logika Serverless**:
-   - Sumber: Folder `gas/` (9 file `.gs`).
-   - Bundle kompilasi: `apps-script/Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`.
+   - Sumber: Folder `gas/` (13 file `.gs`).
+   - Hasil build: `apps-script/<Modul>.gs` — satu file per modul (`Konfig.gs` … `Code.gs`) + `AsetLogo.gs`, `AsetStempel.gs`, dan `appsscript.json`.
    - Host: Google Apps Script Web App Engine (`script.google.com`).
 2. **Portal Pengurus**:
    - Sumber: Folder `portal/` (`index.html`, `portal.js`, `auth.js`, `style.css`, `config.js`).
@@ -76,10 +76,11 @@ Setiap kali ada perubahan pada logika backend di `gas/`:
 powershell -ExecutionPolicy Bypass -File .\scripts\build-apps-script.ps1
 ```
 Script ini akan:
-1. Menggabungkan seluruh file modul `gas/*.gs` secara berurutan.
+1. Membaca setiap file modul `gas/*.gs` secara berurutan.
 2. Mengonversi pemanggilan namespace menjadi fungsi global (kompatibel penuh dengan runtime GAS).
-3. Memperbarui `apps-script/Backend.gs`, `apps-script/AsetLogo.gs`, dan `apps-script/AsetStempel.gs`.
-4. Menyalin manifest `gas/appsscript.json` $\to$ `apps-script/appsscript.json` (wajib ikut saat `clasp push`; isinya identik dengan manifest di project produksi sehingga pengaturan `timeZone`/`webapp` tidak berubah saat rilis).
+3. Menghasilkan `apps-script/<Modul>.gs` — **satu file per modul** — plus `AsetLogo.gs` dan `AsetStempel.gs` (dulu semuanya digabung di satu `Backend.gs`; build dipecah 2026-10-09 karena ukurannya mendekati batas file Apps Script).
+4. Menghapus output basi dari build lama (termasuk `apps-script/Backend.gs`) sehingga folder hasil build selalu konsisten.
+5. Menyalin manifest `gas/appsscript.json` $\to$ `apps-script/appsscript.json` (wajib ikut saat `clasp push`; isinya identik dengan manifest di project produksi sehingga pengaturan `timeZone`/`webapp` tidak berubah saat rilis).
 
 ### Langkah 2: Deploy ke Google Apps Script (satu perintah)
 ```bash
@@ -94,7 +95,7 @@ Prasyarat sekali saja: `npx --yes @google/clasp@3 login`, `GAS_SCRIPT_ID` pada `
 
 **Alternatif manual** (bila CLI belum dapat digunakan):
 1. Buka editor project Google Apps Script yayasan.
-2. Salin isi `apps-script/Backend.gs`, `AsetLogo.gs`, dan `AsetStempel.gs` ke editor.
+2. Salin isi setiap file `apps-script/*.gs` ke file bernama sama di editor (lihat daftar `$order` di `scripts/build-apps-script.ps1`), lalu hapus `Backend.gs` lama dan sisa berkas lain agar tidak ada definisi fungsi ganda.
 3. Klik **Deploy** → **Manage deployments** → Klik ikon pensil (Edit) pada deployment aktif.
 4. Ubah versi ke **New version** → Klik **Deploy**.
 5. Pastikan URL Web App (`https://script.google.com/macros/s/.../exec`) tetap sesuai di:

@@ -81,7 +81,26 @@ function siapkanFolderPdf_() {
     catch (e) { /* folder terhapus — buat ulang di bawah */ }
   }
 
-  // 3. Buat folder default bila belum ada
+  // 3. Pakai ULANG folder default yang sudah ada (mis. dibuat setup() atau
+  //    rilis sebelumnya) sebelum membuat baru — tanpa ini setiap reset/default
+  //    menumpuk satu folder lagi dengan nama yang sama di Google Drive.
+  try {
+    var existing = DriveApp.getFoldersByName(KONFIG.DRIVE_FOLDER_NAME);
+    while (existing.hasNext()) {
+      var found = existing.next();
+      var trashed = false;
+      try { trashed = found.isTrashed(); } catch (e) { trashed = false; }
+      if (found && !trashed) {
+        props.setProperty('DRIVE_FOLDER_ID', found.getId());
+        Logger.log('Folder PDF default dipakai ulang: ' + found.getUrl());
+        return found.getId();
+      }
+    }
+  } catch (e) {
+    Logger.log('Gagal mencari folder default yang ada: ' + e);
+  }
+
+  // 4. Buat folder default bila memang belum ada
   var folder = DriveApp.createFolder(KONFIG.DRIVE_FOLDER_NAME);
   props.setProperty('DRIVE_FOLDER_ID', folder.getId());
   Logger.log('Folder PDF dibuat: ' + folder.getUrl());

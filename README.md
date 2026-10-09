@@ -97,11 +97,9 @@ Jalankan script bundler PowerShell dari root direktori proyek:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build-apps-script.ps1
 ```
-Hasil kompilasi siap-tempel akan diperbarui di folder `apps-script/`:
-- `apps-script/Backend.gs`
-- `apps-script/AsetLogo.gs`
-- `apps-script/AsetStempel.gs`
-- `apps-script/appsscript.json` (manifest, disalin dari `gas/appsscript.json` — wajib ada saat `clasp push`)
+Hasil kompilasi siap-tempel akan diperbarui di folder `apps-script/` — **satu file per modul backend** (`Konfig.gs`, `Utils.gs`, `Editorial.gs`, `Pengaturan.gs`, `Database.gs`, `Auth.gs`, `Surat.gs`, `Keuangan.gs`, `Divisi.gs`, `TemplateSurat.gs`, `TemplateSuratDocs.gs`, `Visitor.gs`, `Code.gs`), plus `AsetLogo.gs`, `AsetStempel.gs`, dan `apps-script/appsscript.json` (manifest, disalin dari `gas/appsscript.json` — wajib ada saat `clasp push`).
+
+> **Mengapa per-modul?** Dulu seluruh backend digabung jadi satu `Backend.gs` dan ukurannya tembus 250.000 karakter — mendekati batas ukuran file Apps Script. Tiap modul sumber kini diemit apa adanya (urutan & logika tak berubah), jadi masing-masing file tetap kecil.
 
 ### 2. Deploy ke Google Apps Script — SATU perintah
 
@@ -125,7 +123,7 @@ Prasyarat **sekali saja**:
    npm run deploy:gas:check
    ```
 
-> **Catatan:** `clasp` tidak pernah menghapus berkas di editor Apps Script. Pastikan project tersebut hanya berisi `Backend.gs`, `AsetLogo.gs`, `AsetStempel.gs`, dan `appsscript.json`; hapus sekali secara manual bila masih ada sisa berkas lama (mis. `Aset.gs`) agar tidak terjadi definisi fungsi ganda.
+> **Catatan:** `clasp` tidak pernah menghapus berkas di editor Apps Script. Pastikan project tersebut hanya berisi file-file output build di atas (lihat daftar di `scripts/build-apps-script.ps1`); hapus sekali secara manual bila masih ada sisa berkas lama — **terutama `Backend.gs` tunggal peninggalan build lama** (mis. `Aset.gs`) agar tidak terjadi definisi fungsi ganda.
 
 ### 2b. Alternatif Manual (bila CLI belum dapat digunakan)
 1. Buka [script.google.com](https://script.google.com) pada project yayasan Anda.
