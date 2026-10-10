@@ -51,6 +51,11 @@ var USERS_READ_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS, ROLES.B
 var DIVISI_SUBMIT_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA_DIVISI, ROLES.ANGGOTA_DIVISI];
 var AUDIT_READ_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.PEMBINA, ROLES.PENGAWAS];
 
+// Redaksi konten portal publik: SUPERADMIN, KETUA, SEKRETARIS + Divisi Humas & Sosmed.
+// (Pembatasan divisi untuk KETUA_DIVISI/ANGGOTA_DIVISI diperketat lagi di handler.)
+var EDITORIAL_WRITE_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS,
+                             ROLES.KETUA_DIVISI, ROLES.ANGGOTA_DIVISI];
+
 // ==========================================================================
 // TABEL ROUTES — Single Source of Truth RBAC
 // ==========================================================================
@@ -106,6 +111,8 @@ var ROUTES = {
   getSettings:         { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Utils.getSettings },
   saveSettings:        { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.saveSettings },
   getPublicSettings:   { auth: false, roles: null, handler: Utils.getPublicSettings },
+  getEditorialContent: { auth: true,  roles: null, handler: Utils.getEditorialContent },
+  saveEditorialContent:{ auth: true,  roles: EDITORIAL_WRITE_ROLES, handler: Utils.saveEditorialContent },
   uploadKopImage:      { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.uploadKopImage },
   testDriveStorage:    { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.testDriveStorage },
   createDriveFolder:   { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.createDriveFolder },

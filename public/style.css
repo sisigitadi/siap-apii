@@ -121,3 +121,26 @@ input[type="checkbox"] {
   }
 }
 
+/* ======== REDAKSI DINAMIS: FAQ Accordion & Warta ======== */
+
+/* Accordion FAQ: transisi mulus buka/tutup (render aman via Public.esc) */
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height .35s ease, opacity .3s ease, padding .3s ease;
+}
+.faq-item.open .faq-answer {
+  max-height: 640px;
+  opacity: 1;
+}
+.faq-chevron { transition: transform .3s ease; }
+.faq-item.open .faq-chevron { transform: rotate(180deg); }
+
+/* Tab Warta: indikator aktif */
+.warta-tab.active {
+  background: #ffffff;
+  color: #022C22;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+}
+

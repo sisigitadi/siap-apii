@@ -529,6 +529,9 @@ function getSettings(ctx) {
   settings.registration_wa_template = settings.registration_config.wa_template;
   settings.registration_agreement_text = settings.registration_config.agreement_text;
 
+  // Redaksi konten dinamis portal publik (Mini-CMS) — selalu di-merge dgn default.
+  settings.editorial_content = loadEditorial_();
+
   return { ok: true, data: settings, settings: settings, message: 'Pengaturan berhasil dimuat.' };
 }
 
@@ -573,6 +576,139 @@ function saveSettings(ctx) {
   return { ok: true, data: toSave, settings: toSave, message: 'Pengaturan berhasil disimpan.' };
 }
 
+// ==========================================================================
+// REDAKSI KONTEN DINAMIS PORTAL PUBLIK (MINI-CMS)
+// ==========================================================================
+// Seluruh konfigurasi redaksi disimpan sebagai satu objek JSON di baris
+// 'editorial_content' Sheet_Settings. Lihat docs/REDAKSI_KONTEN.md.
+//
+// Sanitasi server-side adalah lapisan pertahanan utama (defense in depth):
+// front-end tetap melakukan escape (Public.esc) pada setiap string.
+// ==========================================================================
+
+/**
+ * Redaksi bawaan (dipakai sebagai fallback & seed pertama kali).
+ * Struktur ini adalah "kontrak" antara backend, Portal Pengurus, & Portal Publik.
+ */
+var DEFAULT_EDITORIAL_ = {
+  hero: {
+    badge: 'Penerimaan Anggota Baru 2026',
+    headline: 'Keanggotaan & Kolaborasi Yayasan APII DPW Jabodetabek',
+    subheadline: 'Wadah sinergi para ahli, akademisi, dan praktisi pengkaji Islam di Indonesia untuk riset, pemberdayaan, dan kemaslahatan umat.',
+    cta_text: 'Info Dokumen & Keuangan Kas →',
+    cta_link: '#informasi'
+  },
+  profile: {
+    show_section: true,
+    ketua_name: 'Ust. Sigit Adi, S.T., M.Kom.',
+    ketua_title: 'Ketua DPW APII Jabodetabek',
+    greeting: "Assalamu'alaikum Warahmatullahi Wabarakatuh. Selamat datang di portal resmi Dewan Pimpinan Wilayah Yayasan Apologet Islam Indonesia (APII) Jabodetabek. Melalui sistem terpadu ini, kami berkomitmen menghadirkan transparansi penuh, kemudahan pendaftaran anggota, dan akuntabilitas publik bagi kemaslahatan umat.",
+    vision: 'Menjadi pusat pengkajian, literasi, dan advokasi Islam yang unggul, terpercaya, dan berakhlakul karimah.',
+    missions: [
+      'Mengembangkan riset komparatif dan dakwah transformatif di wilayah Jabodetabek.',
+      'Membangun jejaring keilmuan antar cendekiawan, praktisi, dan ormas Islam.',
+      'Menegakkan transparansi kelembagaan dan akuntabilitas umat.'
+    ]
+  },
+  bulletins_events: {
+    show_section: true,
+    section_title: 'Warta Kelembagaan & Agenda Kegiatan',
+    section_subtitle: 'Maklumat resmi, siaran pers pimpinan, serta jadwal acara dan kajian DPW APII Jabodetabek.',
+    bulletins: [
+      {
+        id: 'mak-1',
+        title: 'Maklumat Dewan Pimpinan Wilayah tentang Pelaksanaan Dakwah Ramadhan 1447 H',
+        category: 'Maklumat Resmi',
+        date: '2026-03-01',
+        summary: 'Instruksi kepada seluruh jajaran pengurus divisi dan anggota mengenai pedoman dakwah digital dan safari keumatan di 5 wilayah Jabodetabek.',
+        link: ''
+      }
+    ],
+    events: [
+      {
+        id: 'evt-1',
+        title: 'Seminar Nasional Litbang: Metodologi Komparasi Agama Kontemporer',
+        category: 'Kajian Ilmiah',
+        date_str: 'Sabtu, 25 April 2026',
+        time_str: '09.00 – 12.00 WIB',
+        location: 'Aula Pusat Dakwah APII & Live Zoom',
+        speaker: 'Dewan Pakar APII & Akademisi Tamu',
+        link: 'https://forms.gle/apii-seminar-2026',
+        status: 'MENDATANG'
+      }
+    ]
+  },
+  contact: {
+    address: 'Jl. Kramat Raya No. 45, Senen, Jakarta Pusat 10450',
+    email: 'sekretariat@apii.sigitadi.id',
+    whatsapp_helpdesk: '081288882026',
+    service_hours: 'Senin – Sabtu, 08.30 – 16.30 WIB'
+  },
+  social: {
+    youtube: 'https://youtube.com/@apii_official',
+    instagram: 'https://instagram.com/apii_jabodetabek',
+    whatsapp_channel: 'https://whatsapp.com/channel/apii-jabo',
+    facebook: '',
+    tiktok: ''
+  },
+  faqs: [
+    {
+      q: 'Siapa yang dapat mendaftar sebagai anggota APII DPW Jabodetabek?',
+      a: 'Warga negara Indonesia beragama Islam yang berdomisili atau beraktivitas di wilayah Jakarta, Bogor, Depok, Tangerang, dan Bekasi, serta bersedia mematuhi AD/ART yayasan.'
+    },
+    {
+      q: 'Apakah pendaftaran anggota dipungut biaya?',
+      a: 'Tidak ada biaya pendaftaran. Keanggotaan terbuka dan bebas biaya administrasi registrasi.'
+    },
+    {
+      q: 'Bagaimana perlindungan data pribadi saya dijamin?',
+      a: 'KTP yang diunggah otomatis dibubuhi cap digital pelindung langsung di peramban Anda sebelum dikirim ke server sesuai amanat UU Perlindungan Data Pribadi No. 27/2022.'
+    }
+  ]
+};
+
+/**
+ * Sanitasi string aman (anti-XSS): buang karakter kontrol & sudut < >.
+ * Aman untuk apostrof & tanda baca biasa (Bahasa Indonesia).
+ */
+function sanitizeText_(str, maxLen) {
+  var s = String(str === null || str === undefined ? '' : str);
+  s = s.replace(/[\u0000-\u001F\u007F]/g, '')
+       .replace(/</g, ' ').replace(/>/g, ' ');
+  s = s.replace(/\s+/g, ' ').trim();
+  var m = Number(maxLen) || 2000;
+  if (s.length > m) s = s.substring(0, m);
+  return s;
+}
+
+/**
+ * Sanitasi teks multi-baris (pertahankan newline untuk paragraf/misi).
+ */
+function sanitizeMultiline_(str, maxLen) {
+  var s = String(str === null || str === undefined ? '' : str);
+  s = s.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '')
+       .replace(/</g, ' ').replace(/>/g, ' ');
+  var lines = s.split(/\r?\n/).map(function (l) { return l.trim(); })
+    .filter(function (l) { return l.length > 0; });
+  var out = lines.join('\n');
+  var m = Number(maxLen) || 4000;
+  if (out.length > m) out = out.substring(0, m);
+  return out;
+}
+
+/**
+ * Sanitasi URL: hanya http(s)/mailto/tel atau path relatif (& anchor).
+ * Menolak skema berbahaya (mis. javascript:).
+ */
+function sanitizeUrl_(u) {
+  var s = String(u === null || u === undefined ? '' : u).trim();
+  if (!s) return '';
+  if (/^(https?:|mailto:|tel:)/i.test(s)) return s.replace(/[\s"'<>]/g, '');
+  if (s.charAt(0) === '#' || s.charAt(0) === '/') return s.replace(/[\s"'<>]/g, '');
+  return '';
+}
+
+
 /**
  * getPublicSettings: ambil konfigurasi yang boleh dibaca publik.
  * Publik (tanpa token).
@@ -609,10 +745,156 @@ function getPublicSettings(ctx) {
         address: kop.address || 'DKI Jakarta & Sekitarnya, Indonesia',
         email: kop.email || 'sekretariat@apii.sigitadi.id',
         phone: kop.phone || '0812-8888-2026'
-      }
+      },
+      editorial: loadEditorial_()
     },
     message: 'Pengaturan publik berhasil dimuat.'
   };
+}
+
+/**
+ * Sanitasi & normalisasi objek redaksi penuh. Jaminkan tipe data & batas
+ * panjang agar front-end selalu menerima struktur yang konsisten.
+ */
+function sanitizeEditorialContent_(raw) {
+  var o = (raw && typeof raw === 'object') ? raw : {};
+  var hero = (o.hero && typeof o.hero === 'object') ? o.hero : {};
+  var profile = (o.profile && typeof o.profile === 'object') ? o.profile : {};
+  var be = (o.bulletins_events && typeof o.bulletins_events === 'object') ? o.bulletins_events : {};
+  var contact = (o.contact && typeof o.contact === 'object') ? o.contact : {};
+  var social = (o.social && typeof o.social === 'object') ? o.social : {};
+
+  var bulletins = (Array.isArray(be.bulletins) ? be.bulletins : []).map(function (b) {
+    var x = (b && typeof b === 'object') ? b : {};
+    return {
+      id: sanitizeText_(x.id, 60) || ('mak-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+      title: sanitizeText_(x.title, 200),
+      category: sanitizeText_(x.category, 60),
+      date: sanitizeText_(x.date, 20).replace(/[^\d\-]/g, ''),
+      summary: sanitizeMultiline_(x.summary, 1200),
+      link: sanitizeUrl_(x.link)
+    };
+  });
+
+  var events = (Array.isArray(be.events) ? be.events : []).map(function (e) {
+    var x = (e && typeof e === 'object') ? e : {};
+    return {
+      id: sanitizeText_(x.id, 60) || ('evt-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+      title: sanitizeText_(x.title, 200),
+      category: sanitizeText_(x.category, 60),
+      date_str: sanitizeText_(x.date_str, 80),
+      time_str: sanitizeText_(x.time_str, 60),
+      location: sanitizeText_(x.location, 150),
+      speaker: sanitizeText_(x.speaker, 120),
+      link: sanitizeUrl_(x.link),
+      status: (String(x.status).toUpperCase() === 'SELESAI') ? 'SELESAI' : 'MENDATANG'
+    };
+  });
+
+  var faqs = (Array.isArray(o.faqs) ? o.faqs : []).map(function (f) {
+    var x = (f && typeof f === 'object') ? f : {};
+    return {
+      q: sanitizeText_(x.q, 300),
+      a: sanitizeMultiline_(x.a, 1500)
+    };
+  }).filter(function (f) { return f.q.length > 0; });
+
+  return {
+    hero: {
+      badge: sanitizeText_(hero.badge, 120),
+      headline: sanitizeText_(hero.headline, 200),
+      subheadline: sanitizeText_(hero.subheadline, 600),
+      cta_text: sanitizeText_(hero.cta_text, 80),
+      cta_link: sanitizeUrl_(hero.cta_link) || '#informasi'
+    },
+    profile: {
+      show_section: profile.show_section !== false,
+      ketua_name: sanitizeText_(profile.ketua_name, 120),
+      ketua_title: sanitizeText_(profile.ketua_title, 120),
+      greeting: sanitizeMultiline_(profile.greeting, 2500),
+      vision: sanitizeText_(profile.vision, 400),
+      missions: (Array.isArray(profile.missions) ? profile.missions : [])
+        .map(function (m) { return sanitizeText_(m, 300); })
+        .filter(function (m) { return m.length > 0; })
+        .slice(0, 12)
+    },
+    bulletins_events: {
+      show_section: be.show_section !== false,
+      section_title: sanitizeText_(be.section_title, 120),
+      section_subtitle: sanitizeText_(be.section_subtitle, 300),
+      bulletins: bulletins.slice(0, 40),
+      events: events.slice(0, 40)
+    },
+    contact: {
+      address: sanitizeText_(contact.address, 250),
+      email: sanitizeText_(contact.email, 120),
+      whatsapp_helpdesk: sanitizeText_(contact.whatsapp_helpdesk, 40),
+      service_hours: sanitizeText_(contact.service_hours, 120)
+    },
+    social: {
+      youtube: sanitizeUrl_(social.youtube),
+      instagram: sanitizeUrl_(social.instagram),
+      whatsapp_channel: sanitizeUrl_(social.whatsapp_channel),
+      facebook: sanitizeUrl_(social.facebook),
+      tiktok: sanitizeUrl_(social.tiktok)
+    },
+    faqs: faqs.slice(0, 30)
+  };
+}
+
+/**
+ * Ambil objek redaksi yang sudah digabung dengan default (fallback aman).
+ */
+function loadEditorial_() {
+  var stored = getSettingValue_('editorial_content', null);
+  return sanitizeEditorialContent_((stored && typeof stored === 'object') ? stored : DEFAULT_EDITORIAL_);
+}
+
+/**
+ * Cek hak edit redaksi: SUPERADMIN, KETUA, SEKRETARIS, atau pengurus Divisi
+ * Humas (DIV_HUMAS) & Media Sosial (DIV_SOSMED).
+ */
+function canEditEditorial_(user) {
+  if (!user) return false;
+  var role = user.role;
+  if (role === ROLES.SUPERADMIN || role === ROLES.KETUA || role === ROLES.SEKRETARIS) return true;
+  if (role === ROLES.KETUA_DIVISI || role === ROLES.ANGGOTA_DIVISI) {
+    return user.division === DIVISIONS.DIV_HUMAS || user.division === DIVISIONS.DIV_SOSMED;
+  }
+  return false;
+}
+
+/**
+ * getEditorialContent: ambil redaksi portal publik untuk diedit di Portal
+ * Pengurus. Semua peran login boleh membaca (konten ini bersifat publik).
+ */
+function getEditorialContent(ctx) {
+  var editorial = loadEditorial_();
+  return {
+    ok: true,
+    data: editorial,
+    editorial: editorial,
+    can_edit: canEditEditorial_((ctx && ctx.user) || null),
+    message: 'Redaksi konten portal berhasil dimuat.'
+  };
+}
+
+/**
+ * saveEditorialContent: simpan perubahan redaksi portal publik.
+ * Akses: SUPERADMIN, KETUA, SEKRETARIS, DIV_HUMAS, DIV_SOSMED.
+ */
+function saveEditorialContent(ctx) {
+  var user = (ctx && ctx.user) || null;
+  if (!canEditEditorial_(user)) {
+    appError('Akses ditolak: Anda tidak memiliki kewenangan mengelola redaksi konten portal.');
+  }
+  var p = (ctx && ctx.payload) || {};
+  var raw = (p.editorial && typeof p.editorial === 'object') ? p.editorial : p;
+  var clean = sanitizeEditorialContent_(raw);
+  setSettingValue_('editorial_content', clean, (user && user.username) || 'system');
+  audit((user && user.username) || 'unknown', 'EDITORIAL_UPDATED',
+    'Memperbarui redaksi konten portal publik (hero, profil, warta, acara, kontak, FAQ)', 'SETTINGS');
+  return { ok: true, data: clean, editorial: clean, message: 'Redaksi konten portal publik berhasil disimpan.' };
 }
 
 /**

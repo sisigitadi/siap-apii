@@ -36,6 +36,7 @@ $fnNames = @(
   'nextSequence','seedDefaultAccounts_','seedDefaultSettings_',
   'uuid','audit','formatRupiah','formatTanggal','toRoman','sanitizeUser','getDashboard',
   'terbilang','getSettingValue_','setSettingValue_','getSettings','saveSettings','getPublicSettings','uploadKopImage','testDriveStorage',
+  'getEditorialContent','saveEditorialContent',
   'createDriveFolder','moveDriveFolder','resetDriveStorage',
   'getListSurat','createSurat','updateSurat','submitSurat','approveSurat',
   'rejectSurat','verifySurat','getPublishedSurat','reserveLetterNumber','getLetterTypesMap_',

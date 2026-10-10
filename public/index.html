@@ -67,9 +67,12 @@
           <div class="text-xs sm:text-sm text-gray-500 font-medium truncate">DPW Jabodetabek</div>
         </div>
       </a>
-      <ul class="hidden lg:flex items-center gap-8 font-medium text-gray-700">
+      <ul class="hidden lg:flex items-center gap-6 font-medium text-sm text-gray-700">
         <li><a href="#beranda" class="nav-link hover:text-emerald transition">Beranda</a></li>
+        <li><a href="#profil" class="nav-link hover:text-emerald transition">Profil</a></li>
+        <li><a href="#warta" class="nav-link hover:text-emerald transition">Warta</a></li>
         <li><a href="#informasi" class="nav-link hover:text-emerald transition">Informasi &amp; Keuangan</a></li>
+        <li><a href="#faq" class="nav-link hover:text-emerald transition">FAQ</a></li>
         <li><a href="#kontak" class="nav-link hover:text-emerald transition">Kontak</a></li>
       </ul>
       <!-- Desktop Header Registration Control (Titik Kontrol Tunggal) -->
@@ -85,7 +88,10 @@
     </nav>
     <div id="mobileMenu" class="hidden lg:hidden bg-white border-t border-emerald-100 px-4 py-4 space-y-3 font-medium text-gray-700 shadow-xl">
       <a href="#beranda" class="block py-2 mobile-link">Beranda</a>
+      <a href="#profil" class="block py-2 mobile-link">Profil</a>
+      <a href="#warta" class="block py-2 mobile-link">Warta &amp; Agenda</a>
       <a href="#informasi" class="block py-2 mobile-link">Informasi &amp; Keuangan</a>
+      <a href="#faq" class="block py-2 mobile-link">FAQ</a>
       <a href="#kontak" class="block py-2 mobile-link">Kontak</a>
       <div id="mobileMenuRegContainer" class="pt-2"></div>
     </div>
@@ -105,19 +111,19 @@
     </div>
     <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 items-center">
       <div class="text-white">
-        <span class="inline-flex items-center gap-2 bg-white/15 text-gold-light text-sm font-semibold px-4 py-2 rounded-full mb-6 border border-gold/40">
+        <span id="heroBadge" class="inline-flex items-center gap-2 bg-white/15 text-gold-light text-sm font-semibold px-4 py-2 rounded-full mb-6 border border-gold/40">
           <span class="h-2 w-2 rounded-full bg-gold-light animate-pulse"></span>
-          Penerimaan Anggota Baru 2026
+          <span id="heroBadgeText">Penerimaan Anggota Baru 2026</span>
         </span>
-        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight mb-6">
+        <h1 id="heroHeadline" class="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight mb-6">
           Keanggotaan &amp; Kolaborasi <span class="text-gold-light">Yayasan APII</span> DPW Jabodetabek
         </h1>
-        <p class="text-lg text-emerald-light/90 mb-8 max-w-xl leading-relaxed">
+        <p id="heroSubHeadline" class="text-lg text-emerald-light/90 mb-8 max-w-xl leading-relaxed">
           Wadah sinergi para ahli, akademisi, dan praktisi pengkaji Indonesia. Bergabunglah bersama kami untuk memajukan riset, pemberdayaan masyarakat, dan kemaslahatan umat.
         </p>
         <div class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
-          <a href="#informasi" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gold hover:bg-gold-light text-emerald-dark px-6 py-3.5 sm:py-4 rounded-xl font-extrabold shadow-lg hover:shadow-xl transition text-sm sm:text-base text-center">
-            <span>Info Dokumen &amp; Keuangan Kas →</span>
+          <a id="heroCtaBtn" href="#informasi" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gold hover:bg-gold-light text-emerald-dark px-6 py-3.5 sm:py-4 rounded-xl font-extrabold shadow-lg hover:shadow-xl transition text-sm sm:text-base text-center">
+            <span id="heroCtaText">Info Dokumen &amp; Keuangan Kas →</span>
           </a>
           <a href="#kontak" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 border-2 border-white/40 hover:bg-white/10 text-white px-5 sm:px-6 py-3.5 sm:py-4 rounded-xl font-semibold transition text-sm sm:text-base text-center">
             <span>Hubungi Sekretariat</span>
@@ -165,6 +171,70 @@
       </div>
     </div>
   </section>
+  <!-- ====================== PROFIL & SAMBUTAN PIMPINAN ====================== -->
+  <section id="profil" class="py-24 bg-white">
+    <div id="profileSection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-3xl mx-auto mb-14">
+        <span class="inline-flex items-center gap-2 bg-emerald-light text-emerald text-xs font-bold px-4 py-2 rounded-full mb-4">Profil Lembaga</span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-emerald-dark mb-4">Sambutan Pimpinan &amp; Visi-Misi</h2>
+        <p class="text-gray-500 text-base sm:text-lg">Mengenal lebih dekat Yayasan Apologet Islam Indonesia DPW Jabodetabek.</p>
+      </div>
+      <div id="profileContent" class="grid lg:grid-cols-5 gap-8 items-stretch">
+        <!-- Skeleton (fallback statis sebelum data redaksi dimuat) -->
+        <div class="lg:col-span-3 bg-gradient-to-br from-emerald-50 to-white rounded-3xl p-8 border border-emerald-100">
+          <div class="flex items-center gap-4 mb-5">
+            <div class="h-14 w-14 bg-emerald-light rounded-2xl flex items-center justify-center flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            </div>
+            <div><div class="font-extrabold text-emerald-dark text-lg">Pimpinan DPW APII Jabodetabek</div><div class="text-xs text-gray-500">Sambutan resmi pimpinan wilayah</div></div>
+          </div>
+          <div class="space-y-3 text-sm text-gray-600 leading-relaxed"><p>Memuat sambutan pimpinan&hellip;</p></div>
+        </div>
+        <div class="lg:col-span-2 bg-emerald-dark rounded-3xl p-8 text-white flex flex-col">
+          <div class="font-extrabold text-gold-light text-lg mb-3">Visi &amp; Misi Lembaga</div>
+          <div class="space-y-3 text-sm text-emerald-light/90"><p>Memuat visi-misi&hellip;</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== WARTA MAKLUMAT & AGENDA ACARA ====================== -->
+  <section id="warta" class="py-24 bg-gradient-to-b from-emerald-50/40 to-white border-t border-emerald-100">
+    <div id="wartaSection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-3xl mx-auto mb-10">
+        <span class="inline-flex items-center gap-2 bg-gold/15 text-amber-700 text-xs font-bold px-4 py-2 rounded-full mb-4">Warta Kelembagaan</span>
+        <h2 id="wartaTitle" class="text-3xl sm:text-4xl font-extrabold text-emerald-dark mb-4">Warta Kelembagaan &amp; Agenda Kegiatan</h2>
+        <p id="wartaSubtitle" class="text-gray-500 text-base sm:text-lg">Maklumat resmi, siaran pers pimpinan, serta jadwal acara dan kajian DPW APII Jabodetabek.</p>
+      </div>
+      <div class="flex justify-center mb-10">
+        <div class="inline-flex p-1.5 bg-gray-100 rounded-2xl gap-1.5" role="tablist" aria-label="Warta &amp; Agenda">
+          <button type="button" id="wartaTabBulletins" class="warta-tab py-2.5 px-5 rounded-xl text-sm font-bold transition bg-white text-emerald-dark shadow-sm" role="tab" aria-selected="true">📌 Maklumat &amp; Siaran</button>
+          <button type="button" id="wartaTabEvents" class="warta-tab py-2.5 px-5 rounded-xl text-sm font-bold transition text-gray-500 hover:text-gray-900" role="tab" aria-selected="false">📅 Agenda &amp; Acara</button>
+        </div>
+      </div>
+      <div id="wartaBulletinsPane" role="tabpanel">
+        <div id="bulletinList" class="grid md:grid-cols-2 gap-6">
+          <div class="bg-white rounded-2xl border border-emerald-100 p-6 animate-pulse"><div class="h-4 w-24 bg-emerald-100 rounded mb-3"></div><div class="h-5 w-3/4 bg-gray-100 rounded mb-3"></div><div class="h-3 w-full bg-gray-100 rounded mb-2"></div><div class="h-3 w-5/6 bg-gray-100 rounded"></div></div>
+          <div class="bg-white rounded-2xl border border-emerald-100 p-6 animate-pulse"><div class="h-4 w-24 bg-emerald-100 rounded mb-3"></div><div class="h-5 w-3/4 bg-gray-100 rounded mb-3"></div><div class="h-3 w-full bg-gray-100 rounded mb-2"></div><div class="h-3 w-5/6 bg-gray-100 rounded"></div></div>
+        </div>
+        <div class="text-center mt-8 hidden" id="bulletinMoreWrap">
+          <button type="button" id="bulletinMoreBtn" class="inline-flex items-center gap-2 bg-white border-2 border-emerald/30 hover:border-emerald text-emerald-dark px-6 py-3 rounded-xl font-bold text-sm transition">Muat Maklumat Lainnya</button>
+        </div>
+        <p id="bulletinEmpty" class="text-center text-gray-400 py-12 hidden">Belum ada maklumat resmi yang dipublikasikan saat ini.</p>
+      </div>
+      <div id="wartaEventsPane" class="hidden" role="tabpanel">
+        <div id="eventList" class="grid md:grid-cols-2 gap-6">
+          <div class="bg-white rounded-2xl border border-emerald-100 p-6 animate-pulse"><div class="h-4 w-24 bg-emerald-100 rounded mb-3"></div><div class="h-5 w-3/4 bg-gray-100 rounded mb-3"></div><div class="h-3 w-full bg-gray-100 rounded mb-2"></div><div class="h-3 w-5/6 bg-gray-100 rounded"></div></div>
+          <div class="bg-white rounded-2xl border border-emerald-100 p-6 animate-pulse"><div class="h-4 w-24 bg-emerald-100 rounded mb-3"></div><div class="h-5 w-3/4 bg-gray-100 rounded mb-3"></div><div class="h-3 w-full bg-gray-100 rounded mb-2"></div><div class="h-3 w-5/6 bg-gray-100 rounded"></div></div>
+        </div>
+        <div class="text-center mt-8 hidden" id="eventMoreWrap">
+          <button type="button" id="eventMoreBtn" class="inline-flex items-center gap-2 bg-white border-2 border-emerald/30 hover:border-emerald text-emerald-dark px-6 py-3 rounded-xl font-bold text-sm transition">Muat Agenda Lainnya</button>
+        </div>
+        <p id="eventEmpty" class="text-center text-gray-400 py-12 hidden">Belum ada agenda kegiatan yang dijadwalkan saat ini.</p>
+      </div>
+    </div>
+  </section>
+
   <!-- ====================== MODAL FORMULIR PENDAFTARAN ANGGOTA ====================== -->
   <div id="regModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="regModalTitle">
     <div id="regModalDialog" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-3xl my-auto max-h-[92vh] flex flex-col overflow-hidden border border-emerald-100 animate-[fadeUp_0.3s_ease]">
@@ -572,34 +642,58 @@
     </div>
   </section>
 
+  <!-- ====================== FAQ (TANYA JAWAB PUBLIK) ====================== -->
+  <section id="faq" class="py-24 bg-white border-t border-emerald-100">
+    <div id="faqSection" class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+        <span class="inline-flex items-center gap-2 bg-emerald-light text-emerald text-xs font-bold px-4 py-2 rounded-full mb-4">Tanya Jawab</span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-emerald-dark mb-4">Tanya Jawab Publik</h2>
+        <p class="text-gray-500 text-base sm:text-lg">Jawaban atas pertanyaan yang paling sering ditanyakan publik tentang kelembagaan &amp; keanggotaan.</p>
+      </div>
+      <div id="faqList" class="space-y-3">
+        <div class="bg-white rounded-2xl border border-emerald-100 p-5 animate-pulse"><div class="h-5 w-3/4 bg-gray-100 rounded mb-3"></div><div class="h-3 w-full bg-gray-100 rounded"></div></div>
+        <div class="bg-white rounded-2xl border border-emerald-100 p-5 animate-pulse"><div class="h-5 w-2/3 bg-gray-100 rounded mb-3"></div><div class="h-3 w-full bg-gray-100 rounded"></div></div>
+      </div>
+      <p id="faqEmpty" class="text-center text-gray-400 py-12 hidden">Belum ada pertanyaan yang dipublikasikan saat ini.</p>
+    </div>
+  </section>
+
   <!-- ====================== KONTAK ====================== -->
   <section id="kontak" class="py-24 bg-emerald-dark text-white">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
       <h2 class="text-3xl sm:text-4xl font-extrabold mb-4">Hubungi Yayasan APII DPW Jabodetabek</h2>
       <p class="text-emerald-light/80 text-lg mb-10">Untuk pertanyaan terkait pendaftaran anggota atau kerja sama.</p>
-      <div class="grid sm:grid-cols-3 gap-6">
+      <div id="contactGrid" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div class="bg-white/10 rounded-2xl p-6 border border-white/10">
           <div class="h-12 w-12 bg-gold rounded-xl flex items-center justify-center mx-auto mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-emerald-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
           </div>
           <div class="font-bold text-gold-light mb-1">Email</div>
-          <div class="text-sm text-emerald-light/80">admin@apii-jabo.or.id</div>
+          <div id="contactEmailVal" class="text-sm text-emerald-light/80 break-all">admin@apii-jabo.or.id</div>
         </div>
         <div class="bg-white/10 rounded-2xl p-6 border border-white/10">
           <div class="h-12 w-12 bg-gold rounded-xl flex items-center justify-center mx-auto mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-emerald-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
           </div>
           <div class="font-bold text-gold-light mb-1">Sekretariat</div>
-          <div class="text-sm text-emerald-light/80">Jabodetabek, Indonesia</div>
+          <div id="contactAddressVal" class="text-sm text-emerald-light/80">Jabodetabek, Indonesia</div>
         </div>
         <div class="bg-white/10 rounded-2xl p-6 border border-white/10">
           <div class="h-12 w-12 bg-gold rounded-xl flex items-center justify-center mx-auto mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-emerald-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
           <div class="font-bold text-gold-light mb-1">Jam Layanan</div>
-          <div class="text-sm text-emerald-light/80">Senin–Sabtu, 09.00–16.00</div>
+          <div id="contactHoursVal" class="text-sm text-emerald-light/80">Senin–Sabtu, 09.00–16.00</div>
+        </div>
+        <div id="contactWaCard" class="bg-white/10 rounded-2xl p-6 border border-white/10 hidden">
+          <div class="h-12 w-12 bg-gold rounded-xl flex items-center justify-center mx-auto mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-emerald-dark" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.978-1.207zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" /></svg>
+          </div>
+          <div class="font-bold text-gold-light mb-1">WhatsApp Helpdesk</div>
+          <div id="contactWaVal" class="text-sm text-emerald-light/80">—</div>
         </div>
       </div>
+      <div id="socialLinksRow" class="flex flex-wrap items-center justify-center gap-3 mt-10 hidden"></div>
     </div>
   </section>
 

@@ -214,9 +214,14 @@
     },
 
     /** Daftar menu sesuai peran (RBAC frontend; backend tetap penjaga mutlak). */
-    navForRole: function (role) {
+    navForRole: function (role, user) {
+      var u = user || this.state.user || {};
       var items = [{ id: 'dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' }];
       var has = function (arr) { return arr.indexOf(role) !== -1; };
+      // Hak edit redaksi konten portal (mini-CMS): core + Divisi Humas & Medsos.
+      var canEditorial = has(['SUPERADMIN', 'KETUA', 'SEKRETARIS']) ||
+        (has(['KETUA_DIVISI', 'ANGGOTA_DIVISI']) &&
+          (u.division === 'DIV_HUMAS' || u.division === 'DIV_SOSMED'));
 
       if (has(['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'PEMBINA', 'PENGAWAS'])) {
         items.push({ id: 'surat', label: 'Persuratan', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' });
@@ -233,7 +238,9 @@
       if (has(['SUPERADMIN', 'KETUA', 'PEMBINA', 'PENGAWAS'])) {
         items.push({ id: 'audit', label: 'Jejak Audit', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' });
       }
-      if (has(['SUPERADMIN', 'KETUA'])) {
+      // Pengaturan & Master: SUPERADMIN/KETUA (master penuh) atau editor redaksi
+      // konten (hanya sub-tab Redaksi yang ditampilkan oleh renderPengaturan).
+      if (has(['SUPERADMIN', 'KETUA']) || canEditorial) {
         items.push({ id: 'pengaturan', label: 'Pengaturan & Master', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' });
       }
       items.push({ id: 'profil', label: 'Profil Saya', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' });
@@ -3119,17 +3126,32 @@
     renderPengaturan: function () {
       var main = document.getElementById('mainContent');
       var self = this;
-      var currentTab = this.state.pengaturan.tab || 'rekening';
+      var role = (this.state.user && this.state.user.role) || 'ANGGOTA_DIVISI';
+      var div = (this.state.user && this.state.user.division) || '';
+      var isMaster = ['SUPERADMIN', 'KETUA'].indexOf(role) !== -1;
+      var canEditorial = isMaster || ['SUPERADMIN', 'KETUA', 'SEKRETARIS'].indexOf(role) !== -1 ||
+        (['KETUA_DIVISI', 'ANGGOTA_DIVISI'].indexOf(role) !== -1 && (div === 'DIV_HUMAS' || div === 'DIV_SOSMED'));
+      var currentTab = this.state.pengaturan.tab || (isMaster ? 'rekening' : 'redaksi');
+
+      // Editor redaksi (Sekum/Humas/Medsos) hanya boleh melihat sub-tab Redaksi.
+      if (!isMaster && currentTab !== 'redaksi') currentTab = 'redaksi';
 
       main.innerHTML = this.pageHead('Pengaturan &amp; Master Data',
-        'Kelola master rekening kas, format penomoran & KOP surat resmi, pendaftaran anggota, aturan keuangan, RBAC, dan Google Drive.', '') +
+        isMaster
+          ? 'Kelola master rekening kas, format penomoran & KOP surat resmi, pendaftaran anggota, aturan keuangan, RBAC, Google Drive, dan redaksi konten portal publik.'
+          : 'Kelola redaksi konten dinamis portal publik (apii.sigitadi.id): hero, profil, warta, agenda, kontak, dan FAQ.', '') +
         '<div class="flex items-center gap-2 p-1.5 bg-gray-100 rounded-2xl mb-6 flex-wrap max-w-4xl">' +
-          '<button type="button" data-ptab="rekening" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rekening' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💳 Master Rekening</button>' +
-          '<button type="button" data-ptab="surat" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'surat' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📄 Format &amp; KOP Surat</button>' +
-          '<button type="button" data-ptab="pendaftaran" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'pendaftaran' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📝 Pendaftaran</button>' +
-          '<button type="button" data-ptab="keuangan" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'keuangan' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💰 Keuangan</button>' +
-          '<button type="button" data-ptab="rbac" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rbac' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">🛡️ RBAC &amp; Publik</button>' +
-          '<button type="button" data-ptab="drive" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'drive' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">☁️ Google Drive</button>' +
+          (isMaster ?
+            '<button type="button" data-ptab="rekening" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rekening' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💳 Master Rekening</button>' +
+            '<button type="button" data-ptab="surat" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'surat' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📄 Format &amp; KOP Surat</button>' +
+            '<button type="button" data-ptab="pendaftaran" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'pendaftaran' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📝 Pendaftaran</button>' +
+            '<button type="button" data-ptab="keuangan" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'keuangan' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💰 Keuangan</button>' +
+            '<button type="button" data-ptab="rbac" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rbac' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">🛡️ RBAC &amp; Publik</button>' +
+            '<button type="button" data-ptab="drive" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'drive' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">☁️ Google Drive</button>'
+          : '') +
+          (canEditorial ?
+            '<button type="button" data-ptab="redaksi" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'redaksi' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📰 Redaksi Konten Portal</button>'
+          : '') +
         '</div>' +
         '<div id="pengaturanBox"></div>';
 
@@ -3146,6 +3168,7 @@
       else if (currentTab === 'keuangan') this.renderPengaturanKeuangan();
       else if (currentTab === 'rbac') this.renderPengaturanRbac();
       else if (currentTab === 'drive') this.renderPengaturanDrive();
+      else if (currentTab === 'redaksi') this.renderPengaturanRedaksi();
     },
 
     renderPengaturanRekening: function () {
@@ -4302,6 +4325,317 @@
         });
       }).catch(function (err) {
         box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat pengaturan keuangan: ' + Auth.esc(err.message) + '</div>';
+      });
+    },
+
+    // ==================================================================
+    // REDAKSI KONTEN PORTAL PUBLIK (MINI-CMS) — sub-tab ke-7 Pengaturan.
+    // Lihat docs/REDAKSI_KONTEN.md untuk struktur data & alur kerja.
+    // ==================================================================
+
+    /** Ambil nilai field form sebagai string aman. */
+    redaksiVal: function (id) {
+      var el = document.getElementById(id);
+      return el ? String(el.value).trim() : '';
+    },
+
+    /** Bangun baris editor untuk satu maklumat / siaran pers. */
+    redaksiBulletinRow: function (b) {
+      b = b || {};
+      var CATS = ['Maklumat Resmi', 'Siaran Pers', 'Edaran', 'Pengumuman', 'Kegiatan Lembaga'];
+      var opts = CATS.map(function (c) {
+        return '<option value="' + Auth.esc(c) + '"' + (b.category === c ? ' selected' : '') + '>' + Auth.esc(c) + '</option>';
+      }).join('');
+      if (b.category && CATS.indexOf(b.category) === -1) {
+        opts = '<option value="' + Auth.esc(b.category) + '" selected>' + Auth.esc(b.category) + '</option>' + opts;
+      }
+      return '<div class="ed-row ed-bulletin-row border border-gray-200 rounded-xl p-3.5 space-y-2.5 bg-gray-50/60" data-id="' + Auth.esc(b.id || '') + '">' +
+        '<div class="flex items-center justify-between gap-2">' +
+          '<span class="text-[11px] font-extrabold text-emerald-dark uppercase tracking-wider">📌 Maklumat / Siaran Pers</span>' +
+          '<button type="button" class="ed-del text-red-500 hover:text-red-700 text-[11px] font-bold">✕ Hapus</button>' +
+        '</div>' +
+        '<input type="text" class="f-title field text-xs" placeholder="Judul maklumat / siaran resmi..." value="' + Auth.esc(b.title || '') + '" />' +
+        '<div class="grid grid-cols-2 gap-2.5">' +
+          '<select class="f-category field text-xs">' + opts + '</select>' +
+          '<input type="date" class="f-date field text-xs" value="' + Auth.esc(b.date || '') + '" title="Tanggal terbit" />' +
+        '</div>' +
+        '<textarea rows="2" class="f-summary field text-xs" placeholder="Ringkasan / kutipan isi (paragraf aman, satu per baris)...">' + Auth.esc(b.summary || '') + '</textarea>' +
+        '<input type="url" class="f-link field text-xs" placeholder="Tautan dokumen lengkap (opsional)..." value="' + Auth.esc(b.link || '') + '" />' +
+      '</div>';
+    },
+
+    /** Bangun baris editor untuk satu agenda / acara. */
+    redaksiEventRow: function (e) {
+      e = e || {};
+      var CATS = ['Kajian', 'Kajian Ilmiah', 'Seminar', 'Pelatihan', 'Raker', 'Rapat Pengurus', 'Safari Dakwah', 'Bakti Sosial'];
+      var catOpts = CATS.map(function (c) {
+        return '<option value="' + Auth.esc(c) + '"' + (e.category === c ? ' selected' : '') + '>' + Auth.esc(c) + '</option>';
+      }).join('');
+      if (e.category && CATS.indexOf(e.category) === -1) {
+        catOpts = '<option value="' + Auth.esc(e.category) + '" selected>' + Auth.esc(e.category) + '</option>' + catOpts;
+      }
+      var stOpts = ['MENDATANG', 'SELESAI'].map(function (s) {
+        return '<option value="' + s + '"' + (e.status === s ? ' selected' : '') + '>' + (s === 'MENDATANG' ? 'Mendatang' : 'Selesai (Arsip)') + '</option>';
+      }).join('');
+      return '<div class="ed-row ed-event-row border border-gray-200 rounded-xl p-3.5 space-y-2.5 bg-gray-50/60" data-id="' + Auth.esc(e.id || '') + '">' +
+        '<div class="flex items-center justify-between gap-2">' +
+          '<span class="text-[11px] font-extrabold text-emerald-dark uppercase tracking-wider">📅 Agenda / Acara</span>' +
+          '<button type="button" class="ed-del text-red-500 hover:text-red-700 text-[11px] font-bold">✕ Hapus</button>' +
+        '</div>' +
+        '<input type="text" class="f-title field text-xs" placeholder="Judul acara / agenda..." value="' + Auth.esc(e.title || '') + '" />' +
+        '<div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">' +
+          '<select class="f-category field text-xs">' + catOpts + '</select>' +
+          '<input type="text" class="f-date_str field text-xs" placeholder="Tanggal (mis. Sabtu, 25 Apr 2026)" value="' + Auth.esc(e.date_str || '') + '" />' +
+          '<input type="text" class="f-time_str field text-xs" placeholder="Waktu (mis. 09.00 – 12.00 WIB)" value="' + Auth.esc(e.time_str || '') + '" />' +
+          '<input type="text" class="f-location field text-xs" placeholder="Lokasi / tempat..." value="' + Auth.esc(e.location || '') + '" />' +
+          '<input type="text" class="f-speaker field text-xs" placeholder="Pembicara / PIC (opsional)..." value="' + Auth.esc(e.speaker || '') + '" />' +
+          '<select class="f-status field text-xs">' + stOpts + '</select>' +
+        '</div>' +
+        '<input type="url" class="f-link field text-xs" placeholder="Tautan pendaftaran / detail (opsional)..." value="' + Auth.esc(e.link || '') + '" />' +
+      '</div>';
+    },
+
+    /** Bangun baris editor untuk satu FAQ. */
+    redaksiFaqRow: function (f, i) {
+      f = f || {};
+      return '<div class="ed-row ed-faq-row border border-gray-200 rounded-xl p-3.5 space-y-2.5 bg-gray-50/60">' +
+        '<div class="flex items-center justify-between gap-2">' +
+          '<span class="text-[11px] font-extrabold text-emerald-dark uppercase tracking-wider">❓ Pertanyaan #' + (Number(i) + 1) + '</span>' +
+          '<button type="button" class="ed-del text-red-500 hover:text-red-700 text-[11px] font-bold">✕ Hapus</button>' +
+        '</div>' +
+        '<input type="text" class="f-q field text-xs" placeholder="Pertanyaan publik..." value="' + Auth.esc(f.q || '') + '" />' +
+        '<textarea rows="2" class="f-a field text-xs" placeholder="Jawaban lengkap (paragraf aman, satu per baris)...">' + Auth.esc(f.a || '') + '</textarea>' +
+      '</div>';
+    },
+
+
+    renderPengaturanRedaksi: function () {
+      var box = document.getElementById('pengaturanBox');
+      var self = this;
+      if (!box) return;
+      box.innerHTML = '<div class="card bg-white rounded-2xl p-8 border border-emerald-100 text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-dark mx-auto mb-2"></div><p class="text-xs text-gray-500 font-semibold">Memuat redaksi konten portal publik...</p></div>';
+
+      Auth.fetch('getEditorialContent', null, { method: 'GET' }).then(function (res) {
+        var ed = (res && (res.editorial || res.data)) || {};
+        var h = ed.hero || {};
+        var p = ed.profile || {};
+        var be = ed.bulletins_events || {};
+        var c = ed.contact || {};
+        var s = ed.social || {};
+        var canEdit = !!(res && res.can_edit);
+
+        var bulletinRows = (Array.isArray(be.bulletins) ? be.bulletins : [])
+          .map(function (b) { return self.redaksiBulletinRow(b); }).join('');
+        var eventRows = (Array.isArray(be.events) ? be.events : [])
+          .map(function (e) { return self.redaksiEventRow(e); }).join('');
+        var faqRows = (Array.isArray(ed.faqs) ? ed.faqs : [])
+          .map(function (f, i) { return self.redaksiFaqRow(f, i); }).join('');
+
+        var ro = canEdit ? '' : ' disabled';
+        var roNote = canEdit ? '' :
+          '<div class="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold mb-4">👁️ Akun Anda bersifat read-only untuk redaksi konten. Silakan hubungi SUPERADMIN/KETUA/SEKRETARIS untuk perubahan.</div>';
+
+        box.innerHTML = roNote +
+        '<div class="space-y-6">' +
+          // ============ KARTU 1: HERO ============
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+            '<div class="flex items-center justify-between">' +
+              '<h3 class="text-base font-extrabold text-emerald-dark">🖼️ Hero / Halaman Muka</h3>' +
+              '<span class="text-xs font-bold text-emerald-800 bg-emerald-100/60 px-3 py-1 rounded-full border border-emerald-200">apii.sigitadi.id</span>' +
+            '</div>' +
+            '<div class="grid sm:grid-cols-2 gap-4">' +
+              '<div><label class="lbl">Teks Badge Hero</label><input type="text" id="edHeroBadge" class="field text-xs"' + ro + ' value="' + Auth.esc(h.badge || '') + '" placeholder="Penerimaan Anggota Baru 2026" /></div>' +
+              '<div><label class="lbl">Teks Tombol Utama (CTA)</label><input type="text" id="edHeroCtaText" class="field text-xs"' + ro + ' value="' + Auth.esc(h.cta_text || '') + '" placeholder="Info Dokumen &amp; Keuangan Kas →" /></div>' +
+            '</div>' +
+            '<div><label class="lbl">Judul Utama (Headline)</label><input type="text" id="edHeroHeadline" class="field text-xs"' + ro + ' value="' + Auth.esc(h.headline || '') + '" placeholder="Keanggotaan & Kolaborasi Yayasan APII DPW Jabodetabek" /></div>' +
+            '<div><label class="lbl">Sub-judul / Deskripsi Singkat</label><textarea id="edHeroSubheadline" rows="2" class="field text-xs"' + ro + '>' + Auth.esc(h.subheadline || '') + '</textarea></div>' +
+            '<div><label class="lbl">Tujuan Tombol Utama (link)</label><input type="text" id="edHeroCtaLink" class="field text-xs"' + ro + ' value="' + Auth.esc(h.cta_link || '') + '" placeholder="#informasi atau URL lengkap" /></div>' +
+          '</div>' +
+          // ============ KARTU 2: PROFIL & SAMBUTAN ============
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+            '<div class="flex items-center justify-between">' +
+              '<h3 class="text-base font-extrabold text-emerald-dark">🤝 Profil Lembaga &amp; Sambutan Pimpinan</h3>' +
+              '<label class="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">' +
+                '<input type="checkbox" id="edProfileShow" class="h-4 w-4 accent-emerald"' + ro + (p.show_section !== false ? ' checked' : '') + ' /> Tampilkan seksi' +
+              '</label>' +
+            '</div>' +
+            '<div class="grid sm:grid-cols-2 gap-4">' +
+              '<div><label class="lbl">Nama Pimpinan (Ketua)</label><input type="text" id="edKetuaName" class="field text-xs"' + ro + ' value="' + Auth.esc(p.ketua_name || '') + '" placeholder="Ust. Nama Lengkap, S.T., M.Kom." /></div>' +
+              '<div><label class="lbl">Jabatan Pimpinan</label><input type="text" id="edKetuaTitle" class="field text-xs"' + ro + ' value="' + Auth.esc(p.ketua_title || '') + '" placeholder="Ketua DPW APII Jabodetabek" /></div>' +
+            '</div>' +
+            '<div><label class="lbl">Teks Sambutan Pimpinan (paragraf aman)</label><textarea id="edGreeting" rows="4" class="field text-xs"' + ro + '>' + Auth.esc(p.greeting || '') + '</textarea></div>' +
+            '<div><label class="lbl">Visi Lembaga</label><textarea id="edVision" rows="2" class="field text-xs"' + ro + '>' + Auth.esc(p.vision || '') + '</textarea></div>' +
+            '<div><label class="lbl">Misi Lembaga (satu per baris, maks. 12)</label><textarea id="edMissions" rows="4" class="field text-xs"' + ro + '>' + Auth.esc((Array.isArray(p.missions) ? p.missions : []).join('\n')) + '</textarea></div>' +
+          '</div>' +
+          // ============ KARTU 3: WARTA MAKLUMAT & AGENDA ACARA ============
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+            '<div class="flex items-center justify-between">' +
+              '<h3 class="text-base font-extrabold text-emerald-dark">📰 Warta Maklumat &amp; Agenda Acara</h3>' +
+              '<label class="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">' +
+                '<input type="checkbox" id="edWartaShow" class="h-4 w-4 accent-emerald"' + ro + (be.show_section !== false ? ' checked' : '') + ' /> Tampilkan seksi' +
+              '</label>' +
+            '</div>' +
+            '<div class="grid sm:grid-cols-2 gap-4">' +
+              '<div><label class="lbl">Judul Seksi</label><input type="text" id="edWartaTitle" class="field text-xs"' + ro + ' value="' + Auth.esc(be.section_title || '') + '" placeholder="Warta Kelembagaan & Agenda Kegiatan" /></div>' +
+              '<div><label class="lbl">Sub-judul Seksi</label><input type="text" id="edWartaSubtitle" class="field text-xs"' + ro + ' value="' + Auth.esc(be.section_subtitle || '') + '" placeholder="Maklumat resmi & jadwal acara DPW APII Jabodetabek" /></div>' +
+            '</div>' +
+            '<div class="pt-2 border-t border-gray-100">' +
+              '<div class="flex items-center justify-between mb-3">' +
+                '<span class="text-sm font-extrabold text-gray-800">📌 Daftar Maklumat / Siaran Pers</span>' +
+                '<button type="button" id="edAddBulletin" class="text-xs font-bold text-emerald hover:text-emerald-dark"' + ro + '>＋ Tambah Maklumat</button>' +
+              '</div>' +
+              '<div id="edBulletinRows" class="space-y-3">' + bulletinRows + '</div>' +
+            '</div>' +
+            '<div class="pt-2 border-t border-gray-100">' +
+              '<div class="flex items-center justify-between mb-3">' +
+                '<span class="text-sm font-extrabold text-gray-800">📅 Daftar Agenda / Acara</span>' +
+                '<button type="button" id="edAddEvent" class="text-xs font-bold text-emerald hover:text-emerald-dark"' + ro + '>＋ Tambah Acara</button>' +
+              '</div>' +
+              '<div id="edEventRows" class="space-y-3">' + eventRows + '</div>' +
+            '</div>' +
+          '</div>' +
+          // __REDAKSI_PART3__
+          // ============ KARTU 4: KONTAK & MEDIA SOSIAL ============
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+            '<h3 class="text-base font-extrabold text-emerald-dark">📞 Kontak &amp; Media Sosial</h3>' +
+            '<div class="grid sm:grid-cols-2 gap-4">' +
+              '<div><label class="lbl">Alamat Sekretariat</label><textarea id="edContactAddress" rows="2" class="field text-xs"' + ro + '>' + Auth.esc(c.address || '') + '</textarea></div>' +
+              '<div><label class="lbl">Jam Layanan</label><input type="text" id="edContactHours" class="field text-xs"' + ro + ' value="' + Auth.esc(c.service_hours || '') + '" placeholder="Senin – Sabtu, 08.30 – 16.30 WIB" /></div>' +
+              '<div><label class="lbl">Email Resmi</label><input type="email" id="edContactEmail" class="field text-xs"' + ro + ' value="' + Auth.esc(c.email || '') + '" placeholder="sekretariat@apii.sigitadi.id" /></div>' +
+              '<div><label class="lbl">No. WhatsApp Helpdesk</label><input type="text" id="edContactWa" class="field text-xs"' + ro + ' value="' + Auth.esc(c.whatsapp_helpdesk || '') + '" placeholder="0812xxxxxxxx" /></div>' +
+            '</div>' +
+            '<div class="pt-2 border-t border-gray-100 grid sm:grid-cols-2 gap-4">' +
+              '<div><label class="lbl">URL YouTube</label><input type="url" id="edSocYoutube" class="field text-xs"' + ro + ' value="' + Auth.esc(s.youtube || '') + '" placeholder="https://youtube.com/@..." /></div>' +
+              '<div><label class="lbl">URL Instagram</label><input type="url" id="edSocInstagram" class="field text-xs"' + ro + ' value="' + Auth.esc(s.instagram || '') + '" placeholder="https://instagram.com/..." /></div>' +
+              '<div><label class="lbl">URL WhatsApp Channel</label><input type="url" id="edSocWaChannel" class="field text-xs"' + ro + ' value="' + Auth.esc(s.whatsapp_channel || '') + '" placeholder="https://whatsapp.com/channel/..." /></div>' +
+              '<div><label class="lbl">URL Facebook</label><input type="url" id="edSocFacebook" class="field text-xs"' + ro + ' value="' + Auth.esc(s.facebook || '') + '" placeholder="https://facebook.com/..." /></div>' +
+              '<div><label class="lbl">URL TikTok</label><input type="url" id="edSocTiktok" class="field text-xs"' + ro + ' value="' + Auth.esc(s.tiktok || '') + '" placeholder="https://tiktok.com/@..." /></div>' +
+            '</div>' +
+          '</div>' +
+          // __REDAKSI_PART4__
+          // ============ KARTU 5: FAQ ============
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+            '<div class="flex items-center justify-between">' +
+              '<h3 class="text-base font-extrabold text-emerald-dark">❓ Tanya Jawab Publik (FAQ)</h3>' +
+              '<button type="button" id="edAddFaq" class="text-xs font-bold text-emerald hover:text-emerald-dark"' + ro + '>＋ Tambah FAQ</button>' +
+            '</div>' +
+            '<div id="edFaqRows" class="space-y-3">' + faqRows + '</div>' +
+          '</div>' +
+          // ============ TOMBOL SIMPAN ============
+          (canEdit ?
+            '<div class="flex items-center justify-between gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex-wrap">' +
+              '<p class="text-xs text-emerald-800 font-semibold">Perubahan langsung tampil di portal publik (apii.sigitadi.id) setelah disimpan.</p>' +
+              '<button type="button" id="edSaveBtn" class="btn btn-primary px-5 py-2.5 rounded-xl text-sm font-bold inline-flex items-center gap-2 shadow-sm">💾 Simpan Redaksi Konten</button>' +
+            '</div>'
+          : '') +
+        '</div>';
+
+        // ---- Wiring: tombol tambah & hapus baris (event delegation) ----
+        var bindRepeater = function (addBtnId, containerId, rowFn) {
+          var addBtn = document.getElementById(addBtnId);
+          var cont = document.getElementById(containerId);
+          if (!cont) return;
+          if (addBtn) {
+            addBtn.addEventListener('click', function () {
+              cont.insertAdjacentHTML('beforeend', rowFn({}));
+            });
+          }
+          cont.addEventListener('click', function (ev) {
+            var delBtn = ev.target.closest('.ed-del');
+            if (delBtn) {
+              var row = delBtn.closest('.ed-row');
+              if (row) row.remove();
+            }
+          });
+        };
+        bindRepeater('edAddBulletin', 'edBulletinRows', function (b) { return self.redaksiBulletinRow(b); });
+        bindRepeater('edAddEvent', 'edEventRows', function (e) { return self.redaksiEventRow(e); });
+        bindRepeater('edAddFaq', 'edFaqRows', function (f) { return self.redaksiFaqRow(f, 0); });
+
+        // ---- Wiring: tombol simpan ----
+        var saveBtn = document.getElementById('edSaveBtn');
+        if (saveBtn) {
+          saveBtn.addEventListener('click', function () {
+            var collectRows = function (containerId, fields) {
+              var cont = document.getElementById(containerId);
+              if (!cont) return [];
+              return Array.prototype.map.call(cont.querySelectorAll('.ed-row'), function (row) {
+                var obj = { id: row.getAttribute('data-id') || '' };
+                fields.forEach(function (fld) {
+                  var el = row.querySelector('.' + fld.cls);
+                  obj[fld.key] = el ? String(el.value).trim() : '';
+                });
+                return obj;
+              }).filter(function (obj) {
+                return Object.keys(obj).some(function (k) { return k !== 'id' && obj[k].length > 0; });
+              });
+            };
+
+            var missionsText = self.redaksiVal('edMissions');
+            var payload = {
+              hero: {
+                badge: self.redaksiVal('edHeroBadge'),
+                headline: self.redaksiVal('edHeroHeadline'),
+                subheadline: self.redaksiVal('edHeroSubheadline'),
+                cta_text: self.redaksiVal('edHeroCtaText'),
+                cta_link: self.redaksiVal('edHeroCtaLink')
+              },
+              profile: {
+                show_section: !!(document.getElementById('edProfileShow') || {}).checked,
+                ketua_name: self.redaksiVal('edKetuaName'),
+                ketua_title: self.redaksiVal('edKetuaTitle'),
+                greeting: self.redaksiVal('edGreeting'),
+                vision: self.redaksiVal('edVision'),
+                missions: missionsText.split('\n').map(function (l) { return l.trim(); })
+                  .filter(function (l) { return l.length > 0; })
+              },
+              bulletins_events: {
+                show_section: !!(document.getElementById('edWartaShow') || {}).checked,
+                section_title: self.redaksiVal('edWartaTitle'),
+                section_subtitle: self.redaksiVal('edWartaSubtitle'),
+                bulletins: collectRows('edBulletinRows', [
+                  { cls: 'f-title', key: 'title' }, { cls: 'f-category', key: 'category' },
+                  { cls: 'f-date', key: 'date' }, { cls: 'f-summary', key: 'summary' },
+                  { cls: 'f-link', key: 'link' }
+                ]),
+                events: collectRows('edEventRows', [
+                  { cls: 'f-title', key: 'title' }, { cls: 'f-category', key: 'category' },
+                  { cls: 'f-date_str', key: 'date_str' }, { cls: 'f-time_str', key: 'time_str' },
+                  { cls: 'f-location', key: 'location' }, { cls: 'f-speaker', key: 'speaker' },
+                  { cls: 'f-link', key: 'link' }, { cls: 'f-status', key: 'status' }
+                ])
+              },
+              contact: {
+                address: self.redaksiVal('edContactAddress'),
+                email: self.redaksiVal('edContactEmail'),
+                whatsapp_helpdesk: self.redaksiVal('edContactWa'),
+                service_hours: self.redaksiVal('edContactHours')
+              },
+              social: {
+                youtube: self.redaksiVal('edSocYoutube'),
+                instagram: self.redaksiVal('edSocInstagram'),
+                whatsapp_channel: self.redaksiVal('edSocWaChannel'),
+                facebook: self.redaksiVal('edSocFacebook'),
+                tiktok: self.redaksiVal('edSocTiktok')
+              },
+              faqs: collectRows('edFaqRows', [
+                { cls: 'f-q', key: 'q' }, { cls: 'f-a', key: 'a' }
+              ])
+            };
+
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span> Menyimpan...';
+            Auth.fetch('saveEditorialContent', { editorial: payload }).then(function () {
+              Auth.cache.invalidate(['settings', 'dashboard']);
+              self.toast('Redaksi konten portal publik berhasil disimpan.', 'success');
+            }).catch(function () {}).then(function () {
+              saveBtn.disabled = false;
+              saveBtn.innerHTML = '💾 Simpan Redaksi Konten';
+            });
+          });
+        }
+      }).catch(function (err) {
+        box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat redaksi konten: ' + Auth.esc(err.message) + '</div>';
       });
     },
 

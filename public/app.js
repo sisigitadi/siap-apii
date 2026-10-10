@@ -594,10 +594,14 @@
             bannerBox.innerHTML = '';
           }
         }
+        // 1b. Redaksi Konten Dinamis Portal Publik (Mini-CMS) — selalu dirender
+        //     sebelum logika pendaftaran agar tidak terkena early-return.
+        try { self.renderEditorial(d.editorial); } catch (e) { console.error('Redaksi gagal dirender:', e); }
+
+
 
         // 2. Visibilitas Menu Pendaftaran Publik (RBAC) & Status Header Tunggal
         var rawStatus = reg.status || (reg.is_open === false ? 'DITUTUP' : 'BUKA');
-
         if (d.config && d.config.show_registration === false) {
           var deskBox = document.getElementById('headerRegDesktop');
           if (deskBox) deskBox.classList.add('hidden');
@@ -725,7 +729,324 @@
       });
     },
 
+    // ---------------------------------------------------------------
+    // REDAKSI KONTEN DINAMIS PORTAL PUBLIK (MINI-CMS)
+    // Semua string di-escape via this.esc(); paragraf dipisah per baris
+    // (parsing aman anti-XSS). Jika data kosong, fallback statis HTML
+    // (skeleton/teks bawaan) tetap ditampilkan tanpa merusak halaman.
+    // ---------------------------------------------------------------
 
+    /** Pemetaah render 6 domain redaksi ke kontainer masing-masing. */
+    renderEditorial: function (ed) {
+      if (!ed || typeof ed !== 'object') return;
+      this.renderEditorialHero(ed.hero);
+      this.renderEditorialProfile(ed.profile);
+      this.renderEditorialWarta(ed.bulletins_events);
+      this.renderEditorialFaq(ed.faqs);
+      this.renderEditorialContact(ed.contact, ed.social);
+    },
+
+    /** Bagi teks multi-baris menjadi paragraf <p> aman (anti-XSS). */
+    editorialParas: function (text) {
+      var self = this;
+      if (!text) return '';
+      return String(text).split(/\r?\n/).map(function (line) {
+        var t = line.trim();
+        return t ? '<p>' + self.esc(t) + '</p>' : '';
+      }).join('');
+    },
+
+    /** Format tanggal ISO (YYYY-MM-DD) → "1 Mar 2026"; fallback string asli. */
+    fmtEditorialDate: function (iso) {
+      if (!iso) return '';
+      var parts = String(iso).split('-');
+      if (parts.length !== 3) return String(iso);
+      var months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      var d = parseInt(parts[2], 10), m = parseInt(parts[1], 10) - 1, y = parseInt(parts[0], 10);
+      if (isNaN(d) || isNaN(m) || isNaN(y)) return String(iso);
+      return d + ' ' + (months[m] || '') + ' ' + y;
+    },
+
+    renderEditorialHero: function (h) {
+      if (!h || typeof h !== 'object') return;
+      var badge = document.getElementById('heroBadge');
+      var badgeText = document.getElementById('heroBadgeText');
+      if (badge && badgeText) {
+        if (h.badge) { badgeText.textContent = h.badge; badge.classList.remove('hidden'); }
+        else { badge.classList.add('hidden'); }
+      }
+      var headline = document.getElementById('heroHeadline');
+      if (headline && h.headline) headline.textContent = h.headline;
+      var sub = document.getElementById('heroSubHeadline');
+      if (sub && h.subheadline) sub.textContent = h.subheadline;
+      var ctaBtn = document.getElementById('heroCtaBtn');
+      var ctaText = document.getElementById('heroCtaText');
+      if (ctaText && h.cta_text) ctaText.textContent = h.cta_text;
+      if (ctaBtn && h.cta_link) ctaBtn.setAttribute('href', h.cta_link);
+    },
+
+    renderEditorialProfile: function (p) {
+      var sec = document.getElementById('profileSection');
+      if (!sec) return;
+      var parentSec = sec.parentElement || sec.parentNode || sec;
+      if (!p || p.show_section === false) {
+        if (parentSec && parentSec.style) parentSec.style.display = 'none';
+        return;
+      }
+      if (parentSec && parentSec.style && parentSec.style.display === 'none') {
+        parentSec.style.display = '';
+      }
+      var box = document.getElementById('profileContent');
+      if (!box) return;
+      var self = this;
+      var missions = (Array.isArray(p.missions) ? p.missions : []).map(function (m) {
+        return '<li class="flex items-start gap-2.5">' +
+          '<span class="h-5 w-5 rounded-full bg-gold text-emerald-dark text-[10px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">✓</span>' +
+          '<span>' + self.esc(m) + '</span></li>';
+      }).join('');
+      box.innerHTML =
+        '<div class="lg:col-span-3 bg-gradient-to-br from-emerald-50 to-white rounded-3xl p-8 border border-emerald-100">' +
+          '<div class="flex items-center gap-4 mb-5">' +
+            '<div class="h-14 w-14 bg-emerald-light rounded-2xl flex items-center justify-center flex-shrink-0">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>' +
+            '</div>' +
+            '<div><div class="font-extrabold text-emerald-dark text-lg">' + this.esc(p.ketua_name || 'Pimpinan DPW APII Jabodetabek') + '</div>' +
+            '<div class="text-xs text-gray-500">' + this.esc(p.ketua_title || '') + '</div></div>' +
+          '</div>' +
+          '<div class="space-y-3 text-sm sm:text-base text-gray-600 leading-relaxed">' + this.editorialParas(p.greeting) + '</div>' +
+        '</div>' +
+        '<div class="lg:col-span-2 bg-emerald-dark rounded-3xl p-8 text-white flex flex-col">' +
+          '<div class="font-extrabold text-gold-light text-lg mb-4">Visi &amp; Misi Lembaga</div>' +
+          '<div class="bg-white/10 rounded-2xl p-4 mb-5 border border-white/10">' +
+            '<div class="text-[10px] font-bold uppercase tracking-wider text-gold-light mb-1.5">Visi</div>' +
+            '<p class="text-sm text-emerald-light/90 leading-relaxed">' + this.esc(p.vision || '') + '</p>' +
+          '</div>' +
+          '<div class="text-[10px] font-bold uppercase tracking-wider text-gold-light mb-2.5">Misi</div>' +
+          '<ul class="space-y-2.5 text-sm text-emerald-light/90">' + missions + '</ul>' +
+        '</div>';
+    },
+
+
+
+
+    renderEditorialWarta: function (be) {
+      var self = this;
+      var sec = document.getElementById('wartaSection');
+      if (!sec) return;
+      var parentSec = sec.parentElement || sec.parentNode || sec;
+      if (!be || be.show_section === false) {
+        if (parentSec && parentSec.style) parentSec.style.display = 'none';
+        return;
+      }
+      if (parentSec && parentSec.style && parentSec.style.display === 'none') {
+        parentSec.style.display = '';
+      }
+
+      var t = document.getElementById('wartaTitle');
+      if (t && be.section_title) t.textContent = be.section_title;
+      var st = document.getElementById('wartaSubtitle');
+      if (st && be.section_subtitle) st.textContent = be.section_subtitle;
+
+      // Maklumat / siaran pers
+      self.state.bulletins = (Array.isArray(be.bulletins) ? be.bulletins : []);
+      self.state.bulletinCount = 6;
+      self.renderBulletins();
+      var moreBtn = document.getElementById('bulletinMoreBtn');
+      if (moreBtn && !moreBtn.dataset.bound) {
+        moreBtn.dataset.bound = '1';
+        moreBtn.addEventListener('click', function () {
+          self.state.bulletinCount += 6;
+          self.renderBulletins();
+        });
+      }
+
+      // Agenda: MENDATANG di atas, SELESAI (arsip) di bawah
+      var events = (Array.isArray(be.events) ? be.events.slice() : []);
+      events.sort(function (a, b) {
+        var ai = (a.status === 'SELESAI') ? 1 : 0, bi = (b.status === 'SELESAI') ? 1 : 0;
+        return ai - bi;
+      });
+      self.state.events = events;
+      self.state.eventCount = 6;
+      self.renderEvents();
+      var moreEvtBtn = document.getElementById('eventMoreBtn');
+      if (moreEvtBtn && !moreEvtBtn.dataset.bound) {
+        moreEvtBtn.dataset.bound = '1';
+        moreEvtBtn.addEventListener('click', function () {
+          self.state.eventCount += 6;
+          self.renderEvents();
+        });
+      }
+
+      // Tab switcher Maklumat <-> Agenda
+      var tabB = document.getElementById('wartaTabBulletins');
+      var tabE = document.getElementById('wartaTabEvents');
+      var paneB = document.getElementById('wartaBulletinsPane');
+      var paneE = document.getElementById('wartaEventsPane');
+      var setTab = function (isEvents) {
+        var onCls = ['active', 'bg-white', 'text-emerald-dark', 'shadow-sm'];
+        if (isEvents) {
+          paneB.classList.add('hidden'); paneE.classList.remove('hidden');
+          tabE.classList.add.apply(tabE.classList, onCls); tabE.classList.remove('text-gray-500');
+          tabB.classList.remove.apply(tabB.classList, onCls); tabB.classList.add('text-gray-500');
+          tabE.setAttribute('aria-selected', 'true'); tabB.setAttribute('aria-selected', 'false');
+        } else {
+          paneE.classList.add('hidden'); paneB.classList.remove('hidden');
+          tabB.classList.add.apply(tabB.classList, onCls); tabB.classList.remove('text-gray-500');
+          tabE.classList.remove.apply(tabE.classList, onCls); tabE.classList.add('text-gray-500');
+          tabB.setAttribute('aria-selected', 'true'); tabE.setAttribute('aria-selected', 'false');
+        }
+      };
+      if (tabB && !tabB.dataset.bound) { tabB.dataset.bound = '1'; tabB.addEventListener('click', function () { setTab(false); }); }
+      if (tabE && !tabE.dataset.bound) { tabE.dataset.bound = '1'; tabE.addEventListener('click', function () { setTab(true); }); }
+    },
+
+    renderBulletins: function () {
+      var self = this;
+      var list = document.getElementById('bulletinList');
+      if (!list) return;
+      var all = Array.isArray(this.state.bulletins) ? this.state.bulletins : [];
+      var shown = all.slice(0, this.state.bulletinCount || 6);
+      var empty = document.getElementById('bulletinEmpty');
+      if (!all.length) {
+        list.innerHTML = '';
+        if (empty) empty.classList.remove('hidden');
+      } else {
+        if (empty) empty.classList.add('hidden');
+        list.innerHTML = shown.map(function (b) {
+          var dateStr = self.fmtEditorialDate(b.date);
+          return '<div class="bg-white rounded-2xl border border-emerald-100 p-6 flex flex-col hover:shadow-lg hover:border-emerald/30 transition doc-card">' +
+            '<div class="flex items-center gap-2 mb-3 flex-wrap">' +
+              (b.category ? '<span class="badge badge-published">' + self.esc(b.category) + '</span>' : '') +
+              (dateStr ? '<span class="text-[11px] text-gray-400 font-semibold">' + self.esc(dateStr) + '</span>' : '') +
+            '</div>' +
+            '<h3 class="font-extrabold text-emerald-dark text-base sm:text-lg mb-2 leading-snug">' + self.esc(b.title) + '</h3>' +
+            '<div class="text-sm text-gray-600 leading-relaxed space-y-2 flex-1">' + self.editorialParas(b.summary) + '</div>' +
+            (b.link ? '<a href="' + self.esc(b.link) + '" target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex items-center gap-1.5 text-emerald font-bold text-sm hover:underline self-start">Baca selengkapnya →</a>' : '') +
+          '</div>';
+        }).join('');
+      }
+      var moreWrap = document.getElementById('bulletinMoreWrap');
+      if (moreWrap) moreWrap.classList.toggle('hidden', all.length <= (this.state.bulletinCount || 6));
+    },
+
+    renderEvents: function () {
+      var self = this;
+      var list = document.getElementById('eventList');
+      if (!list) return;
+      var all = Array.isArray(this.state.events) ? this.state.events : [];
+      var shown = all.slice(0, this.state.eventCount || 6);
+      var empty = document.getElementById('eventEmpty');
+      if (!all.length) {
+        list.innerHTML = '';
+        if (empty) empty.classList.remove('hidden');
+      } else {
+        if (empty) empty.classList.add('hidden');
+        list.innerHTML = shown.map(function (e) {
+          var done = (e.status === 'SELESAI');
+          var badge = done
+            ? '<span class="badge badge-draft">Selesai (Arsip Kegiatan)</span>'
+            : '<span class="badge badge-published">Mendatang</span>';
+          return '<div class="rounded-2xl border p-6 flex flex-col hover:shadow-lg transition doc-card ' +
+            (done ? 'border-gray-200 bg-gray-50/60 opacity-70' : 'border-emerald-100 bg-white hover:border-emerald/30') + '">' +
+            '<div class="flex items-center gap-2 mb-3 flex-wrap">' +
+              (e.category ? '<span class="badge badge-pending">' + self.esc(e.category) + '</span>' : '') + badge +
+            '</div>' +
+            '<h3 class="font-extrabold text-base sm:text-lg mb-3 leading-snug ' + (done ? 'text-gray-500' : 'text-emerald-dark') + '">' + self.esc(e.title) + '</h3>' +
+            '<div class="space-y-1.5 text-sm text-gray-600 mb-3">' +
+              (e.date_str ? '<div class="flex items-center gap-2"><span aria-hidden="true">📅</span><span>' + self.esc(e.date_str) + (e.time_str ? ' · ' + self.esc(e.time_str) : '') + '</span></div>' : '') +
+              (e.location ? '<div class="flex items-center gap-2"><span aria-hidden="true">📍</span><span>' + self.esc(e.location) + '</span></div>' : '') +
+              (e.speaker ? '<div class="flex items-center gap-2"><span aria-hidden="true">🎙️</span><span>' + self.esc(e.speaker) + '</span></div>' : '') +
+            '</div>' +
+            ((e.link && !done) ? '<a href="' + self.esc(e.link) + '" target="_blank" rel="noopener noreferrer" class="mt-auto inline-flex items-center gap-1.5 text-emerald font-bold text-sm hover:underline self-start">Detail &amp; pendaftaran →</a>' : '') +
+          '</div>';
+        }).join('');
+      }
+      var moreWrap = document.getElementById('eventMoreWrap');
+      if (moreWrap) moreWrap.classList.toggle('hidden', all.length <= (this.state.eventCount || 6));
+    },
+
+    renderEditorialFaq: function (faqs) {
+      var self = this;
+      var list = document.getElementById('faqList');
+      var sec = document.getElementById('faqSection');
+      if (!list) return;
+      var parentSec = sec ? (sec.parentElement || sec.parentNode || sec) : null;
+      var arr = (Array.isArray(faqs) ? faqs : []).filter(function (f) { return f && f.q; });
+      if (!arr.length) {
+        if (parentSec && parentSec.style) parentSec.style.display = 'none';
+        return;
+      }
+      if (parentSec && parentSec.style && parentSec.style.display === 'none') {
+        parentSec.style.display = '';
+      }
+      list.innerHTML = arr.map(function (f) {
+        return '<div class="faq-item bg-white rounded-2xl border border-emerald-100 overflow-hidden">' +
+          '<button type="button" class="faq-trigger w-full flex items-center justify-between gap-4 p-5 text-left font-bold text-emerald-dark text-sm sm:text-base hover:bg-emerald-50/50 transition">' +
+            '<span>' + self.esc(f.q) + '</span>' +
+            '<svg class="faq-chevron h-5 w-5 text-emerald flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" /></svg>' +
+          '</button>' +
+          '<div class="faq-answer"><div class="px-5 pb-5 pt-4 text-sm text-gray-600 leading-relaxed space-y-2 border-t border-gray-100">' + self.editorialParas(f.a) + '</div></div>' +
+        '</div>';
+      }).join('');
+      // Akordion: hanya satu item terbuka pada satu waktu
+      Array.prototype.forEach.call(list.querySelectorAll('.faq-trigger'), function (btn) {
+        btn.addEventListener('click', function () {
+          var item = btn.closest('.faq-item');
+          var isOpen = item.classList.contains('open');
+          Array.prototype.forEach.call(list.querySelectorAll('.faq-item.open'), function (o) { o.classList.remove('open'); });
+          if (!isOpen) item.classList.add('open');
+        });
+      });
+      // Buka pertanyaan pertama secara default
+      var first = list.querySelector('.faq-item');
+      if (first) first.classList.add('open');
+    },
+
+    renderEditorialContact: function (c, s) {
+      if (c && typeof c === 'object') {
+        var addr = document.getElementById('contactAddressVal');
+        if (addr && c.address) { addr.textContent = c.address; addr.classList.add('whitespace-pre-line'); }
+        var email = document.getElementById('contactEmailVal');
+        if (email && c.email) email.textContent = c.email;
+        var hours = document.getElementById('contactHoursVal');
+        if (hours && c.service_hours) hours.textContent = c.service_hours;
+        var waCard = document.getElementById('contactWaCard');
+        var waVal = document.getElementById('contactWaVal');
+        if (waCard && waVal && c.whatsapp_helpdesk) {
+          var digits = String(c.whatsapp_helpdesk).replace(/\D/g, '').replace(/^0/, '62');
+          waVal.textContent = c.whatsapp_helpdesk;
+          waCard.classList.remove('hidden');
+          if (digits) {
+            waCard.style.cursor = 'pointer';
+            waCard.title = 'Chat WhatsApp Helpdesk';
+            waCard.addEventListener('click', function () {
+              window.open('https://wa.me/' + digits + '?text=' + encodeURIComponent('Halo Sekretariat APII DPW Jabodetabek, saya ingin bertanya terkait informasi portal.'), '_blank', 'noopener');
+            });
+          }
+        }
+      }
+      this.renderEditorialSocial(s);
+    },
+
+    renderEditorialSocial: function (s) {
+      var self = this;
+      var row = document.getElementById('socialLinksRow');
+      if (!row || !s || typeof s !== 'object') return;
+      var defs = [
+        { url: s.youtube, label: 'YouTube', icon: '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" /></svg>' },
+        { url: s.instagram, label: 'Instagram', icon: '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z" /></svg>' },
+        { url: s.whatsapp_channel, label: 'WhatsApp Channel', icon: '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163a11.867 11.867 0 0 1-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 0 1 8.413 3.488 11.824 11.824 0 0 1 3.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 0 1-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 0 0 1.51 5.26l-.999 3.648 3.978-1.207zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" /></svg>' },
+        { url: s.facebook, label: 'Facebook', icon: '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>' },
+        { url: s.tiktok, label: 'TikTok', icon: '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.14-5.91 3.18-1.86.04-3.69-.68-5.04-1.92-1.99-1.83-2.85-4.73-2.16-7.36.69-2.62 2.94-4.72 5.6-5.25.32-.06.65-.1.98-.11v4.04c-1.66.38-2.98 1.96-2.98 3.7 0 1.72 1.31 3.31 2.98 3.69 1.69.4 3.56-.45 4.29-2.03.26-.53.4-1.12.41-1.71.02-3.13.01-6.25.01-9.38.01-1.08-.01-2.16.02-3.24.08-1.13.34-2.22.79-3.24.31-.72.75-1.39 1.28-1.97-.01 0 .01 0 .02.01z" /></svg>' }
+      ];
+      var links = defs.filter(function (d) { return d.url; });
+      if (!links.length) return;
+      row.innerHTML = links.map(function (d) {
+        return '<a href="' + self.esc(d.url) + '" target="_blank" rel="noopener noreferrer" aria-label="' + self.esc(d.label) + '" class="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/10 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition">' + d.icon + '<span>' + self.esc(d.label) + '</span></a>';
+      }).join('');
+      row.classList.remove('hidden');
+    },
 
     // ---------------------------------------------------------------
     // ARSIP SURAT & DOKUMEN RESMI PUBLIK
