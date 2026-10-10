@@ -26,7 +26,9 @@ if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir | Out
 # File .gs / .json yang boleh ada di apps-script setelah build. Yang lain
 # (termasuk Backend.gs peninggalan build lama) dihapus agar tidak ada file basi
 # terbawa saat seluruh folder diunggah ke editor Apps Script.
-$keepFiles = @('appsscript.json', 'AsetLogo.gs', 'AsetStempel.gs')
+# Versi.gs = berkas versi bundel yang dilaporkan endpoint `ping`; dihasilkan
+# langkah 2c di bawah (bukan dari gas/), jadi ikut dipertahankan.
+$keepFiles = @('appsscript.json', 'AsetLogo.gs', 'AsetStempel.gs', 'Versi.gs')
 
 # ---------------------------------------------------------------------------
 # 0) Pra-pemeriksaan: setiap `handler: Modul.fn` di tabel ROUTES harus terdaftar
@@ -268,12 +270,31 @@ Copy-Item -Path $manifestSrc -Destination $manifestOut -Force
 Write-Output "Manifest            : appsscript.json disalin ke $outDir"
 
 # ---------------------------------------------------------------------------
+# 2c) Info versi bundel (apps-script/Versi.gs)
+#     Endpoint `ping` melaporkan versi dari berkas ini, BUKAN dari angka yang
+#     ditulis manual di kode (penyebab laporan basi seperti "2.0.0" selagi
+#     rilisnya sudah belasan). `version` dibaca dari package.json; `release`
+#     (nomor Versi Apps Script) dicap scripts/deploy-gas.mjs tepat sebelum
+#     push, karena hanya di sana nomor itu diketahui. Build murni = release null
+#     supaya tidak ada nomor rilis yang diklaim tanpa dasar.
+# ---------------------------------------------------------------------------
+$stamp = Start-Process -FilePath 'node' -ArgumentList 'scripts/stamp-build-info.mjs' -NoNewWindow -Wait -PassThru
+if ($stamp.ExitCode -ne 0) {
+  Write-Host 'GAGAL mencetak apps-script/Versi.gs (info versi untuk endpoint ping).' -ForegroundColor Red
+  exit 1
+}
+$versiPath = Join-Path $outDir 'Versi.gs'
+if (-not (Test-Path $versiPath)) { throw "Berkas info versi tidak dihasilkan: $versiPath" }
+Write-Output "Info versi          : Versi.gs (version dari package.json, release dicap saat deploy)"
+
+# ---------------------------------------------------------------------------
 # 3) Ringkasan & cek kasar.
 # ---------------------------------------------------------------------------
 $logoChars = $asetLogo.Length
 $stempelChars = $asetStempel.Length
 $sizes['AsetLogo.gs'] = $logoChars
 $sizes['AsetStempel.gs'] = $stempelChars
+$sizes['Versi.gs'] = (Get-Content $versiPath -Raw).Length
 
 Write-Output ''
 Write-Output 'Output apps-script/ (semua JANGAN diedit manual):'

@@ -37,7 +37,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { listBackendModules } from './backend-modules.mjs';
+import { GENERATED_FILES, listBackendModules } from './backend-modules.mjs';
 
 // ---------------------------------------------------------------------------
 // Pemindai simbol global (fungsi, var/let/const, class) pada satu berkas .gs.
@@ -283,7 +283,7 @@ Kode keluar: 0 bersih · 1 ada temuan · 2 tidak dapat diverifikasi.`);
     .filter(([, defs]) => new Set(defs.map((d) => d.file)).size > 1)
     .map(([name, defs]) => ({ name, files: [...new Set(defs.map((d) => d.file))] }));
 
-  const expectedModules = new Set([...listBackendModules(), 'AsetLogo.gs', 'AsetStempel.gs']);
+  const expectedModules = new Set([...listBackendModules(), 'AsetLogo.gs', 'AsetStempel.gs', ...GENERATED_FILES]);
   const unexpectedBuild = buildFiles.filter((f) => f.endsWith('.gs') && !expectedModules.has(f));
 
   // -------------------------------------------------------------------------

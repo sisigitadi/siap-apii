@@ -8,7 +8,7 @@
 //
 // Aset (AsetLogo.gs / AsetStempel.gs) tidak ikut: base64 gambar hanya
 // memboros memori dan tidak memengaruhi logika yang diuji.
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 
 const BACKEND_DIR = 'apps-script';
 
@@ -23,14 +23,24 @@ const BACKEND_MODULES = [
 
 const ASSET_FILES = new Set(['AsetLogo.gs', 'AsetStempel.gs']);
 
+// Berkas .gs hasil bangkitan skrip (bukan dari gas/), ikut diunggah ke editor:
+// Versi.gs memuat APP_BUILD_INFO (versi aplikasi + nomor rilis) yang dilaporkan
+// endpoint `ping`; lihat scripts/stamp-build-info.mjs.
+export const GENERATED_FILES = ['Versi.gs'];
+
 /** Membaca satu file backend hasil build. */
 export function readBackendFile(name) {
   return readFileSync(`${BACKEND_DIR}/${name}`, 'utf8');
 }
 
-/** Menggabungkan seluruh file .gs backend (tanpa aset) jadi satu string. */
-export function readBackendBundle() {
-  return BACKEND_MODULES.map(readBackendFile).join('\n');
+/** Menggabungkan seluruh file .gs backend (tanpa aset) jadi satu string.
+ *  Berkas bangkitan (Versi.gs) ikut bila sudah ada, supaya APP_BUILD_INFO
+ *  terdefinisi seperti di editor Apps Script. */
+export function readBackendBundle({ root = '.' } = {}) {
+  const generated = GENERATED_FILES
+    .filter((f) => existsSync(`${root}/${BACKEND_DIR}/${f}`))
+    .map((f) => readFileSync(`${root}/${BACKEND_DIR}/${f}`, 'utf8'));
+  return [...BACKEND_MODULES.map(readBackendFile), ...generated].join('\n');
 }
 
 /** Nama file .gs backend yang ada di apps-script/ (urutan build). */
@@ -44,7 +54,7 @@ export function isModularBuild() {
   if (files.has('Backend.gs')) return false;
   for (const f of files) {
     if (f === 'appsscript.json' || !f.endsWith('.gs')) continue;
-    if (!ASSET_FILES.has(f) && !BACKEND_MODULES.includes(f)) return false;
+    if (!ASSET_FILES.has(f) && !GENERATED_FILES.includes(f) && !BACKEND_MODULES.includes(f)) return false;
   }
   return BACKEND_MODULES.every((f) => files.has(f));
 }

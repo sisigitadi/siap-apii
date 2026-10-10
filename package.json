@@ -1,12 +1,14 @@
 {
   "name": "siap-apii",
-  "version": "2.0.0",
+  "version": "2.5.0",
   "description": "Sistem Informasi & Administrasi Terpadu Yayasan APII DPW Jabodetabek",
   "private": true,
   "scripts": {
     "build": "echo Static site ready",
     "check:routes": "node scripts/validate-routes-whitelist.mjs",
     "check:legacy": "node scripts/check-legacy-duplicates.mjs",
+    "version:gas": "node scripts/stamp-build-info.mjs",
+    "cleanup:legacy": "node scripts/remove-legacy-files.mjs",
     "prebuild:gas": "node scripts/validate-routes-whitelist.mjs",
     "build:gas": "powershell -ExecutionPolicy Bypass -File scripts/build-apps-script.ps1",
     "deploy:gas": "node scripts/deploy-gas.mjs",
@@ -18,6 +20,8 @@
     "smoke:drive:local": "node scripts/smoke-drive-local.mjs",
     "smoke:legacy": "node scripts/smoke-legacy-dedup.mjs",
     "smoke:deploy": "node scripts/smoke-deploy-gate.mjs",
+    "smoke:cleanup": "node scripts/smoke-legacy-cleanup.mjs",
+    "smoke:version": "node scripts/smoke-version-report.mjs",
     "serve:portal": "npx -y serve portal -p 3000",
     "serve:public": "npx -y serve public -p 3001"
   }

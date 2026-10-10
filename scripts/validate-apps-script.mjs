@@ -3,16 +3,28 @@
 // lulus parse mandiri sebelum project bisa disimpan.
 // Cara pakai: node scripts/validate-apps-script.mjs
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { listBackendModules } from './backend-modules.mjs';
+import { GENERATED_FILES, listBackendModules } from './backend-modules.mjs';
 
+const generated = GENERATED_FILES.map((n) => `apps-script/${n}`);
 const files = [
   ...listBackendModules().map((n) => `apps-script/${n}`),
   'apps-script/AsetLogo.gs',
   'apps-script/AsetStempel.gs',
+  ...generated,
 ];
 
 let failed = 0;
-for (const f of files) {
+// Berkas bangkitan (Versi.gs) wajib ada: tanpa itu endpoint `ping` kehilangan
+// sumber angka versinya. Dibuat oleh build, jadi ketiadaannya berarti bundel
+// belum dibangun ulang setelah perubahan. Tidak dihitung dua kali di bawah
+// (daftar pemeriksaan menyaring berkas yang benar-benar ada).
+for (const f of generated) {
+  if (existsSync(f)) continue;
+  failed++;
+  console.log(`FAIL ${f} tidak ada — jalankan \`npm run build:gas\` (berkas versi dihasilkan otomatis).`);
+}
+const present = files.filter(existsSync);
+for (const f of present) {
   const code = readFileSync(f, 'utf8');
   try {
     // Bungkus dalam Function agar deklarasi `var`/`function` global valid tanpa menjalankannya.
@@ -29,7 +41,7 @@ for (const f of files) {
 // pecah modul ini cegah). Ini juga mendeteksi file lama yang tertinggal.
 const globals = {};
 let dupCount = 0;
-for (const f of files) {
+for (const f of present) {
   const re = /^(?:function\s+([A-Za-z0-9_$]+)\s*\(|var\s+([A-Za-z0-9_$]+)\s*=)/gm;
   let m;
   while ((m = re.exec(readFileSync(f, 'utf8')))) {
@@ -64,6 +76,38 @@ try {
 if (existsSync('apps-script/Backend.gs')) {
   failed++;
   console.log('FAIL apps-script/Backend.gs masih ada — jalankan build ulang; output kini per-modul.');
+}
+
+// Laporan versi endpoint `ping` harus berasal dari satu sumber otomatis:
+// package.json (versi aplikasi) + cap deploy (nomor Versi Apps Script).
+// Angka yang ditulis manual di kode = sumber drift lama (`ping` melaporkan
+// "2.0.0" selagi rilisnya sudah belasan), dan itu yang gerbang ini cegah.
+const pkgVersion = JSON.parse(readFileSync('package.json', 'utf8')).version;
+const versiPath = 'apps-script/Versi.gs';
+if (existsSync(versiPath)) {
+  const versiSrc = readFileSync(versiPath, 'utf8');
+  const vMatch = versiSrc.match(/version:\s*'([^']+)'/);
+  const rMatch = versiSrc.match(/release:\s*(\d+|null)/);
+  if (!vMatch || vMatch[1] !== pkgVersion) {
+    failed++;
+    console.log(`FAIL ${versiPath}: version ${vMatch ? `'${vMatch[1]}'` : '(tidak ditemukan)'} ≠ package.json ${pkgVersion} — jalankan \`npm run build:gas\`.`);
+  } else if (!rMatch) {
+    failed++;
+    console.log(`FAIL ${versiPath}: release tidak sah (harus bilangan bulat atau null).`);
+  } else {
+    console.log(`OK   ${versiPath} (version ${vMatch[1]} = package.json, release ${rMatch[1]})`);
+  }
+}
+const codePath = 'apps-script/Code.gs';
+if (existsSync(codePath)) {
+  const codeSrc = readFileSync(codePath, 'utf8');
+  if (/version:\s*'\d/.test(codeSrc)) {
+    failed++;
+    console.log(`FAIL ${codePath}: masih ada versi literal di laporan ping — pakai APP_BUILD_INFO dari Versi.gs.`);
+  } else if (!/APP_BUILD_INFO/.test(codeSrc)) {
+    failed++;
+    console.log(`FAIL ${codePath}: laporan ping tidak membaca APP_BUILD_INFO (sumber versi otomatis).`);
+  }
 }
 
 if (failed) {

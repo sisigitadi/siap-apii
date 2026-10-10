@@ -325,9 +325,19 @@ function handleRequest(req) {
 
   // Cek ping status bila diakses langsung tanpa aksi (misal browser GET)
   if (!action || action === 'ping') {
+    // Angka versi TIDAK ditulis di sini: keduanya datang dari APP_BUILD_INFO di
+    // Versi.gs (dihasilkan scripts/stamp-build-info.mjs) supaya monitoring tidak
+    // pernah membaca versi basi. `version` = versi aplikasi dari package.json,
+    // `release` = nomor Versi Apps Script yang tayang di deployment /exec.
+    var buildInfo = (typeof APP_BUILD_INFO === 'object' && APP_BUILD_INFO) ? APP_BUILD_INFO : {};
     return jsonOut({
       success: true,
-      data: { status: 'online', version: '2.0.0', service: 'SIAP APII Backend' },
+      data: {
+        status: 'online',
+        version: buildInfo.version || null,
+        release: buildInfo.release === undefined ? null : buildInfo.release,
+        service: 'SIAP APII Backend'
+      },
       message: 'Layanan API Yayasan APII DPW Jabodetabek Aktif.'
     });
   }

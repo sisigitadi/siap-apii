@@ -91,7 +91,7 @@ npm run deploy:gas:check    # dry-run: build + validasi + preflight berkas saja
 
 **Cara manual:** **Deploy → Manage deployments → pilih deployment → ikon ✏️ (Edit) → Version: New version → Deploy.** URL tidak berubah, jadi `API_BASE` frontend tetap sama.
 
-> Keadaan produksi saat ini: **Versi 13** (2026-10-09 00:53 WIB dari `main`; sebelumnya Versi 12 pada 2026-10-08 23:30 WIB) pada deployment `/exec` yang sama. Rincian di [CHANGELOG.md](../CHANGELOG.md) → **Status Produksi Terkini** dan [deploy.md](deploy.md) §4.
+> Keadaan produksi saat ini: **Versi 14** (2026-10-10 00:44 WIB dari `main`, build per-modul; sebelumnya Versi 13 pada 2026-10-09 00:53 WIB) pada deployment `/exec` yang sama. Rincian di [CHANGELOG.md](../CHANGELOG.md) → **Status Produksi Terkini** dan [deploy.md](deploy.md) §4.
 
 ---
 
@@ -126,10 +126,30 @@ Keluarannya: berkas yang bukan keluaran build, jumlah definisi ganda yang terben
 
 **Solusi:**
 1. Bila hasilnya menyatakan **JANGAN hapus** → pindahkan dulu simbol yang disebutkan ke modul yang tepat, lalu `npm run build:gas`.
-2. Bila seluruh simbol sudah pindah (skrip menyatakannya "penghapusan terbukti tidak menghilangkan fungsi") → buka editor Apps Script, klik kanan berkas lama → **Delete** (termasuk sisa lain seperti `Aset.gs`).
+2. Bila seluruh simbol sudah pindah (skrip menyatakannya "penghapusan terbukti tidak menghilangkan fungsi") → cukup jalankan `npm run cleanup:legacy -- --yes`. Pembersih menarik isi editor, memakai gerbang kelayakan yang sama, lalu mengirim build lokal lewat Apps Script API (`projects.updateContent`) sehingga berkas lama — termasuk sisa seperti `Aset.gs` — **hilang otomatis tanpa klik Delete di editor**. Tanpa `--yes` ia hanya merencanakan; `--json` untuk mesin; kode keluar 0 bersih/dibersihkan · 1 tak berhasil/ada temuan · 2 tak dapat diverifikasi.
 3. Verifikasi: `npm run check:legacy` harus keluar 0. Setelah itu `npm run deploy:gas` membuat versi baru seperti biasa.
 
-> Sejak gerbang **langkah 7** di `scripts/deploy-gas.mjs`, versi baru tidak dibuat selagi editor masih memuat berkas lama — jadi keadaan ini tidak bisa lagi terlanjur tayang ke produksi.
+> Sejak gerbang **langkah 7** di `scripts/deploy-gas.mjs`, versi baru tidak dibuat selagi editor masih memuat berkas lama, dan **langkah 7b** membersihkan berkas yang bukan keluaran build sendiri lewat Apps Script API — jadi keadaan ini tidak bisa lagi terlanjur tayang ke produksi maupun menuntut tombol **Delete** manual. Langkah 7b hanya dihentikan (dan deploy ditahan) bila ada simbol berkas lama yang belum pindah ke modul baru.
+>
+> **Bukti rilis Versi 14 (2026-10-10):** sebelum deploy, editor memang masih memuat `Backend.gs` (200.786 byte, 154 definisi ganda dengan modul baru). Begitu `clasp push` dijalankan, berkas itu **hilang dengan sendirinya** — API `projects.updateContent` mengganti seluruh isi project — sehingga editor tepat berisi 16 berkas dan langkah 7 lulus tanpa tindakan manual. Versi 14 tayang tanpa `Backend.gs` ikut terbawa, dan `npm run check:legacy` pasca-deploy keluar **0**. Jadi klaim lama "`clasp` tidak pernah menghapus berkas" tidak berlaku: bila Anda menemui gejala di atas, periksa dulu dengan `npm run check:legacy` — kemungkinan besar editor sudah bersih tanpa perlu menghapus apa pun.
+
+---
+
+## 11. Pengawasan membaca versi yang salah dari `ping` — DIPERBAIKI 2026-10-10
+
+**Gejala:** alat monitoring/uptime yang memeriksa `?action=ping` melaporkan `version: "2.0.0"` (atau angka lain yang tidak pernah berubah), padahal backend sudah berkali-kali dirilis. Akibatnya alarm "versi produksi tertinggal" tidak pernah benar maupun salah — angkanya memang tidak berarti.
+
+**Sebab:** angka versi ditulis manual sebagai konstanta di `gas/Code.gs` (`version: '2.0.0'`), sementara rilis sesungguhnya ditandai nomor **Versi Apps Script** (13, 14, …). Dua skema angka yang terpisah, dan yang dilaporkan `ping` tidak pernah ikut diperbarui.
+
+**Perbaikan:** tidak ada lagi angka versi yang ditulis manual. `ping` membaca `APP_BUILD_INFO` dari `apps-script/Versi.gs` — berkas yang **dibangkitkan otomatis**: `version` diambil dari `package.json` setiap build (`npm run version:gas` / ikut di `npm run build:gas`), dan `release` dicap oleh `npm run deploy:gas` **tepat sebelum** `clasp push` (nomor versi tertinggi + 1), lalu dicocokkan dengan nomor yang benar-benar dibuat `create-version`. Bila tidak cocok, deploy berhenti sebelum `update-deployment` sehingga produksi tetap menyajikan versi lama. Bila bundel belum dirilis, `release` dilaporkan `null` — bukan angka karangan.
+
+**Cara memakai untuk pengawasan:**
+```bash
+curl -s "<URL_EXEC>?action=ping"   # {"success":true,"data":{"status":"online","version":"2.5.0","release":15,...}}
+```
+Alarm yang disarankan: `status != "online"`, atau `release` berbeda dari Versi Apps Script terakhir (`npx --yes @google/clasp@3 versions`), atau `version` berbeda dari `version` di `package.json`. Nilai `release: null` berarti rilis itu di-deploy tanpa pencapan (`--no-release-stamp`, atau daftar versi tak terbaca) — periksa ulang, jangan anggap rilis terbaru.
+
+**Bila muncul lagi:** jalankan `npm run build:gas` (memperbarui `version`) lalu `npm run deploy:gas` (mencap `release`). Gerbang [scripts/validate-apps-script.mjs](../scripts/validate-apps-script.mjs) menolak build bila versi `Versi.gs` berbeda dari `package.json` atau bila kode kembali memuat versi literal, jadi angka basi tidak bisa lolos lagi. Uji perilakunya tanpa jaringan: `npm run smoke:version`.
 
 ---
 
