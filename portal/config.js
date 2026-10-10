@@ -30,7 +30,8 @@ window.ACCOUNTS = { KAS_BSI: 'Kas BSI', BRANKAS: 'Brankas', MANDIRI_WAKAF: 'Bank
 window.ROLES = {
   SUPERADMIN: 'Administrator Sistem', KETUA: 'Ketua', SEKRETARIS: 'Sekretaris',
   BENDAHARA: 'Bendahara', PEMBINA: 'Pembina', PENGAWAS: 'Pengawas',
-  KETUA_DIVISI: 'Ketua Divisi', ANGGOTA_DIVISI: 'Anggota Divisi'
+  KETUA_DIVISI: 'Ketua Divisi', ANGGOTA_DIVISI: 'Anggota Divisi',
+  DEMO: 'Akun Demo (Read-Only)'
 };
 
 // Peran read-only: frontend menyembunyikan tombol aksi (backend juga menolak).

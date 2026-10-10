@@ -11,11 +11,13 @@
  * DILARANG: menulis logika domain di file ini.
  * ==========================================================================*/
 
-// 8 peran pengurus sistem (khusus pengurus yayasan)
+// 8 peran pengurus sistem (khusus pengurus yayasan) + 1 peran khusus DEMO.
 var ROLES = {
   SUPERADMIN: 'SUPERADMIN', KETUA: 'KETUA', SEKRETARIS: 'SEKRETARIS',
   BENDAHARA: 'BENDAHARA', PEMBINA: 'PEMBINA', PENGAWAS: 'PENGAWAS',
-  KETUA_DIVISI: 'KETUA_DIVISI', ANGGOTA_DIVISI: 'ANGGOTA_DIVISI'
+  KETUA_DIVISI: 'KETUA_DIVISI', ANGGOTA_DIVISI: 'ANGGOTA_DIVISI',
+  // Peran khusus: calon pengguna mencoba alur kerja (read-only mutlak).
+  DEMO: 'DEMO'
 };
 
 // Peran read-only mutlak: Pembina & Pengawas (tidak ada aksi tulis).
@@ -39,17 +41,149 @@ var DIVISION_LABELS = {
 var ROLE_LABELS = {
   SUPERADMIN: 'Administrator Sistem', KETUA: 'Ketua', SEKRETARIS: 'Sekretaris',
   BENDAHARA: 'Bendahara', PEMBINA: 'Pembina', PENGAWAS: 'Pengawas',
-  KETUA_DIVISI: 'Ketua Divisi', ANGGOTA_DIVISI: 'Anggota Divisi'
+  KETUA_DIVISI: 'Ketua Divisi', ANGGOTA_DIVISI: 'Anggota Divisi',
+  DEMO: 'Akun Demo (Read-Only)'
+};
+
+// ==========================================================================
+// RBAC PER-AKSI (fine-grained permissions)
+// ==========================================================================
+// Setiap route (auth:true) adalah satu "aksi" yang bisa diizinkan/dicabut
+// per pengguna lewat kolom Sheet_Users.permissions. Konvensi nilai kolom:
+//   ''            -> warisi default peran (roleDefaultPermissions_), kompatibel
+//                    dengan akun lama yang belum punya nilai permissions.
+//   '*'           -> semua aksi (hanya SUPERADMIN yang bisa diset begitu).
+//   ["a","b",...] -> JSON array aksi eksplisit (hanya aksi yang masuk rentang
+//                    peran pengguna yang dihitung -> tidak bisa "naik kelas").
+//
+// Router mengecek roles (gate kasar modul) DULU, lalu hasPermission_ (gate
+// per-aksi). SUPERADMIN selalu lolos.
+
+// Label tampilan tiap aksi (untuk grid checkbox izin di portal pengurus).
+var ACTION_LABELS = {
+  // Autentikasi & akun
+  logout: 'Keluar dari sistem',
+  me: 'Lihat data sendiri',
+  getDashboard: 'Lihat dashboard ringkasan',
+  getListPengguna: 'Lihat daftar pengguna',
+  createPengguna: 'Buat pengguna baru',
+  updatePengguna: 'Ubah data pengguna',
+  resetUserPermissions: 'Reset izin aksi pengguna',
+  getAuditLogs: 'Lihat jejak audit',
+  // Pendaftaran anggota
+  getListPendaftar: 'Lihat pendaftar anggota',
+  verifyPendaftarSekretaris: 'Verifikasi berkas pendaftar',
+  approvePendaftarKetum: 'Setujui pendaftar jadi anggota',
+  rejectPendaftar: 'Tolak pendaftar',
+  exportPendaftar: 'Ekspor data pendaftar',
+  // Persuratan
+  getListSurat: 'Lihat daftar surat',
+  createSurat: 'Buat draf surat',
+  updateSurat: 'Ubah draf surat',
+  submitSurat: 'Ajukan surat ke Ketua',
+  approveSurat: 'Setujui & terbitkan surat',
+  rejectSurat: 'Tolak surat',
+  reserveLetterNumber: 'Reservasi nomor surat',
+  getLetterTemplates: 'Lihat template surat',
+  saveLetterTemplate: 'Simpan template surat',
+  deleteLetterTemplate: 'Hapus template surat',
+  // Keuangan
+  getListKeuangan: 'Lihat daftar transaksi',
+  getSaldo: 'Lihat saldo kas',
+  createVoucher: 'Buat voucher transaksi',
+  updateVoucherReceipt: 'Unggah kuitansi voucher',
+  verifyVoucherBendahara: 'Verifikasi voucher (Bendahara)',
+  verifyVoucherKetum: 'Verifikasi voucher (Ketua)',
+  rejectVoucher: 'Tolak voucher',
+  getAccounts: 'Lihat master rekening',
+  saveAccount: 'Simpan master rekening',
+  deleteAccount: 'Hapus master rekening',
+  // Pengaturan
+  getSettings: 'Lihat pengaturan sistem',
+  saveSettings: 'Simpan pengaturan sistem',
+  getEditorialHistory: 'Lihat riwayat versi konten',
+  getEditorialRevision: 'Buka detail versi konten',
+  restoreEditorialRevision: 'Kembalikan versi konten',
+  exportEditorialContent: 'Ekspor konten redaksi',
+  importEditorialContent: 'Impor konten redaksi',
+  uploadKopImage: 'Unggah gambar KOP surat',
+  testDriveStorage: 'Tes penyimpanan Google Drive',
+  createDriveFolder: 'Buat folder Drive',
+  moveDriveFolder: 'Pindahkan folder Drive',
+  resetDriveStorage: 'Reset penyimpanan Drive',
+  initDatabaseSchema: 'Sinkronkan skema database',
+  // Divisi
+  getListDivisi: 'Lihat program divisi',
+  createSubmission: 'Buat usulan program divisi',
+  updateSubmission: 'Ubah usulan program divisi',
+  ajukanSubmission: 'Ajukan program divisi',
+  approveSubmission: 'Setujui program divisi',
+  rejectSubmission: 'Tolak program divisi',
+  startExecution: 'Mulai eksekusi program divisi',
+  submitLPJ: 'Unggah LPJ program divisi',
+  // Pengunjung
+  getVisitors: 'Lihat statistik pengunjung'
+};
+
+// Pengelompokan aksi untuk tampilan grid izin (urutan = urutan tampil).
+var ACTION_MODULES = {
+  getListPengguna: 'Pengguna', createPengguna: 'Pengguna', updatePengguna: 'Pengguna',
+  resetUserPermissions: 'Pengguna', getAuditLogs: 'Pengguna',
+  getListPendaftar: 'Pendaftaran', verifyPendaftarSekretaris: 'Pendaftaran',
+  approvePendaftarKetum: 'Pendaftaran', rejectPendaftar: 'Pendaftaran',
+  exportPendaftar: 'Pendaftaran',
+  getListSurat: 'Persuratan', createSurat: 'Persuratan', updateSurat: 'Persuratan',
+  submitSurat: 'Persuratan', approveSurat: 'Persuratan', rejectSurat: 'Persuratan',
+  reserveLetterNumber: 'Persuratan', getLetterTemplates: 'Persuratan',
+  saveLetterTemplate: 'Persuratan', deleteLetterTemplate: 'Persuratan',
+  getListKeuangan: 'Keuangan', getSaldo: 'Keuangan', createVoucher: 'Keuangan',
+  updateVoucherReceipt: 'Keuangan', verifyVoucherBendahara: 'Keuangan',
+  verifyVoucherKetum: 'Keuangan', rejectVoucher: 'Keuangan',
+  getAccounts: 'Keuangan', saveAccount: 'Keuangan', deleteAccount: 'Keuangan',
+  getSettings: 'Pengaturan', saveSettings: 'Pengaturan',
+  getEditorialHistory: 'Pengaturan', getEditorialRevision: 'Pengaturan',
+  restoreEditorialRevision: 'Pengaturan', exportEditorialContent: 'Pengaturan',
+  importEditorialContent: 'Pengaturan', uploadKopImage: 'Pengaturan',
+  testDriveStorage: 'Pengaturan', createDriveFolder: 'Pengaturan',
+  moveDriveFolder: 'Pengaturan', resetDriveStorage: 'Pengaturan',
+  initDatabaseSchema: 'Pengaturan',
+  getListDivisi: 'Divisi', createSubmission: 'Divisi', updateSubmission: 'Divisi',
+  ajukanSubmission: 'Divisi', approveSubmission: 'Divisi', rejectSubmission: 'Divisi',
+  startExecution: 'Divisi', submitLPJ: 'Divisi',
+  getVisitors: 'Pengunjung'
+};
+
+// Modul (sheet audit) untuk tiap aksi audit-enabled.
+var ACTION_AUDIT_MODULES = {
+  createPengguna: 'USERS', updatePengguna: 'USERS', resetUserPermissions: 'USERS',
+  saveLetterTemplate: 'TEMPLATES', deleteLetterTemplate: 'TEMPLATES'
 };
 
 // Peran yang boleh membaca modul tertentu.
+// DEMO termasuk pembaca surat & keuangan agar bisa melihat alur kerja pengurus,
+// namun TIDAK termasuk USERS/AUDIT/PENGATURAN (data sensitif) dan TIDAK ada
+// satu pun aksi tulis (lihat DEMO_ALLOWED_ACTIONS di bawah).
 var SURAT_READ_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS,
-                        ROLES.PEMBINA, ROLES.PENGAWAS];
+                        ROLES.PEMBINA, ROLES.PENGAWAS, ROLES.DEMO];
 var KEUANGAN_READ_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.BENDAHARA,
-                           ROLES.PEMBINA, ROLES.PENGAWAS];
+                           ROLES.PEMBINA, ROLES.PENGAWAS, ROLES.DEMO];
 var USERS_READ_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS, ROLES.BENDAHARA];
 var DIVISI_SUBMIT_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA_DIVISI, ROLES.ANGGOTA_DIVISI];
 var AUDIT_READ_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.PEMBINA, ROLES.PENGAWAS];
+
+// ==========================================================================
+// AKUN DEMO (read-only mutlak)
+// ==========================================================================
+// Akun demo dipakai calon pengurus saat presentasi untuk memahami alur kerja,
+// logika, dan UI/UX. Akun ini HANYA boleh menjalankan aksi baca di daftar ini.
+// Daftar ini adalah penjaga mutlak (defense in depth) terlepas dari RBAC peran:
+// semua aksi di luar daftar langsung ditolak di handleRequest().
+var DEMO_ALLOWED_ACTIONS = [
+  'me', 'logout', 'getDashboard',
+  'getListSurat', 'getLetterTemplates',          // lihat persuratan (bukan manajemen)
+  'getListKeuangan', 'getSaldo', 'getAccounts',  // lihat keuangan (bukan verifikasi)
+  'getListDivisi'                                 // lihat program divisi
+];
 
 // ==========================================================================
 // TABEL ROUTES — Single Source of Truth RBAC
@@ -74,6 +208,9 @@ var ROUTES = {
   approvePendaftarKetum:     { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Auth.approvePendaftarKetum },
   rejectPendaftar:           { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS], handler: Auth.rejectPendaftar },
   exportPendaftar:           { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS], handler: Auth.exportPendaftar },
+
+  // --- Akun Demo (login khusus read-only, tanpa username/password) ---
+  loginDemo:           { auth: false, roles: null, handler: Auth.loginDemo },
 
   // --- Dashboard ---
   getDashboard:        { auth: true,  roles: null, handler: Utils.getDashboard },
@@ -127,6 +264,19 @@ var ROUTES = {
   rejectSubmission:    { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Divisi.rejectSubmission },
   startExecution:      { auth: true,  roles: DIVISI_SUBMIT_ROLES, handler: Divisi.startExecution },
   submitLPJ:           { auth: true,  roles: DIVISI_SUBMIT_ROLES, handler: Divisi.submitLPJ },
+
+  // --- Template Surat (PDF asli overlay; lihat Surat.gs) ---
+  getLetterTemplates:  { auth: true,  roles: SURAT_READ_ROLES, handler: Surat.getLetterTemplates },
+  saveLetterTemplate:  { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.SEKRETARIS], handler: Surat.saveLetterTemplate },
+  deleteLetterTemplate:{ auth: true,  roles: [ROLES.SUPERADMIN], handler: Surat.deleteLetterTemplate },
+
+  // --- Pengunjung Portal Publik (Visitor.gs) ---
+  trackVisitor:        { auth: false, roles: null, handler: Visitor.trackVisitor },
+  getVisitors:         { auth: true,  roles: AUDIT_READ_ROLES, handler: Visitor.getVisitors },
+
+  // --- RBAC per-aksi (Code.gs) ---
+  getPermissionsMap:   { auth: true,  roles: [ROLES.SUPERADMIN], handler: getPermissionsMap },
+  resetUserPermissions:{ auth: true,  roles: [ROLES.SUPERADMIN], handler: resetUserPermissions },
 
   // --- Alias Kompatibilitas (Pencegahan Notif Aksi Tidak Dikenali) ---
   getDashboardSummary: { auth: true,  roles: null, handler: Utils.getDashboard },
@@ -197,12 +347,28 @@ function handleRequest(req) {
       return jsonOut({ success: false, data: null,
         message: 'Sesi berakhir atau tidak valid. Silakan login kembali.' });
     }
-    // 3) Cek RBAC peran.
+    // 3) Cek RBAC peran (gate kasar modul).
     if (route.roles && route.roles.indexOf(user.role) === -1) {
       Utils.audit(user.username, 'FORBIDDEN',
-        'Aksi ' + action + ' ditolak untuk peran ' + (ROLE_LABELS[user.role] || user.role));
+        'Aksi ' + action + ' ditolak untuk peran ' + (ROLE_LABELS[user.role] || user.role), 'RBAC');
       return jsonOut({ success: false, data: null,
         message: 'Anda tidak memiliki izin untuk aksi ini.' });
+    }
+    // 3a) PENJAGA AKUN DEMO: aksi di luar daftar read-only langsung ditolak.
+    //     Ini lapisan keamanan mutlak — tidak bergantung pada RBAC peran.
+    if (isDemoUser_(user) && DEMO_ALLOWED_ACTIONS.indexOf(action) === -1) {
+      Utils.audit(user.username, 'DEMO_BLOCKED',
+        'Aksi ' + action + ' diblokir untuk akun demo (read-only)', 'RBAC');
+      return jsonOut({ success: false, data: null,
+        message: 'Akun demo hanya bisa melihat. Aksi mengubah/menyimpan data tidak diizinkan.' });
+    }
+
+    // 3b) Cek RBAC per-AKSI (gate halus: izin spesifik pengguna).
+    if (!hasPermission_(user, action)) {
+      Utils.audit(user.username, 'FORBIDDEN',
+        'Aksi ' + action + ' dicabut untuk pengguna ini', 'RBAC');
+      return jsonOut({ success: false, data: null,
+        message: 'Akses aksi ini telah dicabut dari akun Anda. Hubungi administrator.' });
     }
   }
 
@@ -240,6 +406,138 @@ function jsonOut(obj) {
 }
 
 /**
+ * Daftar aksi yang menjadi "default" sebuah peran (berdasarkan tabel ROUTES).
+ * Aksi publik (auth:false) & aksi terbuka (roles:null) tidak perlu izin eksplisit.
+ * @param {string} role
+ * @return {Array<string>} daftar nama aksi (route key)
+ */
+function roleDefaultPermissions_(role) {
+  if (role === ROLES.SUPERADMIN) {
+    return Object.keys(ROUTES).filter(function (a) {
+      return !!ROUTES[a] && ROUTES[a].auth === true;
+    });
+  }
+  var out = [];
+  for (var action in ROUTES) {
+    var route = ROUTES[action];
+    if (!route || route.auth !== true) continue;
+    if (route.roles === null || route.roles.indexOf(role) !== -1) out.push(action);
+  }
+  return out;
+}
+
+/**
+ * Parse kolom permissions seorang pengguna menjadi daftar aksi efektif.
+ * @param {object} user baris Sheet_Users
+ * @return {Array<string>|string} daftar aksi, atau '*' untuk SUPERADMIN
+ */
+function effectivePermissions_(user) {
+  if (!user) return [];
+  if (user.role === ROLES.SUPERADMIN) return '*';
+  var raw = (user.permissions === undefined || user.permissions === null)
+    ? '' : String(user.permissions).trim();
+  if (raw === '*') return '*';
+  // Tidak ada nilai -> warisi default peran (akun lama tetap kompatibel).
+  if (raw === '') return roleDefaultPermissions_(user.role);
+  var list = null;
+  try {
+    var parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) list = parsed;
+  } catch (e) { /* bukan JSON, mungkin daftar dipisah koma */ }
+  if (list === null) {
+    list = raw.split(',').map(function (s) { return s.trim(); })
+      .filter(function (s) { return s.length > 0; });
+  }
+  // Sandaran: aksi yang diluar jangkauan peran tidak pernah diizinkan.
+  var allowed = roleDefaultPermissions_(user.role);
+  return list.filter(function (a) { return allowed.indexOf(a) !== -1; });
+}
+
+/**
+ * Cek apakah baris user adalah akun demo (read-only mutlak).
+ * @param {object} user baris Sheet_Users
+ * @return {boolean}
+ */
+function isDemoUser_(user) {
+  if (!user) return false;
+  if (user.role === ROLES.DEMO) return true;
+  var flag = user.is_demo;
+  return flag === true || flag === 'TRUE' || flag === 'true';
+}
+
+/**
+ * Cek apakah pengguna boleh menjalankan sebuah aksi.
+ * @param {object} user baris Sheet_Users
+ * @param {string} action nama aksi (route key)
+ * @return {boolean}
+ */
+function hasPermission_(user, action) {
+  var route = ROUTES[action];
+  if (!route) return false;
+  if (!route.auth) return true;                   // aksi publik
+  if (!user) return false;
+  if (user.role === ROLES.SUPERADMIN) return true;
+  if (route.roles === null) return true;          // semua peran login
+  var perms = effectivePermissions_(user);
+  if (perms === '*') return true;
+  return perms.indexOf(action) !== -1;
+}
+
+/**
+ * getPermissionsMap: peta lengkap aksi + default peran, untuk merender grid
+ * checkbox izin di portal pengurus (hanya SUPERADMIN).
+ */
+function getPermissionsMap(ctx) {
+  var actions = [];
+  for (var action in ROUTES) {
+    var route = ROUTES[action];
+    if (!route || route.auth !== true) continue;
+    if (route.roles === null) continue; // tidak perlu izin eksplisit
+    actions.push({
+      action: action,
+      label: ACTION_LABELS[action] || action,
+      module: ACTION_MODULES[action] || 'Lainnya',
+      roles: route.roles
+    });
+  }
+  var roleDefaults = {};
+  for (var r in ROLES) {
+    roleDefaults[ROLES[r]] = roleDefaultPermissions_(ROLES[r]);
+  }
+  return {
+    ok: true,
+    data: {
+      actions: actions,
+      role_defaults: roleDefaults,
+      roles: ROLES,
+      role_labels: ROLE_LABELS
+    },
+    message: 'Peta izin aksi berhasil dimuat.'
+  };
+}
+
+/**
+ * resetUserPermissions: kembalikan izin aksi seorang pengguna ke default peran
+ * (mengosongkan kolom permissions). Hanya SUPERADMIN.
+ * @param {object} ctx.payload { id }
+ */
+function resetUserPermissions(ctx) {
+  var p = ctx.payload || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID pengguna wajib diisi.' };
+  var user = Database.findOne(TABS.USERS, { id: p.id });
+  if (!user) return { ok: false, data: null, message: 'Pengguna tidak ditemukan.' };
+  Database.updateRow(TABS.USERS, user._row, {
+    permissions: '',
+    updated_at: new Date().toISOString()
+  });
+  audit(ctx.user.username, 'PERMISSIONS_RESET',
+    'Reset izin aksi pengguna ' + user.username + ' ke default peran ' + user.role,
+    'USERS');
+  return { ok: true, data: null,
+    message: 'Izin aksi ' + user.username + ' dikembalikan ke default peran.' };
+}
+
+/**
  * Helper untuk handler: lempar error aplikasi (ditangkap handleRequest).
  */
 function appError(message) {
@@ -265,18 +563,61 @@ function setup() {
   Logger.log('Setup selesai. Database, folder Drive, & template surat siap.');
 }
 
+/**
+ * seedDemoUsers: seed 27 akun lengkap sesuai AD/ART Pasal 16 —
+ *   6 pimpinan inti (Superadmin, Ketua, Sekretaris, Bendahara, Pembina, Pengawas)
+ * + 7 divisi x (1 Ketua Divisi + 2 Anggota Divisi) = 21
+ * Total = 27 akun. Semua password 'apii2026'.
+ * Idempoten: akun yang sudah ada tidak ditimpa.
+ */
 function seedDemoUsers() {
   var password = 'apii2026';
+
+  // [username, nama lengkap, peran, divisi, email]
   var demo = [
-    ['superadmin', 'Administrator Sistem', ROLES.SUPERADMIN, '', 'admin@apii-jabo.or.id'],
-    ['ketua',      'Ketua Umum',           ROLES.KETUA,      '', 'ketua@apii-jabo.or.id'],
-    ['sekretaris', 'Sekretaris',           ROLES.SEKRETARIS, '', 'sekretaris@apii-jabo.or.id'],
-    ['bendahara',  'Bendahara',            ROLES.BENDAHARA,  '', 'bendahara@apii-jabo.or.id'],
-    ['pembina',    'Pembina',              ROLES.PEMBINA,    '', 'pembina@apii-jabo.or.id'],
-    ['pengawas',   'Pengawas',             ROLES.PENGAWAS,   '', 'pengawas@apii-jabo.or.id'],
-    ['khumas',     'Ketua Divisi Humas',   ROLES.KETUA_DIVISI,     DIVISIONS.DIV_HUMAS, 'humas@apii-jabo.or.id'],
-    ['ahumas',     'Anggota Divisi Humas', ROLES.ANGGOTA_DIVISI,   DIVISIONS.DIV_HUMAS, '']
+    // --- 6 pimpinan inti ---
+    ['superadmin', 'Administrator Sistem',  ROLES.SUPERADMIN, '', 'admin@apii-jabo.or.id'],
+    ['ketua',      'Ketua Umum',            ROLES.KETUA,      '', 'ketua@apii-jabo.or.id'],
+    ['sekretaris', 'Sekretaris',            ROLES.SEKRETARIS, '', 'sekretaris@apii-jabo.or.id'],
+    ['bendahara',  'Bendahara',             ROLES.BENDAHARA,  '', 'bendahara@apii-jabo.or.id'],
+    ['pembina',    'Pembina',               ROLES.PEMBINA,    '', 'pembina@apii-jabo.or.id'],
+    ['pengawas',   'Pengawas',              ROLES.PENGAWAS,   '', 'pengawas@apii-jabo.or.id'],
+    // --- 7 divisi kerja x (Ketua + 2 Anggota) ---
+    ['khumas',     'Ketua Divisi Humas',    ROLES.KETUA_DIVISI,   DIVISIONS.DIV_HUMAS,     'humas@apii-jabo.or.id'],
+    ['ahumas1',    'Anggota Divisi Humas I',  ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_HUMAS,     ''],
+    ['ahumas2',    'Anggota Divisi Humas II', ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_HUMAS,     ''],
+    ['klitbang',   'Ketua Divisi Litbang',  ROLES.KETUA_DIVISI,   DIVISIONS.DIV_LITBANG,   'litbang@apii-jabo.or.id'],
+    ['alitbang1',  'Anggota Divisi Litbang I',  ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_LITBANG, ''],
+    ['alitbang2',  'Anggota Divisi Litbang II', ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_LITBANG, ''],
+    ['ksosmed',    'Ketua Divisi Media Sosial', ROLES.KETUA_DIVISI, DIVISIONS.DIV_SOSMED,   'sosmed@apii-jabo.or.id'],
+    ['asosmed1',   'Anggota Divisi Media Sosial I',  ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_SOSMED, ''],
+    ['asosmed2',   'Anggota Divisi Media Sosial II', ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_SOSMED, ''],
+    ['kdakwah',    'Ketua Divisi Dakwah',   ROLES.KETUA_DIVISI,   DIVISIONS.DIV_DAKWAH,    'dakwah@apii-jabo.or.id'],
+    ['adakwah1',   'Anggota Divisi Dakwah I',  ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_DAKWAH,  ''],
+    ['adakwah2',   'Anggota Divisi Dakwah II', ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_DAKWAH,  ''],
+    ['kinvestasi', 'Ketua Divisi Investasi', ROLES.KETUA_DIVISI,   DIVISIONS.DIV_INVESTASI, 'investasi@apii-jabo.or.id'],
+    ['ainvestasi1','Anggota Divisi Investasi I',  ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_INVESTASI, ''],
+    ['ainvestasi2','Anggota Divisi Investasi II', ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_INVESTASI, ''],
+    ['khukum',     'Ketua Divisi Hukum',    ROLES.KETUA_DIVISI,   DIVISIONS.DIV_HUKUM,     'hukum@apii-jabo.or.id'],
+    ['ahukum1',    'Anggota Divisi Hukum I',  ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_HUKUM,     ''],
+    ['ahukum2',    'Anggota Divisi Hukum II', ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_HUKUM,     ''],
+    ['kumum',      'Ketua Divisi Umum',     ROLES.KETUA_DIVISI,   DIVISIONS.DIV_UMUM,      'umum@apii-jabo.or.id'],
+    ['aumum1',     'Anggota Divisi Umum I',  ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_UMUM,      ''],
+    ['aumum2',     'Anggota Divisi Umum II', ROLES.ANGGOTA_DIVISI, DIVISIONS.DIV_UMUM,      '']
   ];
+  // Migrasi nama akun lama -> konvensi 27 akun (jika belum ada targetnya).
+  var renames = { 'ahumas': 'ahumas1' };
+  for (var oldU in renames) {
+    var legacy = Database.findOne('Sheet_Users', { username: oldU });
+    var target = Database.findOne('Sheet_Users', { username: renames[oldU] });
+    if (legacy && !target) {
+      Database.updateRow('Sheet_Users', legacy._row, {
+        username: renames[oldU],
+        updated_at: new Date().toISOString()
+      });
+    }
+  }
+
   var now = new Date().toISOString();
   demo.forEach(function (row) {
     var existing = Database.findOne('Sheet_Users', { username: row[0] });
@@ -291,6 +632,7 @@ function seedDemoUsers() {
       division: row[3],
       is_active: 'TRUE',
       can_manage_users: row[2] === ROLES.SUPERADMIN ? 'TRUE' : 'FALSE',
+      permissions: '', // warisi default peran (lihat effectivePermissions_)
       created_at: now,
       updated_at: now
     });

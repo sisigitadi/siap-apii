@@ -14,6 +14,8 @@
 
 // Masa berlaku sesi: 7 hari (dalam milidetik).
 var SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// Sesi akun demo lebih singkat (1 hari) karena sifatnya presentasi read-only.
+var DEMO_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Hash password: SHA-256(SALT + password) -> hex 64 char.
@@ -75,6 +77,82 @@ function login(ctx) {
     data: { token: token, expired_at: now + SESSION_TTL_MS, user: sanitizeUser(user) },
     message: 'Login berhasil. Selamat datang, ' + (user.full_name || user.username) + '.'
   };
+}
+
+/**
+ * loginDemo: masuk ke akun demo TANPA username & password.
+ * Dipakai calon pengurus untuk mencoba alur kerja, logika, dan UI/UX saat
+ * presentasi. Akun demo bersifat READ-ONLY mutlak:
+ *   - Penjaga mutlak: DEMO_ALLOWED_ACTIONS di Code.gs menolak semua aksi tulis.
+ *   - Tidak bisa melihat Manajemen Pengguna, Jejak Audit, maupun Pengaturan &
+ *     Master (data sensitif) — baik di frontend maupun di backend.
+ * Route publik (auth: false). Membuat akun demo secara idempoten bila belum ada.
+ */
+function loginDemo(ctx) {
+  var user = ensureDemoUser_();
+  if (!user) {
+    return { ok: false, data: null,
+      message: 'Akun demo belum tersedia. Jalankan setup() sekali lagi.' };
+  }
+
+  var token = uuid();
+  var now = Date.now();
+  Database.insert(TABS.SESSIONS, {
+    token: token, user_id: user.id, username: user.username,
+    role: user.role, division: user.division,
+    created_at: new Date(now).toISOString(),
+    expired_at: new Date(now + DEMO_SESSION_TTL_MS).toISOString()
+  });
+
+  purgeExpiredSessions_();
+
+  audit(user.username, 'LOGIN_SUCCESS', 'Login akun demo (read-only)');
+
+  return {
+    ok: true,
+    data: {
+      token: token,
+      expired_at: new Date(now + DEMO_SESSION_TTL_MS).toISOString(),
+      user: sanitizeUser(user)
+    },
+    message: 'Selamat datang di akun demo. Anda bisa melihat semua fitur & alur kerja, namun tidak dapat mengubah data apapun.'
+  };
+}
+
+/**
+ * ensureDemoUser_: buat akun demo bila belum ada (idempoten).
+ * Akun demo tidak punya password (tidak bisa login manual) dan ditandai is_demo.
+ * @return {object} baris Sheet_Users akun demo
+ */
+function ensureDemoUser_() {
+  var existing = Database.findOne(TABS.USERS, { username: 'demo' });
+  if (existing) {
+    // Pastikan flag is_demo & peran tetap konsisten bila akun lama tanpa flag.
+    if (String(existing.is_demo) !== 'TRUE' || existing.role !== ROLES.DEMO) {
+      Database.updateRow(TABS.USERS, existing._row, {
+        role: ROLES.DEMO, is_demo: 'TRUE', is_active: 'TRUE'
+      });
+      existing.role = ROLES.DEMO;
+      existing.is_demo = 'TRUE';
+    }
+    return existing;
+  }
+  var now = new Date().toISOString();
+  return Database.insert(TABS.USERS, {
+    id: uuid(),
+    username: 'demo',
+    password_hash: hashPassword(uuid()),  // password acak: tidak bisa login manual
+    full_name: 'Akun Demo',
+    email: '',
+    role: ROLES.DEMO,
+    division: '',
+    is_active: 'TRUE',
+    can_manage_users: 'FALSE',
+    is_demo: 'TRUE',
+    permissions: '',
+    created_at: now,
+    updated_at: now
+  });
 }
 
 /**
@@ -172,6 +250,11 @@ function createPengguna(ctx) {
     role: p.role, division: p.division || '',
     is_active: 'TRUE',
     can_manage_users: p.can_manage_users === true || p.can_manage_users === 'TRUE' ? 'TRUE' : 'FALSE',
+    permissions: Array.isArray(p.permissions)
+      ? JSON.stringify(p.permissions.filter(function (a) {
+          return typeof a === 'string' && roleDefaultPermissions_(p.role).indexOf(a) !== -1;
+        }))
+      : '',
     created_at: now, updated_at: now
   });
 
@@ -208,6 +291,20 @@ function updatePengguna(ctx) {
   }
   if (p.can_manage_users !== undefined) {
     values.can_manage_users = (p.can_manage_users === true || p.can_manage_users === 'TRUE') ? 'TRUE' : 'FALSE';
+  }
+  // RBAC per-aksi: simpan daftar izin eksplisit (JSON array) atau reset ('').
+  // Hanya aksi dalam jangkauan peran user yang disimpan (lihat effectivePermissions_).
+  if (p.permissions !== undefined && p.permissions !== null) {
+    var perms = p.permissions;
+    if (Array.isArray(perms)) {
+      var allowed = roleDefaultPermissions_(p.role || user.role);
+      var cleaned = perms.filter(function (a) {
+        return typeof a === 'string' && allowed.indexOf(a) !== -1;
+      });
+      values.permissions = JSON.stringify(cleaned);
+    } else {
+      values.permissions = '';
+    }
   }
   if (p.password) values.password_hash = hashPassword(p.password);
 
@@ -273,10 +370,16 @@ function saveUploadToDrive_(base64Data, filename, subfolderName) {
     var targetFolder = parentFolder;
     if (subfolderName) {
       var it = parentFolder.getFoldersByName(subfolderName);
+      var subfoldersByBase = {
+        'Surat_Publikasi': 'Surat_Publikasi',
+        'Keuangan_QRIS': 'Keuangan_QRIS',
+        'Konten_Hero': 'Konten_Hero',
+        'Konten_Agenda': 'Konten_Agenda'
+      };
       if (it.hasNext()) {
         targetFolder = it.next();
       } else {
-        targetFolder = parentFolder.createFolder(subfolderName);
+        targetFolder = parentFolder.createFolder(subfoldersByBase[subfolderName] || subfolderName);
       }
     }
     var file = targetFolder.createFile(blob);

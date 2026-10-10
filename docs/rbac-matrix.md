@@ -52,6 +52,9 @@
 | `approveSurat` | ✅ | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
 | `rejectSurat` | ✅ | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
 | `verifySurat` | ✅ publik | ✅ publik | ✅ publik | ✅ publik | ✅ publik | ✅ publik | ✅ publik | ✅ publik |
+| `getLetterTemplates` | ✅ | ✅ | ✅ | 👁️ | 👁️ | 👁️ | 🚫 | 🚫 |
+| `saveLetterTemplate` | ✅ | 🚫 | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| `deleteLetterTemplate` | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
 
 ### Modul Keuangan (`Keuangan.gs`)
 | Aksi | SUPERADMIN | KETUA | SEKRETARIS | BENDAHARA | PEMBINA | PENGAWAS | DIVISI | ANGGOTA_BIASA |
@@ -89,10 +92,12 @@
 ### KETUA
 - **Persetujuan tunggal** untuk: rilis surat (`PENDING_APPROVAL → PUBLISHED` + PDF), Approval Board divisi, dan verifikasi final voucher (`VERIFIED_BY_BENDAHARA → APPROVED`).
 - Veto: bisa menolak dengan catatan wajib (`rejection_notes` / `approval_notes`).
+- Bisa melihat daftar **Master Template Surat** (termasuk tautan master PDF di Drive) tetapi **read-only** — `saveLetterTemplate` menolak peran ini, sehingga kartu manajemen tidak memunculkan tombol Ubah/Hapus. Rilis 2.5.0.
 
 ### SEKRETARIS
 - Full CRUD surat, tapi **tidak bisa** mempublikasi sendiri (wajib approval Ketua).
 - Bisa edit nomor surat hanya saat status `DRAFT`.
+- Bisa membuat/mengubah **Master Template Surat** (`saveLetterTemplate`), sehingga menu **Pengaturan & Master** kini tersedia untuk peran ini — namun **hanya sub-tab `🧩 Master Template Surat`** yang ditampilkan; sub-tab lain (Rekening, Format & KOP, Pendaftaran, Keuangan, Redaksi, RBAC, Drive) disembunyikan. Rilis 2.5.0.
 
 ### BENDAHARA
 - Hanya peran yang bisa membuat voucher & verifikasi tahap 1.

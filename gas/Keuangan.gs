@@ -388,6 +388,10 @@ function saveAccount(ctx) {
     // Edit mode
     var target = Database.findOne(TABS.ACCOUNTS, { id: p.id }) || Database.findOne(TABS.ACCOUNTS, { code: p.id });
     if (!target) return { ok: false, data: null, message: 'Rekening tidak ditemukan.' };
+    if (p.qris_image_base64) {
+      p.qris_image_url = saveUploadToDrive_(p.qris_image_base64, 'QRIS_' + code + '.jpg', 'Keuangan_QRIS') || p.qris_image_url;
+    }
+
     Database.updateRow(TABS.ACCOUNTS, target._row, {
       name: name,
       bank_name: bankName,
@@ -396,6 +400,8 @@ function saveAccount(ctx) {
       category: category,
       is_active: isActive ? 'TRUE' : 'FALSE',
       show_on_public: isPublic ? 'TRUE' : 'FALSE',
+      qris_image_url: p.qris_image_url || target.qris_image_url || '',
+      show_qris_on_public: ((p.show_qris_on_public === true || p.show_qris_on_public === 'TRUE' || p.show_qris_on_public === 'true' || p.show_qris_on_public === 1) ? 'TRUE' : 'FALSE'),
       updated_at: now
     });
     audit(ctx.user.username, 'ACCOUNT_UPDATED', 'Memperbarui rekening ' + code + ' (' + name + ')', 'KEUANGAN');
@@ -406,6 +412,10 @@ function saveAccount(ctx) {
     if (existing) {
       code = code + '_' + Math.floor(Math.random() * 899 + 100);
     }
+    if (p.qris_image_base64) {
+      p.qris_image_url = saveUploadToDrive_(p.qris_image_base64, 'QRIS_' + code + '.jpg', 'Keuangan_QRIS') || p.qris_image_url;
+    }
+
     var newAcc = Database.insert(TABS.ACCOUNTS, {
       id: uuid(),
       code: code,
@@ -416,6 +426,8 @@ function saveAccount(ctx) {
       category: category,
       is_active: isActive ? 'TRUE' : 'FALSE',
       show_on_public: isPublic ? 'TRUE' : 'FALSE',
+      qris_image_url: p.qris_image_url || '',
+      show_qris_on_public: ((p.show_qris_on_public === true || p.show_qris_on_public === 'TRUE' || p.show_qris_on_public === 'true' || p.show_qris_on_public === 1) ? 'TRUE' : 'FALSE'),
       created_at: now,
       updated_at: now
     });
@@ -467,7 +479,9 @@ function getPublicAccounts(ctx) {
       nomor_rekening: a.account_number || '-',
       holder_name: a.holder_name || 'YAYASAN APII DPW JABODETABEK',
       atas_nama: a.holder_name || 'YAYASAN APII DPW JABODETABEK',
-      category: a.category || 'Operasional DPW'
+      category: a.category || 'Operasional DPW',
+      qris_image_url: a.qris_image_url || '',
+      show_qris_on_public: (a.show_qris_on_public === 'TRUE' || a.show_qris_on_public === true)
     };
   });
   return { ok: true, data: items, message: 'Rekening resmi publik berhasil dimuat.' };

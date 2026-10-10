@@ -5,9 +5,13 @@
   "private": true,
   "scripts": {
     "build": "echo Static site ready",
+    "check:routes": "node scripts/validate-routes-whitelist.mjs",
+    "prebuild:gas": "node scripts/validate-routes-whitelist.mjs",
     "build:gas": "powershell -ExecutionPolicy Bypass -File scripts/build-apps-script.ps1",
     "deploy:gas": "node scripts/deploy-gas.mjs",
     "deploy:gas:check": "node scripts/deploy-gas.mjs --dry-run",
+    "smoke:drive": "node scripts/smoke-drive-prod.mjs",
+    "smoke:template": "node scripts/smoke-template-surat.mjs",
     "smoke:backend": "node scripts/smoke-backend.mjs",
     "smoke:editorial": "node scripts/smoke-editorial.mjs",
     "smoke:drive:local": "node scripts/smoke-drive-local.mjs",

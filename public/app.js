@@ -626,24 +626,12 @@
       });
     }
 
-    // Tab switcher Maklumat / Agenda.
-    var tabs = document.querySelectorAll('[data-wtab]');
-    Array.prototype.forEach.call(tabs, function (btn) {
-      btn.addEventListener('click', function () {
-        var tab = btn.getAttribute('data-wtab');
-        Array.prototype.forEach.call(tabs, function (b) {
-          var active = b.getAttribute('data-wtab') === tab;
-          b.classList.toggle('bg-emerald', active);
-          b.classList.toggle('text-white', active);
-          b.classList.toggle('shadow-sm', active);
-          b.classList.toggle('text-gray-500', !active);
-        });
-        var p1 = document.getElementById('wartaPanelMaklumat');
-        var p2 = document.getElementById('wartaPanelAgenda');
-        if (p1) p1.classList.toggle('hidden', tab !== 'maklumat');
-        if (p2) p2.classList.toggle('hidden', tab !== 'agenda');
-      });
-    });
+    // Maklumat & Siaran dan Agenda & Acara ditampilkan berdampingan
+    // (tidak digabung dalam tab) agar pengunjung langsung melihat semuanya.
+    var p1 = document.getElementById('wartaPanelMaklumat');
+    var p2 = document.getElementById('wartaPanelAgenda');
+    if (p1) p1.classList.remove('hidden');
+    if (p2) p2.classList.remove('hidden');
 
     // Ekspansi daftar (maks 6 item default).
     var moreB = document.getElementById('wartaBulletinMore');
@@ -726,8 +714,7 @@
     }
   },
 
-  renderEditorialWarta: function (be) {
-    if (be.show_section === false) {
+  renderEditorialWarta: function (be) {      if (be.show_section === false) {
       this.hideSection('warta');
       return;
     }
@@ -740,8 +727,15 @@
 
     this.state.editorialLists = {
       bulletins: Array.isArray(be.bulletins) ? be.bulletins : [],
-      events: Array.isArray(be.events) ? be.events : []
+      events: Array.isArray(be.events) ? be.events : [],
+      agendaSectionKey: 'agenda_section'
     };
+
+    var agendaTitleEl = document.getElementById('wartaAgendaTitle');
+    if (agendaTitleEl && be.agenda_section_title) agendaTitleEl.textContent = be.agenda_section_title;
+    var agendaSubEl = document.getElementById('wartaAgendaSubtitle');
+    if (agendaSubEl && be.agenda_section_subtitle) agendaSubEl.textContent = be.agenda_section_subtitle;
+
     this.renderBulletinCards();
     this.renderEventCards();
   },
@@ -845,9 +839,15 @@
       }
       if (e.location) meta.push('📍 ' + e.location);
       if (e.speaker) meta.push('🎤 ' + e.speaker);
+      var img = e.image_url || null;
 
       return '<article class="bg-white rounded-2xl p-5 sm:p-6 border shadow-sm transition flex flex-col ' +
           (done ? 'border-gray-200 hover:border-gray-300' : 'border-emerald-200 hover:shadow-md hover:border-emerald-400') + '">' +
+          (img
+            ? '<div class="relative mb-3 overflow-hidden rounded-xl bg-gray-100">' +
+              '<img src="' + self.esc(img) + '" alt="' + self.esc(e.title) + '" class="w-full h-44 sm:h-52 object-cover transition hover:scale-105" />' +
+              '<div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>' +
+            '</div>' : '<div class="mb-3"></div>') +
           '<div class="flex items-center justify-between gap-2 mb-3 flex-wrap">' +
             '<span class="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ' +
               (done ? 'text-gray-600 bg-gray-100' : 'text-emerald-800 bg-emerald-100/80') + '">' + self.esc(e.category || 'Kajian') + '</span>' +
@@ -1101,14 +1101,15 @@
         // 4. Filter Pilihan Divisi yang Membuka Rekrutmen
         var selDiv = document.getElementById('regDivision');
         if (selDiv && Array.isArray(reg.open_divisions) && reg.open_divisions.length > 0) {
+          // 7 divisi sesuai AD/ART Pasal 16 (kode = backend DIVISIONS).
           var divisionsMap = {
-            'DIV_DAKWAH': 'Divisi Dakwah & Pembinaan',
-            'DIV_HUKUM': 'Divisi Advokasi & Hukum',
             'DIV_HUMAS': 'Divisi Humas & Kemitraan',
-            'DIV_MEDIA': 'Divisi Media, IT & Publikasi',
-            'DIV_SOSIAL': 'Divisi Sosial & Kemanusiaan',
             'DIV_LITBANG': 'Divisi Litbang & Diklat',
-            'DIV_EKONOMI': 'Divisi Pemberdayaan Ekonomi & Logistik'
+            'DIV_SOSMED': 'Divisi Media Sosial & Digital',
+            'DIV_DAKWAH': 'Divisi Dakwah & Pendidikan',
+            'DIV_INVESTASI': 'Divisi Pengembangan & Investasi Bisnis',
+            'DIV_HUKUM': 'Divisi Hukum & Advokasi',
+            'DIV_UMUM': 'Divisi Umum & Operasional'
           };
           var optHtml = '<option value="">-- Pilih Minat Divisi Kerja --</option>';
           reg.open_divisions.forEach(function (code) {
@@ -1144,26 +1145,30 @@
         if (loadingEl) loadingEl.classList.add('hidden');
         if (res && res.success && res.data && res.data.items && res.data.items.length) {
           listEl.innerHTML = res.data.items.map(function (s) {
-            return '' +
-              '<div class="p-4 rounded-2xl bg-gray-50/80 hover:bg-emerald-50/50 border border-gray-200/90 hover:border-emerald-300 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">' +
+            var card = '' +
+              '<div class="p-4 rounded-2xl bg-gray-50/80 hover:bg-emerald-50/50 border border-gray-200/90 hover:border-emerald-300 transition flex flex-col sm:flex-row sm:items-start justify-between gap-3 shadow-xs">' +
                 '<div class="flex-1 min-w-0">' +
                   '<div class="flex items-center gap-2 mb-1 flex-wrap">' +
                     '<span class="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full">' + self.esc(s.letter_type_label || s.letter_type) + '</span>' +
                     '<span class="text-xs text-gray-400 font-medium">' + self.esc(s.tanggal_label || '') + '</span>' +
                   '</div>' +
                   '<h4 class="font-bold text-gray-900 text-sm leading-snug break-words">' + self.esc(s.title) + '</h4>' +
-                  '<div class="text-xs text-gray-500 font-mono mt-0.5 break-all">' + self.esc(s.letter_number) + '</div>' +
-                '</div>' +
-                '<div class="sm:flex-shrink-0">' +
-                  (s.pdf_url ?
-                    '<a href="' + self.esc(s.pdf_url) + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald hover:bg-emerald-dark text-white px-3.5 py-2 rounded-xl shadow-xs transition">' +
-                      '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
-                      '<span>Unduh PDF</span>' +
-                    '</a>' :
-                    '<span class="text-[11px] font-semibold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-lg">Arsip Fisik</span>') +
-                '</div>' +
-              '</div>';
+                  '<div class="text-xs text-gray-500 font-mono mt-1 break-all">' + self.esc(s.letter_number) + '</div>' +
+                '</div>';
+            if (s.show_image_on_public && s.image_url) {
+              card += '<button type="button" class="sm:flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-bold bg-emerald hover:bg-emerald-dark text-white px-3.5 py-2 rounded-xl shadow-xs transition" data-lookimg="' + self.esc(s.image_url) + '">' +
+                '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m0 0l-6-6m6 6l6.414-6.414a2 2 0 112.828 2.828L18.414 14.414a2 2 0 01-2.828 0L10 16.414a2 2 0 01-2.828-2.828L12.414 10 10 12.414 16 16"/></svg>' +
+                '<span>Lihat Surat</span>' +
+              '</button>';
+            } else {
+              card += '<span class="sm:flex-shrink-0 text-[11px] font-semibold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-lg">Arsip Fisik</span>';
+            }
+            card += '</div>';
+            return card;
           }).join('');
+          listEl.querySelectorAll('[data-lookimg]').forEach(function (btn) {
+            btn.addEventListener('click', function () { self.showPictureModal(btn.getAttribute('data-lookimg')); });
+          });
           listEl.classList.remove('hidden');
         } else {
           if (emptyEl) emptyEl.classList.remove('hidden');
@@ -1246,10 +1251,21 @@
                   '<span class="text-gray-400">a.n.</span> ' +
                   '<strong class="text-gray-900 font-extrabold">' + self.esc(holder) + '</strong>' +
                 '</div>' +
+                (acc.show_qris_on_public && acc.qris_image_url
+                  ? '<div class="mt-4 pt-4 border-t border-dashed border-gray-300/80 text-center">' +
+                      '<p class="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-2">Scan QRIS untuk Infaq / Donasi</p>' +
+                      '<button type="button" data-lookimg="' + self.esc(acc.qris_image_url) + '" class="inline-block rounded-xl overflow-hidden border-2 border-emerald-300/80 hover:border-emerald-500 transition shadow-sm hover:shadow-md cursor-zoom-in">' +
+                        '<img src="' + self.esc(acc.qris_image_url) + '" alt="QRIS ' + self.esc(bankName) + '" class="w-40 h-40 object-contain bg-white" />' +
+                      '</button>' +
+                    '</div>'
+                  : '') +
               '</div>';
           }).join('');
           container.classList.remove('hidden');
           if (emptyEl) emptyEl.classList.add('hidden');
+          container.querySelectorAll('[data-lookimg]').forEach(function (btn) {
+            btn.addEventListener('click', function () { self.showPictureModal(btn.getAttribute('data-lookimg')); });
+          });
         } else {
           container.classList.add('hidden');
           if (emptyEl) emptyEl.classList.remove('hidden');
@@ -1285,6 +1301,10 @@
       return String(str)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    },
+    showPictureModal: function (src) {
+      var win = window.open(src, '_blank', 'noopener');
+      if (win) win.focus();
     },
   };
 

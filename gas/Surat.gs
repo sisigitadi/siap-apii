@@ -131,7 +131,8 @@ function getListSurat(ctx) {
       content: s.content || '',
       attachment_url: s.attachment_url || '',
       pdf_url: s.status === 'PUBLISHED' ? s.pdf_url : '',
-      qr_verify_url: s.status === 'PUBLISHED' ? s.qr_verify_url : ''
+      qr_verify_url: s.status === 'PUBLISHED' ? s.qr_verify_url : '',
+      template_id: s.template_id || ''
     };
   });
 
@@ -201,7 +202,10 @@ function createSurat(ctx) {
     created_by: ctx.user.username, created_by_name: ctx.user.full_name || ctx.user.username,
     created_at: now, submitted_at: '', published_at: '', approved_by: '',
     rejection_notes: '', sha256_hash: '', pdf_url: '', qr_verify_url: '',
-    attachment_url: attachmentUrl
+    attachment_url: attachmentUrl,
+    template_id: validasiTemplateId_(p.template_id),
+    image_url: p.image_url || '',
+    show_image_on_public: ((p.show_image_on_public === true || p.show_image_on_public === 'TRUE' || p.show_image_on_public === 'true' || p.show_image_on_public === 1) ? 'TRUE' : 'FALSE')
   });
 
   return { ok: true, data: { id: created.id, letter_number: created.letter_number, attachment_url: attachmentUrl },
@@ -246,11 +250,22 @@ function updateSurat(ctx) {
     values.attachment_url = p.attachment_url;
   }
 
-  if (!Object.keys(values).length) {
-    return { ok: false, data: null, message: 'Tidak ada perubahan yang dikirim.' };
+  if (p.image_base64) {
+    values.image_url = saveUploadToDrive_(p.image_base64, 'Publikasi_' + (values.letter_number || s.letter_number).replace(/[^a-zA-Z0-9]/g, '_') + '.jpg', 'Surat_Publikasi') || values.image_url;
+  }
+  if (p.image_url !== undefined) {
+    values.image_url = p.image_url;
+  }
+  values.show_image_on_public = ((p.show_image_on_public === true || p.show_image_on_public === 'TRUE' || p.show_image_on_public === 'true' || p.show_image_on_public === 1) ? 'TRUE' : 'FALSE');
+  values.template_id = validasiTemplateId_(p.template_id);
+  // Template surat (master kop) yang dipakai saat penerbitan PDF.
+  if (p.template_id !== undefined) {
+    values.template_id = validasiTemplateId_(p.template_id);
   }
 
-  Database.updateRow(TABS.SURAT, s._row, values);
+  if (!Object.keys(values).length) {
+    return { ok: false, data: null, message: 'Tidak ada perubahan yang dikirim.' };
+  }  Database.updateRow(TABS.SURAT, s._row, values);
   return { ok: true, data: null, message: 'Surat berhasil diperbarui.' };
 }
 
@@ -310,12 +325,11 @@ function approveSurat(ctx) {
       message: 'Gagal membuat PDF surat. Tim IT akan memeriksa folder Drive/template.' };
   }
   // URL verifikasi publik (via 99-TemplateSurat.gs, domain dari KONFIG).
-  verifyUrl = urlVerifikasiSurat_(s.letter_number);
-
-  Database.updateRow(TABS.SURAT, s._row, {
+  verifyUrl = urlVerifikasiSurat_(s.letter_number);  Database.updateRow(TABS.SURAT, s._row, {
     status: 'PUBLISHED', published_at: new Date().toISOString(),
     approved_by: ctx.user.username, sha256_hash: hash,
-    pdf_url: pdfUrl, qr_verify_url: verifyUrl
+    pdf_url: pdfUrl, qr_verify_url: verifyUrl,
+    show_image_on_public: ((s.show_image_on_public === 'TRUE' || s.show_image_on_public === true)) ? 'TRUE' : 'FALSE'
   });
   audit(ctx.user.username, 'SURAT_PUBLISHED', 'Nomor ' + s.letter_number);
 
@@ -386,7 +400,8 @@ function getPublishedSurat(ctx) {
       letter_type: s.letter_type,
       letter_type_label: LETTER_TYPE_LABELS[s.letter_type] || s.letter_type,
       tanggal_label: formatTanggal(s.tanggal_surat),
-      published_at: s.published_at, pdf_url: s.pdf_url
+      published_at: s.published_at, pdf_url: s.pdf_url,
+      image_url: s.image_url, show_image_on_public: (s.show_image_on_public === 'TRUE' || s.show_image_on_public === true)
     };
   });
 
@@ -432,13 +447,37 @@ function verifySurat(ctx) {
 }
 
 /**
+ * validasiTemplateId_: pastikan template_id merujuk template aktif.
+ * @return {string} id template, atau '' bila tidak valid
+ */
+function validasiTemplateId_(templateId) {
+  var id = String(templateId || '').trim();
+  if (!id) return '';
+  try {
+    var row = Database.findOne(TABS.TEMPLATES, { id: id });
+    if (row && String(row.is_active).toUpperCase() !== 'FALSE') return id;
+  } catch (e) { /* abaikan */ }
+  return '';
+}
+
+/**
  * generateSuratPdf_: render surat jadi PDF via template Google Docs.
  * Langkah: salin template -> ganti placeholder -> ekspor PDF -> simpan ke Drive.
  * @param {object} s baris Sheet_Surat
  * @return {string} URL publik file PDF
  */
 function generateSuratPdf_(s) {
-  // Template & folder dibuat otomatis oleh 99-TemplateSurat.gs bila belum ada.
+  // Template surat master: bila surat memilih template, rangkai PDF dari
+  // spesifikasi blok template tersebut (TemplateSurat.gs).
+  var tmpl = null;
+  if (s.template_id) {
+    try { tmpl = Database.findOne(TABS.TEMPLATES, { id: s.template_id }); }
+    catch (e) { tmpl = null; }
+    if (tmpl && String(tmpl.is_active).toUpperCase() === 'FALSE') tmpl = null;
+  }
+  if (tmpl) return renderTemplatePdf_(s, tmpl);
+
+  // Jalur lama: template Google Docs tunggal (99-TemplateSurat.gs).
   var templateId = siapkanTemplateSurat_();
   var folderId = siapkanFolderPdf_();
 

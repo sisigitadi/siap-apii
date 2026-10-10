@@ -1,0 +1,9 @@
+# Portal Resmi Yayasan APII DPW Jabodetabek
+# https://apii.sigitadi.id
+
+User-agent: *
+Allow: /
+Disallow: /config.js
+Disallow: /assets/
+
+Sitemap: https://apii.sigitadi.id/sitemap.xml

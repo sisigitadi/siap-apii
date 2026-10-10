@@ -22,6 +22,13 @@ Ringkasan keadaan produksi sungguhan — dipakai sebagai acuan cepat sebelum/ se
 
 > Perlu diperhatikan: `ping` masih melaporkan `version: '2.0.0'` dari konstanta di `gas/Code.gs`, sedangkan versi rilisnya sudah 2.4.0. Angka itu tidak dipakai pengecekan rilis (acuan rilis = Versi Apps Script, lihat [docs/deploy.md §4](docs/deploy.md)), tetapi sebaiknya diselaraskan pada rilis berikutnya.
 
+### 🧪 Penjaga Regresi Drive (skrip uji)
+- `npm run smoke:drive` (baca [scripts/smoke-drive-prod.mjs](scripts/smoke-drive-prod.mjs)) menjalankan rencana uji aman terhadap **produksi sungguhan**: sandbox `UJI-OTOMATIS-APII-…`, `createDriveFolder` 2×, dua penjagaan `moveDriveFolder`, satu pemindahan nyata (terbukti lewat Drive API), `resetDriveStorage` (harus memakai ulang folder default yang sudah ada), lalu pemulihan & verifikasi folder aktif produksi dan pencobaan pembersihan sandbox.
+- `npm run smoke:drive:local` (baca [scripts/smoke-drive-local.mjs](scripts/smoke-drive-local.mjs)) menjalankan **16 pemeriksaan tanpa jaringan** dengan `DriveApp` stub: `createDriveFolder` dan `moveDriveFolder` memodifikasi state Google Sheets & Script Properties tiruan (termasuk `DRIVE_FOLDER_ID`), `resetDriveStorage` memasukkan payload kosong dan dipastikan kembali ke folder default, dan satu penjagaan regresi mewajibkan `resetDriveStorage` membersihkan konfigurasi **sebelum** memanggil `siapkanFolderPdf_()`.
+- Jalankan `npm run build:gas && npm run smoke:drive:local` sebelum mengubah apa pun di `gas/Utils.gs`, `gas/Pengaturan.gs`, atau `gas/99-TemplateSurat.gs`; jalankan `npm run smoke:drive -- --confirm` hanya bila folder uji produksi perlu direalisasikan.
+
+---
+
 ## [Belum Dirilis] — Pemecahan Build Backend (internal, 2026-10-09)
 
 ### 🔧 Maintenance
@@ -43,7 +50,32 @@ Ringkasan keadaan produksi sungguhan — dipakai sebagai acuan cepat sebelum/ se
 | `node scripts/smoke-drive-local.mjs` | 16 lulus, 0 gagal (regresi bug reset Drive tetap terkunci) |
 | `node scripts/smoke-template-surat.mjs` | 60 lulus, 0 gagal |
 
-> Belum di-deploy. Deploy sebagai **Versi 14** memerlukan satu langkah manual di editor Apps Script: hapus `Backend.gs` lama (klik kanan → Delete) setelah `clasp push` — lihat [docs/deploy.md](docs/deploy.md) §Langkah 2b.
+## [2.5.0] — 2026-10-09 (Master Template Surat + Indeks Mesin Pencari)
+
+### 🌟 Fitur Baru
+- **Master Template Surat** (`gas/TemplateSurat.gs`, tab baru `Sheet_Templates`): setiap template = **PDF asli kop lembaga yang diunggah pengurus**, disimpan utuh di Drive dan dapat diunduh kembali, **plus** spesifikasi blok naskah (array `fields`) yang dipakai merangkai surat jadi PDF resmi.
+  - Tiga endpoint baru: `getLetterTemplates` (baca, `SURAT_READ_ROLES`), `saveLetterTemplate` (buat/perbarui + unggah master PDF, `SUPERADMIN`/`SEKRETARIS`), `deleteLetterTemplate` (soft delete — master PDF tidak dihapus dari Drive, `SUPERADMIN`).
+  - **Delapan jenis blok naskah** dikenali mesin rendering: `jenis`, `nomor`, `judul`, `tanggal`, `label`, `field`, `spasi`, dan `ttd` (blok tanda tangan Sekretaris & Ketua + stempel). Spesifikasi bawaan disediakan untuk template default & fallback.
+  - Karena Apps Script tidak dapat merasterisasi PDF di server, PDF akhir **dirangkai via Google Docs** dari spesifikasi blok — kop lembaga, badan surat, blok tanda tangan + stempel, dan footer verifikasi. Master PDF asli tetap dirujuk dan ditampilkan berdampingan di portal pengurus.
+- **`template_id` terikat penuh pada surat**: `createSurat`/`updateSurat` menerima `template_id` yang divalidasi terhadap template aktif (`validasiTemplateId_`), dan `generateSuratPdf_` kini beralih ke `renderTemplatePdf_` bila surat memiliki template — yang lain memakai jalur lama.
+- **Kartu manajemen Master Template di tab Pengaturan** portal pengurus ([portal/portal.js](portal/portal.js)): daftar template aktif (template default ditandai, tautan langsung ke master PDF di Drive), tombol **Unggah Template**, serta modal buat/ubah bernama lengkap, keterangan, master PDF, dan centang *Jadikan template default*.
+  - **Editor blok naskah visual** di dalam modal: setiap baris satu blok dengan pilihan jenis (8 tipe), teks label, kunci+label field, ukuran font (7–24 pt), perataan kiri/tengah/kanan, tebal, serta tombol naik/turun untuk mengatur urutan dan tombol hapus. Ada tombol **＋ Tambah Blok** dan **↺ Susunan Bawaan**; ringkasan jumlah blok diperbarui langsung. Daftar yang dikosongkan akan memakai susunan bawaan saat disimpan.
+  - **Pemilih template saat membuat surat**: dropdown di formulir surat (`suratForm`) memuat daftar template aktif via `getLetterTemplates` dan nilai `template_id` ikut dikirim ke `createSurat`/`updateSurat`.
+  - **Peran SEKRETARIS kini dapat membuka tab Pengaturan**, namun hanya sub-tab **🧩 Master Template Surat** yang ditampilkan (sesuai RBAC `saveLetterTemplate`); sub-tab lain disembunyikan. KETUA melihat sub-tab tersebut dalam mode **hanya lihat** (tanpa tombol Ubah/Hapus), dan hanya SUPERADMIN yang dapat menonaktifkan template.
+- **Indeks mesin pencari untuk portal publik** (`apii.sigitadi.id`): `public/robots.txt` (mengizinkan seluruh halaman, menutup `config.js` & `assets/`, menunjuk ke sitemap) dan `public/sitemap.xml` (6 URL: halaman utama + seksi `#profil`, `#warta`, `#informasi`, `#faq`, `#kontak`).
+
+### 🛡️ Ketahanan
+- **Memperbaiki bug decode data URL**: `saveLetterTemplate` sebelumnya memanggil `Utilities.base64Decode(p.pdf_base64)` secara mentah, padahal portal mengirim *data URL* (`data:application/pdf;base64,…`) — sehingga PDF master gagal terbuka. Kini header MIME dipisahkan lebih dulu, persis seperti `saveUploadToDrive_`.
+- `saveLetterTemplate` menolak spesifikasi blok yang tidak sah (tipe campuran, blok tak dikenal) **tanpa menulis apa pun** ke `Sheet_Templates`, tetapi **daftar kosong dari editor visual kini jatuh ke susunan bawaan** (bukan error); unggahan master PDF hanya diterima bila base64 & nama file valid, dan disimpan ke subfolder khusus di dalam folder PDF surat.
+- `deleteLetterTemplate` memakai soft delete sehingga riwayat surat yang pernah memakai template tersebut tetap merujuk entri yang ada; hanya `SUPERADMIN` yang dapat menonaktifkan.
+- `validasiTemplateId_` menolak penunjuk ke template yang tidak ada/non-aktif, sehingga surat tidak pernah terikat pada template yang sudah dihapus.
+
+### 🧪 Verifikasi & Dokumentasi
+- `npm run build:gas` berhasil: `Backend.gs` 246.348 karakter + 2 berkas aset, **seluruh 200 referensi namespace bersih** (0 nama tertinggal), dan `node scripts/validate-apps-script.mjs` lulus penuh untuk ketiga berkas + manifest. `portal/portal.js` dan `gas/TemplateSurat.gs` juga lulus pemeriksaan syntax (`new Function`).
+- `npm run deploy:gas:check` (dry-run) memastikan **tepat 4 berkas** yang akan diunggah; tidak ada yang dikirim ke produksi.
+- robots.txt & sitemap.xml diuji lewat `serve public` di `localhost:3099`: keduanya **HTTP 200**, `robots.txt` bertipe `text/plain`, `sitemap.xml` bertipe `application/xml`, 6 entri `<url>` seimbang, dan sitemap lulus pemeriksaan well-formed `xml.dom.minidom`.
+- Tiga endpoint baru + baris `template_id` ditambahkan ke tabel RBAC Modul Persuratan di [docs/rbac-matrix.md](docs/rbac-matrix.md).
+- **Belum tayang di produksi** — perlu `npm run deploy:gas` (Backend Versi 14) dan unggah ulang folder `public/` ke hosting. Tidak mengubah portal publik yang ada selain penambahan dua berkas statis.
 
 ---
 
@@ -67,6 +99,7 @@ Ringkasan keadaan produksi sungguhan — dipakai sebagai acuan cepat sebelum/ se
 ### 🧪 Verifikasi & Dokumentasi
 - `scripts/smoke-editorial.mjs` diperluas dari 93 → **138 pemeriksaan**: ekspor (nama berkas, penanda format, pelaku, asal lingkungan, audit, konten tidak berubah), pemindahan antar dua lingkungan yang isinya identik, pemulihan berkas pra-impor, tiga bentuk berkas yang diterima, enam bentuk berkas tidak sah yang ditolak tanpa menyentuh konten, sanitasi & batas sel, serta **jalur `doGet`/`doPost` sungguhan** (envelope sukses, penolakan tanpa token, dan penolakan peran read-only).
 - `scripts/smoke-backend.mjs` diperluas (64 → **66 pemeriksaan**) untuk memastikan kedua route baru terdaftar di tabel `ROUTES`; `scripts/build-apps-script.ps1` memuat 7 nama fungsi baru agar pola namespace tetap tergantikan bersih.
+- **Penjaga regresi Drive ditambahkan** bersama rilis ini (masih perluasan penjaga dari 2.0.1): `scripts/smoke-drive-local.mjs` (16 pemeriksaan, tanpa jaringan) dan `scripts/smoke-drive-prod.mjs` (rencana uji produksi aman). Lihat bagian **Penjaga Regresi Drive (skrip uji)** di atas dan [docs/TROUBLESHOOTING.md §9](#9-tombol-reset-ke-default-tidak-mengembalikan-folder-drive--diperbaiki-di-versi-13).
 - Diuji juga di peramban dengan backend tiruan: ekspor menghasilkan berkas nyata, dan impor berkas dari perangkat membalik konten editor ke isi berkas dengan riwayat berlabel `IMPOR BERKAS`.
 - `docs/REDAKSI_KONTEN.md` menambah **bagian 7 — Ekspor & Impor Berkas JSON** (format berkas, tiga bentuk berkas, penjagaan keamanan) serta dua endpoint baru pada tabel RBAC.
 - **Tayang di produksi sejak 2026-10-08 23:30 WIB sebagai Backend Versi 12** — bukan lagi "menunggu redeploy". Fitur ini murni backend + portal pengurus, **tidak mengubah portal publik**.

@@ -123,6 +123,14 @@
       var url = (window.API_BASE || '') + '?action=' + encodeURIComponent(action);
       var self = this;
 
+      // Akun demo: blokir semua aksi tulis di frontend sebelum mencapai server.
+      // Backend juga menolak (DEMO_ALLOWED_ACTIONS), tapi pesan ini lebih ramah.
+      if (this.isDemo() && method !== 'GET') {
+        var demoMsg = 'Mode demo hanya untuk melihat. Perubahan data tidak dapat disimpan.';
+        if (!opts.quiet) this.toast(demoMsg, 'error');
+        return Promise.reject(new Error(demoMsg));
+      }
+
       self.showProgress();
 
       // GET: token & payload sebagai query string.
@@ -274,6 +282,28 @@
      * me: ambil data user terbaru dari token (dipakai saat reload halaman).
      * @return {Promise<object|null>}
      */
+    loginWithDemo: function () { return; },
+    /**
+     * loginAsDemo: masuk ke akun demo read-only (tanpa username/password).
+     * Backend tetap penjaga mutlak (semua aksi tulis ditolak), frontend
+     * hanya menyembunyikan tombol agar UX jelas.
+     * @return {Promise<object>} resolve dengan data user demo.
+     */
+    loginAsDemo: function () {
+      var self = this;
+      return this.fetch('loginDemo', null, { quiet: true })
+        .then(function (data) {
+          if (!data || !data.token) throw new Error('Akun demo belum tersedia.');
+          self.save(data.token, data.user || null);
+          return data.user || null;
+        });
+    },
+
+    /** True bila sesi saat ini adalah akun demo (read-only presentasi). */
+    isDemo: function () {
+      return !!(this.user && (this.user.is_demo === true || this.user.role === 'DEMO'));
+    },
+
     me: function () {
       var self = this;
       return this.get('me', null, { quiet: true })

@@ -21,18 +21,22 @@ var TABS = {
   PENDAFTAR: 'Sheet_Pendaftar',
   ACCOUNTS: 'Sheet_Accounts',
   SETTINGS: 'Sheet_Settings',
-  EDITORIAL_HISTORY: 'Sheet_EditorialHistory'
+  EDITORIAL_HISTORY: 'Sheet_EditorialHistory',
+  // Pelacakan pengunjung portal publik (device/OS/lokasi/waktu).
+  VISITORS: 'Sheet_Visitors',
+  // Master template surat hasil unggah PDF (overlay PDF asli, multi-template).
+  TEMPLATES: 'Sheet_Templates'
 };
 
 // Definisi header tiap tab (dipakai initSchema & insert).
 var SCHEMA = {};
+// permissions: daftar aksi yang diizinkan untuk user ini (JSON array / '*' / '' = warisi peran).
+// Lihat PERMISSIONS & roleDefaultPermissions_ di Code.gs (RBAC per-aksi).
+// is_demo: 'TRUE' untuk akun demo read-only (lihat DEMO_ALLOWED_ACTIONS di Code.gs).
 SCHEMA[TABS.USERS] = ['id', 'username', 'password_hash', 'full_name', 'email', 'role',
-  'division', 'is_active', 'can_manage_users', 'created_at', 'updated_at'];
+  'division', 'is_active', 'can_manage_users', 'is_demo', 'permissions', 'created_at', 'updated_at'];
 SCHEMA[TABS.SESSIONS] = ['token', 'user_id', 'username', 'role', 'division',
-  'created_at', 'expired_at'];
-SCHEMA[TABS.SURAT] = ['id', 'letter_number', 'title', 'letter_type', 'content', 'status',
-  'tanggal_surat', 'created_by', 'created_by_name', 'created_at', 'submitted_at',
-  'published_at', 'approved_by', 'rejection_notes', 'sha256_hash', 'pdf_url', 'qr_verify_url', 'attachment_url'];
+  'created_at', 'expired_at'];  SCHEMA[TABS.SURAT] = ['id', 'letter_number', 'title', 'letter_type', 'content', 'status', 'tanggal_surat', 'created_by', 'created_by_name', 'created_at', 'submitted_at', 'published_at', 'approved_by', 'rejection_notes', 'sha256_hash', 'pdf_url', 'qr_verify_url', 'attachment_url', 'template_id', 'image_url', 'show_image_on_public'];
 SCHEMA[TABS.KEUANGAN] = ['id', 'voucher_number', 'type', 'account', 'amount', 'category',
   'description', 'transaction_date', 'status', 'verified_by_bendahara',
   'verified_by_bendahara_at', 'verified_by_ketum', 'verified_by_ketum_at',
@@ -46,13 +50,22 @@ SCHEMA[TABS.SEQUENCES] = ['key', 'value'];
 SCHEMA[TABS.PENDAFTAR] = ['id', 'reg_number', 'full_name', 'nik', 'birth_place', 'birth_date',
   'gender', 'job', 'phone', 'email', 'address', 'division_interest', 'ktp_drive_url',
   'selfie_drive_url', 'status', 'verified_by_sekretaris', 'verified_by_sekretaris_at',
-  'approved_by_ketum', 'approved_by_ketum_at', 'rejection_notes', 'created_at'];
-SCHEMA[TABS.ACCOUNTS] = ['id', 'code', 'name', 'bank_name', 'account_number', 'holder_name',
-  'category', 'is_active', 'show_on_public', 'created_at', 'updated_at'];
+  'approved_by_ketum', 'approved_by_ketum_at', 'rejection_notes', 'created_at'];  SCHEMA[TABS.ACCOUNTS] = ['id', 'code', 'name', 'bank_name', 'account_number', 'holder_name', 'category', 'is_active', 'show_on_public', 'qris_image_url', 'show_qris_on_public', 'created_at', 'updated_at'];
 SCHEMA[TABS.SETTINGS] = ['key', 'value', 'description', 'updated_by', 'updated_at'];
 // Arsip versi konten redaksi (tabel BARU, terpisah dari Sheet_Settings agar
 // payload getSettings tetap ringan). Satu baris = satu versi konten.
 SCHEMA[TABS.EDITORIAL_HISTORY] = ['id', 'saved_at', 'saved_by', 'action', 'label', 'content'];
+
+// Kunjungan pengunjung portal publik. visitor_id dibuat di sisi klien
+// (localStorage) lalu dikirim ulang setiap kunjungan -> baris di-update.
+SCHEMA[TABS.VISITORS] = ['id', 'visitor_id', 'ip', 'user_agent', 'device', 'os', 'browser',
+  'country', 'city', 'region', 'latitude', 'longitude', 'timezone', 'referrer',
+  'first_page', 'last_page', 'first_seen', 'last_seen', 'visit_count', 'is_unique'];
+
+// Master template surat: PDF asli (kop lembaga) disimpan di Drive subfolder
+// 'Template_Surat'; 'fields' = JSON array posisi overlay tiap placeholder.
+SCHEMA[TABS.TEMPLATES] = ['id', 'name', 'description', 'drive_file_id', 'pdf_url',
+  'fields', 'is_default', 'is_active', 'page_count', 'created_by', 'created_at', 'updated_at'];
 
 /**
  * Inisialisasi semua tab + header. Idempoten.
@@ -185,15 +198,8 @@ function seedDefaultSettings_() {
       max_file_size_mb: 3,
       reg_prefix: 'REG',
       reg_digits: 4,
-      open_divisions: [
-        'DIV_DAKWAH',
-        'DIV_HUKUM',
-        'DIV_HUMAS',
-        'DIV_MEDIA',
-        'DIV_SOSIAL',
-        'DIV_LITBANG',
-        'DIV_EKONOMI'
-      ],
+      // 7 divisi sesuai AD/ART Pasal 16 (harus sama dengan DIVISIONS di Code.gs).
+      open_divisions: Object.keys(DIVISIONS),
       contact_wa: '081288882026',
       wa_template: 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
       notify_email: 'sekretariat@apii.sigitadi.id',

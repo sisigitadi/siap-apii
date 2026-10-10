@@ -78,9 +78,6 @@
       // Binding global.
       this.bindGlobal();
 
-      // Sediakan chip akun demo.
-      this.renderDemoAccounts();
-
       // Coba restore sesi dari localStorage.
       var restored = Auth.restore();
       var hash = window.location.hash || '';
@@ -114,6 +111,26 @@
           alert.classList.add('hidden');
         }
       }
+
+      var dm = document.getElementById('demoLoginBtn');
+      if (dm) dm.addEventListener('click', function () {
+        dm.disabled = true;
+        dm.textContent = 'Memproses…';
+        Auth.loginAsDemo().then(function (user) {
+          dm.disabled = false;
+          dm.textContent = 'Masuk sebagai Akun Demo';
+          self.bootApp(user);
+        }).catch(function (err) {
+          dm.disabled = false;
+          dm.textContent = 'Masuk sebagai Akun Demo';
+          var a = document.getElementById('loginAlert');
+          if (a) {
+            a.textContent = err.message || 'Akun demo belum tersedia.';
+            a.className = 'mb-6 px-4 py-3 rounded-xl text-sm font-medium bg-red-50 text-red-700 border border-red-100';
+          }
+        });
+      });
+
       var u = document.getElementById('loginUsername');
       if (u) u.focus();
       window.location.hash = '#login';
@@ -130,6 +147,11 @@
 
       // Topbar.
       this.renderTopbar();
+
+      // Banner akun demo (hanya lihat) & pembatasan aksi tulis di frontend.
+      var demo = Auth.isDemo();
+      var banner = document.getElementById('demoBanner');
+      if (banner) banner.classList.toggle('hidden', !demo);
 
       // Sidebar.
       this.renderNav();
@@ -180,24 +202,6 @@
       });
     },
 
-    /** Chip akun demo (klik isi username + password). */
-    renderDemoAccounts: function () {
-      var box = document.getElementById('demoAccounts');
-      if (!box) return;
-      box.innerHTML = (window.DEMO_ACCOUNTS || []).map(function (a) {
-        return '<button type="button" data-demo="' + a.u +
-          '" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-light text-emerald-dark font-semibold hover:bg-emerald hover:text-white transition">' +
-          a.u + '</button>';
-      }).join('');
-      box.addEventListener('click', function (e) {
-        var b = e.target.closest('[data-demo]');
-        if (!b) return;
-        document.getElementById('loginUsername').value = b.getAttribute('data-demo');
-        document.getElementById('loginPassword').value = 'apii2026';
-        document.getElementById('loginPassword').focus();
-      });
-    },
-
     // ---------------------------------------------------------------
     // TOPBAR & SIDEBAR
     // ---------------------------------------------------------------
@@ -218,6 +222,17 @@
       var items = [{ id: 'dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' }];
       var has = function (arr) { return arr.indexOf(role) !== -1; };
 
+      // Akun demo melihat seluruh alur kerja pengurus (read-only), namun
+      // Manajemen Pengguna, Jejak Audit, dan Pengaturan & Master disembunyikan
+      // karena memuat data sensitif.
+      if (role === 'DEMO') {
+        items.push({ id: 'surat', label: 'Persuratan', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' });
+        items.push({ id: 'keuangan', label: 'Keuangan', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' });
+        items.push({ id: 'divisi', label: 'Divisi Kerja', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' });
+        items.push({ id: 'profil', label: 'Profil Saya', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' });
+        return items;
+      }
+
       if (has(['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'PEMBINA', 'PENGAWAS'])) {
         items.push({ id: 'surat', label: 'Persuratan', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' });
       }
@@ -233,7 +248,9 @@
       if (has(['SUPERADMIN', 'KETUA', 'PEMBINA', 'PENGAWAS'])) {
         items.push({ id: 'audit', label: 'Jejak Audit', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' });
       }
-      if (has(['SUPERADMIN', 'KETUA'])) {
+      // SEKRETARIS hanya boleh mengelola Master Template Surat (sub-tab
+      // tersebut saja yang ditampilkan); sub-tab pengaturan lain disembunyikan.
+      if (has(['SUPERADMIN', 'KETUA', 'SEKRETARIS'])) {
         items.push({ id: 'pengaturan', label: 'Pengaturan & Master', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' });
       }
       items.push({ id: 'profil', label: 'Profil Saya', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' });
@@ -345,6 +362,52 @@
       var root = document.getElementById('modalRoot');
       root.addEventListener('click', function (e) { if (e.target === root) self.closeModal(); });
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') self.closeModal(); });
+
+      // Panduan presentasi akun demo.
+      var dh = document.getElementById('demoHelpBtn');
+      if (dh) dh.addEventListener('click', function () { self.showDemoHelp(); });
+    },
+
+    /**
+     * showDemoHelp: panduan pemakaian akun demo untuk calon pengurus saat
+     * presentasi. Menjelaskan batasan read-only & alur kerja yang bisa dilihat.
+     */
+    showDemoHelp: function () {
+      var rows = [
+        ['Dashboard', 'Ringkasan surat, kas, dan aktivitas divisi terkini.'],
+        ['Persuratan', 'Daftar surat, status persetujuan, dan hasil PDF surat resmi.'],
+        ['Keuangan', 'Mutasi kas, iuran, dan laporan keuangan yayasan.'],
+        ['Divisi Kerja', 'Program kerja tiap divisi beserta progressnya.'],
+        ['Profil Saya', 'Contoh halaman data diri pengurus.']
+      ];
+      var html = '<div class="space-y-4 text-sm">' +
+        '<div class="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-amber-800">' +
+        '<span class="font-bold">Mode Demo hanya untuk melihat.</span> Setiap upaya mengubah, menambah, atau menghapus data akan ditolak oleh sistem. Data sensitif (manajemen pengguna, jejak audit, pengaturan &amp; master) sengaja disembunyikan.' +
+        '</div>' +
+        '<div><div class="font-bold text-gray-800 mb-2">Halaman yang bisa dijelajahi</div>' +
+        '<div class="space-y-1.5">' +
+        rows.map(function (r) {
+          return '<div class="flex gap-3 text-gray-600"><span class="font-semibold text-emerald w-28 flex-shrink-0">' + r[0] + '</span><span>' + r[1] + '</span></div>';
+        }).join('') +
+        '</div></div>' +
+        '<div class="text-gray-500 text-xs">Tips presentasi: minta calon pengguna mencoba navigasi &amp; membuka detail surat/kas. Saat mereka siap menjadi pengurus, minta akun resmi kepada administrator.</div>' +
+        '</div>';
+      this.openModal(
+        '<div class="p-6 sm:p-8">' +
+        '<div class="flex items-center justify-between gap-4 mb-5">' +
+        '<h3 class="text-lg font-extrabold text-emerald-dark">Panduan Akun Demo</h3>' +
+        '<button type="button" data-act="close" class="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition">' +
+        '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+        '</div>' + html +
+        '<div class="mt-6 flex justify-end"><button type="button" data-act="close" class="btn btn-primary px-6 py-2.5 rounded-xl font-bold">Mengerti</button></div>' +
+        '</div>',
+        'max-w-lg'
+      );
+      // Tombol penutup modal (data-act="close").
+      var panel = document.getElementById('modalPanel');
+      panel.querySelectorAll('[data-act="close"]').forEach(function (b) {
+        b.addEventListener('click', function () { document.getElementById('modalRoot').classList.add('hidden'); });
+      });
     },
 
     closeSidebar: function () {
@@ -519,11 +582,11 @@
     },
 
     /** Tombol aksi kecil. */
-    aBtn: function (cls, label, title) {
+    aBtn: function (cls, label, title, tone) {
       return '<button data-act="' + cls + '" title="' + (title || label) +
         '" class="text-xs px-2.5 py-1.5 rounded-lg font-semibold transition ' +
-        (cls === 'danger' ? 'bg-red-50 text-red-600 hover:bg-red-100' :
-          cls === 'gold' ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' :
+        (cls === 'danger' || tone === 'danger' ? 'bg-red-50 text-red-600 hover:bg-red-100' :
+          cls === 'gold' || tone === 'gold' ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' :
           'bg-emerald-light text-emerald-dark hover:bg-emerald hover:text-white') +
         '">' + label + '</button>';
     },
@@ -844,6 +907,9 @@
           '</div>' +
           '<form id="suratFormEl" class="space-y-4">' +
             '<div><label class="lbl">Jenis Surat</label><select id="sfType" class="field">' + typeOpts + '</select></div>' +
+            '<div><label class="lbl">Master Template (Kop PDF Resmi)</label>' +
+              '<select id="sfTemplate" class="field"><option value="">Memuat daftar template…</option></select>' +
+              '<p class="text-[11px] text-gray-400 mt-1">Pilih master template bila surat harus dirangkai dari blok naskah resmi (KOP &amp; tanda tangan otomatis).</p></div>' +
             '<div id="sfCustomBox" class="hidden p-3.5 bg-amber-50 rounded-xl border border-amber-200 space-y-2">' +
               '<div class="text-xs font-bold text-amber-900">Jenis Surat Kustom Baru:</div>' +
               '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">' +
@@ -866,6 +932,19 @@
               (item && item.attachment_url ? '<a href="' + Auth.esc(item.attachment_url) + '" target="_blank" rel="noopener" class="text-xs text-emerald-800 font-bold underline mt-1.5 inline-flex items-center gap-1"><span>📎 Buka Lampiran Naskah di Drive</span></a>' : '') +
               '<p class="text-[11px] text-gray-400 mt-1">File akan diunggah otomatis ke Google Drive folder <code>/Surat_Lampiran/</code>.</p>' +
             '</div>' +
+            // GAMBAR PUBLIKASI (pengganti unduh PDF di portal publik)
+            '<div class="p-3.5 rounded-xl border border-gray-200 bg-gray-50/60 space-y-2.5">' +
+              '<label class="lbl !text-gray-700">🖼️ Gambar Surat untuk Portal Publik (Opsional)</label>' +
+              '<input id="sfImageFile" type="file" accept="image/*" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
+              (item && item.image_url
+                ? '<div class="flex items-center gap-3"><img src="' + Auth.esc(item.image_url) + '" alt="Gambar publikasi saat ini" class="h-16 w-16 object-contain rounded-lg border border-gray-200 bg-white" />' +
+                    '<span class="text-[11px] text-gray-500">Gambar publikasi saat ini terpasang. Pilih file baru untuk mengganti.</span></div>'
+                : '<p class="text-[10px] text-gray-400">Unggah foto/scan surat; disimpan otomatis di folder Google Drive <code>/Surat_Publikasi/</code>.</p>') +
+              '<label class="flex items-center gap-2.5 text-xs font-semibold text-gray-800 cursor-pointer">' +
+                '<input id="sfShowImage" type="checkbox" class="h-4 w-4 accent-emerald" ' + ((item && (item.show_image_on_public === 'TRUE' || item.show_image_on_public === true)) ? 'checked' : '') + ' />' +
+                '📡 Tampilkan gambar ini di Portal Publik (pengunjung melihat surat, bukan unduh PDF)' +
+              '</label>' +
+            '</div>' +
             '<p class="text-xs text-gray-400">' + (isEdit
               ? 'Kosongkan ketiga kotak isi untuk mempertahankan isi lama. Hanya Draf yang dapat diubah.'
               : 'Isi surat dapat dilengkapi nanti selama masih berstatus Draf.') + '</p>' +
@@ -879,6 +958,23 @@
       // Tutup modal.
       Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
         b.addEventListener('click', function () { self.closeModal(); });
+      });
+
+      // Muat daftar master template surat untuk dipilih saat menyusun naskah.
+      var sfTemplateEl = document.getElementById('sfTemplate');
+      Auth.getCached('getLetterTemplates', null, function (data) {
+        var tpls = (data && data.items) || [];
+        sfTemplateEl.innerHTML = '<option value="">(Tanpa template — pakai format standar)</option>' +
+          tpls.map(function (t) {
+            return '<option value="' + Auth.esc(t.id) + '"' +
+              (item && item.template_id === t.id ? ' selected' : '') + '>' +
+              Auth.esc(t.name) + (t.is_default ? ' (Default)' : '') + '</option>';
+          }).join('');
+        if (!tpls.length) {
+          sfTemplateEl.innerHTML = '<option value="">Belum ada master template (hubungi superadmin/sekretaris)</option>';
+        }
+      }).catch(function () {
+        sfTemplateEl.innerHTML = '<option value="">Gagal memuat template</option>';
       });
 
       // Toggle input jenis surat kustom
@@ -927,13 +1023,20 @@
           letter_type: letterTypeVal,
           title: document.getElementById('sfTitle').value.trim(),
           tanggal_surat: document.getElementById('sfTanggal').value,
-          letter_number: document.getElementById('sfNomor').value.trim()
+          letter_number: document.getElementById('sfNomor').value.trim(),
+          template_id: sfTemplateEl ? sfTemplateEl.value : ''
         };
         // Hanya kirim content bila ada isian (updateSurat menimpa seluruh content).
         if (menimbang || mengingat || memutuskan) {
           payload.content = { menimbang: menimbang, mengingat: mengingat, memutuskan: memutuskan };
         }
         if (isEdit) payload.id = item.id;
+
+        // Flag tampil/sembunyi gambar publikasi di portal publik.
+        var showImgEl = document.getElementById('sfShowImage');
+        payload.show_image_on_public = !!(showImgEl && showImgEl.checked);
+        // Saat edit tanpa gambar baru, pertahankan gambar publikasi yang sudah ada.
+        if (isEdit && item && item.image_url) payload.image_url = item.image_url;
 
         var doSend = function () {
           Auth.fetch(isEdit ? 'updateSurat' : 'createSurat', payload).then(function () {
@@ -945,13 +1048,333 @@
           });
         };
 
-        var fileEl = document.getElementById('sfAttachmentFile');
+        // Rantai pembacaan berkas: gambar publikasi dulu, lalu lampiran utama,
+        // baru kirim (kedua FileReader bersifat asinkron).
+        var imgEl = document.getElementById('sfImageFile');
+        var imgFile = (imgEl && imgEl.files && imgEl.files[0]) ? imgEl.files[0] : null;
+        if (imgFile && imgFile.size > 4 * 1024 * 1024) {
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = isEdit ? 'Simpan Perubahan' : 'Simpan Draf Surat'; }
+          self.toast('Ukuran gambar publikasi maksimal 4 MB.', 'error');
+          return;
+        }
+
+        var sendWithAttachment = function () {
+          var fileEl = document.getElementById('sfAttachmentFile');
+          if (fileEl && fileEl.files && fileEl.files[0]) {
+            var file = fileEl.files[0];
+            var reader = new FileReader();
+            reader.onload = function (evt) {
+              payload.attachment_base64 = evt.target.result;
+              payload.attachment_file_name = file.name;
+              doSend();
+            };
+            reader.onerror = function () { doSend(); };
+            reader.readAsDataURL(file);
+          } else {
+            doSend();
+          }
+        };
+
+        if (imgFile) {
+          var imgReader = new FileReader();
+          imgReader.onload = function (evt) {
+            payload.image_base64 = evt.target.result;
+            sendWithAttachment();
+          };
+          imgReader.onerror = function () { sendWithAttachment(); };
+          imgReader.readAsDataURL(imgFile);
+        } else {
+          sendWithAttachment();
+        }
+      });
+    },
+
+    /** Muat ulang tabel surat sesuai peran. */
+    refreshSurat: function () {
+      var r = this.state.user.role;
+      this.loadSurat(['SUPERADMIN', 'SEKRETARIS'].indexOf(r) !== -1,
+        ['SUPERADMIN', 'KETUA'].indexOf(r) !== -1);
+      if (['SUPERADMIN', 'SEKRETARIS'].indexOf(r) !== -1) this.loadTemplates();
+    },
+
+    /** Muat daftar master template surat ke kartu pengaturan. */
+    loadTemplates: function () {
+      var box = document.getElementById('templateRows');
+      if (!box) return;
+      var self = this;
+      var role = this.state.user.role;
+      var canWrite = ['SUPERADMIN', 'SEKRETARIS'].indexOf(role) !== -1;
+      var canDelete = role === 'SUPERADMIN';
+
+      Auth.getCached('getLetterTemplates', null, function (data) {
+        var tpls = (data && data.items) || [];
+        if (!tpls.length) {
+          box.innerHTML = '<div class="text-center text-gray-400 py-6 text-sm">' +
+            'Belum ada master template. Klik <b>Unggah Template</b> untuk menambahkan kop resmi lembaga.</div>';
+          return;
+        }
+        box.innerHTML = tpls.map(function (t) {
+          return '<div class="flex items-center gap-3 p-3 rounded-xl border ' +
+            (t.is_default ? 'border-emerald-300 bg-emerald-50' : 'border-gray-200 bg-gray-50') +
+            '">' +
+            '<div class="flex-shrink-0 h-9 w-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ' + (t.is_default ? 'text-emerald-600' : 'text-gray-400') + '" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>' +
+            '</div>' +
+            '<div class="min-w-0 flex-1">' +
+              '<div class="font-semibold text-gray-900 text-sm truncate flex items-center gap-1.5">' +
+                Auth.esc(t.name) +
+                (t.is_default ? '<span class="badge badge-PUBLISHED text-[10px] px-1.5 py-0.5">Default</span>' : '') +
+              '</div>' +
+              '<div class="text-xs text-gray-500 truncate">' +
+                (t.description ? Auth.esc(t.description) + ' • ' : '') +
+                (t.fields ? t.fields.length : 0) + ' blok naskah • dibuat oleh ' + Auth.esc(t.created_by || '-') +
+              '</div>' +
+            '</div>' +
+            '<div class="flex gap-1.5 flex-shrink-0">' +
+              (t.pdf_url ? '<a href="' + Auth.esc(t.pdf_url) + '" target="_blank" rel="noopener" title="Buka master PDF di Drive" class="text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-emerald-light text-emerald-dark hover:bg-emerald hover:text-white">PDF</a>' : '') +
+              (canWrite ? '<button data-tact="edit" data-tid="' + Auth.esc(t.id) + '" title="Ubah template" class="text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-blue-50 text-blue-600 hover:bg-blue-100">Ubah</button>' : '') +
+              (canDelete && !t.is_default ? '<button data-tact="del" data-tid="' + Auth.esc(t.id) + '" title="Nonaktifkan template" class="text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-red-50 text-red-600 hover:bg-red-100">Hapus</button>' : '') +
+            '</div>' +
+          '</div>';
+        }).join('');
+
+        Array.prototype.forEach.call(box.querySelectorAll('[data-tact]'), function (b) {
+          b.addEventListener('click', function () {
+            var act = b.getAttribute('data-tact');
+            var item = tpls.filter(function (x) { return x.id === b.getAttribute('data-tid'); })[0];
+            if (!item) return;
+            if (act === 'edit') self.templateForm(item);
+            else if (act === 'del') {
+              self.confirm('Nonaktifkan Master Template',
+                'Template <b>"' + Auth.esc(item.name) + '"</b> akan disembunyikan dari daftar pilihan. Master PDF di Drive tetap utuh. Lanjutkan?',
+                function () {
+                  Auth.fetch('deleteLetterTemplate', { id: item.id }).then(function () {
+                    self.toast('Template telah dinonaktifkan.', 'success');
+                    self.loadTemplates();
+                  }).catch(function () {});
+                });
+            }
+          });
+        });
+      }).catch(function () {
+        box.innerHTML = '<div class="text-center text-red-500 py-6 text-sm">Gagal memuat daftar master template.</div>';
+      });
+    },
+
+    /** Modal buat/ubah master template surat. */
+    templateForm: function (item) {
+      var self = this;
+      var isEdit = !!item;
+
+      this.openModal(
+        '<div class="p-4 sm:p-6">' +
+          '<div class="flex items-center justify-between gap-2 mb-5">' +
+            '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Master Template' : 'Unggah Master Template Surat') + '</h3>' +
+            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 ml-auto">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+          '</div>' +
+          '<form id="templateFormEl" class="space-y-4">' +
+            '<div><label class="lbl">Nama Template <span class="text-red-500">*</span></label>' +
+              '<input id="tfName" type="text" required class="field" placeholder="cth: Kop Resmi DPW Jabodetabek" value="' + Auth.esc(item ? item.name : '') + '" /></div>' +
+            '<div><label class="lbl">Keterangan</label>' +
+              '<input id="tfDesc" type="text" class="field" placeholder="cth: Kop standar untuk semua SK &amp; surat resmi" value="' + Auth.esc(item ? item.description : '') + '" /></div>' +
+            '<div>' +
+              '<label class="lbl">Master PDF / Kop Resmi (opsional)</label>' +
+              '<input id="tfFile" type="file" accept="application/pdf" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
+              (item && item.pdf_url ? '<a href="' + Auth.esc(item.pdf_url) + '" target="_blank" rel="noopener" class="text-xs text-emerald-800 font-bold underline mt-1.5 inline-flex items-center gap-1"><span>📎 Buka master PDF tersimpan di Drive</span></a>' : '') +
+              '<p class="text-[11px] text-gray-400 mt-1">Unggah ulang untuk mengganti. Disimpan utuh di Drive folder <code>/Master Template Surat/</code>.</p>' +
+            '</div>' +
+            '<div class="p-4 rounded-xl border border-gray-200 bg-gray-50/60 space-y-3">' +
+              '<div class="flex items-center justify-between gap-2 flex-wrap">' +
+                '<div>' +
+                  '<label class="lbl">Susunan Blok Naskah</label>' +
+                  '<p class="text-[11px] text-gray-500 -mt-0.5">Urutan blok yang dirangkai menjadi badan surat saat PDF diterbitkan.</p>' +
+                '</div>' +
+                '<div class="flex gap-2">' +
+                  '<button type="button" id="tfBlocksReset" class="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-white border border-gray-300 text-gray-600 hover:bg-gray-100">↺ Susunan Bawaan</button>' +
+                  '<button type="button" id="tfBlocksAdd" class="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-emerald-light text-emerald-dark hover:bg-emerald hover:text-white">＋ Tambah Blok</button>' +
+                '</div>' +
+              '</div>' +
+              '<div id="tfBlocks" class="space-y-2"></div>' +
+              '<p id="tfBlocksNote" class="text-[10px] text-gray-500 font-semibold"></p>' +
+              '<p class="text-[10px] text-gray-500 leading-relaxed">Blok: <b>jenis</b> (label jenis surat) • <b>nomor</b> (baris nomor) • <b>judul</b> (perihal) • <b>tanggal</b> (tanggal penetapan) • <b>label</b> (teks statis) • <b>field</b> (isi naskah &ldquo;Label : nilai&rdquo;) • <b>spasi</b> (baris kosong) • <b>ttd</b> (Sekretaris &amp; Ketua + stempel).</p>' +
+            '</div>' +
+            '<label class="flex items-start gap-2.5 text-sm text-gray-700 cursor-pointer p-3 rounded-xl border border-gray-200 hover:bg-gray-50">' +
+              '<input id="tfDefault" type="checkbox" class="mt-0.5" ' + (item && item.is_default ? 'checked' : '') + ' />' +
+              '<span><b>Jadikan template default</b><br /><span class="text-xs text-gray-500">Dipakai otomatis saat surat dibuat tanpa pilihan template.</span></span>' +
+            '</label>' +
+            '<div class="flex gap-3 pt-2">' +
+              '<button type="submit" id="btnSubmitTemplate" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">' + (isEdit ? 'Simpan Perubahan' : 'Simpan Template') + '</button>' +
+              '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
+            '</div>' +
+          '</form>' +
+        '</div>');
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+        b.addEventListener('click', function () { self.closeModal(); });
+      });
+
+      // ---- Editor blok naskah ----
+      var BLOCK_TYPES = [
+        { id: 'jenis', label: 'Jenis surat' },
+        { id: 'nomor', label: 'Nomor surat' },
+        { id: 'judul', label: 'Perihal / judul' },
+        { id: 'tanggal', label: 'Tanggal penetapan' },
+        { id: 'label', label: 'Teks statis (label)' },
+        { id: 'field', label: 'Isi naskah (field)' },
+        { id: 'spasi', label: 'Baris kosong (spasi)' },
+        { id: 'ttd', label: 'Tanda tangan + stempel' }
+      ];
+      var DEFAULT_BLOCKS = [
+        { type: 'jenis', align: 'center', size: 13, bold: true },
+        { type: 'nomor', align: 'center', size: 11 },
+        { type: 'spasi', size: 6 },
+        { type: 'label', text: 'TENTANG', align: 'center', size: 9, bold: true },
+        { type: 'judul', align: 'center', size: 12, bold: true },
+        { type: 'spasi', size: 8 },
+        { type: 'field', key: 'menimbang', label: 'Menimbang :', size: 11 },
+        { type: 'field', key: 'mengingat', label: 'Mengingat :', size: 11 },
+        { type: 'field', key: 'memutuskan', label: 'Memutuskan :', size: 11 },
+        { type: 'spasi', size: 8 },
+        { type: 'tanggal', size: 11 },
+        { type: 'spasi', size: 12 },
+        { type: 'ttd' }
+      ];
+      var blocksBox = document.getElementById('tfBlocks');
+
+      var syncBlockRow = function (row) {
+        var type = row.querySelector('.tfbType').value;
+        row.querySelector('.tfbText').classList.toggle('hidden', type !== 'label');
+        row.querySelector('.tfbKey').classList.toggle('hidden', type !== 'field');
+        row.querySelector('.tfbLabel').classList.toggle('hidden', type !== 'field');
+        // Blok ttd tidak memiliki opsi gaya teks.
+        row.querySelector('.tfbStyle').classList.toggle('hidden', type === 'ttd');
+      };
+
+      var bindBlockRow = function (row) {
+        syncBlockRow(row);
+        row.querySelector('.tfbType').addEventListener('change', function () { syncBlockRow(row); });
+        row.querySelector('.tfbDel').addEventListener('click', function () {
+          blocksBox.removeChild(row);
+          self.renderBlockSummary();
+        });
+        row.querySelector('.tfbUp').addEventListener('click', function () {
+          var prev = row.previousElementSibling;
+          if (prev) blocksBox.insertBefore(row, prev);
+        });
+        row.querySelector('.tfbDown').addEventListener('click', function () {
+          var next = row.nextElementSibling;
+          if (next) blocksBox.insertBefore(next, row);
+        });
+      };
+
+      var blockRowHtml = function (b) {
+        var typeOpts = BLOCK_TYPES.map(function (t) {
+          return '<option value="' + t.id + '"' + (t.id === b.type ? ' selected' : '') +
+            '>' + t.label + '</option>';
+        }).join('');
+        var align = b.align || 'left';
+        var alignOpts = [
+          { id: 'left', label: 'Kiri' }, { id: 'center', label: 'Tengah' },
+          { id: 'right', label: 'Kanan' }
+        ].map(function (a) {
+          return '<option value="' + a.id + '"' + (a.id === align ? ' selected' : '') +
+            '>' + a.label + '</option>';
+        }).join('');
+        return '<div data-block class="bg-white rounded-xl border border-gray-200 p-2.5 flex flex-wrap items-center gap-2">' +
+          '<select class="tfbType field text-xs flex-shrink-0">' + typeOpts + '</select>' +
+          '<input class="tfbText field text-xs flex-1 min-w-[140px]" placeholder="Teks label (cth: TENTANG)" value="' + Auth.esc(b.text || '') + '" />' +
+          '<input class="tfbKey field text-xs w-28 flex-shrink-0" placeholder="Kunci" value="' + Auth.esc(b.key || '') + '" />' +
+          '<input class="tfbLabel field text-xs flex-1 min-w-[120px]" placeholder="Label (cth: Menimbang :)" value="' + Auth.esc(b.label || '') + '" />' +
+          '<div class="tfbStyle flex items-center gap-1.5">' +
+            '<input type="number" class="tfbSize field w-16 text-xs" min="7" max="24" title="Ukuran font (pt)" value="' + (Number(b.size) || 11) + '" />' +
+            '<select class="tfbAlign field text-xs">' + alignOpts + '</select>' +
+            '<label class="flex items-center gap-1 text-[11px] font-bold text-gray-600 cursor-pointer">' +
+              '<input type="checkbox" class="tfbBold" ' + (b.bold ? 'checked' : '') + ' />B</label>' +
+          '</div>' +
+          '<div class="flex gap-1 ml-auto">' +
+            '<button type="button" class="tfbUp w-7 h-7 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 font-bold text-xs" title="Naikkan blok">↑</button>' +
+            '<button type="button" class="tfbDown w-7 h-7 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 font-bold text-xs" title="Turunkan blok">↓</button>' +
+            '<button type="button" class="tfbDel w-7 h-7 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs" title="Hapus blok">✕</button>' +
+          '</div>' +
+        '</div>';
+      };
+
+      var renderBlocks = function (list) {
+        blocksBox.innerHTML = list.map(blockRowHtml).join('');
+        Array.prototype.forEach.call(blocksBox.querySelectorAll('[data-block]'), bindBlockRow);
+        self.renderBlockSummary();
+      };
+
+      // Susunan awal: blok template yang sudah ada, atau bawaan untuk template baru.
+      renderBlocks((item && Array.isArray(item.fields) && item.fields.length)
+        ? item.fields : DEFAULT_BLOCKS.slice());
+
+      document.getElementById('tfBlocksAdd').addEventListener('click', function () {
+        var wrap = document.createElement('div');
+        wrap.innerHTML = blockRowHtml({ type: 'field', key: '', label: '', size: 11 });
+        var row = wrap.firstElementChild;
+        blocksBox.appendChild(row);
+        bindBlockRow(row);
+      });
+      document.getElementById('tfBlocksReset').addEventListener('click', function () {
+        renderBlocks(DEFAULT_BLOCKS.slice());
+      });
+
+      document.getElementById('templateFormEl').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var submitBtn = document.getElementById('btnSubmitTemplate');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Menyimpan...'; }
+
+        var payload = {
+          name: document.getElementById('tfName').value.trim(),
+          description: document.getElementById('tfDesc').value.trim(),
+          fields: (function () {
+            var rows = blocksBox.querySelectorAll('[data-block]');
+            var out = [];
+            Array.prototype.forEach.call(rows, function (row) {
+              var type = row.querySelector('.tfbType').value;
+              var b = { type: type };
+              if (type === 'label') b.text = row.querySelector('.tfbText').value;
+              if (type === 'field') {
+                b.key = row.querySelector('.tfbKey').value.trim();
+                b.label = row.querySelector('.tfbLabel').value;
+              }
+              var size = Number(row.querySelector('.tfbSize').value);
+              if (size) b.size = size;
+              if (row.querySelector('.tfbBold').checked) b.bold = true;
+              var align = row.querySelector('.tfbAlign').value;
+              if (align === 'center' || align === 'right') b.align = align;
+              out.push(b);
+            });
+            return out;
+          })(),
+          is_default: document.getElementById('tfDefault').checked
+        };
+        if (isEdit) payload.id = item.id;
+
+        var doSend = function () {
+          Auth.fetch('saveLetterTemplate', payload).then(function () {
+            self.closeModal();
+            self.toast(isEdit ? 'Master template berhasil diperbarui.' : 'Master template berhasil disimpan.', 'success');
+            self.loadTemplates();
+          }).catch(function () {
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = isEdit ? 'Simpan Perubahan' : 'Simpan Template'; }
+          });
+        };
+
+        var fileEl = document.getElementById('tfFile');
         if (fileEl && fileEl.files && fileEl.files[0]) {
           var file = fileEl.files[0];
+          if (file.size > 8 * 1024 * 1024) {
+            self.toast('Ukuran master PDF melebihi 8 MB.', 'error');
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = isEdit ? 'Simpan Perubahan' : 'Simpan Template'; }
+            return;
+          }
           var reader = new FileReader();
           reader.onload = function (evt) {
-            payload.attachment_base64 = evt.target.result;
-            payload.attachment_file_name = file.name;
+            payload.pdf_base64 = evt.target.result;
+            payload.pdf_name = file.name;
             doSend();
           };
           reader.onerror = function () { doSend(); };
@@ -962,11 +1385,17 @@
       });
     },
 
-    /** Muat ulang tabel surat sesuai peran. */
-    refreshSurat: function () {
-      var r = this.state.user.role;
-      this.loadSurat(['SUPERADMIN', 'SEKRETARIS'].indexOf(r) !== -1,
-        ['SUPERADMIN', 'KETUA'].indexOf(r) !== -1);
+    /** Ringkasan jumlah blok naskah di editor template. */
+    renderBlockSummary: function () {
+      var box = document.getElementById('tfBlocks');
+      if (!box) return;
+      var n = box.querySelectorAll('[data-block]').length;
+      var note = document.getElementById('tfBlocksNote');
+      if (note) {
+        note.textContent = n
+          ? 'Total ' + n + ' blok naskah. Daftar kosong akan memakai susunan bawaan.'
+          : 'Tidak ada blok. Saat disimpan, template akan memakai susunan bawaan.';
+      }
     },
 
     /** Modal detail surat dengan Pratinjau Kertas Virtual A4 (Paper Replica) & Metadata. */
@@ -1364,9 +1793,10 @@
       var u = this.state.user;
       var self = this;
       var canWrite = ['SUPERADMIN', 'BENDAHARA'].indexOf(u.role) !== -1;
+      var isDemo = Auth.isDemo();
       var canApprove = ['SUPERADMIN', 'KETUA'].indexOf(u.role) !== -1;
 
-      var newBtn = canWrite ?
+      var newBtn = (!isDemo && canWrite) ?
         '<button id="btnVoucherBaru" class="btn btn-primary px-5 py-2.5 rounded-xl inline-flex items-center gap-2 font-bold text-sm">' +
         '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>' +
         'Buat Voucher</button>' : '';
@@ -1393,8 +1823,9 @@
           '</tr></thead><tbody id="keuRows">' + this.loadingRow(6) + '</tbody></table></div>' +
         '</div>';
 
-      if (canWrite) {
-        document.getElementById('btnVoucherBaru').addEventListener('click', function () {
+      if (!isDemo && canWrite) {
+        var btn = document.getElementById('btnVoucherBaru');
+        if (btn) btn.addEventListener('click', function () {
           self.voucherForm();
         });
       }
@@ -2562,6 +2993,9 @@
             '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap">' +
               (Auth.isSuperadmin()
                 ? self.aBtn('edit', 'Ubah', 'Ubah akun') +
+                  self.aBtn('perms', 'Izin Aksi',
+                    u.permissions_customized ? 'Izin kustom (ubah dari default peran)' : 'Izin default peran',
+                    u.permissions_customized ? 'gold' : '') +
                   self.aBtn(u.is_active === 'TRUE' ? 'danger toggle' : 'toggle',
                     u.is_active === 'TRUE' ? 'Nonaktifkan' : 'Aktifkan', 'Ubah status akun')
                 : '<span class="text-xs text-gray-300">—</span>') +
@@ -2577,6 +3011,7 @@
               var item = users.filter(function (x) { return x.id === id; })[0];
               if (act === 'edit') self.userForm(item);
               else if (act === 'toggle') self.userToggle(item);
+              else if (act === 'perms') self.userPermissions(item);
             });
           });
         });
@@ -2958,6 +3393,128 @@
       });
     },
 
+    /**
+     * userPermissions: grid centang izin aksi per pengurus (RBAC fine-grained).
+     * Default peran dicentang otomatis; admin bebas mencentang/mencabut, dan
+     * ada tombol reset untuk mengembalikan ke default peran. Hanya SUPERADMIN.
+     */
+    userPermissions: function (item) {
+      var self = this;
+      var R = window.ROLES || {};
+
+      Auth.getCached('getPermissionsMap', null, function (data) {
+        var actions = (data && data.actions) || [];
+        var roleDefaults = (data && data.role_defaults) || {};
+        var defaults = roleDefaults[item.role] || [];
+
+        // Izin efektif saat ini: kustom (bila ada) atau default peran.
+        var current = (item.permissions_customized && Array.isArray(item.permissions)
+          && item.permissions[0] !== '*')
+          ? item.permissions.slice()
+          : defaults.slice();
+
+        // Kelompokkan aksi per modul untuk tampilan grid.
+        var groups = {};
+        var groupOrder = [];
+        actions.forEach(function (a) {
+          if (item.role === 'SUPERADMIN') return;           // SUPERADMIN selalu '*'
+          if (a.roles.indexOf(item.role) === -1) return;     // di luar jangkauan peran
+          if (!groups[a.module]) { groups[a.module] = []; groupOrder.push(a.module); }
+          groups[a.module].push(a);
+        });
+
+        var gridHtml = Object.keys(groups).length
+          ? groupOrder.map(function (mod) {
+            return '<div class="rounded-xl border border-gray-200 overflow-hidden">' +
+              '<div class="px-3.5 py-2 bg-gray-50 border-b border-gray-200 text-xs font-extrabold text-gray-700 uppercase tracking-wide">' + Auth.esc(mod) + '</div>' +
+              '<div class="p-3 grid grid-cols-1 sm:grid-cols-2 gap-1.5">' +
+              groups[mod].map(function (a) {
+                var on = current.indexOf(a.action) !== -1;
+                var isDefault = defaults.indexOf(a.action) !== -1;
+                return '<label class="flex items-start gap-2.5 text-sm cursor-pointer p-1.5 rounded-lg hover:bg-emerald-50/60 transition">' +
+                  '<input type="checkbox" data-perm="' + a.action + '" class="h-4 w-4 mt-0.5 accent-emerald flex-shrink-0" ' + (on ? 'checked' : '') + ' />' +
+                  '<span class="min-w-0"><span class="block font-semibold text-gray-800 leading-snug">' + Auth.esc(a.label) +
+                    (isDefault
+                      ? ' <span class="inline-block px-1.5 py-0.5 rounded bg-emerald-light text-emerald-dark text-[9px] font-bold uppercase align-middle">default</span>'
+                      : '') +
+                  '</span><span class="block text-[11px] text-gray-400 font-mono leading-tight">' + a.action + '</span></span>' +
+                '</label>';
+              }).join('') + '</div></div>';
+          }).join('')
+          : '<div class="p-6 bg-gray-50 rounded-xl text-center text-sm text-gray-500">' +
+            'Peran <b>' + Auth.esc(R[item.role] || item.role) + '</b> tidak memiliki aksi yang bisa diatur (semua sudah default).</div>';
+
+        var isSuperadmin = item.role === 'SUPERADMIN';
+        var headerNote = isSuperadmin
+          ? '<div class="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">Administrator Sistem selalu memiliki semua izin dan tidak dapat dibatasi.</div>'
+          : (item.permissions_customized
+            ? '<div class="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2"><svg class="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>Izin pengguna ini <b>telah dikustomisasi</b> dari default peran. Tekan tombol Reset untuk mengembalikan.</span></div>'
+            : '<div class="mb-4 p-3 rounded-xl bg-gray-50 border border-gray-200 text-xs text-gray-600">Centang kotak untuk menambah/mencabut izin aksi. Label <b>default</b> menandakan aksi bawaan peran <b>' + Auth.esc(R[item.role] || item.role) + '</b>.</div>');
+
+        self.openModal(
+          '<div class="p-4 sm:p-6">' +
+            '<div class="flex items-center justify-between gap-2 mb-3">' +
+              '<div class="min-w-0">' +
+                '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark">Izin Aksi Pengurus</h3>' +
+                '<p class="text-xs text-gray-500 mt-0.5"><b>' + Auth.esc(item.username) + '</b> · ' + Auth.esc(item.full_name || '') + ' · ' + Auth.esc(R[item.role] || item.role) + '</p>' +
+              '</div>' +
+              '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+            '</div>' +
+            headerNote +
+            (isSuperadmin ? '' : '<div class="space-y-3 max-h-[52vh] overflow-y-auto pr-1 sm:pr-2">' + gridHtml + '</div>') +
+            (isSuperadmin ? '' :
+              '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-5 mt-1">' +
+                '<button type="button" id="permResetBtn" class="btn btn-ghost px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">' +
+                  'Reset ke Default Peran</button>' +
+                '<button type="button" id="permSaveBtn" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm">Simpan Izin Aksi</button>' +
+              '</div>') +
+          '</div>',
+          'max-w-2xl'
+        );
+
+        Array.prototype.forEach.call(document.querySelectorAll('#modalPanel [data-close]'), function (b) {
+          b.addEventListener('click', function () { self.closeModal(); });
+        });
+
+        var resetBtn = document.getElementById('permResetBtn');
+        if (resetBtn) {
+          resetBtn.addEventListener('click', function () {
+            resetBtn.disabled = true;
+            Auth.fetch('resetUserPermissions', { id: item.id }).then(function () {
+              self.closeModal();
+              self.toast('Izin aksi ' + item.username + ' dikembalikan ke default peran.', 'success');
+              self.loadPengguna(document.getElementById('usrQ') ? document.getElementById('usrQ').value.trim() : '');
+            }).catch(function () {
+              resetBtn.disabled = false;
+            });
+          });
+        }
+
+        var saveBtn = document.getElementById('permSaveBtn');
+        if (saveBtn) {
+          saveBtn.addEventListener('click', function () {
+            var picked = [];
+            Array.prototype.forEach.call(document.querySelectorAll('#modalPanel [data-perm]'), function (cb) {
+              if (cb.checked) picked.push(cb.getAttribute('data-perm'));
+            });
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Menyimpan…';
+            Auth.fetch('updatePengguna', { id: item.id, permissions: picked }).then(function () {
+              self.closeModal();
+              self.toast('Izin aksi pengguna berhasil disimpan.', 'success');
+              self.loadPengguna(document.getElementById('usrQ') ? document.getElementById('usrQ').value.trim() : '');
+            }).catch(function () {
+              saveBtn.disabled = false;
+              saveBtn.textContent = 'Simpan Izin Aksi';
+            });
+          });
+        }
+      }).catch(function (err) {
+        self.toast('Gagal memuat peta izin: ' + Auth.esc(err.message), 'error');
+      });
+    },
+
     userToggle: function (item) {
       var self = this;
       var akan = item.is_active === 'TRUE' ? 'dinonaktifkan' : 'diaktifkan kembali';
@@ -3114,23 +3671,45 @@
     },
 
     // ---------------------------------------------------------------
-    // PENGATURAN & MASTER DATA (SUPERADMIN & KETUA)
+    // PENGATURAN & MASTER DATA (SUPERADMIN & KETUA; SEKRETARIS hanya
+    // sub-tab Master Template Surat, sesuai RBAC saveLetterTemplate)
     // ---------------------------------------------------------------
+    // Sub-tab Pengaturan: SEKRETARIS hanya melihat Master Template.
+    PTABS_FOR_ROLE: function (role) {
+      var sekretarisOnly = role === 'SEKRETARIS';
+      if (sekretarisOnly) {
+        return [{ id: 'masterTemplate', label: '🧩 Master Template Surat' }];
+      }
+      return [
+        { id: 'rekening', label: '💳 Master Rekening' },
+        { id: 'surat', label: '📄 Format &amp; KOP Surat' },
+        { id: 'masterTemplate', label: '🧩 Master Template Surat' },
+        { id: 'pendaftaran', label: '📝 Pendaftaran' },
+        { id: 'keuangan', label: '💰 Keuangan' },
+        { id: 'redaksi', label: '📰 Redaksi Konten' },
+        { id: 'rbac', label: '🛡️ RBAC &amp; Publik' },
+        { id: 'drive', label: '☁️ Google Drive' },
+        { id: 'visitors', label: '👥 Pengunjung' }
+      ];
+    },
+
     renderPengaturan: function () {
       var main = document.getElementById('mainContent');
       var self = this;
-      var currentTab = this.state.pengaturan.tab || 'rekening';
+      var role = this.state.user.role;
+      var tabs = this.PTABS_FOR_ROLE(role);
+      var currentTab = this.state.pengaturan.tab || tabs[0].id;
+      // Jaga bila tab tersimpan tidak tersedia untuk peran ini.
+      if (!tabs.some(function (t) { return t.id === currentTab; })) currentTab = tabs[0].id;
 
       main.innerHTML = this.pageHead('Pengaturan &amp; Master Data',
-        'Kelola master rekening kas, format penomoran & KOP surat, pendaftaran anggota, redaksi konten publik, aturan keuangan, RBAC, dan Google Drive.', '') +
+        'Kelola master rekening kas, format penomoran & KOP surat, master template surat, pendaftaran anggota, redaksi konten publik, aturan keuangan, RBAC, dan Google Drive.', '') +
         '<div class="flex items-center gap-2 p-1.5 bg-gray-100 rounded-2xl mb-6 flex-wrap max-w-4xl">' +
-          '<button type="button" data-ptab="rekening" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rekening' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💳 Master Rekening</button>' +
-          '<button type="button" data-ptab="surat" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'surat' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📄 Format &amp; KOP Surat</button>' +
-          '<button type="button" data-ptab="pendaftaran" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'pendaftaran' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📝 Pendaftaran</button>' +
-          '<button type="button" data-ptab="keuangan" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'keuangan' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💰 Keuangan</button>' +
-          '<button type="button" data-ptab="redaksi" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'redaksi' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📰 Redaksi Konten</button>' +
-          '<button type="button" data-ptab="rbac" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rbac' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">🛡️ RBAC &amp; Publik</button>' +
-          '<button type="button" data-ptab="drive" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'drive' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">☁️ Google Drive</button>' +
+          tabs.map(function (t) {
+            return '<button type="button" data-ptab="' + t.id + '" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' +
+              (currentTab === t.id ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') +
+              '">' + t.label + '</button>';
+          }).join('') +
         '</div>' +
         '<div id="pengaturanBox"></div>';
 
@@ -3143,11 +3722,46 @@
 
       if (currentTab === 'rekening') this.renderPengaturanRekening();
       else if (currentTab === 'surat') this.renderPengaturanSurat();
+      else if (currentTab === 'masterTemplate') this.renderPengaturanMasterTemplate();
       else if (currentTab === 'pendaftaran') this.renderPengaturanPendaftaran();
       else if (currentTab === 'keuangan') this.renderPengaturanKeuangan();
       else if (currentTab === 'redaksi') this.renderPengaturanRedaksi();
       else if (currentTab === 'rbac') this.renderPengaturanRbac();
       else if (currentTab === 'drive') this.renderPengaturanDrive();
+      else if (currentTab === 'visitors') this.renderPengaturanVisitors();
+    },
+
+    /** Kartu manajemen Master Template Surat (sub-tab Pengaturan). */
+    renderPengaturanMasterTemplate: function () {
+      var box = document.getElementById('pengaturanBox');
+      var self = this;
+      // KETUA bisa membuka pengaturan namun RBAC saveLetterTemplate menolak.
+      var canWrite = ['SUPERADMIN', 'SEKRETARIS'].indexOf(this.state.user.role) !== -1;
+
+      box.innerHTML =
+        '<div class="flex items-center justify-between mb-4 flex-wrap gap-2">' +
+          '<div>' +
+            '<h3 class="text-base font-extrabold text-emerald-dark">Master Template Surat (Kop Resmi)</h3>' +
+            '<p class="text-xs text-gray-500">Master PDF/kop + susunan blok naskah yang dipakai menerbitkan surat resmi. Saat membuat surat, pengurus memilih salah satunya.</p>' +
+          '</div>' +
+          (canWrite
+            ? '<button type="button" id="btnTemplateBaru" class="btn btn-primary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-sm">' +
+              '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>' +
+              '<span>Unggah Template</span></button>'
+            : '<span class="badge bg-gray-100 text-gray-500 text-[11px]">👁️ Hanya lihat (RBAC)</span>') +
+        '</div>' +
+        '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-5">' +
+          '<div id="templateRows" class="space-y-2">' +
+            '<div class="text-center text-gray-400 py-6 text-sm">Memuat daftar master template…</div>' +
+          '</div>' +
+        '</div>';
+
+      if (canWrite) {
+        document.getElementById('btnTemplateBaru').addEventListener('click', function () {
+          self.templateForm(null);
+        });
+      }
+      this.loadTemplates();
     },
 
     renderPengaturanRekening: function () {
@@ -3165,8 +3779,8 @@
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
           '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
-          '<th>Nama Rekening</th><th>Jenis</th><th>Bank / Lembaga</th><th>Nomor Rekening</th><th>Atas Nama</th><th>Kategori</th><th>Publik</th><th>Status</th><th>Aksi</th>' +
-          '</tr></thead><tbody id="accountRows">' + this.loadingRow(9) + '</tbody></table></div>' +
+          '<th>Nama Rekening</th><th>Jenis</th><th>Bank / Lembaga</th><th>Nomor Rekening</th><th>Atas Nama</th><th>Kategori</th><th>Publik</th><th>QRIS</th><th>Status</th><th>Aksi</th>' +
+          '</tr></thead><tbody id="accountRows">' + this.loadingRow(10) + '</tbody></table></div>' +
         '</div>';
 
       document.getElementById('btnAddAccount').addEventListener('click', function () {
@@ -3206,13 +3820,14 @@
             '<td class="text-xs text-gray-600">' + Auth.esc(atasNama) + '</td>' +
             '<td><span class="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-lg">' + Auth.esc(kategori) + '</span></td>' +
             '<td>' + (isPub ? '<span class="badge badge-PUBLISHED text-[11px]">🌐 Tampil di Publik</span>' : '<span class="badge text-gray-400 bg-gray-100 text-[11px]">🔒 Internal</span>') + '</td>' +
+            '<td class="text-center">' + (a.qris_image_url ? '<span class="badge badge-PUBLISHED text-[11px]"> QRIS Terpasang</span>' : '<span class="text-[11px] text-gray-400">—</span>') + '</td>' +
             '<td>' + (isAktif ? '<span class="badge badge-PUBLISHED">Aktif</span>' : '<span class="badge badge-REJECTED">Nonaktif</span>') + '</td>' +
             '<td class="tbl-actions"><div class="flex gap-1.5">' +
               self.aBtn('edit-acc', 'Ubah', 'Ubah rincian rekening') +
               self.aBtn('danger del-acc', 'Hapus', 'Hapus rekening') +
             '</div></td>' +
           '</tr>';
-        }).join('') : '<tr class="tbl-empty"><td colspan="9" class="text-center text-gray-400 py-10">Belum ada rekening kas terdaftar. Silakan klik tombol "Tambah Rekening".</td></tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="10" class="text-center text-gray-400 py-10">Belum ada rekening kas terdaftar. Silakan klik tombol "Tambah Rekening".</td></tr>';
 
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
           var id = tr.getAttribute('data-id');
@@ -3294,6 +3909,21 @@
                 'Jika dicentang, nomor rekening akan langsung muncul di halaman publik yayasan untuk donasi, infaq, dan transaksi resmi.' +
               '</p>' +
             '</div>' +
+            '<div class="p-3.5 bg-gray-50/70 border border-gray-200/80 rounded-xl space-y-3">' +
+              '<div>' +
+                '<label class="lbl">🖼️ Upload Gambar QRIS (Opsional)</label>' +
+                '<input id="afQrisFile" type="file" accept="image/*" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
+                '<p class="text-[10px] text-gray-400 mt-1">Gambar QRIS disimpan otomatis di folder Google Drive yayasan. Kosongkan bila tidak ada QRIS.</p>' +
+              '</div>' +
+              (item && item.qris_image_url
+                ? '<div class="flex items-center gap-3"><img src="' + Auth.esc(item.qris_image_url) + '" alt="QRIS saat ini" class="h-16 w-16 object-contain rounded-lg border border-gray-200 bg-white" />' +
+                    '<span class="text-[11px] text-gray-500">QRIS saat ini terpasang. Upload file baru untuk mengganti.</span></div>'
+                : '') +
+              '<label class="flex items-center gap-2.5 text-xs font-bold text-gray-800 cursor-pointer">' +
+                '<input id="afShowQris" type="checkbox" class="h-4 w-4 accent-emerald rounded" ' + (item && (item.show_qris_on_public === 'TRUE' || item.show_qris_on_public === true) ? 'checked' : '') + ' />' +
+                '<span>📡 Pasang QRIS ini di Portal Publik (donasi via scan)</span>' +
+              '</label>' +
+            '</div>' +
             '<label class="flex items-center gap-2.5 text-xs text-gray-700 cursor-pointer pt-1">' +
               '<input id="afActive" type="checkbox" class="h-4 w-4 accent-emerald rounded" ' + (isActiveChecked ? 'checked' : '') + ' />' +
               '<span class="font-semibold">Rekening Aktif (dapat digunakan untuk transaksi buku kas)</span>' +
@@ -3321,8 +3951,14 @@
         var kode = kodeManual || ('ACC_' + (bank || nama).toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 15));
         var isPublic = document.getElementById('afShowPublic').checked;
         var isActive = document.getElementById('afActive').checked;
+        var showQris = document.getElementById('afShowQris').checked;
+        var qrisFileInput = document.getElementById('afQrisFile');
+        var qrisFile = (qrisFileInput && qrisFileInput.files && qrisFileInput.files.length) ? qrisFileInput.files[0] : null;
 
+        var send = function (qrisBase64) {
         var payload = {
+          qris_image_url: (item && item.qris_image_url) || '',
+          show_qris_on_public: showQris,
           name: nama,
           nama_rekening: nama,
           code: kode,
@@ -3338,6 +3974,7 @@
           is_active: isActive
         };
         if (isEdit) payload.id = item.id;
+        if (qrisBase64) payload.qris_image_base64 = qrisBase64;
 
         Auth.fetch('saveAccount', payload).then(function () {
           Auth.cache.invalidate(['accounts', 'keuangan', 'dashboard']);
@@ -3345,6 +3982,20 @@
           self.toast(isEdit ? 'Rekening berhasil diperbarui.' : 'Rekening baru berhasil ditambahkan dan disinkronkan.', 'success');
           self.loadAccountsList();
         }).catch(function () {});
+        };
+
+        if (qrisFile) {
+          if (qrisFile.size > 4 * 1024 * 1024) {
+            self.toast('Ukuran gambar QRIS maksimal 4 MB.', 'error');
+            return;
+          }
+          var reader = new FileReader();
+          reader.onload = function () { send(String(reader.result || '')); };
+          reader.onerror = function () { self.toast('Gagal membaca file QRIS.', 'error'); };
+          reader.readAsDataURL(qrisFile);
+        } else {
+          send('');
+        }
       });
     },
 
@@ -3827,18 +4478,17 @@
         var notifyEmail = s.registration_notify_email || reg.notify_email || 'sekretariat@apii.sigitadi.id';
         var waTemplate = s.registration_wa_template || reg.wa_template || 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.';
         var agreementText = s.registration_agreement_text || reg.agreement_text || 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.';
-        var openDivs = s.registration_open_divisions || reg.open_divisions || [
-          'DIV_DAKWAH', 'DIV_HUKUM', 'DIV_HUMAS', 'DIV_MEDIA', 'DIV_SOSIAL', 'DIV_LITBANG', 'DIV_EKONOMI'
-        ];
+        var openDivs = s.registration_open_divisions || reg.open_divisions || Object.keys(window.DIVISIONS || {});
 
+        // 7 divisi sesuai AD/ART Pasal 16 (kode = backend DIVISIONS).
         var divisionsList = [
-          { id: 'DIV_DAKWAH', name: 'Divisi Dakwah & Pembinaan', desc: 'Kajian, tabligh, dakwah apologetika & pembinaan mualaf' },
-          { id: 'DIV_HUKUM', name: 'Divisi Advokasi & Hukum', desc: 'Bantuan hukum, advokasi keumatan & kepatuhan' },
-          { id: 'DIV_HUMAS', name: 'Divisi Humas & Kemitraan', desc: 'Hubungan ormas, instansi pemerintah & lintas pihak' },
-          { id: 'DIV_MEDIA', name: 'Divisi Media, IT & Publikasi', desc: 'Portal web, konten sosmed, podcast & sistem IT' },
-          { id: 'DIV_SOSIAL', name: 'Divisi Sosial & Kemanusiaan', desc: 'Tanggap bencana, santunan dhuafa & aksi kemanusiaan' },
-          { id: 'DIV_LITBANG', name: 'Divisi Litbang & Diklat', desc: 'Riset apologetika komparatif & kaderisasi' },
-          { id: 'DIV_EKONOMI', name: 'Divisi Pemberdayaan Ekonomi & Logistik', desc: 'Koperasi, unit usaha & logistik inventaris' }
+          { id: 'DIV_HUMAS', name: 'Divisi Humas & Kemitraan', desc: 'Hubungan komunikasi internal/eksternal, publikasi & jejaring kerja sama' },
+          { id: 'DIV_LITBANG', name: 'Divisi Litbang & Diklat', desc: 'Riset, pengembangan program, peningkatan kapasitas & kaderisasi' },
+          { id: 'DIV_SOSMED', name: 'Divisi Media Sosial & Digital', desc: 'Pengelolaan medsos, desain, website & media partner' },
+          { id: 'DIV_DAKWAH', name: 'Divisi Dakwah & Pendidikan', desc: 'Syiar Islam, pembinaan keagamaan & pemberdayaan da’i' },
+          { id: 'DIV_INVESTASI', name: 'Divisi Pengembangan & Investasi Bisnis', desc: 'Strategi, SDM, kaderisasi anggota, cabang & investasi yayasan' },
+          { id: 'DIV_HUKUM', name: 'Divisi Hukum & Advokasi', desc: 'Peraturan internal, pertimbangan hukum & advokasi pengurus/anggota' },
+          { id: 'DIV_UMUM', name: 'Divisi Umum & Operasional', desc: 'Dukungan seluruh divisi, operasional, pengadaan & pemeliharaan aset' }
         ];
 
         box.innerHTML =
@@ -4124,11 +4774,15 @@
       var bulletins = [];
       var events = [];
       var faqs = [];
+      // Base64 gambar yang baru dipilih lewat input file (diunggah ke Drive saat Simpan).
+      var heroImagePick = '';
+      var eventImagePicks = {};   // rkey -> data URL base64
+      var MAX_IMAGE_MB = 4;
 
       var CAT_BULLETIN = ['Maklumat Resmi', 'Siaran Pers', 'Edaran', 'Pengumuman'];
       var CAT_EVENT = ['Kajian', 'Seminar', 'Pelatihan', 'Raker'];
       var BULLETIN_FIELDS = ['id', 'title', 'category', 'date', 'summary', 'link'];
-      var EVENT_FIELDS = ['id', 'title', 'category', 'date_str', 'time_str', 'location', 'speaker', 'link', 'status'];
+      var EVENT_FIELDS = ['id', 'title', 'category', 'date_str', 'time_str', 'location', 'speaker', 'link', 'status', 'image_url', '_imgkey'];
       var FAQ_FIELDS = ['q', 'a'];
 
       function esc(v) { return Auth.esc(v === undefined || v === null ? '' : v); }
@@ -4215,6 +4869,8 @@
       function eventRow(e, i) {
         e = e || {};
         var mendatang = String(e.status || 'MENDATANG').toUpperCase() !== 'SELESAI';
+        var rkey = e._imgkey || ('r' + Math.random().toString(36).slice(2, 9));
+        var evImg = e.image_url || '';
         return '<div class="p-4 rounded-2xl border border-gray-200 bg-gray-50/70 space-y-3" data-row>' +
           '<div class="flex items-center justify-between gap-2">' +
             '<span class="text-[11px] font-black text-gray-400 uppercase tracking-wider">Acara #' + (i + 1) + '</span>' +
@@ -4239,7 +4895,15 @@
             '<div class="sm:col-span-2"><label class="lbl">Tautan Pendaftaran / Info Acara (Opsional)</label>' +
               '<input type="url" data-f="link" class="field text-xs font-mono" placeholder="https://forms.gle/... (formulir pendaftaran / info)" value="' + esc(e.link) + '" /></div>' +
           '</div>' +
+          '<div><label class="lbl">🖼️ Poster / Gambar Acara (Opsional)</label>' +
+            '<div class="flex items-center gap-3 flex-wrap">' +
+              '<img data-ev-preview class="h-16 w-16 object-cover rounded-lg border border-gray-200 bg-white' + (evImg ? '' : ' hidden') + '" src="' + esc(evImg) + '" alt="Poster acara" />' +
+              '<input type="file" data-ev-file="' + rkey + '" accept="image/*" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
+            '</div>' +
+            '<p class="text-[10px] text-gray-400 mt-1">Disimpan otomatis di folder Google Drive yayasan. Maks. ' + MAX_IMAGE_MB + ' MB.</p></div>' +
           '<input type="hidden" data-f="id" value="' + esc(e.id) + '" />' +
+          '<input type="hidden" data-f="image_url" value="' + esc(evImg) + '" />' +
+          '<input type="hidden" data-f="_imgkey" value="' + rkey + '" />' +
         '</div>';
       }
 
@@ -4253,6 +4917,38 @@
           events = collectRows('edEventList', EVENT_FIELDS);
           events.splice(i, 1);
           renderEvents();
+        });
+        bindEventImageInputs();
+      }
+
+      /** Pasang listener upload gambar pada baris agenda yang baru dirender. */
+      function bindEventImageInputs() {
+        var wrap = document.getElementById('edEventList');
+        if (!wrap) return;
+        Array.prototype.forEach.call(wrap.querySelectorAll('[data-ev-file]'), function (input) {
+          input.addEventListener('change', function () {
+            var file = this.files && this.files[0];
+            if (!file) return;
+            if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+              self.toast('Ukuran gambar maksimal ' + MAX_IMAGE_MB + ' MB.', 'error');
+              this.value = '';
+              return;
+            }
+            var key = this.getAttribute('data-ev-file');
+            var row = this.closest('[data-row]');
+            var preview = row ? row.querySelector('[data-ev-preview]') : null;
+            var reader = new FileReader();
+            reader.onload = function () {
+              eventImagePicks[key] = reader.result;
+              if (preview) {
+                preview.src = reader.result;
+                preview.classList.remove('hidden');
+              }
+              self.toast('Gambar acara siap diunggah. Klik &ldquo;Simpan&rdquo; untuk menyimpan.', 'success');
+            };
+            reader.onerror = function () { self.toast('Gagal membaca file gambar.', 'error'); };
+            reader.readAsDataURL(file);
+          });
         });
       }
 
@@ -4287,12 +4983,12 @@
       Auth.getCached('getSettings', null).then(function (sData) {
         var s = (sData && (sData.settings || sData.data)) || sData || {};
         var ed = s.editorial_content || s.editorial || {};
-        var hero = ed.hero || {};
+        var hero = ed.hero || {}; 
         var prof = ed.profile || {};
         var be = ed.bulletins_events || {};
         var contact = ed.contact || {};
         var social = ed.social || {};
-
+        var image_url = hero.image_url || '';
         var showProfile = prof.show_section !== false;
         var showWarta = be.show_section !== false;
         var showFaq = ed.faqs_show !== false;
@@ -4301,6 +4997,8 @@
         bulletins = (Array.isArray(be.bulletins) ? be.bulletins : []).slice();
         events = (Array.isArray(be.events) ? be.events : []).slice();
         faqs = (Array.isArray(ed.faqs) ? ed.faqs : []).slice();
+
+        var isDemo = !!(self && self.state && self.state.user && Auth.isDemo());
 
         function toggleBadge(spanId, active) {
           var el = document.getElementById(spanId);
@@ -4339,6 +5037,16 @@
                 '<div><label class="lbl">Tautan Tombol CTA</label>' +
                   '<input id="edHeroCtaLink" type="text" class="field text-xs font-mono" placeholder="#informasi atau https://..." value="' + esc(hero.cta_link) + '" /></div>' +
               '</div>' +
+              '<div><label class="lbl">🖼️ Gambar Hero (Opsional)</label>' +
+                '<div class="space-y-2">' +
+                (image_url
+                  ? '<div class="flex items-center gap-3"><img id="edHeroImagePreview" src="' + esc(image_url) + '" alt="Gambar hero saat ini" class="h-20 w-32 object-cover rounded-lg border border-gray-200 bg-white" />' +
+                      '<span class="text-[11px] text-gray-500">Gambar hero saat ini. Upload file baru untuk mengganti.</span></div>'
+                  : '<p class="text-[10px] text-gray-400">Belum ada gambar hero. Upload file dari perangkat (disimpan otomatis di folder Google Drive yayasan).</p>') +
+                '<input id="edHeroImageFile" type="file" accept="image/*" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
+                '<div><label class="lbl">URL Gambar Hero (opsional, bila tidak upload file)</label>' +
+                  '<input id="edHeroImageUrl" type="url" class="field text-xs font-mono" placeholder="https://..." value="' + esc(image_url) + '" /></div>' +
+                '</div></div>' +
             '</div>' +
 
             // KARTU 2: PROFIL LEMBAGA & SAMBUTAN
@@ -4507,6 +5215,44 @@
         toggleBadge('edWartaBadge', showWarta);
         toggleBadge('edFaqBadge', showFaq);
 
+        // Upload gambar hero (dipilih sekarang, dikirim saat Simpan).
+        var heroFile = document.getElementById('edHeroImageFile');
+        if (heroFile) {
+          heroFile.addEventListener('change', function () {
+            var file = this.files && this.files[0];
+            if (!file) return;
+            if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+              self.toast('Ukuran gambar maksimal ' + MAX_IMAGE_MB + ' MB.', 'error');
+              this.value = '';
+              return;
+            }
+            var reader = new FileReader();
+            reader.onload = function () {
+              heroImagePick = reader.result;
+              var preview = document.getElementById('edHeroImagePreview');
+              if (preview) { preview.src = reader.result; preview.classList.remove('hidden'); }
+              self.toast('Gambar hero siap diunggah. Klik &ldquo;Simpan&rdquo; untuk menyimpan.', 'success');
+            };
+            reader.onerror = function () { self.toast('Gagal membaca file gambar.', 'error'); };
+            reader.readAsDataURL(file);
+          });
+        }
+
+        // Mode demo: kunci semua kontrol tulis di halaman redaksi (hanya lihat).
+        if (isDemo) {
+          Array.prototype.forEach.call(
+            box.querySelectorAll('button[data-del], button[data-row-add], button[type=submit], .btn-primary, .btn-ghost, input[type=file], [draggable]'),
+            function (el) { if (el) el.setAttribute('disabled', 'disabled'); }
+          );
+          Array.prototype.forEach.call(box.querySelectorAll('input, textarea, select'), function (el) {
+            if (el && el.getAttribute('type') !== 'file') el.setAttribute('readonly', 'readonly');
+          });
+          var demoInfo = document.createElement('div');
+          demoInfo.className = 'p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-dark font-semibold';
+          demoInfo.innerHTML = '👁️ <strong>Mode Demo (hanya lihat):</strong> Anda dapat melihat seluruh fitur redaksi konten, namun perubahan tidak dapat disimpan pada akun demo.';
+          box.insertBefore(demoInfo, box.firstChild);
+        }
+
         document.getElementById('edShowProfile').addEventListener('change', function () {
           toggleBadge('edProfileBadge', this.checked);
         });
@@ -4525,7 +5271,7 @@
         });
         document.getElementById('edAddEvent').addEventListener('click', function () {
           events = collectRows('edEventList', EVENT_FIELDS);
-          events.push({ id: '', title: '', category: 'Kajian', date_str: '', time_str: '', location: '', speaker: '', link: '', status: 'MENDATANG' });
+          events.push({ id: '', title: '', category: 'Kajian', date_str: '', time_str: '', location: '', speaker: '', link: '', status: 'MENDATANG', image_url: '', _imgkey: '' });
           renderEvents();
         });
         document.getElementById('edAddFaq').addEventListener('click', function () {
@@ -4813,7 +5559,9 @@
               headline: v('edHeroHeadline'),
               subheadline: v('edHeroSub'),
               cta_text: v('edHeroCtaText'),
-              cta_link: v('edHeroCtaLink')
+              cta_link: v('edHeroCtaLink'),
+              image_url: heroImagePick ? '' : v('edHeroImageUrl'),
+              image_base64: heroImagePick || undefined
             },
             profile: {
               show_section: document.getElementById('edShowProfile').checked,
@@ -4831,7 +5579,14 @@
                 return { id: b.id, title: b.title, category: b.category, date: b.date, summary: b.summary, link: b.link };
               }),
               events: events.filter(function (e) { return (e.title || '').trim(); }).map(function (e) {
-                return { id: e.id, title: e.title, category: e.category, date_str: e.date_str, time_str: e.time_str, location: e.location, speaker: e.speaker, link: e.link, status: e.status };
+                var out = { id: e.id, title: e.title, category: e.category, date_str: e.date_str, time_str: e.time_str, location: e.location, speaker: e.speaker, link: e.link, status: e.status };
+                var pick = e._imgkey ? eventImagePicks[e._imgkey] : '';
+                if (pick) {
+                  out.image_base64 = pick;   // unggah baru: backend simpan ke Drive & set image_url
+                } else if (e.image_url) {
+                  out.image_url = e.image_url; // pertahankan poster yang sudah ada
+                }
+                return out;
               })
             },
             contact: {
@@ -4860,6 +5615,10 @@
             btn.innerHTML = originalHtml;
             Auth.cache.invalidate(['settings', 'dashboard']);
             self.toast('Redaksi konten portal publik berhasil disimpan & langsung tayang. Versi sebelumnya tersimpan di Riwayat Versi.', 'success');
+            // Bersihkan gambar yang baru diunggah & muat ulang form agar preview memakai URL Drive yang baru.
+            heroImagePick = '';
+            eventImagePicks = {};
+            self.renderPengaturanRedaksi();
             // Perbarui daftar riwayat agar versi yang baru diarsipkan langsung terlihat.
             loadHistory();
           }).catch(function () {
@@ -5482,6 +6241,170 @@
         });
       }).catch(function (err) {
         box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat pengaturan Drive: ' + Auth.esc(err.message) + '</div>';
+      });
+    },
+
+    /**
+     * renderPengaturanVisitors: sub-tab Pengunjung — statistik pengunjung
+     * portal publik (ekstensi visitor). Hanya data agregat: device/OS/browser/
+     * lokasi/waktu. Tidak ada data pribadi yang disimpan atau ditampilkan.
+     */
+    renderPengaturanVisitors: function () {
+      var box = document.getElementById('pengaturanBox');
+      var self = this;
+      var isDemo = Auth.isDemo();
+      box.innerHTML = '<div class="card bg-white rounded-2xl p-8 border border-emerald-100 text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-dark mx-auto mb-2"></div><p class="text-xs text-gray-500 font-semibold">Memuat statistik pengunjung...</p></div>';
+
+      var days = Number(this.state.visitorDays) || 30;
+
+      var render = function (data) {
+        var t = (data && data.totals) || {};
+        var trend = Array.isArray(data && data.daily_trend) ? data.daily_trend : [];
+        var items = Array.isArray(data && data.items) ? data.items : [];
+
+        var maxCount = Math.max.apply(null, trend.map(function (d) { return d.count; }).concat([1]));
+        var trendHtml = trend.map(function (d) {
+          var h = Math.max(6, Math.round((d.count / maxCount) * 100));
+          var lbl = d.date.slice(5).replace('-', '/');
+          return '<div class="flex-1 flex flex-col items-center gap-1.5 min-w-0">' +
+            '<div class="w-full max-w-[44px] bg-emerald-100 rounded-t-md relative" style="height:' + h + 'px">' +
+              '<div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-emerald to-emerald-light rounded-t-md" style="height:' + h + 'px"></div>' +
+              (d.count
+                ? '<span class="absolute -top-4 inset-x-0 text-center text-[9px] font-extrabold text-emerald-dark">' + d.count + '</span>'
+                : '') +
+            '</div>' +
+            '<span class="text-[9px] text-gray-400 font-semibold truncate">' + lbl + '</span>' +
+          '</div>';
+        }).join('');
+
+        var chipRow = function (list, color) {
+          if (!list || !list.length) return '<p class="text-xs text-gray-400 italic">Belum ada data.</p>';
+          return '<div class="flex flex-wrap gap-1.5">' + list.slice(0, 8).map(function (c) {
+            return '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-' + color + '-50 border border-' + color + '-100 text-[11px] font-bold text-' + color + '-800">' +
+              Auth.esc(c.label || 'Tidak diketahui') +
+              '<span class="bg-' + color + '-200/70 text-' + color + '-900 rounded-full px-1.5 text-[9px]">' + c.count + '</span></span>';
+          }).join('') + '</div>';
+        };
+
+        var statCard = function (icon, label, value, sub) {
+          return '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-5">' +
+            '<div class="flex items-center gap-2.5 mb-2">' +
+              '<div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-dark flex items-center justify-center text-base flex-shrink-0">' + icon + '</div>' +
+              '<span class="text-xs font-bold text-gray-500 uppercase tracking-wide">' + label + '</span>' +
+            '</div>' +
+            '<div class="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-none">' + Auth.esc(String(value)) + '</div>' +
+            '<p class="text-[11px] text-gray-400 mt-1.5">' + sub + '</p>' +
+          '</div>';
+        };
+
+        var rowsHtml = items.length
+          ? items.slice(0, 25).map(function (v) {
+            var loc = [v.city, v.country].filter(Boolean).join(', ') || 'Tidak diketahui';
+            var last = (v.last_seen || '').slice(0, 16).replace('T', ' ');
+            if (last.indexOf('Z') !== -1) last = last.slice(0, -1);
+            return '<tr class="border-b border-gray-50 hover:bg-emerald-50/40 transition">' +
+              '<td class="px-3 py-2.5 text-xs font-mono text-gray-500">' + Auth.esc(String(v.visitor_id || '').slice(0, 10)) + '…</td>' +
+              '<td class="px-3 py-2.5 text-xs font-semibold text-gray-800">' + Auth.esc(v.device) + '</td>' +
+              '<td class="px-3 py-2.5 text-xs text-gray-600 hidden sm:table-cell">' + Auth.esc(v.os) + '</td>' +
+              '<td class="px-3 py-2.5 text-xs text-gray-600 hidden md:table-cell">' + Auth.esc(v.browser) + '</td>' +
+              '<td class="px-3 py-2.5 text-xs text-gray-600 hidden lg:table-cell">' + Auth.esc(loc) + '</td>' +
+              '<td class="px-3 py-2.5 text-xs text-gray-500 hidden sm:table-cell">' + Auth.esc(v.last_page || '-') + '</td>' +
+              '<td class="px-3 py-2.5 text-xs text-center font-bold text-emerald-dark">' + v.visit_count + '</td>' +
+              '<td class="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap">' + Auth.esc(last) + '</td>' +
+            '</tr>';
+          }).join('')
+          : '<tr><td colspan="8" class="px-3 py-10 text-center text-sm text-gray-400">Belum ada kunjungan tercatat dalam periode ini.</td></tr>';
+
+        box.innerHTML =
+          '<div class="space-y-6 max-w-5xl">' +
+            // HEADER & FILTER
+            '<div class="flex items-center justify-between flex-wrap gap-3">' +
+              '<div>' +
+                '<h3 class="text-base font-extrabold text-emerald-dark">Statistik Pengunjung Portal Publik</h3>' +
+                '<p class="text-xs text-gray-500 mt-0.5">Pelacakan kunjungan situs publik (apii.sigitadi.id). Hanya data agregat yang dikumpulkan — tidak ada nama, NIK, atau email.</p>' +
+              '</div>' +
+              '<div class="flex items-center gap-2">' +
+                '<select id="visitorDays" class="field text-xs py-1.5 w-auto">' +
+                  [7, 30, 90, 365].map(function (d) {
+                    return '<option value="' + d + '"' + (d === days ? ' selected' : '') + '>' + d + ' hari terakhir</option>';
+                  }).join('') +
+                '</select>' +
+                '<button type="button" id="btnRefreshVisitors" class="btn btn-ghost px-3.5 py-1.5 rounded-xl font-bold text-xs border border-gray-200 bg-white">Muat Ulang</button>' +
+              '</div>' +
+            '</div>' +
+            (isDemo ? '<div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-100 text-xs text-emerald-dark font-semibold">👁️ <strong>Mode Demo (hanya lihat):</strong> Statistik pengunjung dapat dilihat, namun data pengunjung tidak dapat dimodifikasi.</div>' : '') +
+
+            // KARTU STATISTIK
+            '<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">' +
+              statCard('👁️', 'Pengunjung Unik', t.unique_visitors || 0, 'Periode ' + days + ' hari') +
+              statCard('🔄', 'Total Kunjungan', t.total_visits || 0, 'Termasuk kunjungan berulang') +
+              statCard('📅', 'Hari Ini', t.visitors_today || 0, 'Pengunjung aktif hari ini') +
+              statCard('🌐', 'Sepanjang Waktu', t.all_time_unique || 0, 'Seluruh pengunjung unik') +
+            '</div>' +
+
+            // TREN HARIAN
+            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-5 sm:p-6">' +
+              '<div class="flex items-center justify-between mb-4 flex-wrap gap-2">' +
+                '<h4 class="text-sm font-extrabold text-gray-900">Tren Kunjungan (7 Hari Terakhir)</h4>' +
+                '<span class="text-[11px] text-gray-400">Berdasarkan kunjungan terakhir pengunjung</span>' +
+              '</div>' +
+              '<div class="flex items-end justify-between gap-1.5 sm:gap-3 h-32 px-1">' + trendHtml + '</div>' +
+            '</div>' +
+
+            // RINCIAN DEVICE / BROWSER / LOKASI
+            '<div class="grid grid-cols-1 md:grid-cols-3 gap-4">' +
+              '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-5"><h4 class="text-xs font-extrabold text-gray-700 uppercase tracking-wide mb-3">📱 Perangkat</h4>' + chipRow(data && data.by_device, 'emerald') + '</div>' +
+              '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-5"><h4 class="text-xs font-extrabold text-gray-700 uppercase tracking-wide mb-3">🧭 Browser</h4>' + chipRow(data && data.by_browser, 'blue') + '</div>' +
+              '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-5"><h4 class="text-xs font-extrabold text-gray-700 uppercase tracking-wide mb-3">📍 Lokasi</h4>' + chipRow(data && data.by_country, 'purple') + '</div>' +
+            '</div>' +
+
+            // TABEL PENGUNJUNG TERBARU
+            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
+              '<div class="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">' +
+                '<h4 class="text-sm font-extrabold text-gray-900">Pengunjung Terbaru</h4>' +
+                '<span class="text-[11px] text-gray-400">Maks. 25 terbaru dari ' + items.length + ' entri</span>' +
+              '</div>' +
+              '<div class="overflow-x-auto">' +
+                '<table class="w-full">' +
+                  '<thead class="bg-gray-50/70">' +
+                    '<tr>' +
+                      '<th class="px-3 py-2.5 text-left text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">ID</th>' +
+                      '<th class="px-3 py-2.5 text-left text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Device</th>' +
+                      '<th class="px-3 py-2.5 text-left text-[10px] font-extrabold text-gray-400 uppercase tracking-wider hidden sm:table-cell">OS</th>' +
+                      '<th class="px-3 py-2.5 text-left text-[10px] font-extrabold text-gray-400 uppercase tracking-wider hidden md:table-cell">Browser</th>' +
+                      '<th class="px-3 py-2.5 text-left text-[10px] font-extrabold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Lokasi</th>' +
+                      '<th class="px-3 py-2.5 text-left text-[10px] font-extrabold text-gray-400 uppercase tracking-wider hidden sm:table-cell">Halaman</th>' +
+                      '<th class="px-3 py-2.5 text-center text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Kunjungan</th>' +
+                      '<th class="px-3 py-2.5 text-left text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Terakhir Aktif</th>' +
+                    '</tr>' +
+                  '</thead>' +
+                  '<tbody>' + rowsHtml + '</tbody>' +
+                '</table>' +
+              '</div>' +
+            '</div>' +
+            '<p class="text-[11px] text-gray-400 leading-relaxed">🔒 Privasi: sistem hanya menyimpan data agregat (tipe perangkat, sistem operasi, browser, dan lokasi perkiraan dari alamat IP). Tidak ada data pribadi pengunjung yang disimpan.</p>' +
+          '</div>';
+
+        var sel = document.getElementById('visitorDays');
+        if (sel) {
+          sel.addEventListener('change', function () {
+            self.state.visitorDays = Number(sel.value) || 30;
+            self.renderPengaturanVisitors();
+          });
+        }
+        var ref = document.getElementById('btnRefreshVisitors');
+        if (ref) {
+          ref.addEventListener('click', function () {
+            Auth.cache.invalidate(['visitors']);
+            self.renderPengaturanVisitors();
+          });
+        }
+      };
+
+      Auth.getCached('getVisitors', { days: days }, function (data) {
+        render(data);
+      }).catch(function (err) {
+        box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat statistik pengunjung: ' + Auth.esc(err.message) + '</div>';
       });
     },
 

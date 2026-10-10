@@ -532,37 +532,38 @@
         <p id="wartaSubtitle" class="text-gray-600 text-base sm:text-lg leading-relaxed">Maklumat resmi, siaran pers pimpinan, serta jadwal acara dan kajian DPW APII Jabodetabek.</p>
       </div>
 
-      <!-- Tab Switcher Maklumat / Agenda -->
-      <div class="flex justify-center mb-10">
-        <div class="inline-flex items-center gap-1.5 p-1.5 bg-white rounded-2xl border border-emerald-100 shadow-sm flex-wrap justify-center">
-          <button type="button" data-wtab="maklumat" class="warta-tab px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition bg-emerald text-white shadow-sm cursor-pointer">📌 Maklumat &amp; Siaran</button>
-          <button type="button" data-wtab="agenda" class="warta-tab px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition text-gray-500 hover:text-emerald-dark cursor-pointer">📅 Agenda &amp; Acara</button>
+      <div class="space-y-10">
+        <!-- Panel 1: Maklumat & Siaran Resmi -->
+        <div id="wartaPanelMaklumat">
+          <div id="wartaBulletinStatus" class="py-12 text-center text-sm text-gray-400 font-semibold">Memuat warta &amp; maklumat resmi…</div>
+          <div id="wartaBulletinListWrap" class="hidden">
+            <div id="wartaBulletinList" class="grid md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
+          </div>
+          <div id="wartaBulletinMoreWrap" class="hidden mt-8 text-center">
+            <button type="button" id="wartaBulletinMore" class="inline-flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald border border-emerald-300 px-5 py-2.5 rounded-xl text-xs font-bold shadow-sm transition cursor-pointer">
+              <span id="wartaBulletinMoreText">Tampilkan Semua Maklumat</span>
+            </button>
+          </div>
         </div>
-      </div>
 
-      <!-- Panel 1: Maklumat & Siaran Resmi -->
-      <div id="wartaPanelMaklumat">
-        <div id="wartaBulletinStatus" class="py-12 text-center text-sm text-gray-400 font-semibold">Memuat warta &amp; maklumat resmi…</div>
-        <div id="wartaBulletinListWrap" class="hidden">
-          <div id="wartaBulletinList" class="grid md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
-        </div>
-        <div id="wartaBulletinMoreWrap" class="hidden mt-8 text-center">
-          <button type="button" id="wartaBulletinMore" class="inline-flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald border border-emerald-300 px-5 py-2.5 rounded-xl text-xs font-bold shadow-sm transition cursor-pointer">
-            <span id="wartaBulletinMoreText">Tampilkan Semua Maklumat</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Panel 2: Agenda & Acara Kegiatan -->
-      <div id="wartaPanelAgenda" class="hidden">
-        <div id="wartaEventStatus" class="py-12 text-center text-sm text-gray-400 font-semibold">Memuat agenda &amp; acara kegiatan…</div>
-        <div id="wartaEventListWrap" class="hidden">
-          <div id="wartaEventList" class="grid md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
-        </div>
-        <div id="wartaEventMoreWrap" class="hidden mt-8 text-center">
-          <button type="button" id="wartaEventMore" class="inline-flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald border border-emerald-300 px-5 py-2.5 rounded-xl text-xs font-bold shadow-sm transition cursor-pointer">
-            <span id="wartaEventMoreText">Tampilkan Semua Agenda</span>
-          </button>
+        <!-- Panel 2: Agenda & Acara Kegiatan -->
+        <div id="wartaPanelAgenda">
+          <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-10">
+              <span class="inline-flex items-center gap-2 bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-widest">Agenda &amp; Acara Kegiatan</span>
+              <h2 id="wartaAgendaTitle" class="text-3xl sm:text-4xl font-extrabold text-emerald-dark mt-4 mb-4">Agenda &amp; Acara Kegiatan</h2>
+              <p id="wartaAgendaSubtitle" class="text-gray-600 text-base sm:text-lg leading-relaxed">Jadwal acara, kajian, dan kegiatan DPW APII Jabodetabek.</p>
+            </div>
+            <div id="wartaEventStatus" class="py-12 text-center text-sm text-gray-400 font-semibold">Memuat agenda &amp; acara kegiatan…</div>
+            <div id="wartaEventListWrap" class="hidden">
+              <div id="wartaEventList" class="grid md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
+            </div>
+            <div id="wartaEventMoreWrap" class="hidden mt-8 text-center">
+              <button type="button" id="wartaEventMore" class="inline-flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald border border-emerald-300 px-5 py-2.5 rounded-xl text-xs font-bold shadow-sm transition cursor-pointer">
+                <span id="wartaEventMoreText">Tampilkan Semua Agenda</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
