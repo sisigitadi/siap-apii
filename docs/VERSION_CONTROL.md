@@ -84,10 +84,13 @@ Script ini akan:
 
 ### Langkah 2: Deploy ke Google Apps Script (satu perintah)
 ```bash
-npm run deploy:gas          # build → validasi → push → versi baru → update deployment
-npm run deploy:gas:check    # uji tanpa mengunggah (dry-run)
+npm run deploy:gas          # build → validasi → push → periksa editor → versi baru → update deployment
+npm run deploy:gas:check    # uji tanpa mengunggah (dry-run), termasuk pemeriksaan editor
+npm run check:legacy        # khusus: berkas lama & definisi ganda di editor (tanpa mengubah apa pun)
 ```
 Skrip `scripts/deploy-gas.mjs` memakai deployment ID yang sama, sehingga URL Web App (`https://script.google.com/macros/s/.../exec`) tidak berubah dan `portal/config.js` / `public/config.js` tidak perlu diedit.
+
+**Gerbang definisi ganda (langkah 7).** Sebelum versi baru dibuat, deploy menarik isi editor yang sesungguhnya (`clasp pull`) dan memeriksanya dengan [scripts/check-legacy-duplicates.mjs](scripts/check-legacy-duplicates.mjs): berkas apa pun yang bukan keluaran build dilaporkan, definisi nama yang sama antar berkas dihitung, dan setiap simbol berkas lama dicocokkan dengan modul baru. Bila masih ada berkas lama, deploy berhenti **sebelum** `create-version` (produksi `/exec` tidak berubah) dan menyebutkan berkas yang harus dihapus manual di editor. Ini menutup jalur kegagalan "Aksi tidak dikenali": dulu versi baru bisa dibuat selagi `Backend.gs` lama masih tertinggal, sehingga runtime memakai salinan usang tanpa error apa pun.
 
 > **Terbukti di produksi (2026-10-08 – 2026-10-09):** alur ini sudah dijalankan penuh — `push` → `create-version` → `update-deployment` — dan menghasilkan **Versi 12** lalu **Versi 13** (perbaikan Reset ke Default Drive, 2026-10-09 00:53 WIB) pada deployment `/exec` yang sama (`…NJdg`) dari `main` (`7f87fee`). Isi berkas versi tayang **identik** dengan `apps-script/` lokal dan manifest-nya sama dengan `gas/appsscript.json`. Ini menutup catatan lama "langkah versi & deployment belum pernah tuntas dari sisi agent". Ringkasan keadaan produksi ada di [CHANGELOG.md](CHANGELOG.md) → **Status Produksi Terkini**.
 

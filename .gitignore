@@ -75,3 +75,6 @@ flp2.txt
 jestpp.txt
 tsc3.txt
 scratch/
+
+# State perkakas agen (bukan bagian proyek)
+.freebuff/

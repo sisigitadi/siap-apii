@@ -112,6 +112,27 @@ npm run deploy:gas:check    # dry-run: build + validasi + preflight berkas saja
 
 ---
 
+## 10. Setelah `clasp push` masih "Aksi tidak dikenali" / perilaku lama tetap jalan
+
+**Gejala:** kode baru sudah terunggah, tetapi portal menjawab *"Aksi tidak dikenali"* atau fitur baru tidak terasa — padahal fungsinya jelas ada di project Apps Script.
+
+**Sebab paling sering: definisi ganda.** Semua berkas `.gs` di Apps Script berbagi satu scope global. Bila berkas lama masih tertinggal berdampingan dengan modul baru — terutama `Backend.gs` tunggal dari build sebelum 2026-10-09, atau `Aset.gs` peninggalan zaman dulu — nama yang sama terdefinisi dua kali. Apps Script **tidak** melaporkan ini sebagai error dan diam-diam memakai salah satunya (berkas yang dimuat paling akhir menang), sehingga yang dieksekusi adalah salinan usang.
+
+**Diagnosis satu perintah** (menarik isi editor yang sesungguhnya, tidak mengubah apa pun di Google):
+```bash
+npm run check:legacy
+```
+Keluarannya: berkas yang bukan keluaran build, jumlah definisi ganda yang terbentuk berikut modul pasangannya, dan jumlah simbol berkas lama yang belum pindah. Kode keluar: **0** bersih · **1** ada temuan · **2** tidak dapat diverifikasi (mis. belum `clasp login`).
+
+**Solusi:**
+1. Bila hasilnya menyatakan **JANGAN hapus** → pindahkan dulu simbol yang disebutkan ke modul yang tepat, lalu `npm run build:gas`.
+2. Bila seluruh simbol sudah pindah (skrip menyatakannya "penghapusan terbukti tidak menghilangkan fungsi") → buka editor Apps Script, klik kanan berkas lama → **Delete** (termasuk sisa lain seperti `Aset.gs`).
+3. Verifikasi: `npm run check:legacy` harus keluar 0. Setelah itu `npm run deploy:gas` membuat versi baru seperti biasa.
+
+> Sejak gerbang **langkah 7** di `scripts/deploy-gas.mjs`, versi baru tidak dibuat selagi editor masih memuat berkas lama — jadi keadaan ini tidak bisa lagi terlanjur tayang ke produksi.
+
+---
+
 ## Butuh bantuan lain?
 
 Buka Apps Script → **Executions** → cari eksekusi yang gagal → salin **seluruh isi log error** beserta nama fungsi. Itu yang dibutuhkan untuk mendiagnosis masalahnya.

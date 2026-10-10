@@ -107,7 +107,7 @@ Hasil kompilasi siap-tempel akan diperbarui di folder `apps-script/` — **satu 
 npm run deploy:gas
 ```
 
-Perintah ini menjalankan seluruh rangkaian secara otomatis: kompilasi bundel → validasi sintaks → preflight daftar berkas yang akan diunggah → `clasp push` → pembuatan **Versi baru** → pembaruan **deployment yang sama** (URL `/exec` tidak berubah, jadi tidak perlu menyunting `portal/config.js` / `public/config.js`).
+Perintah ini menjalankan seluruh rangkaian secara otomatis: kompilasi bundel → validasi sintaks → preflight daftar berkas yang akan diunggah → `clasp push` → **pemeriksaan editor (berkas lama & definisi ganda)** → pembuatan **Versi baru** → pembaruan **deployment yang sama** (URL `/exec` tidak berubah, jadi tidak perlu menyunting `portal/config.js` / `public/config.js`).
 
 > **Status produksi (2026-10-09):** backend tayang sebagai **Versi 13** dari `main` dengan URL `/exec` yang tidak berubah, isinya identik dengan `apps-script/` lokal. Ringkasan lengkap: [CHANGELOG.md](./CHANGELOG.md) → **Status Produksi Terkini**.
 
@@ -123,7 +123,13 @@ Prasyarat **sekali saja**:
    npm run deploy:gas:check
    ```
 
-> **Catatan:** `clasp` tidak pernah menghapus berkas di editor Apps Script. Pastikan project tersebut hanya berisi file-file output build di atas (lihat daftar di `scripts/build-apps-script.ps1`); hapus sekali secara manual bila masih ada sisa berkas lama — **terutama `Backend.gs` tunggal peninggalan build lama** (mis. `Aset.gs`) agar tidak terjadi definisi fungsi ganda.
+> **Catatan (definisi ganda = bug diam):** semua berkas `.gs` berbagi satu scope global di Apps Script, jadi berkas lama yang masih tertinggal — terutama **`Backend.gs` tunggal peninggalan build lama** (atau `Aset.gs` zaman dulu) — membuat nama yang sama terdefinisi dua kali. Apps Script tidak melaporkannya sebagai error; runtime diam-diam memakai salinan usang (gejala: *"Aksi tidak dikenali"*). Karena itu sebelum versi baru dibuat, deploy memeriksa isi editor yang sesungguhnya (`clasp pull`): bila masih ada berkas lama, deploy **dihentikan** dan menyebutkan berkas mana yang harus dihapus manual di editor.
+>
+> Periksa kapan pun tanpa menyentuh Google dan tanpa mengubah apa pun:
+> ```bash
+> npm run check:legacy        # tarik isi editor → laporkan berkas lama, definisi ganda, simbol yang belum pindah
+> ```
+> Skrip ini juga membuktikan penghapusan tidak berbahaya: setiap simbol berkas lama dicocokkan dengan modul baru, dan diberi tahu bila ada yang belum pindah (`JANGAN hapus`). Kode keluar: 0 bersih · 1 ada temuan · 2 tidak dapat diverifikasi.
 
 ### 2b. Alternatif Manual (bila CLI belum dapat digunakan)
 1. Buka [script.google.com](https://script.google.com) pada project yayasan Anda.
@@ -154,6 +160,7 @@ Vercel akan otomatis men-deploy versi terbaru ke domain produksi:
 - **[docs/DESIGN.md](./docs/DESIGN.md)** — Dokumen arsitektur teknis, relasi spreadsheet, dan diagram alur
 - **[docs/PRD.md](./docs/PRD.md)** — Product Requirements Document (kebutuhan bisnis dan fungsi)
 - **[docs/rbac-matrix.md](./docs/rbac-matrix.md)** — Matriks kewenangan RBAC 8 peran pengurus
+- **[docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md)** — Diagnosis masalah produksi (termasuk definisi ganda pasca-migrasi)
 
 ---
 

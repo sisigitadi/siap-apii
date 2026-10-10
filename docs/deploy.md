@@ -87,7 +87,7 @@ Setiap kali perintah `git push origin main` dieksekusi, Vercel secara otomatis m
 >
 > Delta rilis: v11 = 190.118 → v12 = 199.360 (+9.242, modul Google Drive + mini-CMS redaksi) → **v13 = 200.682 karakter (+1.322, perbaikan reset folder Drive)**.
 >
-> **Cara memeriksa ulang kapan pun:** `npm run deploy:gas:check` (dry-run: build + validasi + `clasp status`, memastikan **tepat** empat berkas) lalu bandingkan Versi Apps Script terakhir dengan `apps-script/` melalui Apps Script API (`projects/{scriptId}/versions` dan `.../deployments`).
+> **Cara memeriksa ulang kapan pun:** `npm run deploy:gas:check` (dry-run: build + validasi + `clasp status`, memastikan berkas unggahan **tepat** sesuai daftar, + pemeriksaan editor) dan `npm run check:legacy` (berkas lama/definisi ganda), lalu bandingkan Versi Apps Script terakhir dengan `apps-script/` melalui Apps Script API (`projects/{scriptId}/versions` dan `.../deployments`).
 
 Setiap kali terdapat pembaruan kode pada folder `gas/`:
 
@@ -107,7 +107,7 @@ Script akan:
 
 ```bash
 npm run deploy:gas            # deploy penuh (build → validate → push → versi baru → update deployment)
-npm run deploy:gas:check      # --dry-run: hanya build + validasi + preflight berkas
+npm run deploy:gas:check      # --dry-run: build + validasi + preflight berkas + periksa editor (tanpa mengunggah)
 npm run deploy:gas -- --desc "rilis 2.3.0 riwayat versi konten"
 ```
 
@@ -121,8 +121,9 @@ Yang dilakukan skrip `scripts/deploy-gas.mjs`:
 | 4 | Preflight berkas (tanpa kredensial) | `clasp status` — memastikan **tepat** berkas yang diunggah: 13 file `.gs` per-modul (`Konfig` … `Code`) + `AsetLogo.gs`, `AsetStempel.gs`, dan manifest `appsscript.json` (tidak ada berkas lain/rahasia/berkas sampah yang ikut terbawa). |
 | 5 | Cek login | `clasp show-authorized-user`; bila belum login, deploy dihentikan dengan instruksi. |
 | 6 | Unggah kode | `clasp push --force`. Bila Google menolak karena setelan akun, skrip berhenti dengan instruksi spesifik (lihat prasyarat 3). |
-| 7 | Versi baru | `clasp create-version` — versi *immutable* sebagai jejak rilis. |
-| 8 | Perbarui deployment | `clasp update-deployment -V <versi>` pada deployment ID yang sama sehingga URL `/exec` **tidak berubah**. |
+| 7 | **Periksa editor (gerbang definisi ganda)** | Menjalankan [scripts/check-legacy-duplicates.mjs](../scripts/check-legacy-duplicates.mjs): menarik isi editor yang sesungguhnya (`clasp pull`), mendaftar berkas yang bukan keluaran build, menghitung definisi ganda antar berkas, lalu memastikan setiap simbol berkas lama juga ada di modul baru. Bila masih ada berkas lama, **deploy dihentikan sebelum versi baru dibuat** (produksi `/exec` tidak berubah) disertai instruksi penghapusan. |
+| 8 | Versi baru | `clasp create-version` — versi *immutable* sebagai jejak rilis. Hanya dijalankan bila langkah 7 menyatakan editor bersih. |
+| 9 | Perbarui deployment | `clasp update-deployment -V <versi>` pada deployment ID yang sama sehingga URL `/exec` **tidak berubah**. |
 
 Prasyarat sekali saja:
 1. `npx --yes @google/clasp@3 login` (akun Google pemilik project Apps Script).
@@ -130,7 +131,14 @@ Prasyarat sekali saja:
 3. **Aktifkan Google Apps Script API** untuk akun tersebut di [script.google.com/home/usersettings](https://script.google.com/home/usersettings) → *Google Apps Script API* → **ON**. Tanpa ini Google menolak setiap unggahan dengan pesan `User has not enabled the Apps Script API` (dapat membaca project, tetapi tidak boleh menulis).
 4. Opsional: `GAS_DEPLOYMENT_ID=<id>` pada `.env` untuk menimpa deployment ID yang dibaca dari `portal/config.js` (mis. bila URL `/exec` di config tersebut keliru atau berbeda dari yang ingin diperbarui).
 
-> **Penting:** `clasp` tidak menghapus berkas yang ada di editor Apps Script. Project tersebut harus hanya berisi output build per-modul (13 file `.gs` + `AsetLogo.gs`, `AsetStempel.gs`, `appsscript.json`). **Migrasi sekali dari build lama:** hapus `Backend.gs` tunggal dari editor — isinya kini tersebar di file-file per-modul; sisa berkas lama lain (mis. `Aset.gs`) juga harus dihapus agar tidak terjadi definisi fungsi ganda.
+> **Penting — risiko definisi ganda:** semua berkas `.gs` di Apps Script berbagi satu scope global. Bila editor masih menyimpan berkas lama (`Backend.gs` tunggal dari build lama, `Aset.gs` zaman dulu, dsb.) sementara modul baru sudah diunggah, nama yang sama terdefinisi dua kali dan Apps Script **tidak** melaporkannya sebagai error — runtime diam-diam memakai salinan usang (gejala persis: *"Aksi tidak dikenali"*). Editor harus hanya berisi output build per-modul: 13 file `.gs` + `AsetLogo.gs`, `AsetStempel.gs`, `appsscript.json`.
+>
+> Karena itu langkah 7 memverifikasi keadaan editor yang **sesungguhnya** (bukan asumsi) dan menghentikan deploy sebelum versi baru dibuat. Penghapusan berkas lama tetap manual (klik kanan → Delete) karena `clasp` tidak punya perintah hapus. Pemeriksaan bisa dijalankan kapan pun tanpa menyentuh Google:
+> ```bash
+> npm run check:legacy                  # kode keluar 0 bersih · 1 ada temuan · 2 tak dapat diverifikasi
+> npm run check:legacy -- --from .snapshot-editor   # simpan hasil tarikan untuk diperiksa manual
+> ```
+> Skrip yang sama membuktikan penghapusan tidak berbahaya: setiap simbol berkas lama dicocokkan dengan modul baru, dan bila ada simbol yang belum pindah hasilnya menyatakan **JANGAN hapus** beserta daftar simbolnya.
 
 ### Langkah 2b — Alternatif Manual
 1. Buka project Apps Script di browser: [script.google.com](https://script.google.com).

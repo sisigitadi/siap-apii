@@ -5,9 +5,11 @@
 //   1) build bundel gas/*.gs -> apps-script/*.gs
 //   2) validasi sintaks bundel
 //   3) preflight clasp TANPA kredensial (daftar berkas yang akan diunggah)
-//   4) clasp push (4 berkas: 3 bundel + manifest appsscript.json)
-//   5) buat Versi baru
-//   6) perbarui deployment yang SAMA -> URL /exec tidak berubah
+//   4) clasp push (13 modul + 2 aset + manifest appsscript.json)
+//   5) periksa editor: berkas lama & definisi ganda (clasp pull) — versi baru
+//      TIDAK dibuat selama editor masih berisi berkas lama
+//   6) buat Versi baru
+//   7) perbarui deployment yang SAMA -> URL /exec tidak berubah
 //
 // Pakai:
 //   npm run deploy:gas                 (deploy penuh)
@@ -54,10 +56,10 @@ const ok = (m) => console.log(`    ✔ ${m}`);
 const info = (m) => console.log(`    · ${m}`);
 const warn = (m) => console.log(`    ! ${m}`);
 
-function fail(message, hint) {
+function fail(message, hint, note) {
   console.error(`\n    ✘ ${message}`);
   if (hint) console.error(`      → ${hint}`);
-  console.error('\nDeploy dibatalkan (tidak ada perubahan yang dikirim).');
+  console.error(`\n${note || 'Deploy dibatalkan (tidak ada perubahan yang dikirim).'}`);
   process.exit(1);
 }
 
@@ -255,11 +257,63 @@ if (!DRY) {
     fail(`Perintah gagal: ${CLASP} push --force`,
       'Jalankan perintah tersebut manual untuk melihat pesan lengkapnya.');
   }
-  ok('Kode terunggah. Catatan: clasp TIDAK menghapus berkas lama di editor — lihat pengingat di akhir.');
+  ok('Kode terunggah — hasilnya diverifikasi di langkah 7.');
 }
 
 // ---------------------------------------------------------------------------
-step(7, 'Buat versi baru');
+step(7, 'Periksa editor Apps Script (berkas lama & definisi ganda)');
+// ---------------------------------------------------------------------------
+// Semua berkas .gs berbagi satu scope global di Apps Script, jadi berkas lama
+// yang masih tertinggal (Backend.gs tunggal sebelum build dipecah, atau
+// Aset.gs peninggalan zaman dulu) membuat definisi ganda yang TIDAK dilaporkan
+// sebagai error — runtime diam-diam memakai salah satunya (gejala: "Aksi tidak
+// dikenali" karena salinan usang yang dieksekusi). Karena `clasp` tidak punya
+// perintah hapus, penghapusan dilakukan manual; pemeriksaan ini memastikan
+// versi baru tidak pernah dibuat selagi editor masih kotor.
+const dupRes = run('node scripts/check-legacy-duplicates.mjs --json', { silent: true, real: true, allowFail: true });
+let dup = null;
+try { dup = JSON.parse((dupRes.stdout || '').trim()); } catch { dup = null; }
+
+if (!dup) {
+  if (DRY) {
+    warn('Pemeriksaan editor tidak dapat dijalankan pada dry-run (lihat keluaran di atas).');
+  } else {
+    fail('Keluaran pemeriksaan editor tidak dapat dibaca.',
+      'Jalankan manual: npm run check:legacy',
+      'Deploy dihentikan sebelum versi baru dibuat: kode sudah terunggah, tetapi produksi (/exec) belum berubah.');
+  }
+} else if (dup.status === 'clean') {
+  ok(`Editor bersih: ${dup.editor.files.length} berkas, 0 berkas lama, 0 definisi ganda (${dup.build.symbols} simbol global diperiksa).`);
+} else if (dup.status === 'unverified') {
+  if (DRY) {
+    warn(`(dry-run) editor belum diverifikasi: ${dup.reason}`);
+  } else {
+    fail(`Editor tidak dapat diverifikasi: ${dup.reason}`, dup.hint || 'Jalankan manual: npm run check:legacy',
+      'Deploy dihentikan sebelum versi baru dibuat: kode sudah terunggah, tetapi produksi (/exec) belum berubah.');
+  }
+} else {
+  const legacyFiles = (dup.editor.legacy || []).map((l) => l.file);
+  const uncovered = (dup.editor.legacy || []).filter((l) => l.uncovered.length);
+  warn(`${legacyFiles.length} berkas lama masih ada di editor: ${legacyFiles.join(', ')}`);
+  for (const l of dup.editor.legacy || []) {
+    info(`${l.file}: ${l.collisionCount} definisi ganda dengan modul baru, ${l.uncovered.length} simbol belum pindah`);
+  }
+  if (DRY) {
+    warn('(dry-run) deploy sungguhan akan DIHENTIKAN di langkah ini sampai berkas lama dihapus.');
+  } else if (uncovered.length) {
+    fail(`${uncovered.length} berkas lama memuat simbol yang BELUM ada di modul baru — jangan dihapus dulu.`,
+      'Pindahkan simbol tersebut ke modul yang tepat → npm run build:gas → jalankan ulang deploy.',
+      'Deploy dihentikan sebelum versi baru dibuat: kode sudah terunggah, tetapi produksi (/exec) belum berubah.');
+  } else {
+    fail('Editor Apps Script masih berisi berkas lama sehingga terjadi definisi ganda.',
+      `Buka editor Apps Script → klik kanan ${legacyFiles.join(', ')} → Delete, lalu jalankan ulang \`npm run deploy:gas\`. ` +
+      'Seluruh simbol berkas lama sudah terbukti ada di modul baru, jadi penghapusan itu tidak menghilangkan fungsi.',
+      'Deploy dihentikan sebelum versi baru dibuat: kode sudah terunggah, tetapi produksi (/exec) belum berubah.');
+  }
+}
+
+// ---------------------------------------------------------------------------
+step(8, 'Buat versi baru');
 // ---------------------------------------------------------------------------
 const desc = DESC || `SIAP APII rilis ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`;
 let versionNumber = null;
@@ -281,11 +335,11 @@ if (DRY) {
 }
 
 // ---------------------------------------------------------------------------
-step(8, 'Perbarui deployment yang sama (URL /exec tidak berubah)');
+step(9, 'Perbarui deployment yang sama (URL /exec tidak berubah)');
 // ---------------------------------------------------------------------------
 if (DRY) {
   console.log(`    $ ${CLASP} update-deployment ${deploymentId} -V <versi> -d "${desc}" --json`);
-  console.log('    (versi dibuat pada langkah 7; URL /exec tidak berubah)');
+  console.log('    (versi dibuat pada langkah 8; URL /exec tidak berubah)');
 } else {
   run(`${CLASP} update-deployment ${deploymentId} -V ${versionNumber} -d "${desc}" --json`, { silent: true });
   ok(`Deployment ${deploymentId.slice(0, 6)}…${deploymentId.slice(-4)} kini menyajikan versi ${versionNumber}.`);
@@ -305,13 +359,12 @@ if (DRY) {
   console.log(`   1. Buka ${url} → harus menjawab JSON {"status":"online",...}`);
   console.log('   2. Login portal → Pengaturan → 📰 Redaksi Konten → Simpan → cek Riwayat Versi bertambah.');
 }
-console.log('\n Catatan penting: clasp tidak pernah menghapus berkas di editor Apps Script.');
-console.log(' Project tersebut sekarang HARUS berisi output build per-modul:');
+console.log('\n Catatan penting: editor Apps Script HARUS hanya berisi output build per-modul:');
 console.log('   Konfig.gs, Utils.gs, Editorial.gs, Pengaturan.gs, Database.gs, Auth.gs,');
 console.log('   Surat.gs, Keuangan.gs, Divisi.gs, TemplateSurat.gs, TemplateSuratDocs.gs,');
 console.log('   Visitor.gs, Code.gs, AsetLogo.gs, AsetStempel.gs, appsscript.json.');
-console.log(' MIGRASI SEKALI: hapus Backend.gs lama dari editor (klik kanan -> Delete) -');
-console.log(' isinya kini tersebar di file-file di atas. Bila dibiarkan, definisi fungsi');
-console.log(' ganda membuat Apps Script memakai salinan yang usang. Hapus juga file');
-console.log(' lain yang tidak tercantum di atas (mis. Aset.gs peninggalan zaman dulu).');
+console.log(' Langkah 7 memeriksa hal itu langsung dari editor (clasp pull) — bukan asumsi:');
+console.log(' bila masih ada berkas lama (mis. Backend.gs / Aset.gs), definisi ganda akan');
+console.log(' membuat Apps Script diam-diam memakai salinan usang, dan deploy dihentikan.');
+console.log(' Periksa kapan pun tanpa menyentuh Google: npm run check:legacy');
 console.log('============================================================');
