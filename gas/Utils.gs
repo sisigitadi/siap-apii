@@ -113,6 +113,11 @@ function sanitizeUser(u) {
     role: u.role, role_label: ROLE_LABELS[u.role] || u.role,
     division: u.division, division_label: DIVISION_LABELS[u.division] || '',
     is_active: u.is_active, can_manage_users: u.can_manage_users,
+    // Flag read-only demo ikut dikirim supaya frontend tidak perlu menebak dari
+    // peran saja: penjaga mode demo ada di dua lapis (DEMO_ALLOWED_ACTIONS di
+    // Code.gs + penjaga klien di portal/auth.js), dan keduanya harus melihat
+    // fakta yang sama. Lihat bug login terblokir 2026-10-10 di CHANGELOG.
+    is_demo: isDemoUser_(u),
     permissions: perms,
     permissions_customized: !!(u.permissions && String(u.permissions).trim())
   };

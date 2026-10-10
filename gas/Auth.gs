@@ -8,6 +8,10 @@
  *   - verifySession: dipanggil router untuk SETIAP aksi yang butuh autentikasi
  *   - getListPengguna/createPengguna/updatePengguna: hanya SUPERADMIN
  *   - getAuditLogs: jejak audit
+ *   - diagnosaKredensial/pemulihanSandiPengguna: jalur keluar ketika kredensial
+ *     admin DITOLAK. Keduanya sengaja TANPA route (hanya dari editor Apps
+ *     Script), lihat blok "PEMULIHAN SANDI" di bawah dan
+ *     docs/TROUBLESHOOTING.md §14.
  *
  * Keamanan: role/divisi SELALU dari token (Sheet_Sessions), tidak pernah payload.
  * ==========================================================================*/
@@ -311,6 +315,325 @@ function updatePengguna(ctx) {
   Database.updateRow(TABS.USERS, user._row, values);
   audit(ctx.user.username, 'USER_UPDATE', 'Mengubah akun ' + user.username);
   return { ok: true, data: null, message: 'Data pengguna berhasil diperbarui.' };
+}
+
+// ============================================================================
+// PEMULIHAN SANDI — JALUR KELUAR DARURAT (dijalankan dari editor Apps Script)
+// ============================================================================
+// Mengapa ada: `login` sengaja menjawab pesan yang SAMA untuk "username tidak
+// ditemukan" dan "password salah" (mencegah orang luar menebak daftar akun).
+// Akibatnya, bila kredensial admin ditolak, operator tidak bisa mengetahui
+// sebabnya dari layar — dan tidak punya jalan keluar selain menebak. Tiga fungsi
+// di bawah ini adalah jalur keluarnya.
+//
+// Ketiganya SENGAJA TIDAK didaftarkan di ROUTES (Code.gs), jadi tidak mungkin
+// dipanggil lewat HTTP/`doPost` — hanya pemilik project Apps Script yang bisa
+// menjalankannya dari editor. Itu bukan sekadar niat baik: uji `smoke:auth`
+// memeriksa ROUTES dan gagal bila salah satu nama ini muncul di sana.
+//
+// Operator menjalankan `pemulihanSandiEditor()` (tanpa argumen); dua fungsi
+// lainnya menerima argumen dan dipakai dari sana / untuk uji otomatis.
+//
+// Aturan keamanan yang dipegang fungsi-fungsi ini:
+//   - sandi TIDAK pernah dicatat, dikembalikan, atau ditulis ke audit;
+//   - setiap penyetelan ulang menulis jejak audit PASSWORD_RESET beserta pelakunya;
+//   - sesi lama akun tersebut dicabut supaya token yang terlanjur bocor ikut mati;
+//   - penolakan terjadi SEBELUM data disentuh (sandi terlalu pendek, ulangan
+//     tidak sama, akun tidak ada);
+//   - sandi yang diketik operator ke Script Properties dihapus lagi setelah
+//     pemanggilan (blok `finally` di pemulihanSandiEditor).
+//
+// Cara pakai (langkah demi langkah + cara memverifikasi) ada di
+// docs/TROUBLESHOOTING.md §14.
+var SANDI_MIN_PANJANG = 10;
+
+/**
+ * pemulihanSandiEditor: PINTU MASUK TANPA ARGUMEN untuk editor Apps Script.
+ *
+ * Tombol **Run** di editor tidak bisa mengirim argumen, jadi fungsi inilah yang
+ * dijalankan operator (bukan diagnosaKredensial / pemulihanSandiPengguna secara
+ * langsung). Seluruh masukannya dibaca dari Script Properties:
+ *   - PEMULIHAN_USERNAME   (WAJIB) akun yang ditangani, mis. `superadmin`
+ *   - PEMULIHAN_SANDI_UJI  (opsional) sandi yang dicoba → mengisi kecocokanSandi
+ *   - PEMULIHAN_SANDI_BARU (opsional) sandi baru → melakukan PENYETELAN ULANG
+ *   - PEMULIHAN_AKTIFKAN   (opsional) `TRUE` → aktifkan kembali akun nonaktif
+ *
+ * Tanpa PEMULIHAN_SANDI_BARU fungsi ini HANYA mendiagnosa — tidak ada data yang
+ * disentuh, jadi operator bisa memeriksa sebabnya lebih dahulu. Properti sandi
+ * (uji & baru) SELALU dihapus lagi di blok `finally`, apa pun hasilnya, supaya
+ * tidak ada sandi yang tertinggal di Script Properties.
+ *
+ * @return {object} ringkasan { ok, pesan, ... } — TANPA sandi
+ */
+function pemulihanSandiEditor() {
+  var props = PropertiesService.getScriptProperties();
+  var username = String(props.getProperty('PEMULIHAN_USERNAME') || '').trim();
+  var sandiUji = props.getProperty('PEMULIHAN_SANDI_UJI');
+  var sandiBaru = props.getProperty('PEMULIHAN_SANDI_BARU');
+  var aktifkan = String(props.getProperty('PEMULIHAN_AKTIFKAN') || '').toUpperCase() === 'TRUE';
+
+  try {
+    if (!username) {
+      Logger.log('=== PEMULIHAN SANDI ===\n' +
+        'PEMULIHAN_USERNAME belum diisi. Buka Project Settings → Script Properties, ' +
+        'isi PEMULIHAN_USERNAME (mis. superadmin) — PEMULIHAN_SANDI_BARU hanya bila ' +
+        'sandi memang ingin disetel ulang — lalu jalankan fungsi ini lagi.');
+      return { ok: false, pesan: 'PEMULIHAN_USERNAME belum diisi di Script Properties.',
+        username: null, role: null, panjangSandiBaru: 0, sesiDicabut: 0, diaktifkanKembali: false };
+    }
+
+    if (!sandiBaru || !String(sandiBaru).length) {
+      var laporan = diagnosaKredensial(username, sandiUji);
+      return { ok: true, diagnosaSaja: true, username: username, sebab: laporan.sebab,
+        role: laporan.role, pesan: laporan.pesan, panjangSandiBaru: 0 };
+    }
+
+    return pemulihanSandiPengguna(username, String(sandiBaru), String(sandiBaru),
+      { aktifkanKembali: aktifkan });
+  } finally {
+    // Sandi TIDAK boleh tertinggal di Script Properties setelah dijalankan.
+    try {
+      props.deleteProperty('PEMULIHAN_SANDI_BARU');
+      props.deleteProperty('PEMULIHAN_SANDI_UJI');
+    } catch (e) {
+      Logger.log('Peringatan: gagal menghapus properti sandi pemulihan — hapus manual di Script Properties. ' + e);
+    }
+  }
+}
+
+/**
+ * diagnosaKredensial: periksa MENGAPA sebuah username/sandi ditolak login.
+ * Hanya untuk dijalankan dari editor Apps Script (tidak ada route-nya).
+ * @param {string} username   akun yang diperiksa (mis. 'superadmin')
+ * @param {string} sandiUji   opsional: sandi yang dicoba, untuk diuji kecocokannya
+ * @return {object} laporan (tanpa sandi) yang juga dicetak ke Logger.log
+ */
+function diagnosaKredensial(username, sandiUji) {
+  var target = String(username || '').trim();
+  var laporan = {
+    username: target,
+    adaAkun: false,
+    sebab: '',
+    pesan: '',
+    kecocokanSandi: null,
+    is_active: null,
+    role: null,
+    jumlahSesi: 0,
+    sumberSalt: '',
+    panjangSalt: 0,
+    daftarSuperadmin: [],
+    namaMirip: [],
+    tindakanDisarankan: ''
+  };
+
+  // Dari mana salt diambil? Script Property diutamakan; KONFIG hanya cadangan
+  // (dan nilai cadangan itu ikut ter-commit ke repositori, jadi lemah).
+  var saltProp = null;
+  try {
+    saltProp = PropertiesService.getScriptProperties().getProperty('PASSWORD_SALT');
+  } catch (e) { saltProp = null; }
+  var salt = saltProp || KONFIG.PASSWORD_SALT;
+  laporan.sumberSalt = saltProp
+    ? 'Script Property PASSWORD_SALT'
+    : 'KONFIG.PASSWORD_SALT (cadangan baku: nilainya ikut ter-commit ke repositori — sebaiknya diisi Script Property)';
+  laporan.panjangSalt = String(salt || '').length;
+
+  var users = Database.readAll(TABS.USERS);
+  laporan.daftarSuperadmin = users
+    .filter(function (u) { return u.role === ROLES.SUPERADMIN; })
+    .map(function (u) { return u.username; });
+
+  var user = null;
+  for (var i = 0; i < users.length; i++) {
+    if (String(users[i].username) === target) { user = users[i]; break; }
+  }
+
+  if (!user) {
+    // Bantu operator menemukan ejaan yang benar sebelum menuduh sandi salah:
+    // salah ketik satu-dua huruf (superadminn) maupun beda pemisah
+    // (super admin, super.admin) sama-sama perlu disarankan.
+    laporan.namaMirip = target
+      ? users.map(function (u) { return String(u.username); })
+          .filter(function (n) { return miripUsername_(n, target); })
+          .slice(0, 5)
+      : [];
+    laporan.sebab = 'AKUN_TIDAK_DITEMUKAN';
+    laporan.pesan = 'Tidak ada baris dengan username "' + target + '" di Sheet users. ' +
+      'Login dijawab "Username atau password salah" untuk keadaan ini juga, jadi tampilan tidak bisa membedakannya.';
+    laporan.tindakanDisarankan = laporan.namaMirip.length
+      ? 'Nama yang mirip ejaannya ada: ' + laporan.namaMirip.join(', ') + ' — jalankan diagnosaKredensial dengan ejaan itu.'
+      : 'Akun ini belum ada. Buat lewat createPengguna() atau seedDemoUsers(), atau periksa daftar akun superadmin di laporan ini.';
+  } else {
+    laporan.adaAkun = true;
+    laporan.role = user.role;
+    laporan.is_active = user.is_active;
+    laporan.jumlahSesi = Database.readAll(TABS.SESSIONS)
+      .filter(function (s) { return s.username === target; }).length;
+
+    var adaUji = !(sandiUji === undefined || sandiUji === null || sandiUji === '');
+    var cocok = adaUji && user.password_hash === hashPassword(String(sandiUji));
+    laporan.kecocokanSandi = adaUji ? cocok : null;
+
+    var nonaktif = !(user.is_active === 'TRUE' || user.is_active === true);
+    if (nonaktif) {
+      laporan.sebab = 'AKUN_NONAKTIF';
+      laporan.pesan = 'Akun ditemukan tetapi is_active = "' + user.is_active + '" — login menolaknya walau sandinya benar.';
+      laporan.tindakanDisarankan = 'Jalankan pemulihanSandiPengguna("' + target + '", sandiBaru, sandiBaru, { aktifkanKembali: true }).';
+    } else if (adaUji && !cocok) {
+      laporan.sebab = 'SANDI_SALAH';
+      laporan.pesan = 'Akun aktif dan ada, tetapi hash sandi uji tidak cocok dengan yang tersimpan. ' +
+        'Kalau YAKIN sandinya benar, curigai salt: ' + (saltProp
+          ? 'PASSWORD_SALT sudah diisi sebagai Script Property — pastikan nilainya tidak pernah diganti; sekali diganti, SEMUA hash sandi lama tidak berlaku lagi.'
+          : 'PASSWORD_SALT masih memakai nilai KONFIG baku — kode membaca Script Property lebih dulu, jadi mengisi Script Property SETELAH akun dibuat akan membuat semua hash lama tidak berlaku karena salt-nya berubah.');
+      laporan.tindakanDisarankan = 'Setel ulang sandi akun ini: pemulihanSandiPengguna("' + target + '", sandiBaru, sandiBaru).';
+    } else if (adaUji && cocok) {
+      laporan.sebab = 'KREDENSIAL_COCOK';
+      laporan.pesan = 'Hash sandi cocok dan akun aktif — keluhan login kemungkinan bukan dari backend (periksa ejaan username, spasi tak sengaja, atau token lama di peramban).';
+      laporan.tindakanDisarankan = 'Coba login dari jendela penyamaran (private) agar identitas lama di localStorage tidak mengganggu.';
+    } else {
+      laporan.sebab = 'PERLU_SANDI_UJI';
+      laporan.pesan = 'Akun ada dan aktif. Jalankan ulang dengan argumen kedua berisi sandi yang dicoba untuk menguji kecocokannya: diagnosaKredensial("' + target + '", "sandi yang dicoba").';
+      laporan.tindakanDisarankan = 'Ulangi pemanggilan dengan sandi uji, atau langsung setel ulang sandinya.';
+    }
+  }
+
+  Logger.log(laporanKredensialTeks_(laporan));
+  return laporan;
+}
+
+/**
+ * Dua username dianggap mirip bila sama setelah spasi/titik/dash dibuang, atau
+ * berbeda paling banyak 2 huruf (salah ketik yang lazim). Dipakai HANYA untuk
+ * saran ejaan di laporan diagnosa — tidak pernah untuk menerima login.
+ */
+function miripUsername_(nama, target) {
+  var a = String(nama || '').toLowerCase().replace(/[\s._-]/g, '');
+  var b = String(target || '').toLowerCase().replace(/[\s._-]/g, '');
+  if (!a || !b) return false;
+  return a === b || jarakEdit_(a, b) <= 2;
+}
+
+/** Jarak edit (Levenshtein) sederhana; 99 = terlalu jauh untuk dihitung penuh. */
+function jarakEdit_(a, b) {
+  if (Math.abs(a.length - b.length) > 3) return 99;
+  var prev = [];
+  for (var j = 0; j <= b.length; j++) prev[j] = j;
+  for (var i = 1; i <= a.length; i++) {
+    var cur = [i];
+    for (var k = 1; k <= b.length; k++) {
+      var biaya = a.charAt(i - 1) === b.charAt(k - 1) ? 0 : 1;
+      cur[k] = Math.min(prev[k] + 1, cur[k - 1] + 1, prev[k - 1] + biaya);
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+/** Susun laporan diagnosa jadi teks yang enak dibaca di panel Executions/Log. */
+function laporanKredensialTeks_(l) {
+  var baris = [
+    '=== DIAGNOSA KREDENSIAL ===',
+    'Akun            : ' + (l.username || '(kosong)'),
+    'Ada di database : ' + (l.adaAkun ? 'ya' : 'TIDAK'),
+    'Peran           : ' + (l.role || '-'),
+    'Aktif           : ' + (l.is_active === null ? '-' : String(l.is_active)),
+    'Sesi tersimpan  : ' + l.jumlahSesi,
+    'Kecocokan sandi : ' + (l.kecocokanSandi === null ? '(tidak diuji)' : (l.kecocokanSandi ? 'COCOK' : 'TIDAK COCOK')),
+    'Sumber salt     : ' + l.sumberSalt + ' (panjang ' + l.panjangSalt + ')',
+    'Sebab           : ' + l.sebab,
+    'Keterangan      : ' + l.pesan,
+    'Disarankan      : ' + l.tindakanDisarankan
+  ];
+  if (l.daftarSuperadmin && l.daftarSuperadmin.length) {
+    baris.push('Akun SUPERADMIN : ' + l.daftarSuperadmin.join(', '));
+  }
+  if (l.namaMirip && l.namaMirip.length) {
+    baris.push('Nama mirip      : ' + l.namaMirip.join(', '));
+  }
+  return baris.join('\n');
+}
+
+/**
+ * pemulihanSandiPengguna: setel ulang sandi satu akun + cabut sesi lamanya.
+ * Hanya untuk dijalankan dari editor Apps Script (tidak ada route-nya).
+ * @param {string} username        akun yang disetel ulang (mis. 'superadmin')
+ * @param {string} sandiBaru       sandi baru (minimal SANDI_MIN_PANJANG karakter)
+ * @param {string} ulangiSandiBaru pengulangan sandi baru (harus sama)
+ * @param {object} opsi            { cabutSesi: true|false, aktifkanKembali: true|false }
+ * @return {object} ringkasan { ok, pesan, ... } — TANPA sandi
+ */
+function pemulihanSandiPengguna(username, sandiBaru, ulangiSandiBaru, opsi) {
+  var target = String(username || '').trim();
+  var baru = String(sandiBaru === undefined || sandiBaru === null ? '' : sandiBaru);
+  var ulangi = String(ulangiSandiBaru === undefined || ulangiSandiBaru === null ? '' : ulangiSandiBaru);
+  var o = opsi || {};
+  var cabutSesi = o.cabutSesi === undefined ? true : !!o.cabutSesi;
+  var aktifkanKembali = !!o.aktifkanKembali;
+
+  // Semua penolakan terjadi SEBELUM ada data yang diubah.
+  if (!target) return pemulihanGagal_('Username wajib diisi.');
+  if (baru.length < SANDI_MIN_PANJANG) {
+    return pemulihanGagal_('Sandi baru minimal ' + SANDI_MIN_PANJANG + ' karakter (yang diberikan ' + baru.length + ').');
+  }
+  if (baru !== ulangi) return pemulihanGagal_('Ulangi sandi tidak sama dengan sandi baru — tidak ada yang diubah.');
+
+  var user = Database.findOne(TABS.USERS, { username: target });
+  if (!user) {
+    return pemulihanGagal_('Akun "' + target + '" tidak ditemukan — tidak ada yang diubah. ' +
+      'Jalankan diagnosaKredensial("' + target + '") untuk melihat daftar akun SUPERADMIN, ' +
+      'atau buat akunnya lewat createPengguna() / seedDemoUsers().');
+  }
+
+  var nilai = { password_hash: hashPassword(baru), updated_at: new Date().toISOString() };
+  var diaktifkan = false;
+  if (aktifkanKembali && !(user.is_active === 'TRUE' || user.is_active === true)) {
+    nilai.is_active = 'TRUE';
+    diaktifkan = true;
+  }
+  Database.updateRow(TABS.USERS, user._row, nilai);
+
+  var dicabut = cabutSesi ? cabutSesiPengguna_(target) : 0;
+  audit(aktorEditor_(), 'PASSWORD_RESET',
+    'Sandi akun ' + target + ' (' + user.role + ') disetel ulang dari editor Apps Script; ' +
+    (cabutSesi ? dicabut + ' sesi dicabut' : 'sesi lama dibiarkan (cabutSesi: false)') +
+    (diaktifkan ? '; akun diaktifkan kembali' : ''));
+
+  var ringkas = {
+    ok: true,
+    pesan: 'Sandi akun ' + target + ' berhasil disetel ulang. Login dari jendela penyamaran dengan sandi baru untuk memverifikasi.',
+    username: target,
+    role: user.role,
+    panjangSandiBaru: baru.length,
+    sesiDicabut: dicabut,
+    diaktifkanKembali: diaktifkan,
+    waktu: nilai.updated_at
+  };
+  Logger.log('=== PEMULIHAN SANDI ===\n' + ringkas.pesan + '\n' + laporanKredensialTeks_(diagnosaKredensial(target, baru)));
+  return ringkas;
+}
+
+/** Bentuk balasan penolakan pemulihan (tanpa menyentuh data). */
+function pemulihanGagal_(pesan) {
+  Logger.log('=== PEMULIHAN SANDI DITOLAK ===\n' + pesan);
+  return { ok: false, pesan: pesan, username: null, role: null, panjangSandiBaru: 0, sesiDicabut: 0, diaktifkanKembali: false, waktu: null };
+}
+
+/** Pelaku untuk jejak audit: email pemilik project saat dijalankan dari editor. */
+function aktorEditor_() {
+  try {
+    var email = Session.getActiveUser().getEmail();
+    return email ? email : 'operator-editor';
+  } catch (e) {
+    return 'operator-editor';
+  }
+}
+
+/** Hapus seluruh sesi satu akun. Menghapus dari baris terbawah agar tidak bergeser. */
+function cabutSesiPengguna_(username) {
+  var baris = Database.readAll(TABS.SESSIONS).filter(function (s) { return s.username === username; });
+  baris.sort(function (a, b) { return b._row - a._row; });
+  baris.forEach(function (s) { Database.deleteRow(TABS.SESSIONS, s._row); });
+  return baris.length;
 }
 
 /**

@@ -6,6 +6,7 @@
   "scripts": {
     "build": "echo Static site ready",
     "check:routes": "node scripts/validate-routes-whitelist.mjs",
+    "check:frontend": "node scripts/check-frontend-globals.mjs",
     "check:legacy": "node scripts/check-legacy-duplicates.mjs",
     "version:gas": "node scripts/stamp-build-info.mjs",
     "cleanup:legacy": "node scripts/remove-legacy-files.mjs",
@@ -16,12 +17,19 @@
     "smoke:drive": "node scripts/smoke-drive-prod.mjs",
     "smoke:template": "node scripts/smoke-template-surat.mjs",
     "smoke:backend": "node scripts/smoke-backend.mjs",
+    "smoke:auth": "node scripts/smoke-auth-recovery.mjs",
     "smoke:editorial": "node scripts/smoke-editorial.mjs",
     "smoke:drive:local": "node scripts/smoke-drive-local.mjs",
     "smoke:legacy": "node scripts/smoke-legacy-dedup.mjs",
     "smoke:deploy": "node scripts/smoke-deploy-gate.mjs",
     "smoke:cleanup": "node scripts/smoke-legacy-cleanup.mjs",
     "smoke:version": "node scripts/smoke-version-report.mjs",
+    "smoke:portal": "node scripts/smoke-portal-demo-guard.mjs",
+    "smoke:portal:ui": "node scripts/smoke-portal-login-button.mjs",
+    "smoke:portal:live": "node scripts/smoke-portal-live.mjs",
+    "smoke:frontend": "node scripts/smoke-frontend-globals.mjs",
+    "gate:push": "node scripts/pre-push-gate.mjs",
+    "hooks:install": "node scripts/install-hooks.mjs",
     "serve:portal": "npx -y serve portal -p 3000",
     "serve:public": "npx -y serve public -p 3001"
   }

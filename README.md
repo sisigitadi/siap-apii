@@ -109,7 +109,7 @@ npm run deploy:gas
 
 Perintah ini menjalankan seluruh rangkaian secara otomatis: kompilasi bundel → validasi sintaks → preflight daftar berkas yang akan diunggah → `clasp push` → **pemeriksaan editor (berkas lama & definisi ganda)** → **pembersihan berkas lama otomatis lewat Apps Script API** → pembuatan **Versi baru** → pembaruan **deployment yang sama** (URL `/exec` tidak berubah, jadi tidak perlu menyunting `portal/config.js` / `public/config.js`).
 
-> **Status produksi (2026-10-10):** backend tayang sebagai **Versi 14** dari `main` (build per-modul) dengan URL `/exec` yang tidak berubah, isinya identik dengan `apps-script/` lokal.
+> **Status produksi (2026-10-10 01:41 WIB):** backend tayang sebagai **Versi 15** (aplikasi 2.5.0) dari `main` (build per-modul + `Versi.gs`) dengan URL `/exec` yang tidak berubah, isinya identik dengan `apps-script/` lokal.
 >
 > **Laporan versi untuk pengawasan:** `GET <url>/exec?action=ping` menjawab `{ "status": "online", "version": "2.5.0", "release": <nomor Versi Apps Script> }`. Kedua angka **dibangkitkan otomatis** (tidak ada yang ditulis manual di kode): `version` dari `package.json` saat build, `release` dicap skrip deploy tepat sebelum push lalu dicocokkan dengan nomor versi yang benar-benar dibuat. Jadi monitoring/uptime tidak lagi membaca angka basi, dan `release: null` berarti bundel itu memang belum dirilis. Ringkasan lengkap: [CHANGELOG.md](./CHANGELOG.md) → **Status Produksi Terkini**.
 
@@ -127,7 +127,7 @@ Prasyarat **sekali saja**:
 
 > **Catatan (definisi ganda = bug diam):** semua berkas `.gs` berbagi satu scope global di Apps Script, jadi berkas lama yang masih tertinggal — terutama **`Backend.gs` tunggal peninggalan build lama** (atau `Aset.gs` zaman dulu) — membuat nama yang sama terdefinisi dua kali. Apps Script tidak melaporkannya sebagai error; runtime diam-diam memakai salinan usang (gejala: *"Aksi tidak dikenali"*). Karena itu sebelum versi baru dibuat, deploy memeriksa isi editor yang sesungguhnya (`clasp pull`, langkah 7) dan bila masih ada berkas lama yang **bukan** keluaran build, deploy **membersihkannya sendiri** lewat Apps Script API (langkah 7b) — tidak ada lagi klik **Delete** manual. Deploy hanya dihentikan bila ada simbol berkas lama yang belum pindah ke modul baru, karena itu butuh keputusan manusia. Lewati pembersihan dengan `--no-cleanup`.
 >
-> **Terbukti pada rilis Versi 14 (2026-10-10):** `clasp push` mengirim seluruh berkas lokal ke API `projects.updateContent` yang mengganti seluruh isi project, sehingga **`Backend.gs` lama hilang sendiri** — editor langsung berisi tepat 16 berkas dan gerbangnya lulus tanpa langkah manual apa pun.
+> **Terbukti pada rilis Versi 14 (2026-10-10):** `clasp push` mengirim seluruh berkas lokal ke API `projects.updateContent` yang mengganti seluruh isi project, sehingga **`Backend.gs` lama hilang sendiri** — editor langsung berisi tepat 16 berkas dan gerbangnya lulus tanpa langkah manual apa pun. Pembersihan otomatisnya sendiri diuji nyata terhadap editor produksi (berkas lama tiruan dihapus, isi berkas lain tidak berubah), dan rilis Versi 15 berjalan dengan editor bersih **17 berkas** tanpa satu pun langkah manual.
 >
 > Periksa kapan pun tanpa menyentuh Google dan tanpa mengubah apa pun:
 > ```bash

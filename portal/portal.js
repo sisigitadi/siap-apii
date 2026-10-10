@@ -95,6 +95,14 @@
 
     /** Tampilkan halaman login (sembunyikan aplikasi). */
     showLogin: function (hash) {
+      // PENTING: `self` WAJIB ditulis eksplisit di sini. Di peramban, `self`
+      // adalah alias global untuk `window`; tanpa deklarasi ini, handler tombol
+      // "Masuk sebagai Akun Demo" di bawah memanggil `window.self.bootApp(...)`
+      // yang tidak ada, sehingga login demo BERHASIL di server (token tersimpan)
+      // tetapi aplikasi tidak pernah terbuka — penamanya hanya melihat pesan
+      // "self.bootApp is not a function" (bug produksi 2026-10-10; dikunci uji
+      // `npm run smoke:portal:ui`).
+      var self = (this && this.bootApp) ? this : window.App;
       var hp = document.getElementById('loginPage');
       var ap = document.getElementById('appPage');
       if (hp) hp.classList.remove('hidden');
@@ -112,24 +120,31 @@
         }
       }
 
+      // Handler tombol demo dipasang SEKALI saja: showLogin() bisa dipanggil
+      // berkali-kali dalam satu siklus halaman (mis. login gagal lalu kembali ke
+      // halaman login). Tanpa penjaga ini, satu klik mengirim beberapa permintaan
+      // `loginDemo` sekaligus dan membuat beberapa sesi demo.
       var dm = document.getElementById('demoLoginBtn');
-      if (dm) dm.addEventListener('click', function () {
-        dm.disabled = true;
-        dm.textContent = 'Memproses…';
-        Auth.loginAsDemo().then(function (user) {
-          dm.disabled = false;
-          dm.textContent = 'Masuk sebagai Akun Demo';
-          self.bootApp(user);
-        }).catch(function (err) {
-          dm.disabled = false;
-          dm.textContent = 'Masuk sebagai Akun Demo';
-          var a = document.getElementById('loginAlert');
-          if (a) {
-            a.textContent = err.message || 'Akun demo belum tersedia.';
-            a.className = 'mb-6 px-4 py-3 rounded-xl text-sm font-medium bg-red-50 text-red-700 border border-red-100';
-          }
+      if (dm && !self._demoBound) {
+        self._demoBound = true;
+        dm.addEventListener('click', function () {
+          dm.disabled = true;
+          dm.textContent = 'Memproses…';
+          Auth.loginAsDemo().then(function (user) {
+            dm.disabled = false;
+            dm.textContent = 'Masuk sebagai Akun Demo';
+            self.bootApp(user);
+          }).catch(function (err) {
+            dm.disabled = false;
+            dm.textContent = 'Masuk sebagai Akun Demo';
+            var a = document.getElementById('loginAlert');
+            if (a) {
+              a.textContent = err.message || 'Akun demo belum tersedia.';
+              a.className = 'mb-6 px-4 py-3 rounded-xl text-sm font-medium bg-red-50 text-red-700 border border-red-100';
+            }
+          });
         });
-      });
+      }
 
       var u = document.getElementById('loginUsername');
       if (u) u.focus();

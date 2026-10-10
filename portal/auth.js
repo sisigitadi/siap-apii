@@ -8,12 +8,24 @@
  *     { success, data, message } + auto-logout pada 401
  *   - login()/logout()/me() wrappers
  *   - isReadOnly(): cek peran read-only (Pembina/Pengawas)
+ *   - Penjaga mode demo: menolak aksi TULIS saat sesi demo aktif
+ *     (lihat DEMO_GUARD_EXEMPT_ACTIONS — aksi sesi/login tidak pernah diblokir)
  * ==========================================================================*/
 (function () {
   'use strict';
 
   var TOKEN_KEY = 'siapii_token';
   var USER_KEY = 'siapii_user';
+
+  // Aksi sesi/autentikasi yang TIDAK BOLEH diblokir penjaga mode demo.
+  // Semua aksi ini juga dikirim sebagai POST: `login`, `loginDemo`, `logout`,
+  // `me`, `registerAnggota`. Bila penjaga demo ikut memblokirnya, siapa pun yang
+  // perambannya masih menyimpan identitas demo tidak bisa keluar dari mode demo
+  // — tombol "Masuk" (akun apa pun) dan "Masuk sebagai Akun Demo" hanya
+  // memunculkan notifikasi "Mode demo hanya untuk melihat…" tanpa pernah
+  // menghubungi server. Persis kegagalan yang terjadi di produksi 2026-10-10;
+  // dikunci uji `npm run smoke:portal`.
+  var DEMO_GUARD_EXEMPT_ACTIONS = ['login', 'loginDemo', 'logout', 'me', 'registerAnggota'];
 
   var Auth = {
     /** Token sesi saat ini (string) atau null. */
@@ -123,9 +135,12 @@
       var url = (window.API_BASE || '') + '?action=' + encodeURIComponent(action);
       var self = this;
 
-      // Akun demo: blokir semua aksi tulis di frontend sebelum mencapai server.
+      // Akun demo: blokir semua aksi TULIS di frontend sebelum mencapai server.
       // Backend juga menolak (DEMO_ALLOWED_ACTIONS), tapi pesan ini lebih ramah.
-      if (this.isDemo() && method !== 'GET') {
+      // Aksi sesi (login/logout/…) dikecualikan: tanpa itu, sesi demo yang masih
+      // tersimpan membuat halaman login tidak bisa dipakai sama sekali.
+      if (this.isDemo() && method !== 'GET' &&
+          DEMO_GUARD_EXEMPT_ACTIONS.indexOf(action) === -1) {
         var demoMsg = 'Mode demo hanya untuk melihat. Perubahan data tidak dapat disimpan.';
         if (!opts.quiet) this.toast(demoMsg, 'error');
         return Promise.reject(new Error(demoMsg));
@@ -260,6 +275,10 @@
      */
     login: function (username, password) {
       var self = this;
+      // Buang identitas lama (mis. sisa akun demo dari kunjungan sebelumnya)
+      // sebelum menukar sesi: tidak ada user lama yang boleh bocor ke sesi baru,
+      // dan penjaga demo tidak lagi melihat sesi yang sudah tidak dipakai.
+      this.clear();
       return this.fetch('login', { username: username, password: password },
         { quiet: true })
         .then(function (data) {
@@ -291,6 +310,8 @@
      */
     loginAsDemo: function () {
       var self = this;
+      // Sama seperti login(): mulai dari keadaan bersih, jangan mewarisi sesi lama.
+      this.clear();
       return this.fetch('loginDemo', null, { quiet: true })
         .then(function (data) {
           if (!data || !data.token) throw new Error('Akun demo belum tersedia.');

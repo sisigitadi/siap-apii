@@ -94,7 +94,7 @@ Skrip `scripts/deploy-gas.mjs` memakai deployment ID yang sama, sehingga URL Web
 
 **Gerbang definisi ganda (langkah 7).** Sebelum versi baru dibuat, deploy menarik isi editor yang sesungguhnya (`clasp pull`) dan memeriksanya dengan [scripts/check-legacy-duplicates.mjs](scripts/check-legacy-duplicates.mjs): berkas apa pun yang bukan keluaran build dilaporkan, definisi nama yang sama antar berkas dihitung, dan setiap simbol berkas lama dicocokkan dengan modul baru. Bila ada simbol berkas lama yang **belum pindah** ke modul baru, deploy berhenti **sebelum** `create-version` (produksi `/exec` tidak berubah) beserta daftar simbolnya; bila yang tersisa hanya berkas yang bukan keluaran build, langkah **7b** membersihkannya sendiri lewat Apps Script API ([scripts/remove-legacy-files.mjs](scripts/remove-legacy-files.mjs)) — tidak ada lagi klik **Delete** manual (lewati dengan `--no-cleanup`). Ini menutup jalur kegagalan "Aksi tidak dikenali": dulu versi baru bisa dibuat selagi `Backend.gs` lama masih tertinggal, sehingga runtime memakai salinan usang tanpa error apa pun.
 
-> **Terbukti di produksi (2026-10-08 – 2026-10-09):** alur ini sudah dijalankan penuh — `push` → `create-version` → `update-deployment` — dan menghasilkan **Versi 12**, **Versi 13** (perbaikan Reset ke Default Drive, 2026-10-09 00:53 WIB), lalu **Versi 14** (build per-modul, 2026-10-10 00:44 WIB) pada deployment `/exec` yang sama (`…NJdg`) dari `main`. Isi berkas versi tayang **identik** dengan `apps-script/` lokal dan manifest-nya sama dengan `gas/appsscript.json`. Ini menutup catatan lama "langkah versi & deployment belum pernah tuntas dari sisi agent". Ringkasan keadaan produksi ada di [CHANGELOG.md](CHANGELOG.md) → **Status Produksi Terkini**.
+> **Terbukti di produksi (2026-10-08 – 2026-10-09):** alur ini sudah dijalankan penuh — `push` → `create-version` → `update-deployment` — dan menghasilkan **Versi 12**, **Versi 13** (perbaikan Reset ke Default Drive, 2026-10-09 00:53 WIB), **Versi 14** (build per-modul, 2026-10-10 00:44 WIB), lalu **Versi 15** (pembersihan berkas lama otomatis + laporan versi `ping`, aplikasi 2.5.0, 2026-10-10 01:41 WIB) pada deployment `/exec` yang sama (`…NJdg`) dari `main`. Isi berkas versi tayang **identik** dengan `apps-script/` lokal dan manifest-nya sama dengan `gas/appsscript.json`. Ini menutup catatan lama "langkah versi & deployment belum pernah tuntas dari sisi agent". Ringkasan keadaan produksi ada di [CHANGELOG.md](CHANGELOG.md) → **Status Produksi Terkini**.
 
 Prasyarat sekali saja: `npx --yes @google/clasp@3 login`, `GAS_SCRIPT_ID` pada `.env`, dan **Google Apps Script API** diaktifkan untuk akun tersebut di [script.google.com/home/usersettings](https://script.google.com/home/usersettings).
 
@@ -120,6 +120,50 @@ cd portal && npx vercel --prod --yes
 # Deploy Portal Publik
 cd public && npx vercel --prod --yes
 ```
+
+---
+
+## 4b. Gerbang Pra-Push (Hook Git) — pemeriksaan wajib sebelum `git push`
+
+**Mengapa ada.** Dua bug pada 2026-10-10 lolos ke peramban pengurus sekaligus: penjaga mode demo memblokir aksi login itu sendiri, dan `App.showLogin()` memakai `self` tanpa deklarasi (di peramban `self === window`) sehingga tombol **Masuk sebagai Akun Demo** gagal membuka aplikasi. Keduanya hanya terlihat saat pengguna menekan tombol — `node -c` dan build sama sekali tidak menangkapnya, dan `self` bahkan terdaftar sebagai global peramban sehingga aturan lint biasa pun meloloskannya. Karena setiap `git push origin main` **langsung** memicu build Vercel kedua portal, gerbangnya harus berada di sisi push, bukan setelah tayang.
+
+**Aktifkan sekali per klon:**
+```bash
+npm run hooks:install      # git config core.hooksPath .githooks + chmod hook
+```
+Setara manual: `git config core.hooksPath .githooks` (hanya setelan lokal, tidak mengubah repo). `core.hooksPath` perlu disetel karena hook yang ada di dalam repo tidak aktif dengan sendirinya — dan setelan ini **disengaja tidak dipaksa** bagi siapa pun yang tidak menginginkannya.
+
+**Isi gerbang** — `npm run gate:push` ([scripts/pre-push-gate.mjs](../scripts/pre-push-gate.mjs)) menjalankan **14 pemeriksaan offline** (± 15 detik):
+
+| Pemeriksaan | Skrip |
+|---|---|
+| Pemindai variabel global frontend (alias `self` & nama tak dikenal) | [scripts/check-frontend-globals.mjs](../scripts/check-frontend-globals.mjs) |
+| Uji pemindai itu sendiri (termasuk kontrol negatif bug `self`) | [scripts/smoke-frontend-globals.mjs](../scripts/smoke-frontend-globals.mjs) |
+| Penjaga mode demo portal · tombol masuk portal | [scripts/smoke-portal-demo-guard.mjs](../scripts/smoke-portal-demo-guard.mjs), [scripts/smoke-portal-login-button.mjs](../scripts/smoke-portal-login-button.mjs) |
+| Daftar putih route + smoke backend/redaksi/template | [scripts/validate-routes-whitelist.mjs](../scripts/validate-routes-whitelist.mjs), `smoke:backend`, `smoke:editorial`, `smoke:template` |
+| Jalur pemulihan sandi akun — sebab kredensial ditolak dibedakan, penolakan tidak menyentuh data, dan jalurnya **tidak bisa dipanggil lewat HTTP** | [scripts/smoke-auth-recovery.mjs](../scripts/smoke-auth-recovery.mjs) |
+| **Portal di peramban sungguhan** — halaman login dimuat dari sebuah ALAMAT lalu tombol Masuk & tombol demo diklik dengan tetikus sungguhan; termasuk skenario "sesi demo basi" | [scripts/smoke-portal-live.mjs](../scripts/smoke-portal-live.mjs) |
+| Gerbang definisi ganda, pembersih berkas lama, laporan versi, Drive lokal | `smoke:legacy`, `smoke:cleanup`, `smoke:version`, `smoke:drive:local` |
+
+**Perintah yang sengaja TIDAK ikut**, beserta alasannya: `smoke:deploy` (± 145 detik — terlalu lambat untuk setiap push, jalankan manual), `smoke:drive` (menyentuh Google Drive **produksi**), `check:legacy`/`cleanup:legacy` (menarik isi editor Apps Script lewat jaringan + kredensial `clasp`), serta `build:gas`/`deploy:gas` (menulis rilis sungguhan). Folder `frontend/` (React + TypeScript) juga tidak dipindai: variabel tak dikenal sudah menjadi galat kompilasi `tsc` di sana.
+
+**Gerbang yang sama berjalan di CI dalam mode `--ci`** ([.github/workflows/ci.yml](../.github/workflows/ci.yml), langkah *Pre-Push Gate* → `npm run gate:push -- --ci`). Bundel hasil build `apps-script/*.gs` **sengaja tidak ikut ke repositori** (`.gitignore` baris 62–65), dan aset sumbernya `Dokumen Sumber/` juga tidak — jadi di mesin CI bundel itu memang tidak ada dan tidak bisa dibangkitkan. Konsekuensinya dinyatakan terbuka, bukan disembunyikan: **9 dari 14** pemeriksaan (yang mandiri, termasuk **uji UI portal di peramban sungguhan** — Chrome tersedia di runner GitHub) benar-benar dijalankan di CI, sedangkan **5 pemeriksaan yang membaca bundel dicetak sebagai "dilewati" beserta alasannya** di log CI. Gerbang lengkap (14/14) berjalan otomatis di hook pra-push pada mesin yang punya `Dokumen Sumber/`. Bila suatu saat bundel tersedia di CI, mode `--ci` otomatis menjalankan seluruh 14 pemeriksaan tanpa perlu diubah lagi.
+
+### 4c. Uji UI portal pada ALAMAT PREVIEW (sebelum publish)
+
+Gerbang di atas menguji salinan **lokal** — persis bit yang akan didorong. Sesudah didorong, Vercel membangun **preview** untuk branch tersebut, dan preview itulah yang sebenarnya akan menjadi produksi bila di-merge ke `main`. Karena itu ada dua lapis tambahan:
+
+```bash
+npm run smoke:portal:live                              # sajikan portal lokal sendiri, uji di peramban
+npm run smoke:portal:live -- --url https://siapii-xxx.vercel.app   # uji ALAMAT PREVIEW
+npm run smoke:portal:live -- --url <alamat> --live     # uji sungguhan ke backend (butuh APII_TEST_USER/APII_TEST_PASS)
+```
+
+- **Otomatis pada preview deployment:** [.github/workflows/portal-preview.yml](../.github/workflows/portal-preview.yml) dipicu oleh `deployment_status` dari Vercel — begitu status **preview berhasil**, uji peramban dijalankan pada alamat preview itu (deployment produksi dilewati karena sudah tayang). Bisa juga dijalankan manual: **Actions → Uji UI Portal pada Preview Deployment → Run workflow** beserta alamatnya.
+- **Tidak menyentuh data produksi:** permintaan API dicegat di sisi halaman (stub) dan nama host API dipetakan ke alamat mati saat peramban diluncurkan. Mode `--live` (login sungguhan, menulis 2 baris audit) **tidak pernah** dipakai oleh workflow otomatis — hanya bila diminta eksplisit.
+- **Butuh peramban Chromium** (Chrome/Edge) dan **Node 22+** (WebSocket bawaan dipakai untuk mengendalikan peramban lewat Chrome DevTools Protocol — tanpa paket npm baru). Bila peramban tidak ditemukan, uji keluar dengan kode **2** dan gerbang mencetaknya sebagai **dilewati beserta alasannya** — bukan lulus diam-diam.
+
+**Lewati sekali bila benar-benar darurat:** `SKIP_GATE=1 git push`. Bila `node` tidak ditemukan, hook melewati dirinya sendiri dengan peringatan (bukan menggagalkan push yang sah).
 
 ---
 

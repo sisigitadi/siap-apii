@@ -2,7 +2,7 @@
 
 Dokumen ini adalah **sumber acuan tunggal (*single source of truth*)** bagi arsitektur dan implementasi konten pada **Portal Publik SIAP-APII (`apii.sigitadi.id`)** dan modul pengelolaannya di **Portal Pengurus (`siapii.sigitadi.id`)**.
 
-> **Status produksi (2026-10-10):** seluruh fitur pada dokumen ini — mini-CMS, **Riwayat Versi**, serta **Ekspor & Impor Berkas JSON** — sudah **tayang**, bukan lagi menunggu redeploy. Backend Apps Script **Versi 14** (deployment `/exec` yang sama; fitur ini tayang sejak Versi 12 pada 2026-10-08 23:30 WIB, diteruskan Versi 13 pada 2026-10-09 00:53 WIB dan Versi 14 pada 2026-10-10 00:44 WIB) menyajikan ketiga route redaksi (`getEditorialHistory`, `exportEditorialContent`, `importEditorialContent`, plus `getEditorialRevision` & `restoreEditorialRevision`) yang dikenali router dan menuntut sesi login. Rincian: [CHANGELOG.md](../CHANGELOG.md) → **Status Produksi Terkini**.
+> **Status produksi (2026-10-10):** seluruh fitur pada dokumen ini — mini-CMS, **Riwayat Versi**, serta **Ekspor & Impor Berkas JSON** — sudah **tayang**, bukan lagi menunggu redeploy. Backend Apps Script **Versi 15** (deployment `/exec` yang sama; fitur ini tayang sejak Versi 12 pada 2026-10-08 23:30 WIB, diteruskan Versi 13, 14, dan Versi 15 pada 2026-10-10 01:41 WIB) menyajikan ketiga route redaksi (`getEditorialHistory`, `exportEditorialContent`, `importEditorialContent`, plus `getEditorialRevision` & `restoreEditorialRevision`) yang dikenali router dan menuntut sesi login. Rincian: [CHANGELOG.md](../CHANGELOG.md) → **Status Produksi Terkini**.
 
 ---
 

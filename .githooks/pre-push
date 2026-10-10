@@ -1,0 +1,41 @@
+#!/bin/sh
+# ============================================================================
+# .githooks/pre-push — gerbang pra-push SIAP APII
+# ============================================================================
+# Mengapa ada: pada 2026-10-10 dua bug lolos ke peramban pengurus sekaligus
+# (penjaga mode demo memblokir aksi login, dan `self` tanpa deklarasi membuat
+# tombol "Masuk sebagai Akun Demo" gagal membuka aplikasi). Dua-duanya hanya
+# terlihat saat pengguna benar-benar menekan tombol — bukan saat `node -c` atau
+# build. Gerbang ini menjalankan uji tanpa jaringan yang mengunci keduanya
+# (termasuk pemindai variabel global) SEBELUM kode pergi ke remote, karena push
+# ke `main` langsung memicu build Vercel untuk kedua portal.
+#
+# Aktifkan sekali per klon:
+#     npm run hooks:install
+#     (setara: git config core.hooksPath .githooks)
+#
+# Lewati sekali dalam keadaan darurat:
+#     SKIP_GATE=1 git push
+# ============================================================================
+set -u
+
+if [ "${SKIP_GATE:-}" = "1" ]; then
+  echo "[gerbang pra-push] SKIP_GATE=1 — dilewati atas permintaan."
+  exit 0
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "[gerbang pra-push] node tidak ditemukan — gerbang dilewati (pasang Node.js 20+ agar gerbang berjalan)." >&2
+  exit 0
+fi
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+cd "$repo_root" || exit 0
+
+node scripts/pre-push-gate.mjs
+status=$?
+
+if [ "$status" -ne 0 ]; then
+  echo "[gerbang pra-push] Push dibatalkan. Lihat temuan di atas; gunakan SKIP_GATE=1 git push hanya untuk keadaan darurat." >&2
+fi
+exit "$status"

@@ -72,10 +72,14 @@ ID template & folder disimpan otomatis di Script Properties saat `setup()` jalan
 
 ## 7. Login gagal padahal password benar
 
-**Kemungkinan:**
+**Kemungkinan (urut dari yang paling sering):**
 
-- Password demo adalah `apii2026` (semua 9 akun). Pastikan tidak ada spasi saat mengetik.
-- Bila Anda pernah mengubah `PASSWORD_SALT` di `KONFIG` **setelah** `setup()` jalan, semua password lama jadi tidak dikenali. Solusinya: jalankan ulang `setup()` (tidak akan menghapus data, hanya membuat ulang akun demo yang belum ada) lalu ganti password lewat portal sebagai SUPERADMIN.
+1. **Sandi sudah pernah diganti.** Sandi bawaan `apii2026` hanya berlaku untuk akun yang belum pernah diubah sandinya lewat portal. Pastikan juga tidak ada spasi ikut terketik dan tulisan besar/kecil benar.
+2. **`PASSWORD_SALT` berubah setelah akun dibuat.** Backend membaca `PASSWORD_SALT` dari **Script Property** lebih dulu, baru dari `KONFIG`. Mengisi Script Property *setelah* `setup()`/akun dibuat — atau mengubah nilainya — membuat **semua** hash sandi lama tidak berlaku sekaligus.
+3. **Akun dinonaktifkan (`is_active = FALSE`).** Pesannya memang berbeda (*"Akun Anda dinonaktifkan…"*), tetapi bila yang dicoba akun lain, gejalanya sama-sama "tidak bisa masuk".
+4. **Username salah ketik / akun tidak ada.** Pesan di layar **sengaja disamakan** antara "username tidak ditemukan" dan "sandi salah", jadi tampilan tidak bisa membedakannya.
+
+Cara paling cepat memastikan sebabnya tanpa menebak: jalankan **§14** dari editor Apps Script, lalu kembali ke sini bila ternyata bukan itu penyebabnya.
 
 ---
 
@@ -91,7 +95,7 @@ npm run deploy:gas:check    # dry-run: build + validasi + preflight berkas saja
 
 **Cara manual:** **Deploy → Manage deployments → pilih deployment → ikon ✏️ (Edit) → Version: New version → Deploy.** URL tidak berubah, jadi `API_BASE` frontend tetap sama.
 
-> Keadaan produksi saat ini: **Versi 14** (2026-10-10 00:44 WIB dari `main`, build per-modul; sebelumnya Versi 13 pada 2026-10-09 00:53 WIB) pada deployment `/exec` yang sama. Rincian di [CHANGELOG.md](../CHANGELOG.md) → **Status Produksi Terkini** dan [deploy.md](deploy.md) §4.
+> Keadaan produksi saat ini: **Versi 15** (2026-10-10 01:41 WIB dari `main`, aplikasi 2.5.0, build per-modul + laporan versi dari satu sumber; sebelumnya Versi 14 pada 2026-10-10 00:44 WIB) pada deployment `/exec` yang sama. Rincian di [CHANGELOG.md](../CHANGELOG.md) → **Status Produksi Terkini** dan [deploy.md](deploy.md) §4.
 
 ---
 
@@ -150,6 +154,116 @@ curl -s "<URL_EXEC>?action=ping"   # {"success":true,"data":{"status":"online","
 Alarm yang disarankan: `status != "online"`, atau `release` berbeda dari Versi Apps Script terakhir (`npx --yes @google/clasp@3 versions`), atau `version` berbeda dari `version` di `package.json`. Nilai `release: null` berarti rilis itu di-deploy tanpa pencapan (`--no-release-stamp`, atau daftar versi tak terbaca) — periksa ulang, jangan anggap rilis terbaru.
 
 **Bila muncul lagi:** jalankan `npm run build:gas` (memperbarui `version`) lalu `npm run deploy:gas` (mencap `release`). Gerbang [scripts/validate-apps-script.mjs](../scripts/validate-apps-script.mjs) menolak build bila versi `Versi.gs` berbeda dari `package.json` atau bila kode kembali memuat versi literal, jadi angka basi tidak bisa lolos lagi. Uji perilakunya tanpa jaringan: `npm run smoke:version`.
+
+---
+
+## 12. Tombol **Masuk** tidak bereaksi: muncul "Mode demo hanya untuk melihat…" — DIPERBAIKI 2026-10-10
+
+**Gejala:** pengunjung yang perambannya masih menyimpan identitas akun demo (mis. sesi demo kedaluwarsa lalu halaman login terbuka) **tidak bisa masuk sama sekali**. Menekan **Masuk** — termasuk dengan akun superadmin yang benar — hanya memunculkan notifikasi *"Mode demo hanya untuk melihat. Perubahan data tidak dapat disimpan."* dan permintaannya **tidak pernah dikirim ke server**.
+
+**Sebab (di `portal/auth.js`):** penjaga mode demo memblokir **semua** permintaan POST selama sesi demo aktif, termasuk aksi sesi itu sendiri (`login`, `loginDemo`, `logout`, `me`) yang juga dikirim sebagai POST. Akibatnya penukaran sesi mustahil: pintu keluarnya demo sekaligus pintu masuknya akun biasa sama-sama ditutup.
+
+**Perbaikan:** `DEMO_GUARD_EXEMPT_ACTIONS = ['login', 'loginDemo', 'logout', 'me', 'registerAnggota']` — kelima aksi itu selalu sampai ke server; penjaga read-only **tetap utuh** untuk semua aksi tulis (ditolak di klien tanpa menyentuh jaringan, ditolak lagi oleh backend). `Auth.login()` dan `Auth.loginAsDemo()` juga membuang identitas lama (`Auth.clear()`) sebelum menukar sesi, sehingga tidak ada sisa user demo yang menyertai sesi baru.
+
+**Uji penjaga:** `npm run smoke:portal` (15 pemeriksaan, tanpa jaringan) memuat `portal/auth.js` yang asli di sandbox, dan `npm run smoke:portal:live` (24 pemeriksaan) menjalankan alur yang sama di **peramban sungguhan** dari sebuah alamat — termasuk skenario "sesi demo basi" ini. Dengan mengembalikan bug-nya ke salinan sementara (penjaga demo mengecualikan `login` lagi + `clear()` sebelum login dihapus), uji peramban itu melaporkan **5 kegagalan, kode keluar 1** (dibuktikan 2026-10-10).
+
+---
+
+## 13. Tombol **Masuk sebagai Akun Demo** gagal: pesan merah `self.bootApp is not a function` — DIPERBAIKI 2026-10-10
+
+**Gejala:** klik akun demo tampak tidak terjadi apa-apa, lalu halaman login menampilkan pesan merah **"self.bootApp is not a function"**. Sesi demo sebenarnya sudah dibuat server (token & user demo tersimpan di `localStorage`) tetapi **aplikasi tidak pernah terbuka**.
+
+**Sebab (di `portal/portal.js`):** `App.showLogin()` memakai variabel `self` tanpa mendeklarasikannya, sedangkan di peramban `self` adalah **alias global untuk `window`**. Handler tombol demo di dalamnya karena itu memanggil `window.self.bootApp(...)` → `undefined` → `TypeError` yang tertangkap `.catch` dan dituliskan ke kotak pesan halaman login.
+
+**Perbaikan:** `var self = (this && this.bootApp) ? this : window.App;` di awal `showLogin()` (pola yang sama dengan `App.router()`), plus handler tombol demo kini dipasang **sekali** (`self._demoBound`) supaya satu klik tidak mengirim beberapa permintaan `loginDemo`/membuat beberapa sesi demo ketika `showLogin()` dipanggil berulang dalam satu siklus halaman.
+
+**Uji penjaga:** `npm run smoke:portal:ui` (17 pemeriksaan, tanpa jaringan) memuat `portal/portal.js` + `portal/auth.js` yang asli di DOM tiruan dengan semantik peramban (`self === window`), lalu **menekan tombolnya sungguhan** dan mewajibkan `App.bootApp()` dipanggil dengan user demo. Uji itu juga memindai seluruh method objek `App` dan **gagal bila ada yang memakai `self.` tanpa `var self`** — kelas bug ini tidak bisa terulang diam-diam. Lapis keduanya adalah `npm run smoke:portal:live` ([scripts/smoke-portal-live.mjs](../scripts/smoke-portal-live.mjs)): peramban sungguhan (chrome/edge headless) memuat halaman dari sebuah alamat, mengklik tombol demo dengan **tetikus sungguhan**, lalu mewajibkan aplikasi terbuka. Mengembalikan bug `var self` ke salinan sementara membuat uji itu **gagal dengan pesan yang identik dengan laporan pengurus** (`self.bootApp is not a function`), kode keluar 1 (dibuktikan 2026-10-10). Sejak itu uji ini ikut di gerbang pra-push dan dijalankan otomatis pada setiap preview deployment Vercel ([.github/workflows/portal-preview.yml](../.github/workflows/portal-preview.yml)).
+
+> Kedua perbaikan di atas ada di sisi **frontend** (`portal/`), bukan backend Apps Script — jadi tidak ada Versi baru yang dibuat. Tayang begitu `git push origin main` memicu build Vercel kedua portal.
+
+---
+
+## 14. Kredensial SUPERADMIN ditolak — diagnosa & pemulihan sandi (jalur editor)
+
+**Kapan dipakai:** tidak ada akun ber-peran SUPERADMIN yang bisa masuk, atau sebuah akun pengurus ditolak tanpa sebab yang jelas. Pesan di layar login tidak dapat membedakan "username tidak ada", "sandi salah", "akun nonaktif", dan "salt berubah" — itu memang disengaja agar orang luar tidak bisa memetakan daftar akun. Yang bisa membedakannya adalah tiga fungsi di [gas/Auth.gs](../gas/Auth.gs) — `pemulihanSandiEditor` (pintu masuk tanpa argumen), `diagnosaKredensial`, dan `pemulihanSandiPengguna` — yang **hanya** bisa dijalankan dari editor Apps Script.
+
+**Mengapa aman dipegang:**
+
+| Aturan | Konsekuensi praktis |
+|---|---|
+| Tidak terdaftar di `ROUTES` | Tidak ada URL/`doPost` yang bisa memanggilnya; permintaan HTTP bernama itu dijawab *"Aksi tidak dikenali."* — hanya pemilik project yang bisa menjalankannya dari editor |
+| Sandi tidak pernah dicatat | Ringkasan & panel Executions tidak memuat sandi; yang tercatat hanya panjang sandi baru |
+| Sandi dihapus dari Script Properties | Properti `PEMULIHAN_SANDI_*` dihapus kembali di blok `finally`, apa pun hasilnya |
+| Setiap penyetelan ulang menulis jejak | Jejak audit `PASSWORD_RESET` berisi pelaku (email pemilik project), akun, dan jumlah sesi yang dicabut |
+| Sesi lama dicabut otomatis | Token yang mungkin sudah bocor/tersimpan di peramban lama langsung mati |
+| Penolakan terjadi lebih dulu | Sandi < 10 karakter, ulangan tidak sama, atau akun tidak ada → ditolak **tanpa** mengubah data |
+| Panjang minimum 10 karakter | Sandi hasil pemulihan tidak lebih lemah dari aturan akun lain |
+
+### Langkah 1 — Tentukan sebabnya (tidak mengubah apa pun)
+
+1. Buka [script.google.com](https://script.google.com) → project produksi SIAP APII → **Project Settings ⚙️ → Script Properties**.
+2. Tambahkan properti:
+
+   | Properti | Nilai | Wajib? |
+   |---|---|---|
+   | `PEMULIHAN_USERNAME` | akun yang diperiksa, mis. `superadmin` | ✅ |
+   | `PEMULIHAN_SANDI_UJI` | sandi yang tadi dicoba di portal (bila ingin diuji kecocokannya) | opsional |
+
+3. Buka **Editor** → file `Auth.gs` → pilih fungsi **`pemulihanSandiEditor`** dari daftar fungsi → **Run**.
+4. Baca panel **Execution log**. Baris `Sebab` menjawab pertanyaannya:
+
+   | `Sebab` | Artinya | Tindakan |
+   |---|---|---|
+   | `KREDENSIAL_COCOK` | akun ada, aktif, hash sandi uji cocok | masalahnya **bukan** di backend — coba jendela penyamaran (identitas lama di `localStorage`), periksa ejaan username, lihat §6 |
+   | `SANDI_SALAH` | akun aktif, hash tidak cocok | lanjut **Langkah 2** (atau curigai `PASSWORD_SALT` yang pernah diubah → §7) |
+   | `AKUN_NONAKTIF` | akun ada & sandi cocok, tetapi `is_active = FALSE` | **Langkah 2** dengan `PEMULIHAN_AKTIFKAN = TRUE` |
+   | `AKUN_TIDAK_DITEMUKAN` | tidak ada baris dengan username itu | baca baris `Nama mirip ejaannya` (salah ketik/beda spasi, mis. `superadminn` atau `super admin`) dan baris `Akun SUPERADMIN`; ulangi dengan ejaan yang benar |
+   | `PERLU_SANDI_UJI` | akun ada & aktif; sandi uji belum diisi | isi `PEMULIHAN_SANDI_UJI` lalu ulangi, atau langsung ke **Langkah 2** |
+
+> Bila `AKUN_TIDAK_DITEMUKAN` **dan** daftar `Akun SUPERADMIN` kosong (tidak ada admin sama sekali): jalankan fungsi **`seedDemoUsers()`** dari editor — fungsi itu **tidak menimpa akun yang sudah ada** — lalu ulangi Langkah 1/2 dengan `superadmin`. Ini dijalankan dari editor, jadi tidak perlu login portal.
+
+### Langkah 2 — Setel ulang sandi (hanya bila memang perlu)
+
+1. Di **Script Properties** yang sama, tambahkan:
+
+   | Properti | Nilai |
+   |---|---|
+   | `PEMULIHAN_SANDI_BARU` | sandi baru, **minimal 10 karakter** |
+   | `PEMULIHAN_AKTIFKAN` | `TRUE` — hanya bila akunnya nonaktif dan ingin diaktifkan kembali |
+
+2. **Run** `pemulihanSandiEditor` lagi. Panel log menampilkan blok `=== DIAGNOSA KREDENSIAL ===` yang membuktikan hasilnya: akun ada, aktif, dan sandi baru **COCOK**.
+3. Hapus `PEMULIHAN_USERNAME` bila sudah selesai (properti sandi sudah dihapus otomatis oleh fungsi — pastikan tidak ada sisa `PEMULIHAN_SANDI_*` di daftar Script Properties).
+
+### Langkah 3 — Buktikan pemulihannya bekerja
+
+1. Buka portal pengurus di **jendela penyamaran** (agar identitas lama di `localStorage` tidak menyamar jadi hasil uji) → masuk dengan akun & sandi baru → dashboard terbuka.
+2. Buktikan sandi lama **sudah mati**: keluar, lalu coba masuk dengan sandi lama → *"Username atau password salah."*
+3. Buktikan sesi lama **ikut dicabut** (bila akun itu sedang login di perangkat lain, sesinya harus putus): di tab/perangkat yang masih memakai token lama, muat ulang portal → muncul *"Sesi berakhir atau tidak valid"* dan diarahkan login lagi.
+4. Buka portal → **Jejak Audit** (SUPERADMIN/KETUA/PEMBINA/PENGAWAS) → cari aksi **`PASSWORD_RESET`**: pelakunya email pemilik project, detailnya menyebut akun + jumlah sesi dicabut, dan **tidak ada sandi** di kolom mana pun.
+5. Bila sandi hasil pemulihan hanya ingin dipakai sekali, ganti lagi dari portal: **Manajemen Pengguna** (khusus SUPERADMIN) → ubah akun → kolom **Password** ("kosongkan bila tidak diubah") → simpan. Dengan begitu sandi yang sempat ditulis di Script Properties tidak menetap sebagai sandi permanen.
+
+### Cara memverifikasi prosedur ini sendiri (tanpa menyentuh produksi)
+
+```bash
+npm run build:gas     # bangkitkan apps-script/*.gs dari gas/*.gs
+npm run smoke:auth    # 85 pemeriksaan, tanpa jaringan, ± 3 detik
+```
+
+> Uji ini membaca bundel `apps-script/` hasil `build:gas`, jadi ia berjalan di mesin yang punya `Dokumen Sumber/` (klon lokal). Di CI (mode `--ci`) ia termasuk pemeriksaan yang **dilewati beserta alasan yang tercetak di log** — bukan gagal, tetapi juga tidak dihitung lulus. Gerbang pra-push lokal (`npm run gate:push`, otomatis lewat hook) yang menjalankannya penuh.
+
+Yang diuji [scripts/smoke-auth-recovery.mjs](../scripts/smoke-auth-recovery.mjs) di atas Spreadsheet tiruan (login & sesi sungguhan berjalan di sana):
+
+- pesan login yang seragam (bukti jalan buntunya), lalu **sebab** yang bisa dibedakan: `KREDENSIAL_COCOK`, `SANDI_SALAH`, `PERLU_SANDI_UJI`, `AKUN_NONAKTIF`, `AKUN_TIDAK_DITEMUKAN` — termasuk saran ejaan untuk `superadminn` / `super admin`;
+- empat bentuk penolakan (username kosong, sandi < 10 karakter, ulangan berbeda, akun tidak ada) **tidak mengubah** hash, tidak menulis audit, dan tidak mencabut sesi;
+- penyetelan ulang benar-benar berlaku: sandi lama ditolak, sandi baru diterima, sesi lama akun itu habis, **sesi akun lain tidak tersentuh**;
+- jejak audit `PASSWORD_RESET` mencatat pelaku; tidak ada sandi di balikan fungsi, audit, maupun log;
+- pintu editor `pemulihanSandiEditor()`: hanya mendiagnosa bila `PEMULIHAN_SANDI_BARU` kosong, dan properti `PEMULIHAN_SANDI_UJI`/`PEMULIHAN_SANDI_BARU` **selalu terhapus** sesudahnya;
+- `PEMULIHAN_AKTIFKAN=TRUE` mengaktifkan kembali akun nonaktif, sedangkan tanpa opsi itu akun tetap nonaktif;
+- **tidak bisa dipanggil lewat HTTP**: tidak ada nama fungsi pemulihan di `ROUTES`, dan `doPost`/`doGet` dengan nama aksi itu dijawab *"Aksi tidak dikenali."*
+
+Uji itu juga **gagal bila penjaga itu dilanggar** — dengan menambahkan route `pemulihanSandiPengguna` ke salinan `apps-script/Code.gs`, uji melaporkan 2 kegagalan dan kode keluar 1 (dibuktikan 2026-10-10 pada salinan sementara, bukan pada repositori).
+
+Perubahan di `gas/Auth.gs` baru tayang setelah `npm run deploy:gas` (lihat §8). Selama belum dideploy, jalur pemulihan **belum ada** di project produksi.
 
 ---
 

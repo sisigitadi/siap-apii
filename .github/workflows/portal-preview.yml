@@ -1,0 +1,97 @@
+name: Uji UI Portal pada Preview Deployment
+
+# ============================================================================
+# Mengapa ada: setiap push ke branch memicu Vercel membangun PREVIEW, dan
+# preview itulah yang harus diuji dengan PERAMBAN SUNGGUHAN sebelum di-merge ke
+# `main` — karena merge ke main langsung menjadi produksi yang dipakai pengurus
+# (tautan publik di kedua portal). Dua bug 2026-10-10 (penjaga demo memblokir
+# aksi login, `self.bootApp is not a function`) hanya terlihat di peramban
+# sungguhan, bukan di node -c, build, atau lint.
+#
+# Pemicu:
+#   1. `deployment_status` — Vercel melaporkan status deployment ke GitHub;
+#      begitu status PREVIEW berhasil, uji ini berjalan pada alamat preview itu.
+#   2. `workflow_dispatch` — jalankan manual dengan alamat apa pun (mis.
+#      https://siapii-xxx.vercel.app) sebagai gerbang pra-publish.
+#
+# Yang diuji: halaman login portal pengurus DARI ALAMAT TERSEBUT, dengan
+# peramban Chrome headless — klik sungguhan pada tombol Masuk & tombol demo,
+# termasuk skenario "sesi demo basi" yang dulu memblokir login.
+#
+# TIDAK menyentuh data produksi: permintaan API dicegat di sisi halaman (stub),
+# dan nama host API dipetakan ke alamat mati saat peluncuran peramban.
+# Mode `--live` (login sungguhan ke backend) SENGAJA tidak dipakai di sini.
+#
+# Uji yang sama juga berjalan otomatis sebelum push lewat hook pra-push
+# (`npm run gate:push`) pada salinan lokal, dan di CI (`.github/workflows/ci.yml`).
+# ============================================================================
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Alamat yang diuji (mis. URL preview Vercel). Kosongkan bila tidak ada.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  deployments: read
+
+concurrency:
+  group: uji-preview-${{ github.event.deployment.id || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  uji-preview:
+    name: Uji tombol masuk di peramban (preview)
+    runs-on: ubuntu-latest
+    # Status deployment: hanya saat BERHASIL. Deployment produksi tidak diuji
+    # dari sini (produksi sudah tayang; gerbangnya ada sebelum push).
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.deployment_status.state == 'success'
+    steps:
+      - name: Checkout (skrip uji dari branch default)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Tentukan alamat preview yang diuji
+        id: target
+        env:
+          INPUT_URL: ${{ github.event.inputs.url }}
+          STATUS_URL: ${{ github.event.deployment_status.environment_url }}
+          DEPLOY_URL: ${{ github.event.deployment_status.target_url }}
+          LINGKUNGAN: ${{ github.event.deployment.environment }}
+        run: |
+          set -euo pipefail
+          TARGET="${INPUT_URL:-}"
+          if [ -z "$TARGET" ]; then TARGET="${STATUS_URL:-${DEPLOY_URL:-}}"; fi
+          if printf '%s' "$LINGKUNGAN" | grep -qi 'prod'; then
+            echo "::notice::Deployment ini lingkungan PRODUKSI — uji pra-publish tidak dijalankan di sini."
+            echo "ada=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$TARGET" ]; then
+            echo "::warning::Tidak ada alamat preview pada peristiwa ini (environment_url kosong) — uji UI dilewati. Jalankan manual lewat workflow_dispatch dengan --url bila perlu."
+            echo "ada=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Alamat uji: $TARGET (lingkungan: ${LINGKUNGAN:-tidak disebut})"
+            echo "ada=true" >> "$GITHUB_OUTPUT"
+            echo "url=$TARGET" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Uji UI portal di peramban sungguhan
+        if: steps.target.outputs.ada == 'true'
+        env:
+          # Dipertahankan agar uji ini tetap hermetik: kredensial uji TIDAK
+          # dipakai (mode --live sengaja tidak dijalankan di workflow ini).
+          PORTAL_URL_UJI: ${{ steps.target.outputs.url }}
+        run: node scripts/smoke-portal-live.mjs --url "$PORTAL_URL_UJI"
