@@ -109,6 +109,17 @@ Setiap kali kode `Backend.gs` diubah dan disimpan, **deployment lama tidak otoma
 
 ---
 
+## 11. `Syntax error: Unterminated string literal` saat menyimpan `Backend.gs`
+
+**Penyebab:** Web editor Google Apps Script memotong (*hard-wrap*) otomatis baris string yang terlalu panjang (> 256 karakter) saat di-*paste*, atau tokenizer lawas mengalami salah parsing pada kombinasi tanda kutip ganda dan apostrof.
+
+**Solusi:**
+1. Di repositori lokal, pastikan build terbaru sudah dijalankan: `powershell -ExecutionPolicy Bypass -File scripts/build-apps-script.ps1`.
+2. Pada rilis v2.6.2, seluruh string panjang telah dipecah menjadi multi-baris pendek terkatung (`+`), ejaan dinormalisasi ke `Assalamualaikum` tanpa apostrof, dan hasil build diekspor dengan format UTF-8 murni tanpa BOM (`\uFEFF`).
+3. Buka berkas `apps-script/Backend.gs`, salin seluruh isinya (Ctrl+A, Ctrl+C), lalu tempelkan ke editor Apps Script dan simpan (Ctrl+S).
+
+---
+
 ## Butuh bantuan lain?
 
 Buka Apps Script -> **Executions** -> cari eksekusi yang gagal -> salin **seluruh isi log error** beserta nama fungsi. Itu yang dibutuhkan untuk mendiagnosis masalahnya.

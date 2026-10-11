@@ -75,9 +75,12 @@ Portal Pengurus (:3000)                Portal Publik (:3001)
 - `public/app.js` — Fungsi `setSharedConfig`/`getSharedConfig`, `loadPublicConfig` dengan auto-sync
 - `gas/Utils.gs` — Backend membaca `registration_status` dan `allow_public_registration` mandiri
 
-### 2.3 Pembersihan Karakter Em Dash
+### 2.3 Perbaikan Kompatibilitas Parser Google Apps Script & Pembersihan Karakter
 
-Seluruh karakter em dash (`—`) di empat file utama diganti dengan hyphen (`-`) untuk konsistensi encoding dan mencegah masalah rendering pada environment yang tidak mendukung UTF-8 penuh.
+1. **Pemecahan String Multi-Baris Pendek:** Teks salam sambutan `greeting` di `DEFAULT_EDITORIAL_` yang sebelumnya berupa baris tunggal 405 karakter dipecah menjadi 5 baris pendek terkatung (< 120 karakter) dengan operator `+`. Ini mencegah *hard line-wrap* otomatis oleh clipboard atau editor web Apps Script yang memicu error `Syntax error: Unterminated string literal. line: 638`.
+2. **Ejaan Baku KBBI Tanpa Apostrof:** Menyeragamkan ejaan kata salam menjadi `Assalamualaikum` (tanpa tanda apostrof `'` maupun *escape* `\'`) pada `gas/Utils.gs` dan `gas/Auth.gs` guna mengeliminasi ambiguitas tokenizer.
+3. **Keluaran UTF-8 Murni Tanpa BOM:** Skrip `build-apps-script.ps1` diperbarui agar menghasilkan berkas `.gs` dalam format UTF-8 murni tanpa Byte Order Mark (`\uFEFF`) yang dapat mengacaukan interpreter Apps Script.
+4. **Pembersihan Em Dash Komentar:** Seluruh karakter em dash (`—`) dan en dash (`–`) di seluruh berkas `gas/*.gs` dinormalisasi menjadi tanda strip `-` ASCII standar.
 
 ### 2.4 Cache-Busting v2.6.2
 
