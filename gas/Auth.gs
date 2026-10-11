@@ -463,7 +463,7 @@ function registerAnggota(ctx) {
       kirimNotifikasiKeUser_(p.email,
         'Bukti Pendaftaran Anggota APII: ' + regNumber,
         'Tanda Terima Pendaftaran Calon Anggota',
-        'Assalamu\'alaikum wr. wb., <strong>' + p.full_name + '</strong>.<br><br>' +
+        'Assalamualaikum wr. wb., <strong>' + p.full_name + '</strong>.<br><br>' +
         'Pendaftaran Anda sebagai calon anggota Yayasan APII DPW Jabodetabek telah berhasil diterima.<br><br>' +
         '• <strong>Nomor Registrasi:</strong> ' + regNumber + '<br>' +
         '• <strong>Minat Divisi:</strong> ' + (p.division_interest || 'Umum') + '<br>' +

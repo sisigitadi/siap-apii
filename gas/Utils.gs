@@ -595,14 +595,18 @@ var DEFAULT_EDITORIAL_ = {
     badge: 'Penerimaan Anggota Baru 2026',
     headline: 'Keanggotaan & Kolaborasi Yayasan APII DPW Jabodetabek',
     subheadline: 'Wadah sinergi para ahli, akademisi, dan praktisi pengkaji Islam di Indonesia untuk riset, pemberdayaan, dan kemaslahatan umat.',
-    cta_text: 'Info Dokumen & Keuangan Kas →',
+    cta_text: 'Info Dokumen & Keuangan Kas ->',
     cta_link: '#informasi'
   },
   profile: {
     show_section: true,
     ketua_name: 'Ustadz Muhammad Hanafi',
     ketua_title: 'Ketua DPW APII Jabodetabek',
-    greeting: 'Assalamu\'alaikum Warahmatullahi Wabarakatuh. Selamat datang di portal resmi Dewan Pimpinan Wilayah Yayasan Apologet Islam Indonesia (APII) Jabodetabek. Sebagai organisasi yang bergerak di bidang sosial, kemasyarakatan, dan keagamaan, kami berkomitmen mengimplementasikan nilai Islam yang moderat, mentransfer ilmu pengetahuan, serta mempererat ukhuwah islamiah demi kemaslahatan bersama.',
+    greeting: 'Assalamualaikum Warahmatullahi Wabarakatuh. ' +
+      'Selamat datang di portal resmi Dewan Pimpinan Wilayah Yayasan Apologet Islam Indonesia (APII) Jabodetabek. ' +
+      'Sebagai organisasi yang bergerak di bidang sosial, kemasyarakatan, dan keagamaan, ' +
+      'kami berkomitmen mengimplementasikan nilai Islam yang moderat, mentransfer ilmu pengetahuan, ' +
+      'serta mempererat ukhuwah islamiah demi kemaslahatan bersama.',
     vision: 'Mengimplementasikan Islam sebagai Agama Rahmatan Lil Alamin',
     missions: [
       'Transfer Ilmu Pengetahuan bagi sesama umat.',
