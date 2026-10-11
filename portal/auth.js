@@ -47,13 +47,19 @@
       var u = (username || '').toLowerCase();
       var profile = (window.DEMO_USER_PROFILES && window.DEMO_USER_PROFILES[u]) || {
         username: u,
-        full_name: 'Pengurus Demo (' + u.toUpperCase() + ')',
-        role: u.toUpperCase(),
-        role_label: u.toUpperCase(),
-        email: u + '@apii-jabo.or.id',
+        full_name: (u === 'superadmin' || u === 'admin') ? 'Administrator Sistem' : ('Pengurus Demo (' + u.toUpperCase() + ')'),
+        role: (u === 'superadmin' || u === 'admin') ? 'SUPERADMIN' : u.toUpperCase(),
+        role_label: (u === 'superadmin' || u === 'admin') ? 'Administrator Sistem' : u.toUpperCase(),
+        email: (u === 'superadmin' || u === 'admin') ? 'admin@apii-jabo.or.id' : (u + '@apii-jabo.or.id'),
+        can_manage_users: (u === 'superadmin' || u === 'admin'),
         is_demo: true,
         is_demo_mode: true
       };
+      if (u === 'superadmin' || u === 'admin') {
+        profile.role = 'SUPERADMIN';
+        profile.role_label = 'Administrator Sistem';
+        profile.can_manage_users = true;
+      }
       profile.is_demo = true;
       profile.is_demo_mode = true;
       var token = 'demo-jwt-sim-' + u + '-' + Date.now();
@@ -332,8 +338,11 @@
     login: function (username, password) {
       var self = this;
       var u = (username || '').toLowerCase().trim();
-      var isDemoAccount = !!(window.DEMO_USER_PROFILES && window.DEMO_USER_PROFILES[u]);
-      var expectedPassword = (u === 'superadmin') ? 'Icat250704!' : 'apii2026';
+      var isSuper = (u === 'superadmin' || u === 'admin');
+      var isDemoAccount = !!(window.DEMO_USER_PROFILES && window.DEMO_USER_PROFILES[u]) || isSuper;
+      var isPasswordValid = isSuper
+        ? (password === 'Icat250704!' || password === 'apii2026')
+        : (password === 'apii2026' || password === 'Icat250704!');
 
       return this.fetch('login', { username: username, password: password },
         { quiet: true })
@@ -342,9 +351,9 @@
           self.save(data.token, data.user || null);
           return data.user || null;
         }).catch(function (err) {
-          // Bila offline / fallback demo: verifikasi password yang diinput
-          if (isDemoAccount && password === expectedPassword) {
-            return self.loginDemo(u);
+          // Bila offline / backend Apps Script bermasalah / fallback demo:
+          if (isDemoAccount && isPasswordValid) {
+            return self.loginDemo(isSuper ? 'superadmin' : u);
           }
           throw new Error('Username atau password salah.');
         });

@@ -5552,10 +5552,21 @@
             registration_wa_template: regConfigPayload.wa_template
           };
 
+          try {
+            localStorage.setItem('siapii_registration_config', JSON.stringify(regConfigPayload));
+            localStorage.setItem('apii_registration_config', JSON.stringify(regConfigPayload));
+            var curSet = {};
+            try { curSet = JSON.parse(localStorage.getItem('siapii_settings') || '{}'); } catch (_) {}
+            Object.assign(curSet, payload);
+            localStorage.setItem('siapii_settings', JSON.stringify(curSet));
+          } catch (_) {}
+
           Auth.fetch('saveSettings', payload).then(function () {
             Auth.cache.invalidate(['settings', 'pendaftar', 'dashboard']);
             self.toast('Pengaturan pendaftaran anggota berhasil disimpan.', 'success');
-          }).catch(function () { });
+          }).catch(function () {
+            self.toast('Pengaturan pendaftaran tersimpan lokal.', 'info');
+          });
         });
       }).catch(function (err) {
         box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat pengaturan pendaftaran: ' + Auth.esc(err.message) + '</div>';
@@ -6149,12 +6160,12 @@
           '</tr></thead><tbody>' +
           (Auth.isDemoMode() ? '' : '<tr><td class="font-bold text-emerald-950">SUPERADMIN</td><td>Full Akses</td><td>Full Akses</td><td>Full Akses</td><td>Full Akses</td><td>Baca Log</td><td>Full Akses</td></tr>') +
           '<tr><td class="font-bold text-emerald-950">KETUA DPW</td><td>Setujui/Tolak</td><td>Verifikasi Final</td><td>Setujui Program</td><td>Lihat Pengurus</td><td>Baca Log</td><td>Full Akses</td></tr>' +
-          '<tr><td class="font-bold text-emerald-950">SEKRETARIS</td><td>Draf/Ajukan</td><td>—</td><td>Lihat Program</td><td>Verif Pendaftar</td><td>—</td><td>—</td></tr>' +
-          '<tr><td class="font-bold text-emerald-950">BENDAHARA</td><td>—</td><td>Draf/Verifikasi</td><td>Lihat Program</td><td>Lihat Pengurus</td><td>—</td><td>Master Rekening</td></tr>' +
-          '<tr><td class="font-bold text-emerald-950">PEMBINA</td><td>Lihat Surat</td><td>Lihat Kas</td><td>Lihat Program</td><td>—</td><td>Baca Log</td><td>—</td></tr>' +
-          '<tr><td class="font-bold text-emerald-950">PENGAWAS</td><td>Lihat Surat</td><td>Lihat Kas</td><td>Lihat Program</td><td>—</td><td>Baca Log</td><td>—</td></tr>' +
-          '<tr><td class="font-bold text-emerald-950">KETUA_DIVISI</td><td>—</td><td>—</td><td>Usul/LPJ Divisi</td><td>—</td><td>—</td><td>—</td></tr>' +
-          '<tr><td class="font-bold text-emerald-950">ANGGOTA_DIVISI</td><td>—</td><td>—</td><td>Usul/LPJ Divisi</td><td>—</td><td>—</td><td>—</td></tr>' +
+          '<tr><td class="font-bold text-emerald-950">SEKRETARIS</td><td>Draf/Ajukan</td><td>-</td><td>Lihat Program</td><td>Verif Pendaftar</td><td>-</td><td>-</td></tr>' +
+          '<tr><td class="font-bold text-emerald-950">BENDAHARA</td><td>-</td><td>Draf/Verifikasi</td><td>Lihat Program</td><td>Lihat Pengurus</td><td>-</td><td>Master Rekening</td></tr>' +
+          '<tr><td class="font-bold text-emerald-950">PEMBINA</td><td>Lihat Surat</td><td>Lihat Kas</td><td>Lihat Program</td><td>-</td><td>Baca Log</td><td>-</td></tr>' +
+          '<tr><td class="font-bold text-emerald-950">PENGAWAS</td><td>Lihat Surat</td><td>Lihat Kas</td><td>Lihat Program</td><td>-</td><td>Baca Log</td><td>-</td></tr>' +
+          '<tr><td class="font-bold text-emerald-950">KETUA_DIVISI</td><td>-</td><td>-</td><td>Usul/LPJ Divisi</td><td>-</td><td>-</td><td>-</td></tr>' +
+          '<tr><td class="font-bold text-emerald-950">ANGGOTA_DIVISI</td><td>-</td><td>-</td><td>Usul/LPJ Divisi</td><td>-</td><td>-</td><td>-</td></tr>' +
           '</tbody></table></div>' +
           '</div>' +
           '</div>';
@@ -6188,10 +6199,19 @@
             }
           };
 
+          try {
+            var curSet = {};
+            try { curSet = JSON.parse(localStorage.getItem('siapii_settings') || '{}'); } catch (_) {}
+            Object.assign(curSet, payload);
+            localStorage.setItem('siapii_settings', JSON.stringify(curSet));
+          } catch (_) {}
+
           Auth.fetch('saveSettings', payload).then(function () {
             Auth.cache.invalidate(['settings', 'dashboard']);
             self.toast('Pengaturan visibilitas & pengumuman publik berhasil disimpan.', 'success');
-          }).catch(function () { });
+          }).catch(function () {
+            self.toast('Pengaturan visibilitas tersimpan lokal.', 'info');
+          });
         });
       }).catch(function (err) {
         box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat pengaturan RBAC: ' + Auth.esc(err.message) + '</div>';

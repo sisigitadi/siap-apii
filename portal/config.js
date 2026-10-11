@@ -56,27 +56,30 @@ window.STATUS_LABELS = {
   DIVERIFIKASI_SEKRETARIS: 'Diverifikasi Sekretaris'
 };
 
-// 11 Akun Pengurus Resmi untuk Mode Demo Simulasi:
-// (Pengurus Harian & 4 Divisi Kerja sesuai SK Kepengurusan DPW APII)
+// 12 Akun Pengurus Resmi untuk Mode Demo Simulasi:
+// (Pengurus Harian, Superadmin, & 4 Divisi Kerja sesuai SK Kepengurusan DPW APII)
 window.DEMO_ACCOUNTS = [
-  // 1. Pengurus Harian
+  // 1. Administrator Sistem (Akses Penuh)
+  { u: 'superadmin', r: 'Administrator Sistem', name: 'Administrator Sistem', desc: 'Administrator Sistem · Akses Penuh Sistem & Pengaturan' },
+
+  // 2. Pengurus Harian
   { u: 'ketua', r: 'Ketua Umum', name: 'Ustadz Muhammad Hanafi', desc: 'Ustadz Muhammad Hanafi · Persetujuan Surat & Otorisasi Pengeluaran Kas' },
   { u: 'sekretaris', r: 'Sekretaris Umum', name: 'Sigit Adi Irianto', desc: 'Sigit Adi Irianto · Konseptor Naskah Surat & Verifikasi Berkas' },
   { u: 'bendahara', r: 'Bendahara Umum', name: 'Sri Wati', desc: 'Sri Wati · Pembukuan Kas, Verifikasi & Pencetakan Kuitansi' },
 
-  // 2. Divisi Dakwah & Pendidikan
+  // 3. Divisi Dakwah & Pendidikan
   { u: 'kdakwah', r: 'Ketua Divisi Dakwah & Pendidikan', name: 'Ahmad Daman Huri', desc: 'Ahmad Daman Huri · Program Kajian, Dakwah & Kurikulum' },
   { u: 'adakwah', r: 'Anggota Divisi Dakwah & Pendidikan', name: 'Jaelani', desc: 'Jaelani · Pelaksana Teknis Dakwah & Edukasi Lapangan' },
 
-  // 3. Divisi Humas
+  // 4. Divisi Humas
   { u: 'khumas', r: 'Ketua Divisi Humas', name: 'Federico Fachrudin', desc: 'Federico Fachrudin · Kemitraan Ormas & Komunikasi Eksternal' },
   { u: 'ahumas', r: 'Anggota Divisi Humas', name: 'Kartinah', desc: 'Kartinah · Hubungan Antar Lembaga & Dokumentasi Kegiatan' },
 
-  // 4. Divisi Sosial Media
+  // 5. Divisi Sosial Media
   { u: 'ksosmed', r: 'Ketua Divisi Sosial Media', name: 'Sri Maryati', desc: 'Sri Maryati · Publikasi Digital, Konten Kreatif & Medsos' },
   { u: 'asosmed', r: 'Anggota Divisi Sosial Media', name: 'Robert Albertus', desc: 'Robert Albertus · Desain Grafis, Video Editor & Distribusi Konten' },
 
-  // 5. Divisi Pengembangan dan Investasi Bisnis
+  // 6. Divisi Pengembangan dan Investasi Bisnis
   { u: 'kbisnis', r: 'Ketua Divisi Pengembangan & Bisnis', name: 'Novizal Andriyanto', desc: 'Novizal Andriyanto · Inkubasi Bisnis, Kemitraan & Wakaf Produktif' },
   { u: 'abisnis', r: 'Anggota Divisi Pengembangan & Bisnis', name: 'Juli Nasution Guci', desc: 'Juli Nasution Guci · Analisis Kelayakan Investasi & Operasional' }
 ];
@@ -93,6 +96,19 @@ window.GOOGLE_AUTH_CONFIG = {
 
 // Profil lengkap pengguna demo untuk simulasi cepat tanpa ketergantungan email / server luar
 window.DEMO_USER_PROFILES = {
+  superadmin: {
+    username: 'superadmin',
+    full_name: 'Administrator Sistem',
+    role: 'SUPERADMIN',
+    role_label: 'Administrator Sistem',
+    division: null,
+    division_label: null,
+    email: 'admin@apii-jabo.or.id',
+    phone: '0812-9988-7711',
+    can_manage_users: true,
+    is_demo: true,
+    is_demo_mode: true
+  },
   ketua: {
     username: 'ketua',
     full_name: 'Ustadz Muhammad Hanafi',

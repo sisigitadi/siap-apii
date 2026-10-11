@@ -164,6 +164,24 @@
       var receiptModal = document.getElementById('regReceiptModal');
       var closeReceiptBtn = document.getElementById('closeReceiptBtn');
 
+      var bindOpenClick = function (btnId) {
+        var el = document.getElementById(btnId);
+        if (el) {
+          el.addEventListener('click', function () {
+            var menu = document.getElementById('mobileMenu');
+            if (menu) menu.classList.add('hidden');
+            self.openRegModal();
+          });
+        }
+      };
+
+      // Ikat tombol pendaftaran langsung dari markup statis awal
+      bindOpenClick('headerRegBtnDesktop');
+      bindOpenClick('headerRegBtnMobile');
+      bindOpenClick('headerRegBtnDrawer');
+      bindOpenClick('heroRegBtnMain');
+      bindOpenClick('heroCardRegBtn');
+
       if (closeBtn) {
         closeBtn.addEventListener('click', function () {
           self.closeRegModal();
@@ -213,7 +231,9 @@
       var deskBox = document.getElementById('headerRegDesktop');
       var mobBox = document.getElementById('headerRegMobile');
       var drawerBox = document.getElementById('mobileMenuRegContainer');
-      if (!deskBox && !mobBox && !drawerBox) return;
+      var heroBtn = document.getElementById('heroRegBtnMain');
+      var heroCardBtn = document.getElementById('heroCardRegBtn');
+      if (!deskBox && !mobBox && !drawerBox && !heroBtn && !heroCardBtn) return;
 
       var isOpen = (status === 'BUKA' && (!reg || reg.is_open !== false));
 
@@ -254,6 +274,14 @@
             if (menu) menu.classList.add('hidden');
             self.openRegModal();
           });
+        }
+        if (heroBtn) {
+          heroBtn.classList.remove('hidden');
+          heroBtn.onclick = function () { self.openRegModal(); };
+        }
+        if (heroCardBtn) {
+          heroCardBtn.classList.remove('hidden');
+          heroCardBtn.onclick = function () { self.openRegModal(); };
         }
       } else {
         // SELAIN BUKA: Tampilkan Informasi Status yang Tidak Bisa Diklik
@@ -303,6 +331,8 @@
         if (deskBox) deskBox.innerHTML = disabledDeskHtml;
         if (mobBox) mobBox.innerHTML = disabledMobHtml;
         if (drawerBox) drawerBox.innerHTML = disabledDrawerHtml;
+        if (heroBtn) heroBtn.classList.add('hidden');
+        if (heroCardBtn) heroCardBtn.classList.add('hidden');
       }
     },
 
@@ -636,11 +666,14 @@
     // ---------------------------------------------------------------
     loadPublicConfig: function () {
       var self = this;
-      this.get('getPublicSettings').then(function (res) {
-        if (!res || !res.success || !res.data) return;
-        var d = res.data;
+
+      var applyConfig = function (d) {
+        if (!d) return;
         var reg = d.registration || {};
         self.state.registration = reg;
+        try {
+          localStorage.setItem('apii_registration_config', JSON.stringify(reg));
+        } catch (_) {}
 
         // 1. Banner Pengumuman Resmi Portal Publik
         var bannerBox = document.getElementById('announcementBannerContainer');
@@ -663,12 +696,11 @@
             bannerBox.innerHTML = '';
           }
         }
-        // 1b. Redaksi Konten Dinamis Portal Publik (Mini-CMS) — selalu dirender
-        //     sebelum logika pendaftaran agar tidak terkena early-return.
+
+        // 1b. Redaksi Konten Dinamis Portal Publik (Mini-CMS)
         var ed = d.editorial || self.getDefaultEditorial();
         var defEd = self.getDefaultEditorial();
         if (ed && ed.profile) {
-          // Bila redaksi profil masih berupa teks placeholder/draft lama, sinkronkan ke Visi & 4 Misi resmi APII
           if (!ed.profile.vision || ed.profile.vision.indexOf('Mengimplementasikan Islam') === -1) {
             ed.profile.vision = defEd.profile.vision;
             ed.profile.missions = defEd.profile.missions;
@@ -679,8 +711,6 @@
         }
         try { self.renderEditorial(ed); } catch (e) { console.error('Redaksi gagal dirender:', e); }
 
-
-
         // 2. Visibilitas Menu Pendaftaran Publik (RBAC) & Status Header Tunggal
         var rawStatus = reg.status || (reg.is_open === false ? 'DITUTUP' : 'BUKA');
         if (d.config && d.config.show_registration === false) {
@@ -690,10 +720,14 @@
           if (mobBox) mobBox.classList.add('hidden');
           var drawerBox = document.getElementById('mobileMenuRegContainer');
           if (drawerBox) drawerBox.classList.add('hidden');
+          var heroBtn = document.getElementById('heroRegBtnMain');
+          if (heroBtn) heroBtn.classList.add('hidden');
+          var heroCardBtn = document.getElementById('heroCardRegBtn');
+          if (heroCardBtn) heroCardBtn.classList.add('hidden');
           return;
         }
 
-        // Render Status Header Tunggal (BUKA -> Tombol Daftar, status lain -> Badge Info Disabled)
+        // Render Status Header Tunggal & Tombol Hero
         self.updateHeaderRegStatus(rawStatus, reg);
 
         // 3. Status Pendaftaran 4 Opsi (BUKA, DITUTUP, PENUH, SELEKSI)
@@ -715,7 +749,6 @@
           if (form) form.classList.remove('hidden');
           if (closedBox) closedBox.classList.add('hidden');
 
-          // Tampilkan tombol kirim formulir dan centang & teks persetujuan HANYA jika status BUKA
           if (actionSec) actionSec.classList.remove('hidden');
           if (agreeWrapper) agreeWrapper.classList.remove('hidden');
           if (agreeInput) agreeInput.required = true;
@@ -723,7 +756,6 @@
           if (submitBtn) submitBtn.classList.remove('hidden');
           if (inlineNotice) inlineNotice.classList.add('hidden');
         } else {
-          // SELAIN PENDAFTARAN DIBUKA: JANGAN MENAMPILKAN TOMBOL KIRIM DAN CENTANG & TEKS PERSETUJUAN
           if (actionSec) actionSec.classList.add('hidden');
           if (agreeWrapper) agreeWrapper.classList.add('hidden');
           if (agreeInput) {
@@ -805,9 +837,47 @@
           var pDesc = document.querySelector('#regModal p.text-gray-600');
           if (pDesc) pDesc.textContent = reg.instructions;
         }
+      };
+
+      // Konfigurasi awal bawaan (Fail-safe mandiri)
+      var defaultSettings = {
+        config: { show_registration: true },
+        registration: {
+          status: 'BUKA',
+          is_open: true,
+          quota_limit: 0,
+          closed_title: 'Pendaftaran Anggota Sementara Ditutup',
+          closed_message: 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
+          instructions: 'Silakan isi formulir pendaftaran anggota Yayasan APII DPW Jabodetabek dengan data yang valid sesuai identitas KTP resmi.',
+          require_ktp: true,
+          require_selfie: true,
+          max_file_size_mb: 3,
+          open_divisions: ['DIV_DAKWAH', 'DIV_HUKUM', 'DIV_HUMAS', 'DIV_MEDIA', 'DIV_SOSIAL', 'DIV_LITBANG', 'DIV_EKONOMI'],
+          contact_wa: '081288882026',
+          notify_email: 'sekretariat@apii.sigitadi.id',
+          wa_template: 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
+          agreement_text: 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
+        },
+        editorial: self.getDefaultEditorial()
+      };
+
+      try {
+        var savedReg = localStorage.getItem('apii_registration_config') || localStorage.getItem('siapii_registration_config');
+        if (savedReg) defaultSettings.registration = Object.assign(defaultSettings.registration, JSON.parse(savedReg));
+        var savedEdit = localStorage.getItem('apii_editorial') || localStorage.getItem('siapii_editorial');
+        if (savedEdit) defaultSettings.editorial = Object.assign(defaultSettings.editorial, JSON.parse(savedEdit));
+      } catch (_) {}
+
+      // Terapkan default/cached terlebih dahulu secara instan (0 delay)
+      applyConfig(defaultSettings);
+
+      // Kemudian coba update dengan data live dari server
+      this.get('getPublicSettings').then(function (res) {
+        if (res && res.success && res.data) {
+          applyConfig(res.data);
+        }
       }).catch(function (err) {
-        console.warn('Gagal memuat konfigurasi publik:', err);
-        try { self.renderEditorial(self.getDefaultEditorial()); } catch (e) {}
+        console.warn('Gagal memuat konfigurasi publik dari live backend (menggunakan konfigurasi lokal):', err);
       });
     },
 

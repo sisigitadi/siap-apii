@@ -107,25 +107,40 @@
         </button>
 
         <!-- Desktop Header Registration Control (Titik Kontrol Tunggal) -->
-        <div id="headerRegDesktop" class="hidden sm:flex items-center"></div>
+        <div id="headerRegDesktop" class="hidden sm:flex items-center">
+          <button type="button" id="headerRegBtnDesktop" class="inline-flex items-center gap-2 bg-gold hover:bg-gold-light text-emerald-dark px-4 sm:px-5 py-2.5 rounded-xl font-extrabold text-sm shadow-md hover:shadow-lg transition cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+            <span>Daftar Anggota DPW</span>
+          </button>
+        </div>
 
         <!-- Mobile Header Controls (Tombol Ringkas & Hamburger Menu) -->
         <div class="flex items-center gap-2 lg:hidden">
-          <div id="headerRegMobile" class="flex sm:hidden items-center"></div>
+          <div id="headerRegMobile" class="flex sm:hidden items-center">
+            <button type="button" id="headerRegBtnMobile" class="inline-flex items-center gap-1.5 bg-gold hover:bg-gold-light text-emerald-dark px-3 py-1.5 rounded-lg font-extrabold text-xs shadow transition cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+              <span>Daftar</span>
+            </button>
+          </div>
           <button id="mobileToggle" aria-label="Buka menu" class="p-2 rounded-lg text-emerald-dark dark:text-emerald-200 hover:bg-emerald-light dark:hover:bg-emerald-900/60">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
         </div>
       </div>
     </nav>
-    <div id="mobileMenu" class="hidden lg:hidden bg-white border-t border-emerald-100 px-4 py-4 space-y-3 font-medium text-gray-700 shadow-xl">
+    <div id="mobileMenu" class="hidden lg:hidden bg-white dark:bg-[#0C1A14] border-t border-emerald-100 dark:border-emerald-900 px-4 py-4 space-y-3 font-medium text-gray-700 dark:text-gray-200 shadow-xl">
       <a href="#beranda" class="block py-2 mobile-link">Beranda</a>
       <a href="#profil" class="block py-2 mobile-link">Profil</a>
       <a href="#warta" class="block py-2 mobile-link">Warta &amp; Agenda</a>
       <a href="#informasi" class="block py-2 mobile-link">Informasi &amp; Keuangan</a>
       <a href="#faq" class="block py-2 mobile-link">FAQ</a>
       <a href="#kontak" class="block py-2 mobile-link">Kontak</a>
-      <div id="mobileMenuRegContainer" class="pt-2"></div>
+      <div id="mobileMenuRegContainer" class="pt-2">
+        <button type="button" id="headerRegBtnDrawer" class="w-full inline-flex items-center justify-center gap-2 bg-gold hover:bg-gold-light text-emerald-dark py-3 rounded-xl font-bold text-sm shadow transition cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+          <span>Daftar Anggota Sekarang</span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -154,7 +169,11 @@
           Wadah sinergi para ahli, akademisi, dan praktisi pengkaji Indonesia. Bergabunglah bersama kami untuk memajukan riset, pemberdayaan masyarakat, dan kemaslahatan umat.
         </p>
         <div class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
-          <a id="heroCtaBtn" href="#informasi" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gold hover:bg-gold-light text-emerald-dark px-6 py-3.5 sm:py-4 rounded-xl font-extrabold shadow-lg hover:shadow-xl transition text-sm sm:text-base text-center">
+          <button type="button" id="heroRegBtnMain" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gold hover:bg-gold-light text-emerald-dark px-6 py-3.5 sm:py-4 rounded-xl font-extrabold shadow-lg hover:shadow-xl transition text-sm sm:text-base text-center cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+            <span>Daftar Anggota Baru</span>
+          </button>
+          <a id="heroCtaBtn" href="#informasi" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 text-white border border-white/30 px-5 sm:px-6 py-3.5 sm:py-4 rounded-xl font-bold transition text-sm sm:text-base text-center">
             <span id="heroCtaText">Info Dokumen &amp; Keuangan Kas →</span>
           </a>
           <a href="#kontak" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 border-2 border-white/40 hover:bg-white/10 text-white px-5 sm:px-6 py-3.5 sm:py-4 rounded-xl font-semibold transition text-sm sm:text-base text-center">
@@ -195,9 +214,15 @@
               <span><strong>Verifikasi Terpadu:</strong> Diperiksa oleh Sekretaris dan disahkan resmi oleh Ketua DPW.</span>
             </div>
           </div>
-          <div class="mt-6 pt-5 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-            <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald"></span>Sistem Terpadu DPW</span>
-            <a href="#informasi" class="font-bold text-emerald hover:underline">Pelajari Informasi →</a>
+          <div class="mt-6 pt-5 border-t border-gray-100 flex flex-col gap-3">
+            <button type="button" id="heroCardRegBtn" class="w-full py-3 px-4 rounded-xl font-extrabold text-sm bg-gold hover:bg-gold-light text-emerald-dark shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+              <span>Daftar Calon Anggota Sekarang →</span>
+            </button>
+            <div class="flex items-center justify-between text-xs text-gray-500">
+              <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald"></span>Sistem Terpadu DPW</span>
+              <a href="#informasi" class="font-bold text-emerald hover:underline">Pelajari Informasi →</a>
+            </div>
           </div>
         </div>
       </div>

@@ -492,16 +492,41 @@
           }
         ],
 
-        settings: {
-          organization_name: 'Yayasan APII DPW Jabodetabek',
-          legal_number: 'AHU-0012345.AH.01.04.Tahun 2024',
-          office_address: 'Gedung Dakwah APII Lt. 3, Jl. Tebet Barat Raya No. 45, Jakarta Selatan',
-          contact_phone: '0812-9988-7700',
-          contact_email: 'sekretariat@apii-jabo.or.id',
-          kop_url: 'logo.png',
-          watermark_text: 'DOKUMEN RESMI APII JABODETABEK',
-          active_period: '2026 - 2031'
-        },
+        settings: (function () {
+          var base = {
+            organization_name: 'Yayasan APII DPW Jabodetabek',
+            legal_number: 'AHU-0012345.AH.01.04.Tahun 2024',
+            office_address: 'Gedung Dakwah APII Lt. 3, Jl. Tebet Barat Raya No. 45, Jakarta Selatan',
+            contact_phone: '0812-9988-7700',
+            contact_email: 'sekretariat@apii-jabo.or.id',
+            kop_url: 'logo.png',
+            watermark_text: 'DOKUMEN RESMI APII JABODETABEK',
+            active_period: '2026 - 2031',
+            registration_status: 'BUKA',
+            registration_is_open: true,
+            registration_config: {
+              status: 'BUKA',
+              is_open: true,
+              quota_limit: 0,
+              closed_title: 'Pendaftaran Anggota Sementara Ditutup',
+              closed_message: 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
+              instructions: 'Silakan isi formulir pendaftaran anggota Yayasan APII DPW Jabodetabek dengan data yang valid sesuai identitas KTP resmi.',
+              require_ktp: true,
+              require_selfie: true,
+              max_file_size_mb: 3,
+              open_divisions: ['DIV_DAKWAH', 'DIV_HUKUM', 'DIV_HUMAS', 'DIV_MEDIA', 'DIV_SOSIAL', 'DIV_LITBANG', 'DIV_EKONOMI'],
+              contact_wa: '081288882026',
+              notify_email: 'sekretariat@apii.sigitadi.id',
+              wa_template: 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
+              agreement_text: 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
+            }
+          };
+          try {
+            var saved = localStorage.getItem('siapii_settings');
+            if (saved) return Object.assign(base, JSON.parse(saved));
+          } catch (_) {}
+          return base;
+        })(),
 
         editorial: {
           hero: {
@@ -1142,12 +1167,23 @@
         case 'saveSettings':
           if (payload) {
             this.data.settings = Object.assign(this.data.settings, payload);
+            try {
+              localStorage.setItem('siapii_settings', JSON.stringify(this.data.settings));
+              if (payload.registration_config) {
+                localStorage.setItem('siapii_registration_config', JSON.stringify(payload.registration_config));
+                localStorage.setItem('apii_registration_config', JSON.stringify(payload.registration_config));
+              }
+            } catch (_) {}
           }
           break;
 
         case 'saveEditorialContent':
           if (payload && payload.editorial) {
             this.data.editorial = Object.assign(this.data.editorial, payload.editorial);
+            try {
+              localStorage.setItem('siapii_editorial', JSON.stringify(this.data.editorial));
+              localStorage.setItem('apii_editorial', JSON.stringify(this.data.editorial));
+            } catch (_) {}
           }
           break;
 
