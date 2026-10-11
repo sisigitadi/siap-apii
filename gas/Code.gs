@@ -1,7 +1,7 @@
 /**
  * ============================================================================
- * Code.gs — Router Utama & Pintu Masuk Web App
- * Yayasan APII DPW Jabodetabek — Sistem Informasi & Administrasi Terpadu
+ * Code.gs - Router Utama & Pintu Masuk Web App
+ * Yayasan APII DPW Jabodetabek - Sistem Informasi & Administrasi Terpadu
  * ============================================================================
  * Tanggung jawab:
  *   - doGet / doPost: parsing request (action, token, payload)
@@ -57,7 +57,7 @@ var EDITORIAL_WRITE_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS,
                              ROLES.KETUA_DIVISI, ROLES.ANGGOTA_DIVISI];
 
 // ==========================================================================
-// TABEL ROUTES — Single Source of Truth RBAC
+// TABEL ROUTES - Single Source of Truth RBAC
 // ==========================================================================
 // Setiap route: { auth: bool, roles: [array|null], handler: fn }
 //   auth  -> true: wajib sesi valid; false: publik (login, verifySurat, registerAnggota)
@@ -252,7 +252,7 @@ function appError(message) {
 }
 
 // ==========================================================================
-// SETUP — Jalankan SEKALI pada spreadsheet baru (Project Settings > Run).
+// SETUP - Jalankan SEKALI pada spreadsheet baru (Project Settings > Run).
 // ==========================================================================
 
 /**

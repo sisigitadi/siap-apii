@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * Database.gs — Wrapper Tunggal Akses Google Sheets
+ * Database.gs - Wrapper Tunggal Akses Google Sheets
  * ============================================================================
  * Satu-satunya file yang menyentuh SpreadsheetApp. Modul domain (Surat/
  * Keuangan/Divisi/Auth) HANYA memanggil API di sini, tidak pernah Sheet
@@ -197,7 +197,7 @@ function seedDefaultSettings_() {
       agreement_text: 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
     }, 'Pengaturan pendaftaran anggota dan rekrutmen');
 
-    // Redaksi konten dinamis portal publik (Mini-CMS) — default dari Utils.gs.
+    // Redaksi konten dinamis portal publik (Mini-CMS) - default dari Utils.gs.
     setIfMissing('editorial_content', DEFAULT_EDITORIAL_,
       'Redaksi konten dinamis portal publik (hero, profil, warta, acara, kontak, FAQ)');
   } catch (e) {

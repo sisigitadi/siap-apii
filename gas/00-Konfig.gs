@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * 00-Konfig.gs — Konfigurasi Instalasi (EDIT DI SINI SAJA)
+ * 00-Konfig.gs - Konfigurasi Instalasi (EDIT DI SINI SAJA)
  * ============================================================================
  * Seluruh pengaturan penting ada di file ini. Karena ID Spreadsheet sudah
  * ditanam, Anda TIDAK perlu mengisi Script Properties secara manual.
@@ -11,7 +11,7 @@ var KONFIG = {
   // https://docs.google.com/spreadsheets/d/<INI_ID>/edit
   DB_SPREADSHEET_ID: '1B0p0Jgb4jk6w3zkHANCzIl_YkB7PE2hj_-ejf4lO4sM',
 
-  // Salt untuk hash password. JANGAN diubah setelah ada pengguna —
+  // Salt untuk hash password. JANGAN diubah setelah ada pengguna -
   // mengubahnya membuat semua password lama tidak dikenali lagi.
   PASSWORD_SALT: 'apii-jabo-dpw-jabodetabek-2026',
 

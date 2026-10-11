@@ -1,12 +1,12 @@
 /**
  * ============================================================================
- * Divisi.gs — Modul Usulan Program Divisi Kerja
+ * Divisi.gs - Modul Usulan Program Divisi Kerja
  * ============================================================================
  * Aturan KETAT:
  *   1. Divisi hanya melihat & mengusulkan divisinya SENDIRI (diambil dari
  *      ctx.user.division, TIDAK PERNAH dari payload frontend).
  *   2. Workflow: DRAFT -> AJUKAN -> DISETUJUI / DITOLAK.
- *      NOL publikasi langsung — divisi hanya Simpan Draf / Ajukan.
+ *      NOL publikasi langsung - divisi hanya Simpan Draf / Ajukan.
  *   3. approve/reject HANYA via Approval Board KETUA (atau SUPERADMIN).
  *
  * Tracking ID otomatis: #REQ-{tahun}-{urut 3 digit}

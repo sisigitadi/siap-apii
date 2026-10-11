@@ -81,7 +81,8 @@ if ($unreplaced.Count -gt 0) {
 }
 
 $outBackend = Join-Path $outDir 'Backend.gs'
-Set-Content -Path $outBackend -Value $backend -Encoding UTF8 -NoNewline
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($outBackend, $backend, $utf8NoBom)
 Write-Output "Namespace terganti: $totalReplaced referensi (semua bersih, 0 namespace tertinggal)"
 
 
@@ -170,8 +171,8 @@ var STEMPEL_BASE64 = '$stempelB64';
 # Pecah aset ke 2 file agar masing-masing jauh di bawah batas ukuran file AS.
 $outLogo = Join-Path $outDir 'AsetLogo.gs'
 $outStempel = Join-Path $outDir 'AsetStempel.gs'
-Set-Content -Path $outLogo -Value $asetLogo -Encoding UTF8 -NoNewline
-Set-Content -Path $outStempel -Value $asetStempel -Encoding UTF8 -NoNewline
+[System.IO.File]::WriteAllText($outLogo, $asetLogo, $utf8NoBom)
+[System.IO.File]::WriteAllText($outStempel, $asetStempel, $utf8NoBom)
 
 # ---------------------------------------------------------------------------
 # 3) Ringkasan & cek kasar.

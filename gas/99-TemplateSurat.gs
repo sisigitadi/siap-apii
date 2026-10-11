@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * 99-TemplateSurat.gs — Generator Otomatis Template Surat + Folder Drive
+ * 99-TemplateSurat.gs - Generator Otomatis Template Surat + Folder Drive
  * ============================================================================
  * Membuat dokumen Google Docs "Template Surat Resmi APII DPW Jabodetabek"
  * lengkap dengan:
@@ -78,7 +78,7 @@ function siapkanFolderPdf_() {
   var folderId = props.getProperty('DRIVE_FOLDER_ID');
   if (folderId) {
     try { DriveApp.getFolderById(folderId); return folderId; }
-    catch (e) { /* folder terhapus — buat ulang di bawah */ }
+    catch (e) { /* folder terhapus - buat ulang di bawah */ }
   }
 
   // 3. Buat folder default bila belum ada
@@ -97,7 +97,7 @@ function siapkanTemplateSurat_() {
   var docId = props.getProperty('TEMPLATE_DOC_ID');
   if (docId) {
     try { DocumentApp.openById(docId); return docId; }
-    catch (e) { /* template terhapus — buat ulang di bawah */ }
+    catch (e) { /* template terhapus - buat ulang di bawah */ }
   }
   return generateTemplateSurat();
 }

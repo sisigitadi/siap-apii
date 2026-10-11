@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * Utils.gs — Helper Umum, Audit Log & Dashboard
+ * Utils.gs - Helper Umum, Audit Log & Dashboard
  * ============================================================================
  * Tanggung jawab: UUID, format tanggal/Rupiah, label status Bahasa Indonesia,
  * audit log (Sheet_AuditLogs), dan getDashboard (ringkasan statistik per peran).
@@ -86,7 +86,7 @@ function formatTanggal(iso) {
   return d.getDate() + ' ' + bulan[d.getMonth()] + ' ' + d.getFullYear();
 }
 
-/** Ubah angka bulan ke angka romawi (I–XII). Dipakai penomoran surat/voucher. */
+/** Ubah angka bulan ke angka romawi (I-XII). Dipakai penomoran surat/voucher. */
 function toRoman(num) {
   var map = [[1, 'I'], [2, 'II'], [3, 'III'], [4, 'IV'], [5, 'V'], [6, 'VI'],
              [7, 'VII'], [8, 'VIII'], [9, 'IX'], [10, 'X'], [11, 'XI'], [12, 'XII']];
@@ -237,7 +237,7 @@ function getDashboard(ctx) {
           badge_class: 'badge-VERIFIED_BY_BENDAHARA',
           title: k.description,
           subtitle: k.voucher_number + ' • ' + formatRupiah(k.amount),
-          detail: 'Diverifikasi Bendahara (' + (k.verified_by_bendahara || '—') + ') • Menunggu Ketua',
+          detail: 'Diverifikasi Bendahara (' + (k.verified_by_bendahara || '-') + ') • Menunggu Ketua',
           action_label: 'Setujui Pengeluaran',
           target_nav: 'keuangan'
         });
@@ -296,7 +296,7 @@ function kirimNotifikasiEmail_(toEmail, subject, title, messageHtml, actionText,
     var htmlBody = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9fafb; padding: 24px; border-radius: 16px;">' +
       '<div style="text-align: center; margin-bottom: 24px;">' +
         '<div style="font-size: 13px; font-weight: 800; color: #1B5E20; text-transform: uppercase; letter-spacing: 0.05em;">Yayasan APII DPW Jabodetabek</div>' +
-        '<div style="font-size: 20px; font-weight: 900; color: #064e3b; margin-top: 4px;">SIAP APII — Sistem Administrasi & Informasi</div>' +
+        '<div style="font-size: 20px; font-weight: 900; color: #064e3b; margin-top: 4px;">SIAP APII - Sistem Administrasi & Informasi</div>' +
       '</div>' +
       '<div style="background-color: #ffffff; border-radius: 12px; padding: 24px; border: 1px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">' +
         '<h2 style="font-size: 16px; font-weight: 800; color: #111827; margin-top: 0; margin-bottom: 16px; border-bottom: 2px solid #a7f3d0; padding-bottom: 8px;">' + title + '</h2>' +
@@ -529,7 +529,7 @@ function getSettings(ctx) {
   settings.registration_wa_template = settings.registration_config.wa_template;
   settings.registration_agreement_text = settings.registration_config.agreement_text;
 
-  // Redaksi konten dinamis portal publik (Mini-CMS) — selalu di-merge dgn default.
+  // Redaksi konten dinamis portal publik (Mini-CMS) - selalu di-merge dgn default.
   settings.editorial_content = loadEditorial_();
 
   return { ok: true, data: settings, settings: settings, message: 'Pengaturan berhasil dimuat.' };
@@ -602,7 +602,7 @@ var DEFAULT_EDITORIAL_ = {
     show_section: true,
     ketua_name: 'Ustadz Muhammad Hanafi',
     ketua_title: 'Ketua DPW APII Jabodetabek',
-    greeting: "Assalamu'alaikum Warahmatullahi Wabarakatuh. Selamat datang di portal resmi Dewan Pimpinan Wilayah Yayasan Apologet Islam Indonesia (APII) Jabodetabek. Sebagai organisasi yang bergerak di bidang sosial, kemasyarakatan, dan keagamaan, kami berkomitmen mengimplementasikan nilai Islam yang moderat, mentransfer ilmu pengetahuan, serta mempererat ukhuwah islamiah demi kemaslahatan bersama.",
+    greeting: 'Assalamu\'alaikum Warahmatullahi Wabarakatuh. Selamat datang di portal resmi Dewan Pimpinan Wilayah Yayasan Apologet Islam Indonesia (APII) Jabodetabek. Sebagai organisasi yang bergerak di bidang sosial, kemasyarakatan, dan keagamaan, kami berkomitmen mengimplementasikan nilai Islam yang moderat, mentransfer ilmu pengetahuan, serta mempererat ukhuwah islamiah demi kemaslahatan bersama.',
     vision: 'Mengimplementasikan Islam sebagai Agama Rahmatan Lil Alamin',
     missions: [
       'Transfer Ilmu Pengetahuan bagi sesama umat.',
@@ -631,7 +631,7 @@ var DEFAULT_EDITORIAL_ = {
         title: 'Seminar Nasional Litbang: Metodologi Komparasi Agama Kontemporer',
         category: 'Kajian Ilmiah',
         date_str: 'Sabtu, 25 April 2026',
-        time_str: '09.00 – 12.00 WIB',
+        time_str: '09.00 - 12.00 WIB',
         location: 'Aula Pusat Dakwah APII & Live Zoom',
         speaker: 'Dewan Pakar APII & Akademisi Tamu',
         link: 'https://forms.gle/apii-seminar-2026',
@@ -643,7 +643,7 @@ var DEFAULT_EDITORIAL_ = {
     address: 'Jl. Kramat Raya No. 45, Senen, Jakarta Pusat 10450',
     email: 'sekretariat@apii.sigitadi.id',
     whatsapp_helpdesk: '081288882026',
-    service_hours: 'Senin – Sabtu, 08.30 – 16.30 WIB'
+    service_hours: 'Senin - Sabtu, 08.30 - 16.30 WIB'
   },
   social: {
     youtube: 'https://youtube.com/@apii_official',

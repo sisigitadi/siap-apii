@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * Surat.gs — Modul Persuratan Resmi
+ * Surat.gs - Modul Persuratan Resmi
  * ============================================================================
  * State machine: DRAFT -> PENDING_APPROVAL -> PUBLISHED / REJECTED
  *   - create/update: SUPERADMIN, SEKRETARIS (hanya DRAFT)
@@ -8,7 +8,7 @@
  *   - approve/reject: SUPERADMIN, KETUA  (approve memicu generate PDF)
  *   - verifySurat: publik (cek nomor/SHA-256 di portal)
  *
- * Nomor surat otomatis: {urut}/{KODE}/{romawi bulan}/{tahun} — reset per tahun.
+ * Nomor surat otomatis: {urut}/{KODE}/{romawi bulan}/{tahun} - reset per tahun.
  * ==========================================================================*/
 
 /** Peta seluruh jenis surat aktif (bawaan + dinamis dari Sheet_Settings). */

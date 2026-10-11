@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * Keuangan.gs — Modul Buku Kas & Voucher (Dual Approval)
+ * Keuangan.gs - Modul Buku Kas & Voucher (Dual Approval)
  * ============================================================================
  * State machine:
  *   PENDING --verify(BENDAHARA)--> VERIFIED_BY_BENDAHARA --verify(KETUA)--> APPROVED
