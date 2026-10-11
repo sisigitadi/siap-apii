@@ -1,6 +1,7 @@
 /* ============================================================================
-   style.css — Portal Pengurus (siapii.sigitadi.id)
-   Tema "Amanah Modern Enterprise": Emerald + Gold + Plus Jakarta Sans.
+   style.css : Portal Pengurus (siapii.sigitadi.id)
+   Tema: Amanah Modern Enterprise - Midnight Emerald, Royal Gold, Plus Jakarta Sans.
+   Sesuai kaidah DESIGN.md, bebas pastel murahan, dengan motif islami elegan.
    ========================================================================== */
 
 html {
@@ -13,6 +14,9 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
   max-width: 100vw;
+  background-color: #F8FAF8;
+  color: #0F172A;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 *, *::before, *::after {
@@ -23,113 +27,297 @@ img, video, canvas, svg {
   max-width: 100%;
 }
 
+/* ============================================================================
+   MOTIF & LATAR BELAKANG ISLAMI (Rub el Hizb 8-Point Star Tessellation)
+   ========================================================================== */
+
+.pattern-islamic-subtle {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23047857' stroke-width='1' stroke-opacity='0.045'%3E%3Crect x='25' y='25' width='30' height='30'/%3E%3Crect x='25' y='25' width='30' height='30' transform='rotate(45 40 40)'/%3E%3Cpath d='M0 40h25m30 0h25M40 0v25m0 30v25'/%3E%3Cpath d='M0 0l25 25m30 30l25 25M80 0L55 25M0 80l25-25'/%3E%3Ccircle cx='40' cy='40' r='3.5' fill='%23047857' fill-opacity='0.03'/%3E%3Crect x='-10' y='-10' width='20' height='20' transform='rotate(45 0 0)'/%3E%3Crect x='70' y='-10' width='20' height='20' transform='rotate(45 80 0)'/%3E%3Crect x='-10' y='70' width='20' height='20' transform='rotate(45 0 80)'/%3E%3Crect x='70' y='70' width='20' height='20' transform='rotate(45 80 80)'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.pattern-islamic-hero {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23F59E0B' stroke-width='1.2' stroke-opacity='0.12'%3E%3Crect x='25' y='25' width='30' height='30'/%3E%3Crect x='25' y='25' width='30' height='30' transform='rotate(45 40 40)'/%3E%3Cpath d='M0 40h25m30 0h25M40 0v25m0 30v25'/%3E%3Cpath d='M0 0l25 25m30 30l25 25M80 0L55 25M0 80l25-25'/%3E%3Ccircle cx='40' cy='40' r='3.5' fill='%23F59E0B' fill-opacity='0.08'/%3E%3Crect x='-10' y='-10' width='20' height='20' transform='rotate(45 0 0)'/%3E%3Crect x='70' y='-10' width='20' height='20' transform='rotate(45 80 0)'/%3E%3Crect x='-10' y='70' width='20' height='20' transform='rotate(45 0 80)'/%3E%3Crect x='70' y='70' width='20' height='20' transform='rotate(45 80 80)'/%3E%3C/g%3E%3C/svg%3E");
+}
+
 /* ---- Sidebar ---- */
-.sidebar { transition: transform .25s ease, width .25s ease; }
-.nav-item { transition: background .15s ease, color .15s ease; }
+.sidebar {
+  transition: transform 0.25s ease, width 0.25s ease, background-color 0.25s ease;
+}
+.nav-item {
+  transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease;
+}
 .nav-item.active {
-  background: #047857; color: #fff; font-weight: 700;
-  box-shadow: 0 8px 20px -8px rgba(4,120,87,.6);
+  background: #047857;
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: 0 6px 18px -6px rgba(4, 120, 87, 0.55);
 }
-.nav-item.active svg { color: #FCD34D; }
-.nav-item:not(.active):hover { background: #D1FAE5; color: #022C22; }
+.nav-item.active svg {
+  color: #FCD34D;
+}
+.nav-item:not(.active):hover {
+  background: rgba(4, 120, 87, 0.08);
+  color: #022C22;
+  transform: translateX(2px);
+}
 
-/* ---- Kartu & tombol ---- */
-.card { transition: box-shadow .2s ease, transform .2s ease; }
-.card:hover { box-shadow: 0 12px 32px -12px rgba(4,120,87,.22); }
-.btn { transition: transform .12s ease, box-shadow .2s ease, background .2s ease; }
-.btn:active { transform: scale(.97); }
-.btn-primary { background: #047857; color: #fff; }
-.btn-primary:hover { background: #065F46; box-shadow: 0 10px 22px -10px rgba(4,120,87,.7); }
-.btn-gold { background: #F59E0B; color: #022C22; }
-.btn-gold:hover { background: #D97706; }
-.btn-danger { background: #DC2626; color: #fff; }
-.btn-danger:hover { background: #B91C1C; }
-.btn-ghost { background: transparent; color: #047857; border: 1.5px solid #A7F3D0; }
-.btn-ghost:hover { background: #D1FAE5; }
-.btn-wa { background: #25D366; color: #ffffff; }
-.btn-wa:hover { background: #1eb857; color: #ffffff; box-shadow: 0 8px 18px -6px rgba(37, 211, 102, 0.6); }
-.btn-wa-ghost { background: rgba(37, 211, 102, 0.1); color: #075E54; border: 1px solid rgba(37, 211, 102, 0.35); }
-.btn-wa-ghost:hover { background: #25D366; color: #ffffff; border-color: #25D366; }
+/* ---- Kartu & Tombol ---- */
+.card {
+  transition: box-shadow 0.22s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+.card:hover {
+  box-shadow: 0 12px 30px -10px rgba(4, 120, 87, 0.18);
+  transform: translateY(-2px);
+}
+.btn {
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+.btn-primary {
+  background: #047857;
+  color: #FFFFFF;
+}
+.btn-primary:hover {
+  background: #065F46;
+  box-shadow: 0 8px 20px -8px rgba(4, 120, 87, 0.6);
+}
+.btn-gold {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%) !important;
+  color: #022C22 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.3);
+}
+.btn-gold:hover {
+  background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%) !important;
+  color: #022C22 !important;
+  box-shadow: 0 8px 22px rgba(217, 119, 6, 0.4);
+}
+.btn-danger {
+  background: #DC2626;
+  color: #FFFFFF;
+}
+.btn-danger:hover {
+  background: #B91C1C;
+}
+.btn-ghost {
+  background: transparent;
+  color: #047857;
+  border: 1.5px solid #A7F3D0;
+}
+.btn-ghost:hover {
+  background: #D1FAE5;
+}
+.btn-wa {
+  background: #25D366;
+  color: #FFFFFF;
+}
+.btn-wa:hover {
+  background: #1EB857;
+  color: #FFFFFF;
+  box-shadow: 0 8px 18px -6px rgba(37, 211, 102, 0.6);
+}
+.btn-wa-ghost {
+  background: rgba(37, 211, 102, 0.1);
+  color: #065F46;
+  border: 1px solid rgba(37, 211, 102, 0.35);
+}
+.btn-wa-ghost:hover {
+  background: #25D366;
+  color: #FFFFFF;
+  border-color: #25D366;
+}
 
-/* ---- Badge status ---- */
+/* ---- Badge Status Eksekutif (Bukan Pastel Pucat) ---- */
 .badge {
-  display: inline-flex; align-items: center; gap: .35rem;
-  font-size: .7rem; font-weight: 700; letter-spacing: .02em;
-  padding: .25rem .6rem; border-radius: 9999px; white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.28rem 0.65rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+  border: 1px solid transparent;
 }
-.badge-DRAFT, .badge-DIAJUKAN     { background: #E5E7EB; color: #4B5563; }
-.badge-PENDING_APPROVAL, .badge-PENDING,
+.badge-DRAFT,
+.badge-DIAJUKAN {
+  background: #F1F5F9;
+  color: #475569;
+  border-color: #CBD5E1;
+}
+.badge-PENDING_APPROVAL,
+.badge-PENDING,
 .badge-VERIFIED_BY_BENDAHARA,
-.badge-VERIFIED_BY_KETUM          { background: #FEF3C7; color: #B45309; }
-.badge-PUBLISHED, .badge-APPROVED,
-.badge-DISETUJUI                  { background: #D1FAE5; color: #047857; }
-.badge-REJECTED, .badge-DITOLAK   { background: #FEE2E2; color: #B91C1C; }
-.badge-PELAKSANAAN                { background: #EDE9FE; color: #6D28D9; }
-.badge-LPJ_SELESAI                { background: #CCFBF1; color: #0F766E; }
+.badge-VERIFIED_BY_KETUM {
+  background: #FEF3C7;
+  color: #92400E;
+  border-color: #FCD34D;
+}
+.badge-PUBLISHED,
+.badge-APPROVED,
+.badge-DISETUJUI {
+  background: #DCFCE7;
+  color: #065F46;
+  border-color: #86EFAC;
+}
+.badge-REJECTED,
+.badge-DITOLAK {
+  background: #FEE2E2;
+  color: #991B1B;
+  border-color: #FCA5A5;
+}
+.badge-PELAKSANAAN {
+  background: #F3E8FF;
+  color: #6B21A8;
+  border-color: #D8B4FE;
+}
+.badge-LPJ_SELESAI {
+  background: #CCFBF1;
+  color: #0F766E;
+  border-color: #5EEAD4;
+}
 
 /* ---- Tabel ---- */
-.tbl { border-collapse: separate; border-spacing: 0; width: 100%; }
+.tbl {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
 .tbl th {
-  background: #F0FDF4; color: #022C22; font-size: .72rem;
-  text-transform: uppercase; letter-spacing: .05em; font-weight: 800;
-  text-align: left; padding: .7rem .85rem; border-bottom: 2px solid #A7F3D0;
+  background: #F0FDF4;
+  color: #022C22;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 800;
+  text-align: left;
+  padding: 0.75rem 0.95rem;
+  border-bottom: 2px solid #A7F3D0;
   white-space: nowrap;
 }
-.tbl td { padding: .7rem .85rem; border-bottom: 1px solid #ECFDF5; font-size: .875rem; }
-.tbl tbody tr:hover { background: #F7FAF7; }
+.tbl td {
+  padding: 0.75rem 0.95rem;
+  border-bottom: 1px solid #ECFDF5;
+  font-size: 0.875rem;
+}
+.tbl tbody tr {
+  transition: background-color 0.15s ease;
+}
+.tbl tbody tr:hover {
+  background: #F7FAF7;
+}
 
 /* ---- Form ---- */
 .field {
-  width: 100%; padding: .65rem .85rem; border-radius: .75rem;
-  border: 1.5px solid #D1D5DB; outline: none; transition: border-color .15s, box-shadow .15s;
-  font-size: .9rem; background: #fff;
+  width: 100%;
+  padding: 0.68rem 0.9rem;
+  border-radius: 0.75rem;
+  border: 1.5px solid #D1D5DB;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.2s;
+  font-size: 0.9rem;
+  background: #FFFFFF;
 }
-.field:focus { border-color: #047857; box-shadow: 0 0 0 3px rgba(4,120,87,.15); }
-label.lbl { display: block; font-size: .78rem; font-weight: 700; color: #374151; margin-bottom: .35rem; }
+.field:focus {
+  border-color: #047857;
+  box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.15);
+}
+label.lbl {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 0.35rem;
+}
 
 /* ---- Modal ---- */
-.modal-backdrop { background: rgba(2,44,34,.55); backdrop-filter: blur(3px); }
-.modal-panel { animation: pop .18s ease both; }
+.modal-backdrop {
+  background: rgba(2, 44, 34, 0.6);
+  backdrop-filter: blur(4px);
+}
+.modal-panel {
+  animation: pop 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
 @keyframes pop {
-  from { opacity: 0; transform: translateY(14px) scale(.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* ---- Toast ---- */
-.toast { animation: slideIn .25s ease both; }
+.toast {
+  animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
 @keyframes slideIn {
-  from { opacity: 0; transform: translateX(24px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
-/* ---- Scrollbar & seleksi ---- */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: #A7F3D0; border-radius: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-::selection { background: #A7F3D0; color: #022C22; }
+/* ---- Scrollbar & Seleksi ---- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #A7F3D0;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::selection {
+  background: #A7F3D0;
+  color: #022C22;
+}
 
 /* ---- Util ---- */
-.line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
-.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 /* ---- Responsive Card-Feed View on Mobile (<640px) ---- */
 @media (max-width: 640px) {
-  .tbl-responsive thead { display: none; }
-  .tbl-responsive, 
-  .tbl-responsive tbody, 
-  .tbl-responsive tr, 
+  .tbl-responsive thead {
+    display: none;
+  }
+  .tbl-responsive,
+  .tbl-responsive tbody,
+  .tbl-responsive tr,
   .tbl-responsive td {
     display: block;
     width: 100%;
   }
   .tbl-responsive tr {
-    background: #ffffff;
+    background: #FFFFFF;
     border: 1.5px solid #E5E7EB;
     border-radius: 1rem;
     padding: 1rem;
     margin-bottom: 0.85rem;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
-    transition: all .2s ease;
+    transition: all 0.2s ease;
   }
   .tbl-responsive tr:hover {
     border-color: #A7F3D0;
@@ -162,24 +350,34 @@ label.lbl { display: block; font-size: .78rem; font-weight: 700; color: #374151;
   .tbl-responsive td.tbl-actions .flex,
   .tbl-responsive td:has([data-act]) .flex,
   .tbl-responsive td:has(button) .flex {
-    width: 100%;
-    justify-content: flex-end;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    justify-content: stretch !important;
   }
   .tbl-responsive td.tbl-actions button,
   .tbl-responsive td:has([data-act]) button,
   .tbl-responsive td:has(button) button {
-    flex: 1 1 auto;
-    text-align: center;
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
+    width: 100% !important;
+    min-height: 40px !important;
+    font-size: 0.75rem !important;
+    padding: 0.5rem 0.6rem !important;
+    white-space: normal !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1.2 !important;
+    text-align: center !important;
   }
 }
 
 /* ---- Kertas Virtual A4 (Paper Replica) ---- */
 .paper-a4 {
-  background: #ffffff;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 1px 8px rgba(0, 0, 0, 0.06);
-  border: 1px solid #e5e7eb;
+  background: #FFFFFF !important;
+  color: #111827 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), 0 1px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #D1D5DB;
   border-radius: 0.5rem;
   max-width: 720px;
   width: 100%;
@@ -261,11 +459,14 @@ label.lbl { display: block; font-size: .78rem; font-weight: 700; color: #374151;
   body * {
     visibility: hidden;
   }
-  #printPaperArea, #printPaperArea *,
-  #printKwitansiArea, #printKwitansiArea * {
+  #printPaperArea,
+  #printPaperArea *,
+  #printKwitansiArea,
+  #printKwitansiArea * {
     visibility: visible;
   }
-  #printPaperArea, #printKwitansiArea {
+  #printPaperArea,
+  #printKwitansiArea {
     position: absolute;
     left: 0;
     top: 0;
@@ -277,7 +478,9 @@ label.lbl { display: block; font-size: .78rem; font-weight: 700; color: #374151;
     border: none !important;
     border-radius: 0 !important;
   }
-  .modal-backdrop, .modal-panel, #modalRoot {
+  .modal-backdrop,
+  .modal-panel,
+  #modalRoot {
     position: static !important;
     background: transparent !important;
     padding: 0 !important;
@@ -285,5 +488,598 @@ label.lbl { display: block; font-size: .78rem; font-weight: 700; color: #374151;
   .no-print {
     display: none !important;
   }
+}
+
+/* ============================================================================
+   TEMA GELAP (DARK MODE) : Executive Islamic Midnight (DESIGN.md)
+   Menjamin zero unreadable text dan zero generic pastel
+   ========================================================================== */
+
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #060D0A !important;
+  color: #E2E8F0 !important;
+}
+
+/* Pola islami adaptif di mode gelap */
+html.dark .pattern-islamic-subtle {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%2310B981' stroke-width='1' stroke-opacity='0.06'%3E%3Crect x='25' y='25' width='30' height='30'/%3E%3Crect x='25' y='25' width='30' height='30' transform='rotate(45 40 40)'/%3E%3Cpath d='M0 40h25m30 0h25M40 0v25m0 30v25'/%3E%3Cpath d='M0 0l25 25m30 30l25 25M80 0L55 25M0 80l25-25'/%3E%3Ccircle cx='40' cy='40' r='3.5' fill='%2310B981' fill-opacity='0.04'/%3E%3Crect x='-10' y='-10' width='20' height='20' transform='rotate(45 0 0)'/%3E%3Crect x='70' y='-10' width='20' height='20' transform='rotate(45 80 0)'/%3E%3Crect x='-10' y='70' width='20' height='20' transform='rotate(45 0 80)'/%3E%3Crect x='70' y='70' width='20' height='20' transform='rotate(45 80 80)'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+html.dark .pattern-islamic-hero {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23F59E0B' stroke-width='1.2' stroke-opacity='0.15'%3E%3Crect x='25' y='25' width='30' height='30'/%3E%3Crect x='25' y='25' width='30' height='30' transform='rotate(45 40 40)'/%3E%3Cpath d='M0 40h25m30 0h25M40 0v25m0 30v25'/%3E%3Cpath d='M0 0l25 25m30 30l25 25M80 0L55 25M0 80l25-25'/%3E%3Ccircle cx='40' cy='40' r='3.5' fill='%23F59E0B' fill-opacity='0.08'/%3E%3Crect x='-10' y='-10' width='20' height='20' transform='rotate(45 0 0)'/%3E%3Crect x='70' y='-10' width='20' height='20' transform='rotate(45 80 0)'/%3E%3Crect x='-10' y='70' width='20' height='20' transform='rotate(45 0 80)'/%3E%3Crect x='70' y='70' width='20' height='20' transform='rotate(45 80 80)'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Sidebar Dark */
+html.dark aside#sidebar,
+html.dark .sidebar {
+  background-color: #08140F !important;
+  border-color: #1E3D30 !important;
+}
+html.dark aside#sidebar > div {
+  border-color: #1E3D30 !important;
+}
+html.dark .nav-item:not(.active) {
+  color: #CBD5E1 !important;
+}
+html.dark .nav-item:not(.active):hover {
+  background-color: #0E241B !important;
+  color: #6EE7B7 !important;
+}
+html.dark .nav-item.active {
+  background-color: #047857 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 6px 18px -6px rgba(4, 120, 87, 0.7);
+}
+
+/* Topbar Dark */
+html.dark header.sticky {
+  background-color: rgba(8, 20, 15, 0.95) !important;
+  border-color: #1E3D30 !important;
+}
+
+/* Cards & Surfaces Dark */
+html.dark .card,
+html.dark .bg-white {
+  background-color: #0C1A14 !important;
+  border-color: #1E3D30 !important;
+  color: #E2E8F0 !important;
+}
+html.dark .card:hover {
+  box-shadow: 0 14px 32px -10px rgba(0, 0, 0, 0.6) !important;
+  border-color: #285542 !important;
+}
+
+html.dark .border-emerald-100,
+html.dark .border-emerald-200,
+html.dark .border-emerald-300,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300 {
+  border-color: #1E3D30 !important;
+}
+
+/* Pemberantasan Warna Pastel Murahan di Mode Gelap */
+html.dark .bg-emerald-50,
+html.dark [class*="bg-emerald-50"],
+html.dark .bg-emerald-light {
+  background-color: #0E241B !important;
+  color: #E2E8F0 !important;
+  border-color: #1E3D30 !important;
+}
+
+html.dark .bg-emerald-100,
+html.dark [class*="bg-emerald-100"] {
+  background-color: #133325 !important;
+  color: #A7F3D0 !important;
+  border-color: #1E4634 !important;
+}
+
+html.dark .bg-amber-50,
+html.dark [class*="bg-amber-50"] {
+  background-color: #231B0D !important;
+  color: #E2E8F0 !important;
+  border-color: #453216 !important;
+}
+
+html.dark .bg-amber-100,
+html.dark [class*="bg-amber-100"] {
+  background-color: #2E2210 !important;
+  color: #FCD34D !important;
+  border-color: #573E19 !important;
+}
+
+html.dark .bg-purple-50,
+html.dark [class*="bg-purple-50"] {
+  background-color: #1C122D !important;
+  color: #E2E8F0 !important;
+  border-color: #3A235D !important;
+}
+
+html.dark .bg-blue-50,
+html.dark [class*="bg-blue-50"],
+html.dark .bg-sky-50,
+html.dark [class*="bg-sky-50"] {
+  background-color: #0E1D2A !important;
+  color: #E2E8F0 !important;
+  border-color: #1E3B54 !important;
+}
+
+html.dark .bg-rose-50,
+html.dark [class*="bg-rose-50"],
+html.dark .bg-rose-100 {
+  background-color: #261215 !important;
+  color: #E2E8F0 !important;
+  border-color: #4D2128 !important;
+}
+
+html.dark .bg-gray-50,
+html.dark [class*="bg-gray-50"],
+html.dark .bg-gray-100,
+html.dark [class*="bg-gray-100"] {
+  background-color: #091510 !important;
+  color: #E2E8F0 !important;
+  border-color: #1E3D30 !important;
+}
+
+/* Tipografi Kontras Tinggi di Mode Gelap */
+html.dark .text-emerald-dark {
+  color: #6EE7B7 !important;
+}
+html.dark .text-emerald-800,
+html.dark .text-emerald-900,
+html.dark .text-emerald-950 {
+  color: #A7F3D0 !important;
+}
+
+html.dark .text-amber-700,
+html.dark .text-amber-800,
+html.dark .text-amber-900,
+html.dark .text-amber-950 {
+  color: #FCD34D !important;
+}
+
+html.dark .text-rose-600,
+html.dark .text-rose-700,
+html.dark .text-rose-800,
+html.dark .text-rose-900 {
+  color: #FDA4AF !important;
+}
+
+html.dark .text-blue-700,
+html.dark .text-blue-800,
+html.dark .text-sky-700,
+html.dark .text-sky-800,
+html.dark .text-sky-900 {
+  color: #93C5FD !important;
+}
+
+html.dark .text-gray-950,
+html.dark .text-gray-900,
+html.dark .text-gray-800 {
+  color: #FFFFFF !important;
+}
+html.dark .text-gray-700,
+html.dark .text-gray-600 {
+  color: #E2E8F0 !important;
+}
+html.dark .text-gray-500,
+html.dark .text-gray-400 {
+  color: #94A3B8 !important;
+}
+
+/* Proteksi Tombol Emas */
+html.dark .btn-gold,
+html.dark [class*="bg-gold"],
+html.dark [class*="bg-amber-400"] {
+  color: #022C22 !important;
+  font-weight: 800 !important;
+}
+html.dark .btn-gold * {
+  color: #022C22 !important;
+}
+
+/* Badge Status Jewel di Mode Gelap */
+html.dark .badge-DRAFT,
+html.dark .badge-DIAJUKAN {
+  background: #15221D !important;
+  color: #94A3B8 !important;
+  border: 1px solid #233A31 !important;
+}
+html.dark .badge-PENDING_APPROVAL,
+html.dark .badge-PENDING,
+html.dark .badge-VERIFIED_BY_BENDAHARA,
+html.dark .badge-VERIFIED_BY_KETUM {
+  background: #261B0A !important;
+  color: #FCD34D !important;
+  border: 1px solid #4F3815 !important;
+}
+html.dark .badge-PUBLISHED,
+html.dark .badge-APPROVED,
+html.dark .badge-DISETUJUI {
+  background: #0B2418 !important;
+  color: #6EE7B7 !important;
+  border: 1px solid #194F35 !important;
+}
+html.dark .badge-REJECTED,
+html.dark .badge-DITOLAK {
+  background: #2A1014 !important;
+  color: #FDA4AF !important;
+  border: 1px solid #4F1D24 !important;
+}
+html.dark .badge-PELAKSANAAN {
+  background: #1C122D !important;
+  color: #D8B4FE !important;
+  border: 1px solid #3A235D !important;
+}
+html.dark .badge-LPJ_SELESAI {
+  background: #0A2222 !important;
+  color: #5EEAD4 !important;
+  border: 1px solid #154545 !important;
+}
+
+/* Table Dark */
+html.dark .tbl th {
+  background-color: #091812 !important;
+  color: #6EE7B7 !important;
+  border-bottom-color: #1E3D30 !important;
+}
+html.dark .tbl td {
+  border-bottom-color: #13281F !important;
+  color: #E2E8F0 !important;
+}
+html.dark .tbl tbody tr:hover {
+  background-color: #10241B !important;
+}
+
+/* Responsive Table Cards Dark */
+html.dark .tbl-responsive tr {
+  background-color: #0C1A14 !important;
+  border-color: #1E3D30 !important;
+  color: #E2E8F0 !important;
+}
+html.dark .tbl-responsive tr:hover {
+  border-color: #10B981 !important;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5) !important;
+}
+html.dark .tbl-responsive td.tbl-actions,
+html.dark .tbl-responsive td:has([data-act]),
+html.dark .tbl-responsive td:has(button) {
+  border-top-color: #1E3D30 !important;
+}
+
+/* Forms & Fields Dark */
+html.dark .field,
+html.dark input[type="text"],
+html.dark input[type="password"],
+html.dark input[type="email"],
+html.dark input[type="number"],
+html.dark input[type="date"],
+html.dark select,
+html.dark textarea {
+  background-color: #060D0A !important;
+  border-color: #2A4D40 !important;
+  color: #FFFFFF !important;
+}
+html.dark .field:focus,
+html.dark input:focus,
+html.dark select:focus,
+html.dark textarea:focus {
+  border-color: #10B981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
+}
+html.dark label.lbl {
+  color: #CBD5E1 !important;
+}
+
+/* Action Buttons Dark */
+html.dark .btn-wa-ghost {
+  background: rgba(37, 211, 102, 0.15) !important;
+  color: #4ADE80 !important;
+  border-color: rgba(74, 222, 128, 0.4) !important;
+}
+html.dark .btn-wa-ghost:hover {
+  background: #25D366 !important;
+  color: #FFFFFF !important;
+}
+html.dark .btn-ghost {
+  color: #6EE7B7 !important;
+  border-color: #1E3D30 !important;
+}
+html.dark .btn-ghost:hover {
+  background-color: #10241B !important;
+  border-color: #10B981 !important;
+}
+
+/* User Menu & Modals Dark */
+html.dark #userMenu {
+  background-color: #0C1A14 !important;
+  border-color: #1E3D30 !important;
+  color: #E2E8F0 !important;
+}
+html.dark .user-menu-item:hover {
+  background-color: #10241B !important;
+}
+html.dark .modal-backdrop {
+  background-color: rgba(4, 15, 12, 0.75);
+}
+html.dark .modal-panel {
+  background-color: #0C1A14 !important;
+  border-color: #1E3D30 !important;
+  color: #E2E8F0 !important;
+}
+
+/* ============================================================================
+   PROTEKSI MUTLAK: KERTAS VIRTUAL A4 (SURAT RESMI DPW)
+   Kertas surat resmi harus SELALU berlatar putih dengan tinta dokumen hitam/resmi
+   agar tidak terjadi teks putih di atas kertas putih saat mode gelap aktif!
+   ========================================================================== */
+html.dark .paper-a4,
+html.dark #printPaperArea,
+html.dark #printKwitansiArea {
+  background: #FFFFFF !important;
+  background-color: #FFFFFF !important;
+  color: #111827 !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7) !important;
+  border-color: #D1D5DB !important;
+}
+html.dark .paper-a4 *,
+html.dark #printPaperArea *,
+html.dark #printKwitansiArea * {
+  color: #111827 !important;
+}
+html.dark .paper-a4 [class*="text-emerald"],
+html.dark #printPaperArea [class*="text-emerald"],
+html.dark #printPaperArea [style*="color: #1B5E20"],
+html.dark #printPaperArea [style*="color:#1B5E20"],
+html.dark #printPaperArea [style*="color: #047857"],
+html.dark #printPaperArea [style*="color:#047857"] {
+  color: #1B5E20 !important;
+}
+html.dark .paper-a4 [class*="border-emerald"],
+html.dark #printPaperArea [class*="border-emerald"],
+html.dark #printPaperArea [style*="border-color: #1B5E20"],
+html.dark #printPaperArea [style*="border-color:#1B5E20"] {
+  border-color: #1B5E20 !important;
+}
+html.dark .paper-a4 hr,
+html.dark #printPaperArea hr {
+  border-color: #000000 !important;
+}
+html.dark #printPaperArea .stempel-basah {
+  mix-blend-mode: multiply !important;
+  opacity: 0.88 !important;
+}
+
+/* Login Page Dark */
+html.dark #loginPage {
+  background-color: #060D0A !important;
+}
+html.dark .demo-chip-btn {
+  background-color: #0C1A14 !important;
+  border-color: #1E3D30 !important;
+  color: #FFFFFF !important;
+}
+html.dark .demo-chip-btn:hover {
+  border-color: #10B981 !important;
+  background-color: #10241B !important;
+}
+html.dark .demo-chip-btn.active,
+html.dark .demo-chip-btn[class*="ring-2"] {
+  background-color: #10241B !important;
+  border-color: #10B981 !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4) !important;
+}
+html.dark .demo-chip-desc {
+  color: #CBD5E1 !important;
+}
+html.dark #btnEnterDemo[disabled] {
+  background-color: #0E1B15 !important;
+  border-color: #1E3D30 !important;
+  color: #64748B !important;
+}
+
+/* Scrollbar & Focus Dark */
+html.dark ::-webkit-scrollbar-thumb {
+  background: #1E3D30;
+}
+:focus-visible {
+  outline: 2px solid #047857;
+  outline-offset: 2px;
+}
+html.dark :focus-visible {
+  outline: 2px solid #34D399;
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   KONTRAST TINGGI DARK MODE: MODAL & PANDUAN DEMO
+   ========================================================================== */
+html.dark .modal-panel .text-emerald-950,
+html.dark .modal-panel .text-emerald-900 {
+  color: #6EE7B7 !important;
+}
+html.dark .modal-panel .text-amber-950,
+html.dark .modal-panel .text-amber-900 {
+  color: #FCD34D !important;
+}
+html.dark .modal-panel .bg-amber-50 {
+  background-color: #231B0D !important;
+  border-color: #453216 !important;
+}
+html.dark .modal-panel .bg-white {
+  background-color: #0C1A14 !important;
+  border-color: #1E3D30 !important;
+}
+html.dark .modal-panel .bg-emerald-50,
+html.dark .modal-panel .bg-emerald-100 {
+  background-color: #0B2418 !important;
+  border-color: #194F35 !important;
+}
+
+/* ============================================================================
+   KONTRAST TINGGI DARK MODE: TOMBOL AKSI TABEL [data-act]
+   ========================================================================== */
+html.dark [data-act="view"] {
+  background: #0E291D !important;
+  color: #6EE7B7 !important;
+  border: 1px solid #1A4D36 !important;
+}
+html.dark [data-act="view"]:hover {
+  background: #153D2C !important;
+  color: #A7F3D0 !important;
+  border-color: #10B981 !important;
+}
+html.dark [data-act*="verify"] {
+  background: #231B0D !important;
+  color: #FCD34D !important;
+  border: 1px solid #453216 !important;
+}
+html.dark [data-act*="verify"]:hover {
+  background: #332612 !important;
+  color: #FDE68A !important;
+  border-color: #F59E0B !important;
+}
+html.dark [data-act*="approve"] {
+  background: #047857 !important;
+  color: #FFFFFF !important;
+  border: 1px solid #10B981 !important;
+}
+html.dark [data-act*="approve"]:hover {
+  background: #059669 !important;
+}
+html.dark [data-act*="danger"],
+html.dark [data-act*="reject"] {
+  background: #2A1014 !important;
+  color: #FDA4AF !important;
+  border: 1px solid #4F1D24 !important;
+}
+html.dark [data-act*="danger"]:hover,
+html.dark [data-act*="reject"]:hover {
+  background: #3D161C !important;
+  color: #FECDD3 !important;
+  border-color: #F43F5E !important;
+}
+
+/* ============================================================================
+   RESPONSIF MOBILE (<= 640px): GRID 2-KOLOM UNTUK TOMBOL AKSI
+   Mencegah tombol berhimpitan dan teks terpotong di layar kecil
+   ========================================================================== */
+@media (max-width: 640px) {
+  .tbl-responsive td.tbl-actions,
+  .tbl-responsive td:has([data-act]),
+  .tbl-responsive td:has(button) {
+    display: block !important;
+    padding: 0.85rem !important;
+  }
+
+  .tbl-responsive td.tbl-actions > div,
+  .tbl-responsive td:has([data-act]) > div,
+  .tbl-responsive td:has(button) > div {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+  }
+
+  .tbl-responsive td [data-act],
+  .tbl-responsive td .btn-ghost,
+  .tbl-responsive td .btn-wa-ghost,
+  .tbl-responsive td button {
+    width: 100% !important;
+    min-height: 40px !important;
+    padding: 0.5rem 0.65rem !important;
+    font-size: 0.78rem !important;
+    justify-content: center !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* ============================================================================
+   TOPBAR PANDUAN DEMO BUTTON
+   ========================================================================== */
+#btnTopbarDemoGuide {
+  background-color: #F59E0B !important;
+  color: #022C22 !important;
+  border: 1px solid #D97706 !important;
+  font-weight: 800 !important;
+}
+#btnTopbarDemoGuide:hover {
+  background-color: #D97706 !important;
+  color: #FFFFFF !important;
+}
+#btnTopbarDemoGuide svg {
+  stroke: currentColor !important;
+}
+
+/* ============================================================================
+   MIKRO-ANIMASI & TACTILE FEEDBACK
+   ========================================================================== */
+.page-enter {
+  animation: pageEnter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-lift {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+}
+html.dark .card-lift:hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+}
+
+button:active,
+.btn:active,
+.btn-primary:active,
+.btn-gold:active,
+.btn-ghost:active,
+.btn-wa-ghost:active,
+[data-act]:active {
+  transform: scale(0.98);
+  transition: transform 0.05s ease-out;
+}
+
+/* ============================================================================
+   FOOTER RESMI PORTAL
+   ========================================================================== */
+.portal-footer {
+  border-top: 1px solid #E2E8F0;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #64748B;
+  margin-top: 2rem;
+}
+html.dark .portal-footer {
+  border-top-color: #1E3D30;
+  color: #94A3B8;
+}
+.portal-footer a {
+  color: #047857;
+  font-weight: 600;
+  text-decoration: none;
+}
+.portal-footer a:hover {
+  text-decoration: underline;
+}
+html.dark .portal-footer a {
+  color: #34D399;
 }
 

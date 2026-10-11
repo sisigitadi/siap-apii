@@ -1,6 +1,6 @@
 # Panduan Deployment & Operasional Produksi (SIAP APII)
 
-**Sistem Informasi & Administrasi Terpadu Yayasan APII DPW Jabodetabek (v2.0.0 Enterprise)**
+**Sistem Informasi & Administrasi Terpadu Yayasan APII DPW Jabodetabek (v2.6.0 Enterprise)**
 
 > Dokumen panduan resmi deployment, konfigurasi custom domain, sinkronisasi Google Apps Script, dan prosedur operasional produksi SIAP APII.
 
@@ -84,7 +84,7 @@ Setiap kali perintah `git push origin main` dieksekusi, Vercel secara otomatis m
 
 Setiap kali terdapat pembaruan kode pada folder `gas/`:
 
-### Langkah 1 — Kompilasi Bundle Lokal
+### Langkah 1: Kompilasi Bundle Lokal
 Jalankan script bundler di terminal PowerShell:
 ```powershell
 npm run build:gas
@@ -99,20 +99,20 @@ Script akan:
    - `apps-script/AsetLogo.gs`
    - `apps-script/AsetStempel.gs`
 
-### Langkah 2 — Perbarui Kode di Google Apps Script
+### Langkah 2: Perbarui Kode di Google Apps Script
 1. Buka project Apps Script di browser: [script.google.com](https://script.google.com).
 2. Salin isi masing-masing file dari folder `apps-script/` ke editor Google Apps Script:
    - Isi `apps-script/Backend.gs` $\to$ file `Backend.gs`
    - Isi `apps-script/AsetLogo.gs` $\to$ file `AsetLogo.gs`
    - Isi `apps-script/AsetStempel.gs` $\to$ file `AsetStempel.gs`
-3. Tekan **Save** (Ctrl+S / ikon 💾).
+3. Tekan **Save** (Ctrl+S / ikon simpan).
 
-### Langkah 3 — Perbarui Versi Web App (New Deployment)
+### Langkah 3: Perbarui Versi Web App (New Deployment)
 1. Klik tombol **Deploy** di pojok kanan atas editor Apps Script.
 2. Pilih **Manage deployments**.
 3. Klik ikon pensil (Edit) pada deployment aktif.
 4. Pada kolom **Version**, pilih **New version**.
-5. Isi deskripsi (contoh: *Release v2.0.0 - Pendaftaran Anggota & Hardening RBAC*).
+5. Isi deskripsi (contoh: *Release v2.6.0 - Desain Tema Gelap Terang, Mobile Grid & Anti-Slop SVG*).
 6. Klik **Deploy**.
 7. Salin URL Web App yang dihasilkan (format: `https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec`).
 8. Jika ID Deployment berubah, perbarui baris `window.API_BASE` pada:

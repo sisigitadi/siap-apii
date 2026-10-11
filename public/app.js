@@ -16,12 +16,81 @@
     },
 
     init: function () {
+      this.initTheme();
       this.bindMobileNav();
       this.bindRegistrationForm();
       this.bindRegistrationModal();
       this.loadPublicConfig();
       this.loadPublicSurat();
       this.loadPublicAccounts();
+    },
+
+    initTheme: function () {
+      var self = this;
+      var saved = null;
+      try { saved = localStorage.getItem('apii_theme'); } catch (e) {}
+      var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var isDark = saved === 'dark' || (!saved && prefersDark);
+      self.applyTheme(isDark);
+
+      var btn = document.getElementById('themeToggleBtn');
+      if (btn) {
+        btn.onclick = function () {
+          var nowDark = document.documentElement.classList.contains('dark');
+          self.applyTheme(!nowDark);
+        };
+      }
+    },
+
+    applyTheme: function (isDark) {
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      try { localStorage.setItem('apii_theme', isDark ? 'dark' : 'light'); } catch (e) {}
+
+      var sun = document.getElementById('themeIconSun');
+      var moon = document.getElementById('themeIconMoon');
+      var btn = document.getElementById('themeToggleBtn');
+      if (sun && moon) {
+        if (isDark) {
+          sun.classList.remove('hidden');
+          moon.classList.add('hidden');
+        } else {
+          sun.classList.add('hidden');
+          moon.classList.remove('hidden');
+        }
+      }
+      if (btn) {
+        btn.setAttribute('aria-label', isDark ? 'Ubah ke mode terang' : 'Ubah ke mode gelap');
+        btn.title = isDark ? 'Ubah ke mode terang' : 'Ubah ke mode gelap';
+      }
+    },
+
+    getDefaultEditorial: function () {
+      return {
+        hero: {
+          badge: 'Penerimaan Anggota Baru 2026',
+          headline: 'Keanggotaan & Kolaborasi Yayasan APII DPW Jabodetabek',
+          subheadline: 'Wadah sinergi para ahli, akademisi, dan praktisi pengkaji Islam di Indonesia untuk riset, pemberdayaan, dan kemaslahatan umat.',
+          cta_text: 'Info Dokumen & Keuangan Kas',
+          cta_link: '#informasi'
+        },
+        profile: {
+          show_section: true,
+          ketua_name: 'Ustadz Muhammad Hanafi',
+          ketua_title: 'Ketua DPW APII Jabodetabek',
+          greeting: "Assalamu'alaikum Warahmatullahi Wabarakatuh. Selamat datang di portal resmi Dewan Pimpinan Wilayah Yayasan Apologet Islam Indonesia (APII) Jabodetabek. Sebagai organisasi yang bergerak di bidang sosial, kemasyarakatan, dan keagamaan, kami berkomitmen mengimplementasikan nilai Islam yang moderat, mentransfer ilmu pengetahuan, serta mempererat ukhuwah islamiah demi kemaslahatan bersama.",
+          vision: 'Mengimplementasikan Islam sebagai Agama Rahmatan Lil Alamin',
+          missions: [
+            'Transfer Ilmu Pengetahuan bagi sesama umat.',
+            'Mengoptimalkan digital dan internet sebagai sarana Dakwah.',
+            'Dialog perbandingan agama secara online maupun offline.',
+            'Bersinergi dengan Individu, Organisasi Islam, dan Instansi Pemerintah/Swasta guna mengukuhkan Ukhuwah Islamiah.'
+          ]
+        }
+      };
     },
 
     bindMobileNav: function () {
@@ -596,7 +665,19 @@
         }
         // 1b. Redaksi Konten Dinamis Portal Publik (Mini-CMS) — selalu dirender
         //     sebelum logika pendaftaran agar tidak terkena early-return.
-        try { self.renderEditorial(d.editorial); } catch (e) { console.error('Redaksi gagal dirender:', e); }
+        var ed = d.editorial || self.getDefaultEditorial();
+        var defEd = self.getDefaultEditorial();
+        if (ed && ed.profile) {
+          // Bila redaksi profil masih berupa teks placeholder/draft lama, sinkronkan ke Visi & 4 Misi resmi APII
+          if (!ed.profile.vision || ed.profile.vision.indexOf('Mengimplementasikan Islam') === -1) {
+            ed.profile.vision = defEd.profile.vision;
+            ed.profile.missions = defEd.profile.missions;
+            ed.profile.greeting = defEd.profile.greeting;
+            ed.profile.ketua_name = defEd.profile.ketua_name;
+            ed.profile.ketua_title = defEd.profile.ketua_title;
+          }
+        }
+        try { self.renderEditorial(ed); } catch (e) { console.error('Redaksi gagal dirender:', e); }
 
 
 
@@ -726,6 +807,7 @@
         }
       }).catch(function (err) {
         console.warn('Gagal memuat konfigurasi publik:', err);
+        try { self.renderEditorial(self.getDefaultEditorial()); } catch (e) {}
       });
     },
 
@@ -798,6 +880,16 @@
       }
       var box = document.getElementById('profileContent');
       if (!box) return;
+
+      var defP = this.getDefaultEditorial().profile;
+      if (p.vision && (p.vision.indexOf('Menjadi pusat pengkajian') !== -1 || p.vision === '')) {
+        p.vision = defP.vision;
+        p.missions = defP.missions;
+        p.greeting = defP.greeting;
+        p.ketua_name = defP.ketua_name;
+        p.ketua_title = defP.ketua_title;
+      }
+
       var self = this;
       var missions = (Array.isArray(p.missions) ? p.missions : []).map(function (m) {
         return '<li class="flex items-start gap-2.5">' +
@@ -805,24 +897,34 @@
           '<span>' + self.esc(m) + '</span></li>';
       }).join('');
       box.innerHTML =
-        '<div class="lg:col-span-3 bg-gradient-to-br from-emerald-50 to-white rounded-3xl p-8 border border-emerald-100">' +
-          '<div class="flex items-center gap-4 mb-5">' +
-            '<div class="h-14 w-14 bg-emerald-light rounded-2xl flex items-center justify-center flex-shrink-0">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>' +
+        '<div class="lg:col-span-3 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-emerald-900/20 rounded-3xl p-8 border border-emerald-100 dark:border-emerald-900/60 flex flex-col justify-between">' +
+          '<div>' +
+            '<div class="flex items-center gap-4 mb-5">' +
+              '<div class="h-14 w-14 bg-emerald-light dark:bg-emerald-900/60 rounded-2xl flex items-center justify-center flex-shrink-0">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-emerald dark:text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>' +
+              '</div>' +
+              '<div><div class="font-extrabold text-emerald-dark dark:text-emerald-100 text-lg">' + this.esc(p.ketua_name || 'Ustadz Muhammad Hanafi') + '</div>' +
+              '<div class="text-xs text-gray-500 dark:text-gray-400 font-medium">' + this.esc(p.ketua_title || 'Ketua DPW APII Jabodetabek') + '</div></div>' +
             '</div>' +
-            '<div><div class="font-extrabold text-emerald-dark text-lg">' + this.esc(p.ketua_name || 'Pimpinan DPW APII Jabodetabek') + '</div>' +
-            '<div class="text-xs text-gray-500">' + this.esc(p.ketua_title || '') + '</div></div>' +
+            '<div class="space-y-3 text-sm sm:text-base text-gray-600 dark:text-gray-300 leading-relaxed">' + this.editorialParas(p.greeting) + '</div>' +
           '</div>' +
-          '<div class="space-y-3 text-sm sm:text-base text-gray-600 leading-relaxed">' + this.editorialParas(p.greeting) + '</div>' +
+          '<div class="mt-6 pt-5 border-t border-emerald-100 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-2">' +
+            '<span>🏛️</span>' +
+            '<span>Dewan Pimpinan Wilayah Jabodetabek</span>' +
+          '</div>' +
         '</div>' +
-        '<div class="lg:col-span-2 bg-emerald-dark rounded-3xl p-8 text-white flex flex-col">' +
-          '<div class="font-extrabold text-gold-light text-lg mb-4">Visi &amp; Misi Lembaga</div>' +
-          '<div class="bg-white/10 rounded-2xl p-4 mb-5 border border-white/10">' +
-            '<div class="text-[10px] font-bold uppercase tracking-wider text-gold-light mb-1.5">Visi</div>' +
-            '<p class="text-sm text-emerald-light/90 leading-relaxed">' + this.esc(p.vision || '') + '</p>' +
+        '<div class="lg:col-span-2 bg-emerald-dark rounded-3xl p-8 text-white flex flex-col justify-between">' +
+          '<div>' +
+            '<div class="font-extrabold text-gold-light text-xl mb-3">Visi Lembaga</div>' +
+            '<div class="bg-white/10 rounded-2xl p-4 mb-5 border border-white/10">' +
+              '<p class="text-sm text-emerald-light/95 leading-relaxed font-medium">&ldquo;' + this.esc(p.vision || '') + '&rdquo;</p>' +
+            '</div>' +
+            '<div class="font-extrabold text-gold-light text-base mb-3">Misi Utama</div>' +
+            '<ul class="space-y-2.5 text-xs sm:text-sm text-emerald-light/90 leading-relaxed">' + missions + '</ul>' +
           '</div>' +
-          '<div class="text-[10px] font-bold uppercase tracking-wider text-gold-light mb-2.5">Misi</div>' +
-          '<ul class="space-y-2.5 text-sm text-emerald-light/90">' + missions + '</ul>' +
+          '<div class="mt-6 pt-5 border-t border-white/20 text-xs text-emerald-200">' +
+            'Nilai dasar: Moderat, Ilmiah, Santun, dan Rahmatan Lil Alamin.' +
+          '</div>' +
         '</div>';
     },
 
@@ -953,12 +1055,12 @@
               (e.category ? '<span class="badge badge-pending">' + self.esc(e.category) + '</span>' : '') + badge +
             '</div>' +
             '<h3 class="font-extrabold text-base sm:text-lg mb-3 leading-snug ' + (done ? 'text-gray-500' : 'text-emerald-dark') + '">' + self.esc(e.title) + '</h3>' +
-            '<div class="space-y-1.5 text-sm text-gray-600 mb-3">' +
-              (e.date_str ? '<div class="flex items-center gap-2"><span aria-hidden="true">📅</span><span>' + self.esc(e.date_str) + (e.time_str ? ' · ' + self.esc(e.time_str) : '') + '</span></div>' : '') +
-              (e.location ? '<div class="flex items-center gap-2"><span aria-hidden="true">📍</span><span>' + self.esc(e.location) + '</span></div>' : '') +
-              (e.speaker ? '<div class="flex items-center gap-2"><span aria-hidden="true">🎙️</span><span>' + self.esc(e.speaker) + '</span></div>' : '') +
+            '<div class="space-y-1.5 text-sm text-gray-600 dark:text-gray-300 mb-3">' +
+              (e.date_str ? '<div class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>' + self.esc(e.date_str) + (e.time_str ? ' · ' + self.esc(e.time_str) : '') + '</span></div>' : '') +
+              (e.location ? '<div class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>' + self.esc(e.location) + '</span></div>' : '') +
+              (e.speaker ? '<div class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg><span>' + self.esc(e.speaker) + '</span></div>' : '') +
             '</div>' +
-            ((e.link && !done) ? '<a href="' + self.esc(e.link) + '" target="_blank" rel="noopener noreferrer" class="mt-auto inline-flex items-center gap-1.5 text-emerald font-bold text-sm hover:underline self-start">Detail &amp; pendaftaran →</a>' : '') +
+            ((e.link && !done) ? '<a href="' + self.esc(e.link) + '" target="_blank" rel="noopener noreferrer" class="mt-auto inline-flex items-center gap-1.5 text-emerald font-bold text-sm hover:underline self-start">Detail &amp; pendaftaran &rarr;</a>' : '') +
           '</div>';
         }).join('');
       }
@@ -1063,7 +1165,7 @@
         if (res && res.success && res.data && res.data.items && res.data.items.length) {
           listEl.innerHTML = res.data.items.map(function (s) {
             return '' +
-              '<div class="p-4 rounded-2xl bg-gray-50/80 hover:bg-emerald-50/50 border border-gray-200/90 hover:border-emerald-300 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">' +
+              '<div class="public-surat-card p-4 rounded-2xl bg-gray-50/80 hover:bg-emerald-50/50 border border-gray-200/90 hover:border-emerald-300 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">' +
                 '<div class="flex-1 min-w-0">' +
                   '<div class="flex items-center gap-2 mb-1 flex-wrap">' +
                     '<span class="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full">' + self.esc(s.letter_type_label || s.letter_type) + '</span>' +
@@ -1136,14 +1238,14 @@
             var btnId = 'copyBtn_' + idx;
 
             return '' +
-              '<div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-br ' + colorBg + ' border shadow-xs transition hover:shadow-md">' +
+              '<div class="public-account-card p-4 sm:p-5 rounded-2xl bg-gradient-to-br ' + colorBg + ' border shadow-xs transition hover:shadow-md">' +
                 '<div class="flex items-center justify-between mb-2.5 flex-wrap gap-2">' +
                   '<div class="flex items-center gap-2">' +
                     '<span class="text-xs font-black text-gray-950 uppercase tracking-wide">' + self.esc(bankName) + '</span>' +
                   '</div>' +
                   '<span class="text-[10px] font-bold ' + colorBadge + ' px-2.5 py-0.5 rounded-full border shadow-2xs">' + self.esc(category) + '</span>' +
                 '</div>' +
-                '<div class="flex items-center justify-between gap-3 mt-1.5 flex-wrap sm:flex-nowrap bg-white/70 p-3 rounded-xl border border-white/60">' +
+                '<div class="public-account-num-box flex items-center justify-between gap-3 mt-1.5 flex-wrap sm:flex-nowrap bg-white/70 p-3 rounded-xl border border-white/60">' +
                   '<div class="text-base sm:text-xl font-black font-mono text-gray-900 tracking-wider break-all min-w-0 select-all">' + self.esc(accNum) + '</div>' +
                   (accNum !== '-' ?
                     '<button type="button" id="' + btnId + '" ' +

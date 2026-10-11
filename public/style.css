@@ -1,7 +1,7 @@
 /* ============================================================================
-   style.css — Portal Publik (apii.sigitadi.id)
-   Tema "Amanah Modern Enterprise": Emerald + Gold + Plus Jakarta Sans.
-   Hanya berisi enhancement yang TIDAK bisa dilakukan Tailwind utility classes.
+   style.css : Portal Publik (apii.sigitadi.id)
+   Tema: Amanah Modern Enterprise - Midnight Emerald, Royal Gold, Plus Jakarta Sans.
+   Sesuai kaidah DESIGN.md, bebas pastel murahan, dengan motif islami elegan.
    ========================================================================== */
 
 html {
@@ -15,6 +15,9 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
   max-width: 100vw;
+  background-color: #F8FAF8;
+  color: #0F172A;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 *, *::before, *::after {
@@ -25,122 +28,647 @@ img, video, canvas, svg {
   max-width: 100%;
 }
 
-/* Garis bawah emas pada link nav aktif */
-.nav-link { position: relative; padding-bottom: 4px; }
+/* ============================================================================
+   MOTIF & LATAR BELAKANG ISLAMI (Rub el Hizb 8-Point Star Tessellation)
+   ========================================================================== */
+
+/* Pola geometris islami halus untuk kontainer dan seksi halaman */
+.pattern-islamic-subtle {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23047857' stroke-width='1' stroke-opacity='0.045'%3E%3Crect x='25' y='25' width='30' height='30'/%3E%3Crect x='25' y='25' width='30' height='30' transform='rotate(45 40 40)'/%3E%3Cpath d='M0 40h25m30 0h25M40 0v25m0 30v25'/%3E%3Cpath d='M0 0l25 25m30 30l25 25M80 0L55 25M0 80l25-25'/%3E%3Ccircle cx='40' cy='40' r='3.5' fill='%23047857' fill-opacity='0.03'/%3E%3Crect x='-10' y='-10' width='20' height='20' transform='rotate(45 0 0)'/%3E%3Crect x='70' y='-10' width='20' height='20' transform='rotate(45 80 0)'/%3E%3Crect x='-10' y='70' width='20' height='20' transform='rotate(45 0 80)'/%3E%3Crect x='70' y='70' width='20' height='20' transform='rotate(45 80 80)'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Pola geometris islami untuk hero banner dan kartu sorotan */
+.pattern-islamic-hero {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23F59E0B' stroke-width='1.2' stroke-opacity='0.12'%3E%3Crect x='25' y='25' width='30' height='30'/%3E%3Crect x='25' y='25' width='30' height='30' transform='rotate(45 40 40)'/%3E%3Cpath d='M0 40h25m30 0h25M40 0v25m0 30v25'/%3E%3Cpath d='M0 0l25 25m30 30l25 25M80 0L55 25M0 80l25-25'/%3E%3Ccircle cx='40' cy='40' r='3.5' fill='%23F59E0B' fill-opacity='0.08'/%3E%3Crect x='-10' y='-10' width='20' height='20' transform='rotate(45 0 0)'/%3E%3Crect x='70' y='-10' width='20' height='20' transform='rotate(45 80 0)'/%3E%3Crect x='-10' y='70' width='20' height='20' transform='rotate(45 0 80)'/%3E%3Crect x='70' y='70' width='20' height='20' transform='rotate(45 80 80)'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* ============================================================================
+   EFEK & ANIMASI PROPORSIONAL (Professional Micro-Interactions)
+   ========================================================================== */
+
+/* Garis bawah emas pada link navigasi aktif */
+.nav-link {
+  position: relative;
+  padding-bottom: 4px;
+  transition: color 0.2s ease;
+}
 .nav-link::after {
   content: '';
   position: absolute;
-  left: 0; bottom: 0;
-  width: 0; height: 2px;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: 2px;
   background: #F59E0B;
-  transition: width .25s ease;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 9999px;
 }
-.nav-link:hover::after { width: 100%; }
+.nav-link:hover::after {
+  width: 100%;
+}
 
-/* Animasi muncul halus untuk section */
-section [class*="grid"], section .bg-white { animation: fadeUp .5s ease both; }
+/* Animasi muncul halus saat elemen dimuat */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Kartu dokumen: efek angkat saat hover */
-.doc-card { transition: transform .2s ease, box-shadow .2s ease; }
-.doc-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -12px rgba(4,120,87,.25); }
+section [class*="grid"],
+section .bg-white {
+  animation: fadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
 
-/* Kartu divisi */
-.divisi-card { transition: transform .2s ease, border-color .2s ease; }
-.divisi-card:hover { transform: translateY(-3px); border-color: #047857; }
+/* Kartu Islami: elevasi proporsional & kilau batas halus saat disorot */
+.doc-card,
+.divisi-card,
+.islamic-card,
+.public-account-card,
+.public-surat-card {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
 
-/* Badge status surat */
+.doc-card:hover,
+.islamic-card:hover,
+.public-account-card:hover,
+.public-surat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px -10px rgba(4, 120, 87, 0.18), 0 0 0 1px rgba(4, 120, 87, 0.12);
+}
+
+.divisi-card:hover {
+  transform: translateY(-3px);
+  border-color: #047857;
+  box-shadow: 0 12px 28px -10px rgba(4, 120, 87, 0.16);
+}
+
+/* Tombol Emas Eksekutif: kontras mutlak & kilau wibawa */
+.btn-gold,
+#heroCtaBtn {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%) !important;
+  color: #022C22 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.32);
+  transition: transform 0.18s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.btn-gold:hover,
+#heroCtaBtn:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%) !important;
+  color: #022C22 !important;
+  box-shadow: 0 8px 24px rgba(217, 119, 6, 0.42);
+}
+
+.btn-gold:active,
+#heroCtaBtn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Badge Status Eksekutif (Bukan Pastel Pucat) */
 .badge {
-  display: inline-flex; align-items: center; gap: .35rem;
-  font-size: .7rem; font-weight: 700; letter-spacing: .02em;
-  padding: .25rem .6rem; border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.28rem 0.65rem;
+  border-radius: 9999px;
+  border: 1px solid transparent;
 }
-.badge-published { background: #D1FAE5; color: #047857; }
-.badge-pending   { background: #FEF3C7; color: #B45309; }
-.badge-draft     { background: #E5E7EB; color: #4B5563; }
-.badge-rejected  { background: #FEE2E2; color: #B91C1C; }
-
-/* Scrollbar tipis untuk area ber tabel/daftar */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: #A7F3D0; border-radius: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-
-/* Seleksi teks berwarna emerald */
-::selection { background: #A7F3D0; color: #022C22; }
-
-/* ======== PENDAFTARAN ANGGOTA — Form Enhancements ======== */
-
-/* Custom radio button */
-input[type="radio"] {
-  accent-color: #047857;
+.badge-published {
+  background: #DCFCE7;
+  color: #065F46;
+  border-color: #86EFAC;
+}
+.badge-pending {
+  background: #FEF3C7;
+  color: #92400E;
+  border-color: #FCD34D;
+}
+.badge-draft {
+  background: #F1F5F9;
+  color: #475569;
+  border-color: #CBD5E1;
+}
+.badge-rejected {
+  background: #FEE2E2;
+  color: #991B1B;
+  border-color: #FCA5A5;
 }
 
-/* Custom checkbox */
+/* Scrollbar tipis elegan */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #A7F3D0;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Seleksi teks bernuansa emerald */
+::selection {
+  background: #A7F3D0;
+  color: #022C22;
+}
+
+/* ======== PENDAFTARAN ANGGOTA : Form Enhancements ======== */
+
+input[type="radio"],
 input[type="checkbox"] {
   accent-color: #047857;
 }
 
-/* Upload area drag-over highlight */
 .border-dashed:hover {
   border-color: #047857;
   background-color: rgba(4, 120, 87, 0.04);
 }
 
-/* Smooth entry for receipt modal */
-#regReceiptModal > div {
-  animation: modalSlideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-@keyframes modalSlideUp {
-  from { opacity: 0; transform: translateY(24px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+#regReceiptModal > div,
+#regModalDialog {
+  animation: modalSlideUp 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Pulse highlight on registration number */
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .font-mono.bg-emerald-light\/40 {
   animation: pulseGlow 2s ease infinite;
 }
+
 @keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(4, 120, 87, 0.15); }
-  50% { box-shadow: 0 0 0 8px rgba(4, 120, 87, 0); }
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(4, 120, 87, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(4, 120, 87, 0);
+  }
 }
 
-/* Form input transition */
 #regMemberForm input,
 #regMemberForm select,
 #regMemberForm textarea {
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
-/* Responsive: stack file-upload cards on small screens */
 @media (max-width: 767px) {
   #regMemberForm .grid.md\:grid-cols-2 {
     grid-template-columns: 1fr;
   }
 }
 
-/* ======== REDAKSI DINAMIS: FAQ Accordion & Warta ======== */
+/* ======== FAQ & WARTA ======== */
 
-/* Accordion FAQ: transisi mulus buka/tutup (render aman via Public.esc) */
 .faq-answer {
   max-height: 0;
   overflow: hidden;
   opacity: 0;
-  transition: max-height .35s ease, opacity .3s ease, padding .3s ease;
+  transition: max-height 0.35s ease, opacity 0.3s ease, padding 0.3s ease;
 }
+
 .faq-item.open .faq-answer {
   max-height: 640px;
   opacity: 1;
 }
-.faq-chevron { transition: transform .3s ease; }
-.faq-item.open .faq-chevron { transform: rotate(180deg); }
 
-/* Tab Warta: indikator aktif */
+.faq-chevron {
+  transition: transform 0.3s ease;
+}
+
+.faq-item.open .faq-chevron {
+  transform: rotate(180deg);
+}
+
 .warta-tab.active {
-  background: #ffffff;
+  background: #FFFFFF;
   color: #022C22;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* ============================================================================
+   TEMA GELAP (DARK MODE) : Executive Islamic Midnight (DESIGN.md)
+   Menjamin zero unreadable text dan zero generic pastel
+   ========================================================================== */
+
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #060D0A !important;
+  color: #E2E8F0 !important;
+}
+
+/* Pola islami adaptif di mode gelap */
+html.dark .pattern-islamic-subtle {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%2310B981' stroke-width='1' stroke-opacity='0.06'%3E%3Crect x='25' y='25' width='30' height='30'/%3E%3Crect x='25' y='25' width='30' height='30' transform='rotate(45 40 40)'/%3E%3Cpath d='M0 40h25m30 0h25M40 0v25m0 30v25'/%3E%3Cpath d='M0 0l25 25m30 30l25 25M80 0L55 25M0 80l25-25'/%3E%3Ccircle cx='40' cy='40' r='3.5' fill='%2310B981' fill-opacity='0.04'/%3E%3Crect x='-10' y='-10' width='20' height='20' transform='rotate(45 0 0)'/%3E%3Crect x='70' y='-10' width='20' height='20' transform='rotate(45 80 0)'/%3E%3Crect x='-10' y='70' width='20' height='20' transform='rotate(45 0 80)'/%3E%3Crect x='70' y='70' width='20' height='20' transform='rotate(45 80 80)'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+html.dark .pattern-islamic-hero {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23F59E0B' stroke-width='1.2' stroke-opacity='0.15'%3E%3Crect x='25' y='25' width='30' height='30'/%3E%3Crect x='25' y='25' width='30' height='30' transform='rotate(45 40 40)'/%3E%3Cpath d='M0 40h25m30 0h25M40 0v25m0 30v25'/%3E%3Cpath d='M0 0l25 25m30 30l25 25M80 0L55 25M0 80l25-25'/%3E%3Ccircle cx='40' cy='40' r='3.5' fill='%23F59E0B' fill-opacity='0.08'/%3E%3Crect x='-10' y='-10' width='20' height='20' transform='rotate(45 0 0)'/%3E%3Crect x='70' y='-10' width='20' height='20' transform='rotate(45 80 0)'/%3E%3Crect x='-10' y='70' width='20' height='20' transform='rotate(45 0 80)'/%3E%3Crect x='70' y='70' width='20' height='20' transform='rotate(45 80 80)'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Navbar & Mobile Menu di Mode Gelap */
+html.dark #navbar {
+  background-color: rgba(8, 20, 15, 0.95) !important;
+  border-color: #1E3D30 !important;
+}
+
+html.dark #mobileMenu {
+  background-color: #08140F !important;
+  border-color: #1E3D30 !important;
+  color: #E2E8F0 !important;
+}
+
+/* Seksi Halaman di Mode Gelap (Menetralkan gradient putih Tailwind) */
+html.dark section#profil {
+  background-color: #0C1A14 !important;
+  border-color: #1E3D30 !important;
+}
+
+html.dark section#warta {
+  background-image: none !important;
+  background-color: #08140F !important;
+  border-color: #1E3D30 !important;
+}
+
+html.dark section#informasi {
+  background-image: none !important;
+  background-color: #0C1A14 !important;
+  border-color: #1E3D30 !important;
+}
+
+html.dark section#faq {
+  background-color: #08140F !important;
+  border-color: #1E3D30 !important;
+}
+
+html.dark section#kontak {
+  background-color: #060D0A !important;
+  border-color: #1E3D30 !important;
+}
+
+/* Permukaan Kartu di Mode Gelap */
+html.dark .bg-white {
+  background-color: #0C1A14 !important;
+  color: #E2E8F0 !important;
+  border-color: #1E3D30 !important;
+}
+
+html.dark .border-emerald-100,
+html.dark .border-emerald-200,
+html.dark .border-emerald-300,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300 {
+  border-color: #1E3D30 !important;
+}
+
+/* Pemberantasan Warna Pastel Murahan di Mode Gelap */
+html.dark .bg-emerald-50,
+html.dark [class*="bg-emerald-50"],
+html.dark .bg-emerald-light {
+  background-color: #0E241B !important;
+  color: #6EE7B7 !important;
+  border-color: #1E3D30 !important;
+}
+
+html.dark .bg-emerald-100,
+html.dark [class*="bg-emerald-100"] {
+  background-color: #133325 !important;
+  color: #A7F3D0 !important;
+  border-color: #1E4634 !important;
+}
+
+html.dark .bg-amber-50,
+html.dark [class*="bg-amber-50"] {
+  background-color: #231B0D !important;
+  color: #FDE68A !important;
+  border-color: #453216 !important;
+}
+
+html.dark .bg-amber-100,
+html.dark [class*="bg-amber-100"] {
+  background-color: #2E2210 !important;
+  color: #FCD34D !important;
+  border-color: #573E19 !important;
+}
+
+html.dark .bg-rose-50,
+html.dark [class*="bg-rose-50"],
+html.dark .bg-rose-100 {
+  background-color: #261215 !important;
+  color: #FDA4AF !important;
+  border-color: #4D2128 !important;
+}
+
+html.dark .bg-purple-50,
+html.dark [class*="bg-purple-50"] {
+  background-color: #1C122D !important;
+  color: #D8B4FE !important;
+  border-color: #3A235D !important;
+}
+
+html.dark .bg-blue-50,
+html.dark [class*="bg-blue-50"],
+html.dark .bg-sky-50,
+html.dark [class*="bg-sky-50"] {
+  background-color: #0E1D2A !important;
+  color: #93C5FD !important;
+  border-color: #1E3B54 !important;
+}
+
+html.dark .bg-gray-50,
+html.dark [class*="bg-gray-50"],
+html.dark .bg-gray-100,
+html.dark [class*="bg-gray-100"] {
+  background-color: #0A1712 !important;
+  color: #CBD5E1 !important;
+  border-color: #1E3D30 !important;
+}
+
+/* Kartu Transparan / Glass di Mode Gelap */
+html.dark [class*="bg-white\/70"],
+html.dark [class*="bg-white\/80"],
+html.dark [class*="bg-white\/90"] {
+  background-color: #060D0A !important;
+  border-color: #1E3D30 !important;
+}
+
+/* Tipografi Kontras Tinggi di Mode Gelap (WCAG AA) */
+html.dark .text-emerald-dark {
+  color: #6EE7B7 !important;
+}
+
+html.dark .text-emerald-800,
+html.dark .text-emerald-900,
+html.dark .text-emerald-950 {
+  color: #A7F3D0 !important;
+}
+
+html.dark .text-amber-700,
+html.dark .text-amber-800,
+html.dark .text-amber-900,
+html.dark .text-amber-950 {
+  color: #FCD34D !important;
+}
+
+html.dark .text-rose-600,
+html.dark .text-rose-700,
+html.dark .text-rose-800,
+html.dark .text-rose-900 {
+  color: #FDA4AF !important;
+}
+
+html.dark .text-blue-700,
+html.dark .text-blue-800,
+html.dark .text-sky-700,
+html.dark .text-sky-800,
+html.dark .text-sky-900 {
+  color: #93C5FD !important;
+}
+
+html.dark .text-gray-950,
+html.dark .text-gray-900,
+html.dark .text-gray-800 {
+  color: #FFFFFF !important;
+}
+
+html.dark .text-gray-700,
+html.dark .text-gray-600 {
+  color: #E2E8F0 !important;
+}
+
+html.dark .text-gray-500,
+html.dark .text-gray-400 {
+  color: #94A3B8 !important;
+}
+
+/* Proteksi Mutlak: Tombol Emas Harus Selalu Bertuliskan Hijau Pekat */
+html.dark #heroCtaBtn,
+html.dark .btn-gold,
+html.dark [class*="bg-gold"],
+html.dark [class*="bg-amber-400"],
+html.dark #heroRegBadge {
+  color: #022C22 !important;
+  font-weight: 800 !important;
+}
+
+html.dark #heroCtaBtn *,
+html.dark .btn-gold * {
+  color: #022C22 !important;
+}
+
+/* Kartu Rekening Resmi di Mode Gelap */
+html.dark #publicAccountList > div {
+  background: #0C1A14 !important;
+  background-image: none !important;
+  border-color: #1E3D30 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+html.dark #publicAccountList [class*="bg-white\/70"],
+html.dark #publicAccountList [class*="bg-white\/60"] {
+  background-color: #060D0A !important;
+  border-color: #1E3D30 !important;
+}
+
+html.dark #publicAccountList button {
+  background-color: #13281E !important;
+  border-color: #24523E !important;
+  color: #6EE7B7 !important;
+}
+
+html.dark #publicAccountList button:hover {
+  background-color: #047857 !important;
+  color: #FFFFFF !important;
+}
+
+/* Kartu Surat Resmi di Mode Gelap */
+html.dark #publicSuratList > div {
+  background-color: #0C1A14 !important;
+  border-color: #1E3D30 !important;
+}
+
+html.dark #publicSuratList > div:hover {
+  background-color: #10241B !important;
+  border-color: #285542 !important;
+}
+
+/* Warta & Agenda di Mode Gelap */
+html.dark #bulletinList > div,
+html.dark #eventList > div {
+  background-color: #0C1A14 !important;
+  border-color: #1E3D30 !important;
+}
+
+html.dark #bulletinMoreBtn,
+html.dark #eventMoreBtn {
+  background-color: #0C1A14 !important;
+  border-color: #1E3D30 !important;
+  color: #6EE7B7 !important;
+}
+
+html.dark #bulletinMoreBtn:hover,
+html.dark #eventMoreBtn:hover {
+  background-color: #10241B !important;
+  border-color: #10B981 !important;
+}
+
+/* Tab Warta di Mode Gelap */
+html.dark .warta-tab {
+  color: #94A3B8;
+}
+
+html.dark .warta-tab.active {
+  background-color: #1E3D30 !important;
+  color: #6EE7B7 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* FAQ Item di Mode Gelap */
+html.dark .faq-item {
+  background-color: #0C1A14 !important;
+  border-color: #1E3D30 !important;
+}
+
+html.dark .faq-trigger {
+  color: #FFFFFF !important;
+}
+
+html.dark .faq-trigger:hover {
+  background-color: #10241B !important;
+}
+
+html.dark .faq-answer {
+  color: #CBD5E1 !important;
+}
+
+/* Formulir & Modal di Mode Gelap */
+html.dark #regModalDialog,
+html.dark #regReceiptModal > div,
+html.dark #docPreviewModal > div {
+  background-color: #0C1A14 !important;
+  border-color: #1E3D30 !important;
+  color: #E2E8F0 !important;
+}
+
+html.dark input[type="text"],
+html.dark input[type="email"],
+html.dark input[type="tel"],
+html.dark input[type="number"],
+html.dark select,
+html.dark textarea {
+  background-color: #060D0A !important;
+  border-color: #2A4D40 !important;
+  color: #FFFFFF !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748B !important;
+}
+
+html.dark input:focus,
+html.dark select:focus,
+html.dark textarea:focus {
+  border-color: #10B981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
+}
+
+/* Scrollbar & Focus Keyboard di Mode Gelap (R-32) */
+html.dark ::-webkit-scrollbar-thumb {
+  background: #1E3D30;
+}
+
+html.dark ::selection {
+  background: #047857;
+  color: #FFFFFF;
+}
+
+:focus-visible {
+  outline: 2px solid #047857;
+  outline-offset: 2px;
+}
+
+html.dark :focus-visible {
+  outline: 2px solid #34D399;
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   BADGE STATUS & KATEGORI WARTA (Light & Dark)
+   ========================================================================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  line-height: 1.25;
+  border: 1px solid transparent;
+}
+.badge-published {
+  background: #DCFCE7;
+  color: #065F46;
+  border-color: #86EFAC;
+}
+.badge-pending {
+  background: #FEF3C7;
+  color: #92400E;
+  border-color: #FCD34D;
+}
+.badge-draft {
+  background: #F1F5F9;
+  color: #475569;
+  border-color: #CBD5E1;
+}
+
+html.dark .badge-published {
+  background: #0B2418 !important;
+  color: #6EE7B7 !important;
+  border-color: #194F35 !important;
+}
+html.dark .badge-pending {
+  background: #261B0A !important;
+  color: #FCD34D !important;
+  border-color: #4F3815 !important;
+}
+html.dark .badge-draft {
+  background: #15221D !important;
+  color: #94A3B8 !important;
+  border-color: #233A31 !important;
+}
+
+/* Teks Emerald Cerah di Mode Gelap */
+html.dark .text-emerald {
+  color: #34D399 !important;
+}
+
+/* Tactile Feedback */
+button:active,
+.btn:active,
+#heroCtaBtn:active {
+  transform: scale(0.98);
+  transition: transform 0.05s ease-out;
 }
 

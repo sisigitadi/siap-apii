@@ -25,6 +25,7 @@ coverage/
 .postgres-data/
 .redis-data/
 .minio-data/
+supabase/
 
 # Bukti unggahan runtime (ditulis oleh uploader service & pengujian)
 storage/
@@ -49,6 +50,7 @@ Dokumen Sumber/
 # OS / editor
 .DS_Store
 Thumbs.db
+desktop.ini
 .idea/
 .vscode/*
 !.vscode/settings.json

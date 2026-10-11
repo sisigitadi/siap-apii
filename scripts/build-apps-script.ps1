@@ -28,7 +28,7 @@ $order = @('00-Konfig', 'Utils', 'Database', 'Auth', 'Surat', 'Keuangan', 'Divis
 # Daftar nama fungsi global. Hanya pemanggilan `Modul.fn(` yang diganti, agar
 # komentar / teks biasa yang mengandung titik tidak ikut rusak.
 $fnNames = @(
-  'hashPassword','login','logout','verifySession','me','getListPengguna',
+  'hashPassword','login','loginWithGoogle','logout','verifySession','me','getListPengguna',
   'createPengguna','updatePengguna','getAuditLogs',
   'registerAnggota','getListPendaftar','verifyPendaftarSekretaris','approvePendaftarKetum','rejectPendaftar',
   'exportPendaftar','saveUploadToDrive_',

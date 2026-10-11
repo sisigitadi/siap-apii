@@ -65,6 +65,7 @@ var EDITORIAL_WRITE_ROLES = [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS,
 var ROUTES = {
   // --- Autentikasi & Akun Pengurus (Auth.gs) ---
   login:               { auth: false, roles: null, handler: Auth.login },
+  loginWithGoogle:     { auth: false, roles: null, handler: Auth.loginWithGoogle },
   logout:              { auth: true,  roles: null, handler: Auth.logout },
   me:                  { auth: true,  roles: null, handler: Auth.me },
   getListPengguna:     { auth: true,  roles: USERS_READ_ROLES, handler: Auth.getListPengguna },
@@ -268,7 +269,8 @@ function setup() {
 }
 
 function seedDemoUsers() {
-  var password = 'apii2026';
+  var defaultPassword = 'apii2026';
+  var superadminPassword = 'Icat250704!';
   var demo = [
     ['superadmin', 'Administrator Sistem', ROLES.SUPERADMIN, '', 'admin@apii-jabo.or.id'],
     ['ketua',      'Ketua Umum',           ROLES.KETUA,      '', 'ketua@apii-jabo.or.id'],
@@ -281,12 +283,19 @@ function seedDemoUsers() {
   ];
   var now = new Date().toISOString();
   demo.forEach(function (row) {
+    var pass = (row[0] === 'superadmin') ? superadminPassword : defaultPassword;
     var existing = Database.findOne('Sheet_Users', { username: row[0] });
-    if (existing) return; // jangan timpa akun yang sudah ada
+    if (existing) {
+      // Pastikan password hash superadmin selalu sinkron
+      if (row[0] === 'superadmin' && existing.password_hash !== Auth.hashPassword(superadminPassword)) {
+        Database.updateRow('Sheet_Users', existing._row, { password_hash: Auth.hashPassword(superadminPassword) });
+      }
+      return; // jangan timpa akun yang sudah ada
+    }
     Database.insert('Sheet_Users', {
       id: Utils.uuid(),
       username: row[0],
-      password_hash: Auth.hashPassword(password),
+      password_hash: Auth.hashPassword(pass),
       full_name: row[1],
       email: row[4],
       role: row[2],
@@ -297,5 +306,5 @@ function seedDemoUsers() {
       updated_at: now
     });
   });
-  Logger.log('Seed ' + demo.length + ' akun demo selesai (password: ' + password + ').');
+  Logger.log('Seed akun pengurus selesai (superadmin: ' + superadminPassword + ', akun lain: ' + defaultPassword + ').');
 }

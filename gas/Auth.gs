@@ -92,6 +92,46 @@ function logout(ctx) {
 }
 
 /**
+ * loginWithGoogle: validasi akun pengurus via email Google/Gmail (dipersiapkan untuk production).
+ * Route publik (auth: false).
+ * @param {object} ctx.payload { email, token, name }
+ */
+function loginWithGoogle(ctx) {
+  var p = ctx.payload || {};
+  var email = String(p.email || '').trim().toLowerCase();
+  if (!email) {
+    return { ok: false, data: null, message: 'Email Google wajib disertakan.' };
+  }
+
+  var user = Database.findOne(TABS.USERS, { email: email });
+  if (!user) {
+    audit(email, 'LOGIN_GOOGLE_FAILED', 'Email pengurus tidak ditemukan');
+    return { ok: false, data: null, message: 'Email ' + email + ' belum terdaftar sebagai pengurus resmi APII.' };
+  }
+  if (user.is_active !== 'TRUE' && user.is_active !== true) {
+    audit(user.username, 'LOGIN_FAILED', 'Akun nonaktif');
+    return { ok: false, data: null, message: 'Akun Anda dinonaktifkan. Hubungi administrator.' };
+  }
+
+  // Buat sesi baru
+  var token = uuid();
+  var now = Date.now();
+  Database.insert(TABS.SESSIONS, {
+    token: token, user_id: user.id, username: user.username,
+    role: user.role, division: user.division,
+    created_at: new Date(now).toISOString(), expired_at: now + SESSION_TTL_MS
+  });
+  purgeExpiredSessions_();
+  audit(user.username, 'LOGIN_GOOGLE_SUCCESS', 'Login Google berhasil: ' + email);
+
+  return {
+    ok: true,
+    data: { token: token, expired_at: now + SESSION_TTL_MS, user: sanitizeUser(user) },
+    message: 'Login Google berhasil. Selamat datang, ' + (user.full_name || user.username) + '.'
+  };
+}
+
+/**
  * verifySession: validasi token -> hapus jika kedaluwarsa -> kembalikan user.
  * @param {string} token
  * @return {object|null} data user (role/divisi terpercaya) atau null

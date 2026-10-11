@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SIAPII — Portal Pengurus Yayasan APII DPW Jabodetabek</title>
+  <title>SIAPII: Portal Pengurus Yayasan APII DPW Jabodetabek</title>
   <meta name="description" content="Sistem Informasi &amp; Administrasi Terpadu untuk Pengurus Yayasan APII DPW Jabodetabek." />
   <link rel="canonical" href="https://siapii.sigitadi.id" />
 
@@ -17,8 +17,8 @@
   <!-- Open Graph Meta Tags (WhatsApp, Telegram, Social Media) -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://siapii.sigitadi.id" />
-  <meta property="og:site_name" content="SIAPII — Yayasan APII DPW Jabodetabek" />
-  <meta property="og:title" content="SIAPII — Portal Pengurus Yayasan APII DPW Jabodetabek" />
+  <meta property="og:site_name" content="SIAPII: Yayasan APII DPW Jabodetabek" />
+  <meta property="og:title" content="SIAPII: Portal Pengurus Yayasan APII DPW Jabodetabek" />
   <meta property="og:description" content="Sistem Informasi &amp; Administrasi Terpadu untuk Pengurus Yayasan APII DPW Jabodetabek." />
   <meta property="og:image" content="https://siapii.sigitadi.id/og-image.jpg" />
   <meta property="og:image:secure_url" content="https://siapii.sigitadi.id/og-image.jpg" />
@@ -30,20 +30,36 @@
   <!-- Twitter Card Meta Tags -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:url" content="https://siapii.sigitadi.id" />
-  <meta name="twitter:title" content="SIAPII — Portal Pengurus Yayasan APII DPW Jabodetabek" />
+  <meta name="twitter:title" content="SIAPII: Portal Pengurus Yayasan APII DPW Jabodetabek" />
   <meta name="twitter:description" content="Sistem Informasi &amp; Administrasi Terpadu untuk Pengurus Yayasan APII DPW Jabodetabek." />
   <meta name="twitter:image" content="https://siapii.sigitadi.id/og-image.jpg" />
+
+  <!-- Pencegah FOUC Tema Terang/Gelap -->
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('siapii_theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (saved === 'dark' || (!saved && prefersDark)) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
 
   <!-- Fonts: Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2.6.0" />
 
   <!-- Tailwind CDN + konfigurasi tema (DESIGN.md §2.3) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           colors: {
@@ -80,7 +96,7 @@
           <rect width="200" height="200" fill="url(#pat-login)" />
         </svg>
         <div class="relative z-10 flex flex-col justify-center px-12 xl:px-20 text-white">
-          <img src="logo.png" alt="Logo APII" class="h-20 w-20 object-contain mb-8 bg-white/10 rounded-2xl p-3" onerror="this.style.display='none'" />
+          <img src="logo.png" alt="Logo APII" id="loginLogoLeft" class="h-20 w-20 object-contain mb-8 bg-white/10 rounded-2xl p-3 cursor-pointer select-none transition active:scale-95 hover:bg-white/20" title="Yayasan APII DPW Jabodetabek" onerror="this.style.display='none'" />
           <h1 class="text-4xl font-extrabold leading-tight mb-4">SIAPII<br /><span class="text-gold-light">Portal Pengurus</span></h1>
           <p class="text-emerald-light/80 text-lg max-w-md leading-relaxed">
             Sistem Informasi &amp; Administrasi Terpadu Yayasan APII DPW Jabodetabek.
@@ -94,45 +110,167 @@
         </div>
       </div>
       <!-- Panel kanan (form) -->
-      <div class="w-full lg:w-1/2 flex items-center justify-center px-6 py-12">
-        <div class="w-full max-w-md">
-          <div class="lg:hidden flex items-center gap-3 mb-8">
-            <img src="logo.png" alt="Logo APII" class="h-12 w-12 object-contain" onerror="this.style.display='none'" />
-            <div class="font-extrabold text-emerald-dark text-xl">SIAPII Portal</div>
+      <div class="w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-8 py-10 relative pattern-islamic-subtle">
+        <!-- Tombol Tema Halaman Login -->
+        <div class="absolute top-4 right-4 sm:top-6 sm:right-8 z-10">
+          <button type="button" id="loginThemeToggleBtn" aria-label="Ubah tema tampilan" title="Ubah tema tampilan"
+            class="p-2 sm:px-3 sm:py-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-emerald-950 text-emerald-900 dark:text-emerald-100 hover:bg-emerald-50 dark:hover:bg-emerald-900 transition flex items-center gap-1.5 cursor-pointer text-xs font-bold shadow-2xs">
+            <svg id="loginThemeIconSun" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <svg id="loginThemeIconMoon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-800 dark:text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+            <span class="hidden sm:inline text-[11px] font-bold">Tema</span>
+          </button>
+        </div>
+
+        <div class="w-full max-w-xl">
+          <div class="lg:hidden flex items-center gap-3 mb-6 pr-14">
+            <img src="logo.png" alt="Logo APII" id="loginLogoMobile" class="h-12 w-12 object-contain cursor-pointer select-none transition active:scale-95" title="Yayasan APII DPW Jabodetabek" onerror="this.style.display='none'" />
+            <div class="font-extrabold text-emerald-dark text-xl">SIAPII Portal Pengurus</div>
           </div>
 
-          <h2 class="text-2xl font-extrabold text-emerald-dark mb-2">Masuk ke Akun Anda</h2>
-          <p class="text-gray-500 text-sm mb-8">Gunakan username &amp; password yang diberikan administrator.</p>
-
-          <div id="loginAlert" class="hidden mb-6 px-4 py-3 rounded-xl text-sm font-medium"></div>
-
-          <form id="loginForm" class="space-y-5">
-            <div>
-              <label class="lbl" for="loginUsername">Username</label>
-              <input id="loginUsername" type="text" required autocomplete="username" class="field" placeholder="cth: ketua" />
+          <!-- 1. TAMPILAN MODE DEMO (DEFAULT UNTUK PENGGUNA AWAM) -->
+          <div id="demoLoginSection">
+            <div class="mb-5">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 text-xs font-black uppercase tracking-wider mb-2.5">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>Ruang Latihan &amp; Simulasi Interaktif</span>
+              </div>
+              <h2 class="text-2xl sm:text-3xl font-extrabold text-emerald-dark dark:text-emerald-100 leading-tight">
+                Simulasi Portal Pengurus APII DPW
+              </h2>
+              <p class="text-gray-600 dark:text-gray-300 text-xs sm:text-sm mt-1.5 leading-relaxed">
+                Pilih peran pengurus yang ingin Anda coba untuk melihat bagaimana sistem persuratan dinas, buku kas dual-approval, dan program kerja beroperasi secara nyata.
+              </p>
             </div>
-            <div>
-              <label class="lbl" for="loginPassword">Password</label>
-              <input id="loginPassword" type="password" required autocomplete="current-password" class="field" placeholder="••••••••" />
-            </div>
-            <button type="submit" id="loginBtn"
-                    class="btn btn-primary w-full py-3.5 rounded-xl font-bold inline-flex items-center justify-center gap-2 disabled:opacity-60">
-              <span id="loginBtnText">Masuk</span>
-              <svg id="loginSpinner" class="hidden animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            </button>
-          </form>
 
-          <div class="mt-8 pt-6 border-t border-gray-200">
-            <div class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Akun Demo (password: apii2026)</div>
-            <div id="demoAccounts" class="flex flex-wrap gap-2"></div>
+            <!-- Panduan 3 Langkah Ramah Gaptek -->
+            <div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0C1A14] border-2 border-emerald-300/80 dark:border-emerald-800 shadow-xs mb-5 space-y-3">
+              <div class="text-xs font-black text-emerald-950 dark:text-emerald-200 uppercase tracking-wider flex items-center gap-2">
+                <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <span>Cara Mudah Mencoba Sistem (3 Langkah):</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                <div class="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-start gap-2.5">
+                  <span class="font-black text-emerald-900 dark:text-emerald-200 bg-white dark:bg-emerald-900 rounded-lg h-6 w-6 flex items-center justify-center flex-shrink-0 text-xs shadow-2xs border border-emerald-200 dark:border-emerald-700">1</span>
+                  <div class="text-xs text-gray-800 dark:text-gray-200 leading-snug">
+                    <strong class="text-gray-950 dark:text-white block font-black">Pilih Peran</strong>
+                    Sentuh salah satu kartu di bawah sesuai peran Anda.
+                  </div>
+                </div>
+                <div class="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-start gap-2.5">
+                  <span class="font-black text-emerald-900 dark:text-emerald-200 bg-white dark:bg-emerald-900 rounded-lg h-6 w-6 flex items-center justify-center flex-shrink-0 text-xs shadow-2xs border border-emerald-200 dark:border-emerald-700">2</span>
+                  <div class="text-xs text-gray-800 dark:text-gray-200 leading-snug">
+                    <strong class="text-gray-950 dark:text-white block font-black">Klik Masuk</strong>
+                    Tekan tombol hijau di bagian bawah untuk masuk instan.
+                  </div>
+                </div>
+                <div class="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-start gap-2.5">
+                  <span class="font-black text-emerald-900 dark:text-emerald-200 bg-white dark:bg-emerald-900 rounded-lg h-6 w-6 flex items-center justify-center flex-shrink-0 text-xs shadow-2xs border border-emerald-200 dark:border-emerald-700">3</span>
+                  <div class="text-xs text-gray-800 dark:text-gray-200 leading-snug">
+                    <strong class="text-gray-950 dark:text-white block font-black">Coba Bebas</strong>
+                    Data simulasi aman, tidak perlu takut salah klik!
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Daftar Kartu Pilihan Akun Demo -->
+            <div class="mb-4">
+              <div class="flex items-center justify-between mb-2.5">
+                <span class="text-xs font-black text-gray-900 dark:text-gray-100 uppercase tracking-wider">Pilih Peran yang Ingin Dicoba:</span>
+                <span id="demoSelectedHint" class="text-[11px] font-bold text-gray-700 dark:text-gray-300">Sentuh salah satu peran</span>
+              </div>
+              <div id="demoAccounts" class="flex flex-col gap-2.5 max-h-[380px] overflow-y-auto pr-1 mb-3.5"></div>
+              
+              <!-- Tombol Masuk Demo -->
+              <button type="button" id="btnEnterDemo" disabled
+                class="w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 bg-gray-200 text-gray-800 cursor-not-allowed border-2 border-gray-400 select-none">
+                <svg class="w-4 h-4 text-gray-600 dark:text-gray-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span id="btnEnterDemoText">Sentuh Salah Satu Kartu Peran di Atas</span>
+              </button>
+            </div>
+
+            <!-- Jaminan Keamanan Data Riil -->
+            <div class="p-4 rounded-2xl bg-amber-50/90 dark:bg-[#231B0D] border-2 border-amber-300 dark:border-amber-700 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-3">
+              <svg class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <div class="leading-relaxed">
+                <strong class="font-black text-amber-950 dark:text-amber-200 block text-xs sm:text-sm">Jaminan 100% Aman &amp; Tanpa Risiko Data:</strong>
+                Anda bebas mencoba seluruh tombol, membuat naskah surat, atau mencatat kwitansi kas. Sistem ini berjalan dalam ruang latihan (sandbox), sehingga data riil yayasan tidak akan terhapus ataupun berubah.
+              </div>
+            </div>
           </div>
 
-          <div class="mt-8 text-center">
-            <a href="https://apii.sigitadi.id" target="_blank" rel="noopener" class="text-sm text-emerald hover:text-emerald-dark font-semibold">
-              ← Kembali ke situs publik</a>
+          <!-- 2. TAMPILAN FORM LOGIN ADMINISTRATOR (TERKUNCI / TERSEMBUNYI) -->
+          <div id="adminLoginSection" class="hidden">
+            <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-200 dark:border-emerald-900">
+              <div class="flex items-center gap-2">
+                <span class="p-1.5 rounded-lg bg-emerald-800 text-white text-xs font-black flex items-center justify-center">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+                <h3 class="font-black text-emerald-dark dark:text-emerald-100 text-base">Masuk Administrator Sistem</h3>
+              </div>
+              <button type="button" id="btnBackToDemo" class="btn btn-ghost px-3 py-1.5 rounded-xl text-xs font-bold border border-gray-300 hover:bg-gray-100 text-gray-800 cursor-pointer">
+                &larr; Kembali ke Mode Latihan
+              </button>
+            </div>
+
+            <p class="text-gray-600 dark:text-gray-300 text-xs mb-5 leading-relaxed">
+              Formulir otorisasi khusus administrator resmi Yayasan APII. Masukkan kredensial administrator Anda untuk mengelola konfigurasi sistem.
+            </p>
+
+            <div id="loginAlert" class="hidden mb-6 px-4 py-3 rounded-xl text-sm font-medium"></div>
+
+            <form id="loginForm" class="space-y-4">
+              <div>
+                <label class="lbl" for="loginUsername">Username Administrator</label>
+                <input id="loginUsername" type="text" autocomplete="username" class="field" placeholder="cth: pengurus" />
+              </div>
+              <div>
+                <label class="lbl" for="loginPassword">Kata Sandi</label>
+                <input id="loginPassword" type="password" autocomplete="current-password" class="field" placeholder="••••••••" />
+              </div>
+              <button type="submit" id="loginBtn"
+                      class="btn btn-primary w-full py-3.5 rounded-xl font-bold inline-flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer">
+                <span id="loginBtnText">Masuk ke Sistem</span>
+                <svg id="loginSpinner" class="hidden animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </button>
+
+              <!-- Opsi Login Google / Gmail -->
+              <div id="googleLoginWrapper" class="hidden mt-3">
+                <div class="relative flex py-2 items-center">
+                  <div class="flex-grow border-t border-gray-200"></div>
+                  <span class="flex-shrink mx-3 text-xs text-gray-400 font-semibold uppercase tracking-wider">atau</span>
+                  <div class="flex-grow border-t border-gray-200"></div>
+                </div>
+                <button type="button" id="btnGoogleLogin"
+                        class="w-full py-3 px-4 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-bold text-xs sm:text-sm shadow-2xs transition flex items-center justify-center gap-2.5 cursor-pointer">
+                  <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  </svg>
+                  <span>Masuk dengan Akun Google (Gmail)</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="mt-8 text-center space-y-2">
+            <div>
+              <a href="https://apii.sigitadi.id" target="_blank" rel="noopener" class="text-xs text-emerald-800 dark:text-emerald-400 hover:text-emerald-950 dark:hover:text-emerald-200 font-bold underline">
+                &larr; Kembali ke situs publik
+              </a>
+            </div>
+            <p class="text-[11px] text-gray-500 dark:text-gray-400">
+              Yayasan APII DPW Jabodetabek &copy; 2026 &bull; Dikembangkan oleh <a href="https://sigitadi.id" target="_blank" rel="noopener" class="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline">sigitadi.id</a>
+            </p>
           </div>
         </div>
       </div>
@@ -158,10 +296,14 @@
         <nav id="navItems" class="flex-1 overflow-y-auto px-3 py-4 space-y-1"></nav>
 
         <!-- Footer sidebar -->
-        <div class="px-4 py-4 border-t border-emerald-100">
+        <div class="px-4 py-4 border-t border-emerald-100 dark:border-emerald-900/60 text-center space-y-1.5">
           <a href="https://apii.sigitadi.id" target="_blank" rel="noopener"
-             class="block text-center text-xs text-gray-400 hover:text-emerald font-semibold transition">
+             class="block text-xs text-gray-500 dark:text-gray-400 hover:text-emerald dark:hover:text-emerald-400 font-semibold transition">
             ↗ Situs Publik APII</a>
+          <div class="text-[11px] text-gray-400 dark:text-gray-500 leading-snug">
+            Yayasan APII DPW &copy; 2026<br />
+            Dikembangkan oleh <a href="https://sigitadi.id" target="_blank" rel="noopener" class="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline">sigitadi.id</a>
+          </div>
         </div>
       </aside>
 
@@ -178,36 +320,73 @@
             </button>
             <div class="min-w-0">
               <h1 id="pageTitle" class="font-extrabold text-emerald-dark text-lg sm:text-xl truncate">Dashboard</h1>
-              <p id="pageSubtitle" class="text-xs text-gray-400 truncate hidden sm:block">Ringkasan aktivitas yayasan</p>
+              <p id="pageSubtitle" class="text-xs text-gray-600 font-medium truncate hidden sm:block">Ringkasan aktivitas yayasan</p>
             </div>
           </div>
 
-          <!-- User menu -->
-          <div class="relative flex-shrink-0">
-            <button id="userMenuBtn" class="flex items-center gap-2.5 px-2 sm:px-3 py-2 rounded-xl hover:bg-emerald-light transition">
-              <div id="userAvatar" class="h-9 w-9 bg-emerald text-white rounded-xl flex items-center justify-center font-bold text-sm">?</div>
-              <div class="hidden sm:block text-left">
-                <div id="userName" class="font-bold text-sm text-emerald-dark leading-none">—</div>
-                <div id="userRole" class="text-[11px] text-gray-400 mt-0.5">—</div>
-              </div>
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+          <!-- Right Controls: Theme Toggle & User menu -->
+          <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <!-- Tombol Pengalih Tema Topbar -->
+            <button id="portalThemeToggleBtn" type="button" aria-label="Ubah tema tampilan" title="Ubah tema tampilan"
+              class="p-2 sm:px-3 sm:py-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-100 hover:bg-emerald-100 dark:hover:bg-emerald-900 transition flex items-center gap-1.5 cursor-pointer text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs">
+              <svg id="portalThemeIconSun" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              <svg id="portalThemeIconMoon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-800 dark:text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+              <span class="hidden md:inline text-[11px] font-bold">Tema</span>
             </button>
-            <div id="userMenu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-emerald-100 py-2 z-50">
-              <button data-nav="profil" class="user-menu-item w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-light flex items-center gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                Profil Saya
+
+            <!-- User menu -->
+            <div class="relative flex-shrink-0">
+              <button id="userMenuBtn" class="flex items-center gap-2.5 px-2 sm:px-3 py-2 rounded-xl hover:bg-emerald-light dark:hover:bg-emerald-900/60 transition">
+                <div id="userAvatar" class="h-9 w-9 bg-emerald text-white rounded-xl flex items-center justify-center font-bold text-sm">?</div>
+                <div class="hidden sm:block text-left">
+                  <div id="userName" class="font-bold text-sm text-emerald-dark dark:text-emerald-100 leading-none">-</div>
+                  <div id="userRole" class="text-[11px] text-emerald-800 dark:text-emerald-300 font-bold mt-0.5">-</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
               </button>
-              <div class="border-t border-gray-100 my-1"></div>
-              <button id="logoutBtn" class="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 text-red-600 flex items-center gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                Keluar
-              </button>
+              <div id="userMenu" class="hidden absolute right-0 mt-2 w-56 bg-white dark:bg-[#13221D] rounded-2xl shadow-xl border border-emerald-100 dark:border-emerald-800/80 py-2 z-50">
+                <button data-nav="profil" class="user-menu-item w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-light dark:hover:bg-emerald-900/50 flex items-center gap-3 text-gray-800 dark:text-gray-100">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  Profil Saya
+                </button>
+                <div class="border-t border-gray-100 dark:border-gray-800 my-1"></div>
+                <button id="logoutBtn" class="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 dark:hover:bg-red-950/50 text-red-600 dark:text-red-400 flex items-center gap-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                  Keluar
+                </button>
+              </div>
             </div>
           </div>
         </header>
 
+        <!-- Banner Mode Demo Simulasi Kontras Tinggi -->
+        <div id="demoModeBanner" class="hidden bg-emerald-950 border-b-2 border-emerald-800 text-white px-4 sm:px-6 py-3 text-xs shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="px-2.5 py-0.5 rounded-full bg-amber-400 text-gray-950 font-black uppercase text-[10px] tracking-wider flex-shrink-0">Mode Demo</span>
+            <span class="truncate text-white font-medium">Mensimulasikan peran <strong id="demoBannerRoleName" class="text-amber-300 font-black underline">Ketua DPW</strong> &bull; UI/UX Sandbox aman (tanpa mengubah data riil).</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 flex-shrink-0 w-full sm:w-auto">
+            <button type="button" id="btnBannerResetDemo" class="flex-1 sm:flex-initial px-3.5 py-1.5 bg-amber-400 hover:bg-amber-300 text-gray-950 rounded-xl font-black text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer" title="Kembalikan data simulasi demo ke kondisi awal">
+              <svg class="w-3.5 h-3.5 text-gray-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+              <span>Reset Simulasi</span>
+            </button>
+            <button type="button" id="btnBannerDemoGuide" class="flex-1 sm:flex-initial px-3.5 py-1.5 bg-white text-emerald-950 rounded-xl font-black text-xs hover:bg-emerald-50 transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer">
+              <svg class="w-3.5 h-3.5 text-emerald-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
+              <span>Panduan Alur</span>
+            </button>
+            <button type="button" id="btnBannerSwitchDemo" class="flex-1 sm:flex-initial px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer">
+              <svg class="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              <span>Ganti Peran</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Konten halaman (diisi portal.js) -->
-        <main id="mainContent" class="flex-1 p-4 sm:p-6 lg:p-8"></main>
+        <main id="mainContent" class="flex-1 p-4 sm:p-6 lg:p-8 pattern-islamic-subtle"></main>
       </div>
     </div>
   </div>
@@ -219,8 +398,9 @@
     <div id="modalPanel" class="modal-panel bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto"></div>
   </div>
 
-  <script src="config.js?v=2.1.0"></script>
-  <script src="auth.js?v=2.1.0"></script>
-  <script src="portal.js?v=2.1.0"></script>
+  <script src="config.js?v=2.6.0"></script>
+  <script src="demo-store.js?v=2.6.0"></script>
+  <script src="auth.js?v=2.6.0"></script>
+  <script src="portal.js?v=2.6.0"></script>
 </body>
 </html>

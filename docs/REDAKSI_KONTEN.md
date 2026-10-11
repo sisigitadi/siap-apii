@@ -70,14 +70,15 @@ Disimpan sebagai nilai string JSON di baris `'editorial_content'` tabel `Sheet_S
   },
   "profile": {
     "show_section": true,
-    "ketua_name": "Ust. Sigit Adi, S.T., M.Kom.",
+    "ketua_name": "Ustadz Muhammad Hanafi",
     "ketua_title": "Ketua DPW APII Jabodetabek",
     "greeting": "Assalamu'alaikum Warahmatullahi Wabarakatuh. Selamat datang di portal resmi Dewan Pimpinan Wilayah Yayasan Apologet Islam Indonesia (APII) Jabodetabek. Melalui sistem terpadu ini, kami berkomitmen menghadirkan transparansi penuh, kemudahan pendaftaran anggota, dan akuntabilitas publik bagi kemaslahatan umat.",
-    "vision": "Menjadi pusat pengkajian, literasi, dan advokasi Islam yang unggul, terpercaya, dan berakhlakul karimah.",
+    "vision": "Mengimplementasikan Islam sebagai Agama Rahmatan Lil Alamin",
     "missions": [
-      "Mengembangkan riset komparatif dan dakwah transformatif di wilayah Jabodetabek.",
-      "Membangun jejaring keilmuan antar cendekiawan, praktisi, dan ormas Islam.",
-      "Menegakkan transparansi kelembagaan dan akuntabilitas umat."
+      "Transfer Ilmu Pengetahuan bagi sesama umat.",
+      "Mengoptimalkan digital dan internet sebagai sarana Dakwah.",
+      "Dialog perbandingan agama secara online maupun offline.",
+      "Bersinergi dengan Individu, Organisasi Islam, dan Instansi Pemerintah/Swasta guna mengukuhkan Ukhuwah Islamiah."
     ]
   },
   "bulletins_events": {

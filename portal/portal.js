@@ -72,6 +72,9 @@
     init: function () {
       var self = this;
 
+      // Inisialisasi tema terang/gelap portal
+      this.initTheme();
+
       // Binding halaman login.
       this.bindLogin();
 
@@ -96,12 +99,94 @@
       }
     },
 
+    /** Inisialisasi tema terang/gelap (Light/Dark Mode) */
+    initTheme: function () {
+      var self = this;
+      var saved = null;
+      try { saved = localStorage.getItem('siapii_theme'); } catch (e) {}
+      var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var isDark = saved === 'dark' || (!saved && prefersDark);
+      self.applyTheme(isDark);
+
+      // Handler klik tombol di topbar portal & layar login
+      var btnPortal = document.getElementById('portalThemeToggleBtn');
+      if (btnPortal) {
+        btnPortal.onclick = function () {
+          var nowDark = document.documentElement.classList.contains('dark');
+          self.applyTheme(!nowDark);
+        };
+      }
+      var btnLogin = document.getElementById('loginThemeToggleBtn');
+      if (btnLogin) {
+        btnLogin.onclick = function () {
+          var nowDark = document.documentElement.classList.contains('dark');
+          self.applyTheme(!nowDark);
+        };
+      }
+    },
+
+    /** Terapkan tema terang/gelap ke dokumen & tombol */
+    applyTheme: function (isDark) {
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      try { localStorage.setItem('siapii_theme', isDark ? 'dark' : 'light'); } catch (e) {}
+
+      var updateButton = function (sunId, moonId, btnId) {
+        var sun = document.getElementById(sunId);
+        var moon = document.getElementById(moonId);
+        var btn = document.getElementById(btnId);
+        if (sun && moon) {
+          if (isDark) {
+            sun.classList.remove('hidden');
+            moon.classList.add('hidden');
+          } else {
+            sun.classList.add('hidden');
+            moon.classList.remove('hidden');
+          }
+        }
+        if (btn) {
+          var label = isDark ? 'Ubah ke mode terang' : 'Ubah ke mode gelap';
+          btn.setAttribute('aria-label', label);
+          btn.title = label;
+        }
+      };
+
+      updateButton('portalThemeIconSun', 'portalThemeIconMoon', 'portalThemeToggleBtn');
+      updateButton('loginThemeIconSun', 'loginThemeIconMoon', 'loginThemeToggleBtn');
+    },
+
     /** Tampilkan halaman login (sembunyikan aplikasi). */
     showLogin: function (hash) {
+      this.state.user = null;
       var hp = document.getElementById('loginPage');
       var ap = document.getElementById('appPage');
+      var db = document.getElementById('demoModeBanner');
       if (hp) hp.classList.remove('hidden');
       if (ap) ap.classList.add('hidden');
+      if (db) db.classList.add('hidden');
+
+      // Selalu kunci kembali ke Mode Demo default saat membuka layar login
+      var demoSec = document.getElementById('demoLoginSection');
+      var adminSec = document.getElementById('adminLoginSection');
+      if (adminSec) adminSec.classList.add('hidden');
+      if (demoSec) demoSec.classList.remove('hidden');
+      this._logoClickCount = 0;
+      if (this._logoClickTimer) {
+        clearTimeout(this._logoClickTimer);
+        this._logoClickTimer = null;
+      }
+
+      // Bersihkan isian form login admin agar tidak meninggalkan residu
+      var userInp = document.getElementById('loginUsername');
+      var passInp = document.getElementById('loginPassword');
+      if (userInp) { userInp.value = ''; }
+      if (passInp) { passInp.value = ''; }
+
+      // Reset pilihan chip akun demo & kunci kembali tombol masuk
+      this.renderDemoAccounts();
 
       // Pesan redirect (mis. "Sesi berakhir").
       var alert = document.getElementById('loginAlert');
@@ -110,13 +195,64 @@
         if (m) {
           alert.textContent = decodeURIComponent(m[1]);
           alert.className = 'mb-6 px-4 py-3 rounded-xl text-sm font-medium bg-red-50 text-red-700 border border-red-100';
+          alert.classList.remove('hidden');
         } else {
           alert.classList.add('hidden');
         }
       }
-      var u = document.getElementById('loginUsername');
-      if (u) u.focus();
-      window.location.hash = '#login';
+      if ((window.location.hash || '').indexOf('#login') !== 0) {
+        window.location.hash = '#login';
+      }
+    },
+
+    _logoClickCount: 0,
+    _logoClickTimer: null,
+
+    /** Tangani ketukan logo untuk membuka form login administrator rahasia (9 klik) */
+    handleLogoClick: function () {
+      var self = this;
+      self._logoClickCount = (self._logoClickCount || 0) + 1;
+      if (self._logoClickTimer) clearTimeout(self._logoClickTimer);
+      self._logoClickTimer = setTimeout(function () {
+        self._logoClickCount = 0;
+      }, 3000);
+
+      var remaining = 9 - self._logoClickCount;
+      if (remaining <= 3 && remaining > 0) {
+        self.toast(remaining + ' ketukan lagi menuju mode administrator...', 'info');
+      } else if (remaining <= 0) {
+        self._logoClickCount = 0;
+        clearTimeout(self._logoClickTimer);
+        self.showAdminLoginForm();
+      }
+    },
+
+    /** Tampilkan form login administrator rahasia */
+    showAdminLoginForm: function () {
+      var demoSec = document.getElementById('demoLoginSection');
+      var adminSec = document.getElementById('adminLoginSection');
+      if (demoSec) demoSec.classList.add('hidden');
+      if (adminSec) {
+        adminSec.classList.remove('hidden');
+        var userInp = document.getElementById('loginUsername');
+        var passInp = document.getElementById('loginPassword');
+        if (userInp) { userInp.value = ''; userInp.focus(); }
+        if (passInp) passInp.value = '';
+      }
+      this.toast('🔓 Mode Administrator Terbuka. Masukkan kredensial sistem.', 'success');
+    },
+
+    /** Kembalikan tampilan ke Mode Demo default */
+    showDemoLoginView: function () {
+      var demoSec = document.getElementById('demoLoginSection');
+      var adminSec = document.getElementById('adminLoginSection');
+      if (adminSec) adminSec.classList.add('hidden');
+      if (demoSec) demoSec.classList.remove('hidden');
+      var userInp = document.getElementById('loginUsername');
+      var passInp = document.getElementById('loginPassword');
+      if (userInp) userInp.value = '';
+      if (passInp) passInp.value = '';
+      this._logoClickCount = 0;
     },
 
     /** Boot aplikasi setelah login valid. */
@@ -128,7 +264,12 @@
       if (hp) hp.classList.add('hidden');
       if (ap) ap.classList.remove('hidden');
 
-      // Topbar.
+      // Pastikan hash mengarah ke dashboard jika sebelumnya di #login
+      if (!window.location.hash || window.location.hash.indexOf('#login') === 0) {
+        window.location.hash = '#/dashboard';
+      }
+
+      // Topbar & Banner Demo.
       this.renderTopbar();
 
       // Sidebar.
@@ -151,66 +292,740 @@
     // ---------------------------------------------------------------
     bindLogin: function () {
       var form = document.getElementById('loginForm');
-      if (!form) return;
       var self = this;
 
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        var u = (document.getElementById('loginUsername').value || '').trim();
-        var p = document.getElementById('loginPassword').value || '';
-        if (!u || !p) return;
+      // Listener Easter Egg: Klik logo 9 kali untuk menampilkan form administrator
+      var logoLeft = document.getElementById('loginLogoLeft');
+      if (logoLeft) {
+        logoLeft.onclick = function () { self.handleLogoClick(); };
+      }
+      var logoMobile = document.getElementById('loginLogoMobile');
+      if (logoMobile) {
+        logoMobile.onclick = function () { self.handleLogoClick(); };
+      }
 
-        // State loading.
-        var btn = document.getElementById('loginBtn');
-        var spin = document.getElementById('loginSpinner');
-        var txt = document.getElementById('loginBtnText');
-        var alert = document.getElementById('loginAlert');
-        btn.disabled = true; spin.classList.remove('hidden'); txt.textContent = 'Memproses…';
-        alert.classList.add('hidden');
+      // Tombol kembali ke mode latihan / demo dari form administrator
+      var btnBackDemo = document.getElementById('btnBackToDemo');
+      if (btnBackDemo) {
+        btnBackDemo.onclick = function () { self.showDemoLoginView(); };
+      }
 
-        Auth.login(u, p).then(function (user) {
-          btn.disabled = false; spin.classList.add('hidden'); txt.textContent = 'Masuk';
-          if (user) self.bootApp(user);
-          else self.showLogin();
-        }).catch(function (err) {
-          btn.disabled = false; spin.classList.add('hidden'); txt.textContent = 'Masuk';
-          alert.textContent = err.message || 'Login gagal. Periksa username & password Anda.';
-          alert.className = 'mb-6 px-4 py-3 rounded-xl text-sm font-medium bg-red-50 text-red-700 border border-red-100';
+      if (form) {
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var u = (document.getElementById('loginUsername').value || '').trim();
+          var p = document.getElementById('loginPassword').value || '';
+          if (!u || !p) return;
+
+          // State loading.
+          var btn = document.getElementById('loginBtn');
+          var spin = document.getElementById('loginSpinner');
+          var txt = document.getElementById('loginBtnText');
+          var alert = document.getElementById('loginAlert');
+          btn.disabled = true; spin.classList.remove('hidden'); txt.textContent = 'Memproses…';
+          alert.classList.add('hidden');
+
+          Auth.login(u, p).then(function (user) {
+            btn.disabled = false; spin.classList.add('hidden'); txt.textContent = 'Masuk ke Sistem';
+            if (user) self.bootApp(user);
+            else self.showLogin();
+          }).catch(function (err) {
+            btn.disabled = false; spin.classList.add('hidden'); txt.textContent = 'Masuk ke Sistem';
+            alert.textContent = err.message || 'Login gagal. Periksa username & password Anda.';
+            alert.className = 'mb-6 px-4 py-3 rounded-xl text-sm font-medium bg-red-50 text-red-700 border border-red-100';
+          });
         });
-      });
+      }
+
+      // Cek apakah Login Google diaktifkan untuk production
+      var gConfig = window.GOOGLE_AUTH_CONFIG || {};
+      var gWrapper = document.getElementById('googleLoginWrapper');
+      if (gWrapper && gConfig.enabled) {
+        gWrapper.classList.remove('hidden');
+        var btnGoogle = document.getElementById('btnGoogleLogin');
+        if (btnGoogle) {
+          btnGoogle.addEventListener('click', function () {
+            Auth.triggerGoogleLogin();
+          });
+        }
+      }
     },
 
-    /** Chip akun demo (klik isi username + password). */
+    /** Chip akun demo (klik untuk memilih, aktifkan tombol masuk demo). */
     renderDemoAccounts: function () {
       var box = document.getElementById('demoAccounts');
+      var btnEnter = document.getElementById('btnEnterDemo');
+      var hint = document.getElementById('demoSelectedHint');
+      var self = this;
       if (!box) return;
-      box.innerHTML = (window.DEMO_ACCOUNTS || []).map(function (a) {
-        return '<button type="button" data-demo="' + a.u +
-          '" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-light text-emerald-dark font-semibold hover:bg-emerald hover:text-white transition">' +
-          a.u + '</button>';
+
+      var selectedDemo = null;
+
+      // Status awal: tombol masuk terkunci disabled, spinner dihilangkan, teks default dikembalikan
+      if (btnEnter) {
+        btnEnter.disabled = true;
+        btnEnter.className = 'w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 bg-gray-200 text-gray-800 cursor-not-allowed border-2 border-gray-400 select-none';
+        btnEnter.innerHTML = '<span id="btnEnterDemoText">Sentuh Salah Satu Kartu Peran di Atas</span>';
+      }
+      if (hint) {
+        hint.className = 'text-[11px] font-bold text-gray-700';
+        hint.textContent = 'Sentuh salah satu peran di bawah';
+      }
+
+      // Pastikan akun superadmin (administrasi sistem) TIDAK ditampilkan di mode demo
+      var demoList = (window.DEMO_ACCOUNTS || []).filter(function (a) {
+        return a.u !== 'superadmin' && a.r !== 'Administrator Sistem';
+      });
+
+      var getRoleSvg = function (u) {
+        switch (u) {
+          case 'ketua':
+            return '<svg class="w-5 h-5 text-current" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></svg>';
+          case 'sekretaris':
+            return '<svg class="w-5 h-5 text-current" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+          case 'bendahara':
+            return '<svg class="w-5 h-5 text-current" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 10h12"/><line x1="16" y1="14" x2="16.01" y2="14"/></svg>';
+          case 'kdakwah':
+          case 'adakwah':
+            return '<svg class="w-5 h-5 text-current" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>';
+          case 'khumas':
+          case 'ahumas':
+            return '<svg class="w-5 h-5 text-current" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>';
+          case 'ksosmed':
+          case 'asosmed':
+            return '<svg class="w-5 h-5 text-current" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+          case 'kbisnis':
+          case 'abisnis':
+            return '<svg class="w-5 h-5 text-current" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>';
+          case 'pembina':
+            return '<svg class="w-5 h-5 text-current" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="21" x2="21" y2="21"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="3 10 12 3 21 10"/><line x1="6" y1="10" x2="6" y2="21"/><line x1="10" y1="10" x2="10" y2="21"/><line x1="14" y1="10" x2="14" y2="21"/><line x1="18" y1="10" x2="18" y2="21"/></svg>';
+          case 'pengawas':
+            return '<svg class="w-5 h-5 text-current" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h18"/></svg>';
+          default:
+            return '<svg class="w-5 h-5 text-current" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+        }
+      };
+
+      box.innerHTML = demoList.map(function (a) {
+        var iconSvg = getRoleSvg(a.u);
+        return '<button type="button" data-demo="' + a.u + '" data-role="' + Auth.esc(a.r) + '" ' +
+          'class="demo-chip-btn text-left p-3.5 sm:p-4 rounded-2xl border-2 border-gray-300 bg-white hover:border-emerald-600 hover:bg-emerald-50/60 transition flex items-start gap-3.5 group cursor-pointer shadow-xs">' +
+          '<div class="h-11 w-11 rounded-2xl bg-emerald-800 group-hover:bg-emerald text-white flex items-center justify-center font-black flex-shrink-0 transition mt-0.5 shadow-xs">' +
+          iconSvg +
+          '</div>' +
+          '<div class="min-w-0 flex-1">' +
+          '<div class="flex items-center justify-between gap-2">' +
+          '<div class="flex items-center gap-2 flex-wrap">' +
+          '<span class="text-sm font-black text-gray-950 group-hover:text-emerald-950 leading-snug">' + Auth.esc(a.r) + '</span>' +
+          '<span class="text-[10px] font-bold font-mono px-2 py-0.5 bg-gray-100 text-gray-800 rounded-md border border-gray-300">@' + Auth.esc(a.u) + '</span>' +
+          '</div>' +
+          '<span class="demo-chip-check text-sm font-black text-transparent select-none">✓</span>' +
+          '</div>' +
+          '<p class="demo-chip-desc text-xs text-gray-900 font-bold leading-relaxed mt-1 break-words">' + Auth.esc(a.desc || ('@' + a.u)) + '</p>' +
+          '</div>' +
+          '</button>';
       }).join('');
-      box.addEventListener('click', function (e) {
+
+      box.onclick = function (e) {
         var b = e.target.closest('[data-demo]');
         if (!b) return;
-        document.getElementById('loginUsername').value = b.getAttribute('data-demo');
-        document.getElementById('loginPassword').value = 'apii2026';
-        document.getElementById('loginPassword').focus();
-      });
+
+        // Reset highlight seluruh chip
+        Array.prototype.forEach.call(box.querySelectorAll('.demo-chip-btn'), function (el) {
+          el.className = 'demo-chip-btn text-left p-3.5 sm:p-4 rounded-2xl border-2 border-gray-300 bg-white hover:border-emerald-600 hover:bg-emerald-50/60 transition flex items-start gap-3.5 group cursor-pointer shadow-xs';
+          var chk = el.querySelector('.demo-chip-check');
+          if (chk) { chk.className = 'demo-chip-check text-sm font-black text-transparent select-none'; }
+          var dsc = el.querySelector('.demo-chip-desc');
+          if (dsc) { dsc.className = 'demo-chip-desc text-xs text-gray-900 font-bold leading-relaxed mt-1 break-words'; }
+        });
+
+        // Beri highlight kontras tinggi pada chip yang dipilih
+        b.className = 'demo-chip-btn text-left p-3.5 sm:p-4 rounded-2xl border-2 border-emerald-700 bg-emerald-50 text-emerald-950 transition flex items-start gap-3.5 group cursor-pointer shadow-md ring-2 ring-emerald-600/30';
+        var activeChk = b.querySelector('.demo-chip-check');
+        if (activeChk) { activeChk.className = 'demo-chip-check text-sm font-black text-emerald-800 select-none'; }
+        var activeDesc = b.querySelector('.demo-chip-desc');
+        if (activeDesc) { activeDesc.className = 'demo-chip-desc text-xs text-emerald-950 font-black leading-relaxed mt-1 break-words'; }
+
+        var username = b.getAttribute('data-demo');
+        var roleTitle = b.getAttribute('data-role');
+        selectedDemo = { u: username, r: roleTitle };
+
+        // PERHATIAN: Form username & password TIDAK diisi otomatis (decoupled total)
+        // untuk menjaga kebersihan input saat mode administrator dibuka.
+
+        // Aktifkan tombol masuk demo dengan kontras tinggi & kembalikan teks masuk
+        if (btnEnter) {
+          btnEnter.disabled = false;
+          btnEnter.className = 'w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 bg-emerald hover:bg-emerald-dark text-white cursor-pointer shadow-md active:scale-98 animate-[fadeIn_0.2s_ease]';
+          btnEnter.innerHTML = '<span id="btnEnterDemoText">Masuk sebagai ' + Auth.esc(roleTitle) + ' &rarr;</span>';
+        }
+        if (hint) {
+          hint.className = 'text-[11px] font-black text-emerald-900 bg-emerald-100 px-2.5 py-0.5 rounded-lg border border-emerald-300';
+          hint.textContent = roleTitle + ' dipilih (siap masuk)';
+        }
+      };
+
+      if (btnEnter) {
+        btnEnter.onclick = function () {
+          if (!selectedDemo || btnEnter.disabled) return;
+          btnEnter.disabled = true;
+          btnEnter.className = 'w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 bg-emerald-900 text-white cursor-wait opacity-90';
+          btnEnter.innerHTML = '<span class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span> <span id="btnEnterDemoText">Memuat simulasi ' + Auth.esc(selectedDemo.r) + '...</span>';
+
+          // Login instan simulasi tanpa email auth / verifikasi OTP
+          Auth.loginDemo(selectedDemo.u).then(function (user) {
+            self.state.user = user;
+            self.bootApp(user);
+            self.toast('Selamat datang di Mode Demo Simulasi sebagai ' + selectedDemo.r + '!', 'success');
+            // Buka panduan alur kerja secara proaktif saat pertama kali masuk
+            setTimeout(function () {
+              self.openDemoGuideModal();
+            }, 450);
+          }).catch(function (err) {
+            btnEnter.disabled = false;
+            btnEnter.className = 'w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 bg-emerald hover:bg-emerald-dark text-white cursor-pointer shadow-md';
+            btnEnter.innerHTML = '<span id="btnEnterDemoText">Coba Masuk Lagi</span>';
+            self.toast('Gagal masuk mode demo: ' + (err.message || 'Error'), 'error');
+          });
+        };
+      }
+    },
+
+    /** Definisi panduan alur kerja langkah-demi-langkah per peran demo */
+    DEMO_WORKFLOWS: {
+      KETUA: {
+        role: 'Ketua DPW',
+        icon: '<svg class="w-7 h-7 text-emerald-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></svg>',
+        summary: 'Pimpinan tertinggi wilayah yang berwenang atas pengesahan akhir surat resmi, persetujuan voucher kas tahap 2 (Dual-Approval), usulan program kerja 7 divisi, dan pengesahan anggota baru.',
+        steps: [
+          {
+            num: 1,
+            title: 'Pantau Action Inbox di Dashboard',
+            nav: 'dashboard',
+            action: 'action_inbox',
+            desc: 'Buka dashboard pimpinan untuk melihat kotak aksi mendesak: naskah surat menunggu persetujuan, voucher kas terverifikasi Bendahara, dan proposal divisi.',
+            action_btn: 'Buka Action Inbox'
+          },
+          {
+            num: 2,
+            title: 'Pengesahan Surat Resmi & Kertas Virtual A4',
+            nav: 'surat',
+            action: 'preview_surat',
+            desc: 'Masuk ke menu Persuratan, klik surat berstatus SUBMITTED, buka Pratinjau Kertas Virtual A4 (KOP, stempel basah transparan, TTD digital), lalu klik "Setujui Naskah Surat".',
+            action_btn: 'Pengesahan Naskah Surat'
+          },
+          {
+            num: 3,
+            title: 'Persetujuan Kas Final (Dual-Approval Tahap 2)',
+            nav: 'keuangan',
+            action: 'verifikasi_kas',
+            desc: 'Masuk ke modul Keuangan, tinjau voucher kas yang telah diverifikasi tahap 1 oleh Bendahara, lalu klik "Setujui Pengeluaran Kas" untuk mengesahkan pencairan.',
+            action_btn: 'Persetujuan Kas Keluar'
+          },
+          {
+            num: 4,
+            title: 'Pengesahan Anggota Baru & Program Divisi',
+            nav: 'pengguna',
+            action: 'verifikasi_pendaftar',
+            desc: 'Buka menu Pendaftaran Masuk untuk memvalidasi KTP dan mengesahkan penerbitan Kartu Tanda Anggota (KTA), atau buka menu Divisi Kerja.',
+            action_btn: 'Tinjau Pendaftaran Anggota'
+          }
+        ]
+      },
+      SEKRETARIS: {
+        role: 'Sekretaris DPW',
+        icon: '<svg class="w-7 h-7 text-emerald-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+        summary: 'Konseptor persuratan dinas, penerbit nomor surat otomatis, verifikator berkas pendaftar anggota baru (UU PDP No. 27/2022), serta pengelola redaksi publikasi yayasan.',
+        steps: [
+          {
+            num: 1,
+            title: 'Konsep Surat Baru dengan Nomor Otomatis',
+            nav: 'surat',
+            action: 'buat_surat',
+            desc: 'Klik "Buat Surat Baru", pilih jenis surat (SK, SP, Undangan). Sistem secara otomatis menghasilkan nomor surat berurutan sesuai kaidah dinas.',
+            action_btn: 'Buat Draft Surat Baru'
+          },
+          {
+            num: 2,
+            title: 'Pratinjau Kertas Virtual A4 & Ajukan ke Ketua',
+            nav: 'surat',
+            action: 'preview_surat',
+            desc: 'Buka Pratinjau Virtual A4 untuk memeriksa tata letak naskah, KOP surat, dan stempel basah transparan, lalu klik "Ajukan ke Ketua DPW".',
+            action_btn: 'Buka Pratinjau Virtual A4'
+          },
+          {
+            num: 3,
+            title: 'Verifikasi Berkas Calon Anggota (UU PDP)',
+            nav: 'pengguna',
+            action: 'verifikasi_pendaftar',
+            desc: 'Buka menu Pendaftaran Masuk. Periksa biodata pemohon dan foto KTP ber-watermark otomatis yang masuk dari portal publik, lalu verifikasi.',
+            action_btn: 'Verifikasi Berkas KTP'
+          },
+          {
+            num: 4,
+            title: 'Kelola Warta & Redaksi Portal Publik (Mini-CMS)',
+            nav: 'pengaturan',
+            action: 'redaksi',
+            desc: 'Buka Pengaturan -> Redaksi Konten Portal. Perbarui sambutan ketua, maklumat kelembagaan, agenda kajian, serta FAQ publik.',
+            action_btn: 'Buka Mini-CMS Redaksi'
+          }
+        ]
+      },
+      BENDAHARA: {
+        role: 'Bendahara DPW',
+        icon: '<svg class="w-7 h-7 text-emerald-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 10h12"/><line x1="16" y1="14" x2="16.01" y2="14"/></svg>',
+        summary: 'Penanggung jawab pembukuan keuangan kas, verifikator pengeluaran tahap 1, pencetak kwitansi resmi terbilang, dan pengelola rekening kas yayasan.',
+        steps: [
+          {
+            num: 1,
+            title: 'Pembukuan Voucher Kas Masuk / Keluar',
+            nav: 'keuangan',
+            action: 'tambah_voucher',
+            desc: 'Masuk ke menu Keuangan, klik "Tambah Voucher". Pilih jenis Masuk/Keluar, masukkan nominal, deskripsi, rekening kas, dan unggah bukti nota transfer.',
+            action_btn: 'Tambah Voucher Kas'
+          },
+          {
+            num: 2,
+            title: 'Verifikasi Kas Tahap 1 (Dual-Approval Tahap 1)',
+            nav: 'keuangan',
+            action: 'verifikasi_kas',
+            desc: 'Tinjau voucher berstatus PENDING, lalu klik "Verifikasi Bendahara". Sistem akan mencatat verifikasi tahap 1 dan meneruskan ke Ketua DPW.',
+            action_btn: 'Verifikasi Kas PENDING'
+          },
+          {
+            num: 3,
+            title: 'Cetak Kwitansi Resmi dengan Terbilang Rupiah',
+            nav: 'keuangan',
+            action: 'cetak_kwitansi',
+            desc: 'Pada voucher yang telah disetujui, klik tombol "Kwitansi" untuk melihat format kwitansi resmi lengkap dengan konversi terbilang Rupiah otomatis.',
+            action_btn: 'Coba Cetak Kwitansi'
+          },
+          {
+            num: 4,
+            title: 'Rekonsiliasi Saldo Kas & Master Rekening',
+            nav: 'pengaturan',
+            action: 'rekening',
+            desc: 'Pantau saldo kas yayasan di widget keuangan dan kelola daftar nomor rekening bank resmi pada menu Pengaturan -> Master Rekening.',
+            action_btn: 'Buka Master Rekening'
+          }
+        ]
+      },
+      KETUA_DIVISI: {
+        role: 'Ketua Divisi Kerja (Humas)',
+        icon: '<svg class="w-7 h-7 text-emerald-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
+        summary: 'Koordinator operasional divisi kerja yang mengusulkan program kerja, mengeksekusi kegiatan dakwah/sosial, dan menyerahkan LPJ akuntabel.',
+        steps: [
+          {
+            num: 1,
+            title: 'Penyusunan Usulan Program Kerja Baru',
+            nav: 'divisi',
+            action: 'ajukan_program',
+            desc: 'Masuk ke menu Divisi Kerja, klik "Ajukan Program Baru". Masukkan judul kegiatan, target waktu, dan estimasi anggaran.',
+            action_btn: 'Ajukan Program Baru'
+          },
+          {
+            num: 2,
+            title: 'Pengajuan Proposal ke Pimpinan Wilayah',
+            nav: 'divisi',
+            action: 'divisi',
+            desc: 'Klik "Ajukan Program" pada draf usulan untuk meneruskan proposal ke antrean persetujuan Ketua DPW.',
+            action_btn: 'Daftar Usulan Divisi'
+          },
+          {
+            num: 3,
+            title: 'Pemantauan Stepper Siklus Hidup 5-Tahap',
+            nav: 'divisi',
+            action: 'divisi_stepper',
+            desc: 'Pantau alur status dari DRAFT -> DIAJUKAN -> DISETUJUI -> PELAKSANAAN -> LPJ SELESAI melalui stepper visual.',
+            action_btn: 'Lihat Stepper Program'
+          },
+          {
+            num: 4,
+            title: 'Penyerahan Laporan Pertanggungjawaban (LPJ)',
+            nav: 'divisi',
+            action: 'divisi_lpj',
+            desc: 'Setelah kegiatan terlaksana, klik "Serahkan LPJ" pada program terkait, masukkan ringkasan evaluasi dan realisasi dana akhir.',
+            action_btn: 'Tinjau Formulir LPJ'
+          }
+        ]
+      },
+      ANGGOTA_DIVISI: {
+        role: 'Anggota Divisi Kerja',
+        icon: '<svg class="w-7 h-7 text-emerald-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+        summary: 'Pelaksana teknis kegiatan divisi yang mengeksplorasi rencana aksi, asistensi penyusunan LPJ lapangan, dan kolaborasi publikasi.',
+        steps: [
+          {
+            num: 1,
+            title: 'Eksplorasi Program Kerja Aktif Divisi',
+            nav: 'divisi',
+            action: 'divisi',
+            desc: 'Lihat agenda kerja aktif divisi Anda, jadwal pelaksanaan kegiatan, dan status pendanaan yang disetujui pimpinan.',
+            action_btn: 'Buka Program Divisi'
+          },
+          {
+            num: 2,
+            title: 'Tinjau Pagu Anggaran & Sasaran Kegiatan',
+            nav: 'divisi',
+            action: 'divisi_stepper',
+            desc: 'Memastikan koordinasi teknis di lapangan sesuai dengan batasan alokasi dana dan target yang telah disahkan organisasi.',
+            action_btn: 'Tinjau Pagu Anggaran'
+          },
+          {
+            num: 3,
+            title: 'Asistensi Dokumentasi & Bukti LPJ',
+            nav: 'divisi',
+            action: 'divisi',
+            desc: 'Membantu ketua divisi dalam merekapitulasi bukti nota belanja lapangan, foto kegiatan, dan daftar hadir acara.',
+            action_btn: 'Daftar Program Divisi'
+          },
+          {
+            num: 4,
+            title: 'Kolaborasi Publikasi Warta Kegiatan',
+            nav: 'pengaturan',
+            action: 'redaksi',
+            desc: 'Untuk divisi Humas/Medsos, koordinasikan liputan acara ke sekretaris untuk dipublikasikan pada portal publik.',
+            action_btn: 'Tinjau Redaksi Warta'
+          }
+        ]
+      },
+      PEMBINA: {
+        role: 'Dewan Pembina (Pengawas Tertinggi)',
+        icon: '<svg class="w-7 h-7 text-emerald-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="21" x2="21" y2="21"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="3 10 12 3 21 10"/><line x1="6" y1="10" x2="6" y2="21"/><line x1="10" y1="10" x2="10" y2="21"/><line x1="14" y1="10" x2="14" y2="21"/><line x1="18" y1="10" x2="18" y2="21"/></svg>',
+        summary: 'Tokoh pengawas strategis yang memiliki akses pemantauan komprehensif ke seluruh modul yayasan secara Read-Only untuk memastikan amanah keumatan.',
+        steps: [
+          {
+            num: 1,
+            title: 'Pemantauan Agregat Dashboard Pimpinan',
+            nav: 'dashboard',
+            action: 'action_inbox',
+            desc: 'Melihat ringkasan total saldo kas yayasan, jumlah surat yang diterbitkan, serta statistik keaktifan program 7 divisi.',
+            action_btn: 'Pantau Dashboard'
+          },
+          {
+            num: 2,
+            title: 'Audit Transparansi Buku Kas Keuangan',
+            nav: 'keuangan',
+            action: 'keuangan',
+            desc: 'Memantau seluruh pergerakan kas masuk dan kas keluar serta memastikan setiap pengeluaran memiliki bukti nota sah.',
+            action_btn: 'Buka Buku Kas'
+          },
+          {
+            num: 3,
+            title: 'Tinjau Arsip Keputusan & Kebijakan Dinas',
+            nav: 'surat',
+            action: 'surat',
+            desc: 'Memeriksa naskah SK resmi dan surat tugas yang diterbitkan pimpinan wilayah agar selaras dengan ketetapan Pembina.',
+            action_btn: 'Buka Arsip Surat'
+          },
+          {
+            num: 4,
+            title: 'Inspeksi Rekam Jejak Audit (WORM)',
+            nav: 'audit',
+            action: 'audit',
+            desc: 'Memeriksa rekam jejak aktivitas seluruh pengguna yang tercatat permanen tanpa bisa dihapus di menu Jejak Audit.',
+            action_btn: 'Buka Jejak Audit'
+          }
+        ]
+      },
+      PENGAWAS: {
+        role: 'Dewan Pengawas',
+        icon: '<svg class="w-7 h-7 text-emerald-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h18"/></svg>',
+        summary: 'Pengawas kepatuhan hukum, tata tertib persuratan dinas, dan akuntabilitas keuangan organisasi secara Read-Only.',
+        steps: [
+          {
+            num: 1,
+            title: 'Pengawasan Kepatuhan Persuratan Resmi',
+            nav: 'surat',
+            action: 'surat',
+            desc: 'Memeriksa arsip SK, SP, dan surat tugas resmi DPW Jabodetabek untuk memastikan kesesuaian dengan AD/ART yayasan.',
+            action_btn: 'Buka Persuratan'
+          },
+          {
+            num: 2,
+            title: 'Pemeriksaan Mekanisme Dual-Approval Kas',
+            nav: 'keuangan',
+            action: 'keuangan',
+            desc: 'Memeriksa kepatuhan mekanisme otorisasi ganda (Bendahara & Ketua) pada setiap pengeluaran kas di atas ambang batas.',
+            action_btn: 'Periksa Kas'
+          },
+          {
+            num: 3,
+            title: 'Audit Kepatuhan Perlindungan Data (UU PDP)',
+            nav: 'pengguna',
+            action: 'verifikasi_pendaftar',
+            desc: 'Memeriksa prosedur verifikasi data pemohon dan dokumen foto KTP ber-watermark otomatis pada daftar Pendaftaran Masuk.',
+            action_btn: 'Audit Pendaftaran'
+          },
+          {
+            num: 4,
+            title: 'Audit Log Forensik Sistem Tanpa Tamper',
+            nav: 'audit',
+            action: 'audit',
+            desc: 'Menelusuri riwayat login, perubahan master data, dan otorisasi berkas secara real-time pada tabel Jejak Audit.',
+            action_btn: 'Inspeksi Log Audit'
+          }
+        ]
+      }
+    },
+
+    /** Buka modal panduan alur kerja langkah-demi-langkah sesuai peran saat ini */
+    openDemoGuideModal: function () {
+      var role = (this.state.user && this.state.user.role) || 'KETUA';
+      var wf = this.DEMO_WORKFLOWS[role] || this.DEMO_WORKFLOWS.KETUA;
+      var self = this;
+
+      var stepsHtml = wf.steps.map(function (s) {
+        return '<div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0C1A14] border-2 border-gray-300 dark:border-emerald-800 hover:border-emerald-600 transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 shadow-xs">' +
+          '<div class="flex items-start gap-3.5">' +
+          '<div class="h-8 w-8 rounded-xl bg-emerald-800 text-white flex items-center justify-center font-black text-sm flex-shrink-0 mt-0.5">' + s.num + '</div>' +
+          '<div class="min-w-0">' +
+          '<h4 class="font-black text-sm sm:text-base text-gray-950 dark:text-gray-100 leading-snug">' + Auth.esc(s.title) + '</h4>' +
+          '<p class="text-xs text-gray-900 dark:text-gray-300 font-bold mt-1.5 leading-relaxed break-words">' + Auth.esc(s.desc) + '</p>' +
+          '</div>' +
+          '</div>' +
+          '<button type="button" data-guide-nav="' + s.nav + '" data-guide-act="' + (s.action || '') + '" ' +
+          'class="btn btn-primary px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap self-end sm:self-center shadow-xs flex-shrink-0 cursor-pointer">' +
+          Auth.esc(s.action_btn) + ' &rarr;</button>' +
+          '</div>';
+      }).join('');
+
+      var modalHtml = '' +
+        '<div class="p-6 sm:p-8 max-w-2xl mx-auto space-y-6">' +
+        '<div class="flex items-start justify-between gap-4 pb-4 border-b border-gray-200 dark:border-emerald-800">' +
+        '<div class="flex items-center gap-3">' +
+        '<div class="h-12 w-12 rounded-2xl bg-gold text-emerald-950 flex items-center justify-center font-black text-2xl flex-shrink-0 shadow-sm">' + wf.icon + '</div>' +
+        '<div>' +
+        '<div class="flex items-center gap-2 flex-wrap">' +
+        '<span class="bg-amber-400 text-gray-950 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-wide">Mode Demo Interaktif</span>' +
+        '<span class="text-xs text-emerald-900 dark:text-emerald-300 font-bold">Simulasi UI/UX Aman</span>' +
+        '</div>' +
+        '<h3 class="text-lg sm:text-xl font-black text-emerald-950 dark:text-emerald-100 mt-0.5">Panduan Alur Kerja: ' + Auth.esc(wf.role) + '</h3>' +
+        '</div>' +
+        '</div>' +
+        '<button type="button" data-close class="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-emerald-950 transition">' +
+        '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>' +
+        '</button>' +
+        '</div>' +
+
+        '<div class="p-4 rounded-2xl bg-amber-50 dark:bg-[#231B0D] border-2 border-amber-300 dark:border-amber-700 text-xs sm:text-sm text-gray-950 dark:text-amber-200 font-semibold leading-relaxed">' +
+        '<span class="font-black text-amber-950 dark:text-amber-300">Ringkasan Tanggung Jawab:</span> ' + Auth.esc(wf.summary) +
+        '</div>' +
+
+        '<div>' +
+        '<div class="text-xs font-black text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3">Langkah Rekomendasi untuk Dicoba:</div>' +
+        '<div class="space-y-3">' + stepsHtml + '</div>' +
+        '</div>' +
+
+        '<div class="pt-4 border-t border-gray-200 dark:border-emerald-800 flex items-center justify-between text-xs text-gray-700 dark:text-gray-300 font-semibold flex-wrap gap-2">' +
+        '<span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald"></span> Seluruh aksi mutasi dilindungi sandbox (data riil aman).</span>' +
+        '<button type="button" data-close class="btn btn-ghost px-4 py-2 rounded-xl font-bold text-xs border border-gray-300 dark:border-emerald-700 hover:bg-gray-100 dark:hover:bg-emerald-950 text-gray-800 dark:text-gray-200">Tutup Panduan</button>' +
+        '</div>' +
+        '</div>';
+
+      this.openModal(modalHtml, 'max-w-2xl');
+
+      // Wiring tombol navigasi langsung dari panduan
+      var panel = document.getElementById('modalPanel');
+      if (panel) {
+        Array.prototype.forEach.call(panel.querySelectorAll('[data-guide-nav]'), function (btn) {
+          btn.addEventListener('click', function () {
+            var targetNav = btn.getAttribute('data-guide-nav');
+            var targetAct = btn.getAttribute('data-guide-act');
+            self.closeModal();
+            if (targetNav) self.navigate(targetNav, targetAct);
+          });
+        });
+        Array.prototype.forEach.call(panel.querySelectorAll('[data-close]'), function (b) {
+          b.addEventListener('click', function () { self.closeModal(); });
+        });
+      }
+    },
+
+    /** Render kartu panduan alur kerja interaktif di halaman Dashboard untuk user demo */
+    renderDashboardDemoGuide: function (user) {
+      if (!Auth.isDemoMode()) return '';
+      var role = (user && user.role) || 'KETUA';
+      var wf = this.DEMO_WORKFLOWS[role] || this.DEMO_WORKFLOWS.KETUA;
+
+      var stepsGrid = wf.steps.map(function (s) {
+        return '<div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0C1A14] text-gray-950 dark:text-gray-100 border-2 border-emerald-400 dark:border-emerald-800 shadow-md flex flex-col justify-between gap-3.5 transition hover:shadow-lg hover:border-emerald-600">' +
+          '<div class="flex items-start gap-3.5">' +
+          '<div class="h-8 w-8 rounded-xl bg-emerald-800 text-white font-black text-sm flex items-center justify-center font-black text-sm flex-shrink-0 mt-0.5 shadow-xs">' + s.num + '</div>' +
+          '<div class="min-w-0 flex-1">' +
+          '<h5 class="font-black text-sm text-gray-950 dark:text-white leading-snug">' + Auth.esc(s.title) + '</h5>' +
+          '<p class="text-xs text-gray-800 dark:text-gray-300 font-bold mt-1.5 leading-relaxed break-words">' + Auth.esc(s.desc) + '</p>' +
+          '</div>' +
+          '</div>' +
+          '<button type="button" data-dash-guide-nav="' + s.nav + '" data-dash-guide-act="' + (s.action || '') + '" ' +
+          'class="btn btn-primary px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap self-end shadow-xs flex items-center gap-1.5 cursor-pointer">' +
+          Auth.esc(s.action_btn) + ' &rarr;</button>' +
+          '</div>';
+      }).join('');
+
+      return '<div id="dashDemoGuideCard" class="card bg-gradient-to-r from-emerald-900 via-emerald-950 to-teal-950 text-white rounded-3xl p-5 sm:p-7 mb-8 shadow-xl border-2 border-emerald-500/40 relative overflow-hidden">' +
+        '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/20">' +
+        '<div class="flex items-center gap-3.5">' +
+        '<div class="h-12 w-12 rounded-2xl bg-gold text-emerald-950 flex items-center justify-center font-black text-2xl flex-shrink-0 shadow-md">' + wf.icon + '</div>' +
+        '<div>' +
+        '<div class="flex items-center gap-2 flex-wrap">' +
+        '<span class="bg-amber-400 text-gray-950 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-wide">Tur Alur Kerja Interaktif</span>' +
+        '<span class="text-xs text-emerald-100 font-bold">Simulasi Sandbox 100% Aman</span>' +
+        '</div>' +
+        '<h3 class="text-lg sm:text-xl font-black text-white mt-0.5">Panduan Logika & Alur Kerja: ' + Auth.esc(wf.role) + '</h3>' +
+        '</div>' +
+        '</div>' +
+        '<div class="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">' +
+        '<button type="button" id="btnDashOpenFullGuide" class="btn btn-secondary px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap shadow-xs bg-white text-emerald-950 hover:bg-emerald-50 cursor-pointer">' +
+        '📖 Dialog Panduan Lengkap</button>' +
+        '<button type="button" id="btnDashSwitchDemo" class="px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap bg-red-600 hover:bg-red-700 text-white transition cursor-pointer shadow-xs">' +
+        '🚪 Keluar / Ganti Peran</button>' +
+        '</div>' +
+        '</div>' +
+        '<div class="mt-4 p-4 rounded-2xl bg-white text-gray-950 border-2 border-amber-400 shadow-sm">' +
+        '<div class="text-xs sm:text-sm text-gray-900 font-semibold leading-relaxed">' +
+        '<span class="text-amber-900 font-black uppercase tracking-wider text-[11px] block sm:inline mr-2">📌 Ringkasan Tanggung Jawab:</span>' +
+        Auth.esc(wf.summary) + '</div></div>' +
+        '<div class="mt-5 grid sm:grid-cols-2 gap-3.5">' + stepsGrid + '</div>' +
+        '</div>';
+    },
+
+    /** Render banner kontekstual tips alur kerja pada modul aktif */
+    getDemoContextBanner: function (moduleName) {
+      if (!Auth.isDemoMode()) return '';
+      var role = (this.state.user && this.state.user.role) || 'KETUA';
+      var text = '';
+      var icon = '💡';
+
+      if (moduleName === 'surat') {
+        if (role === 'KETUA') {
+          icon = '👑';
+          text = '<strong>Panduan Ketua DPW (Dual-Approval Persuratan):</strong> Klik tombol <em>"Detail"</em> pada surat berstatus <em>"Menunggu Persetujuan"</em> untuk melihat Pratinjau Kertas Virtual A4 (KOP, stempel basah transparan & tanda tangan digital). Klik <em>"Setujui Naskah Surat"</em> untuk simulasi pengesahan.';
+        } else if (role === 'SEKRETARIS') {
+          icon = '📝';
+          text = '<strong>Panduan Sekretaris DPW (Konseptor Dinas):</strong> Klik tombol <em>"+ Buat Surat"</em>, gunakan tombol <em>"Reservasi Nomor Surat Otomatis"</em> untuk nomor berurutan dinas, lengkapi draft naskah, buka Pratinjau Virtual A4, lalu klik <em>"Ajukan ke Ketua DPW"</em>.';
+        } else if (role === 'PEMBINA' || role === 'PENGAWAS') {
+          icon = '⚖️';
+          text = '<strong>Pengawasan Persuratan (Read-Only):</strong> Periksa arsip surat keputusan, surat tugas, nomor dinas, dan keabsahan tanda tangan untuk memastikan kesesuaian dengan AD/ART yayasan.';
+        } else {
+          icon = '📄';
+          text = '<strong>Modul Persuratan:</strong> Jelajahi surat keputusan dan surat tugas yang telah disahkan organisasi untuk pelaksanaan program kerja wilayah.';
+        }
+      } else if (moduleName === 'keuangan') {
+        if (role === 'BENDAHARA') {
+          icon = '💰';
+          text = '<strong>Panduan Bendahara DPW (Pembukuan Kas):</strong> Klik <em>"+ Tambah Voucher"</em> untuk mencatat kas masuk/keluar beserta nota bukti transfer. Pada voucher PENDING, klik <em>"Verifikasi Bendahara"</em> (Tahap 1). Pada transaksi disetujui, klik <em>"Kwitansi"</em> untuk mencetak kwitansi resmi dengan terbilang Rupiah otomatis.';
+        } else if (role === 'KETUA') {
+          icon = '👑';
+          text = '<strong>Panduan Ketua DPW (Dual-Approval Kas Tahap 2):</strong> Periksa voucher kas keluar yang telah diverifikasi tahap 1 oleh Bendahara. Klik tombol <em>"Setujui Pengeluaran Kas"</em> untuk mensimulasikan otorisasi pelepasan dana yayasan.';
+        } else {
+          icon = '🏛️';
+          text = '<strong>Audit Transparansi Kas:</strong> Pantau mutasi kas masuk dan keluar secara real-time, periksa keabsahan bukti nota transaksi, dan awasi saldo kas pada rekening BSI, Mandiri, dan Brankas.';
+        }
+      } else if (moduleName === 'divisi') {
+        if (role === 'KETUA_DIVISI') {
+          icon = '🚩';
+          text = '<strong>Panduan Ketua Divisi (Siklus Hidup 5 Tahap):</strong> Klik <em>"+ Ajukan Program"</em> untuk menyusun proposal kegiatan baru. Pantau stepper indikator tahapan (Draf → Diajukan → Disetujui → Pelaksanaan → LPJ Selesai). Pada kegiatan yang telah selesai, klik <em>"Serahkan LPJ"</em> untuk melaporkan realisasi dana secara akuntabel.';
+        } else if (role === 'ANGGOTA_DIVISI') {
+          icon = '🤝';
+          text = '<strong>Panduan Anggota Divisi:</strong> Pantau jadwal pelaksanaan program kerja aktif divisi Anda, periksa sasaran kegiatan, dan bantu ketua divisi dalam merekapitulasi dokumentasi bukti LPJ.';
+        } else if (role === 'KETUA') {
+          icon = '👑';
+          text = '<strong>Panduan Pimpinan Wilayah:</strong> Periksa proposal program kerja 7 divisi dan otorisasi pagu anggaran sebelum divisi mengeksekusi kegiatan di lapangan.';
+        } else {
+          icon = '👥';
+          text = '<strong>Modul 7 Divisi Kerja:</strong> Pantau keaktifan kegiatan dakwah, riset, sosial, media, dan hukum di seluruh wilayah Jabodetabek.';
+        }
+      } else if (moduleName === 'pengaturan') {
+        if (role === 'SEKRETARIS') {
+          icon = '📋';
+          text = '<strong>Panduan Sekretaris (Verifikasi UU PDP No. 27/2022):</strong> Buka sub-tab <em>Pendaftaran</em>, periksa berkas foto KTP pemohon dengan watermark otomatis dinamis, lalu klik <em>"Verifikasi Sekretaris"</em>. Anda juga dapat mengelola warta dan sambutan pimpinan pada sub-tab <em>Redaksi Konten</em>.';
+        } else if (role === 'KETUA') {
+          icon = '👑';
+          text = '<strong>Panduan Ketua DPW:</strong> Buka sub-tab <em>Pendaftaran</em> untuk mengesahkan calon anggota yang berkasnya telah diverifikasi Sekretaris menjadi anggota resmi DPW APII Jabodetabek.';
+        } else {
+          icon = '⚙️';
+          text = '<strong>Pengaturan Sistem & Master Data:</strong> Konfigurasi KOP surat resmi, master rekening kas, dan integrasi penyimpanan cloud.';
+        }
+      } else if (moduleName === 'pengguna') {
+        icon = '⚡';
+        text = '<strong>Manajemen Pengguna (RBAC):</strong> Kelola akun pengurus 8 peran, penetapan divisi kerja, dan hak akses organisasi.';
+      } else if (moduleName === 'audit') {
+        icon = '🛡️';
+        text = '<strong>Jejak Audit Forensik (WORM):</strong> Seluruh aksi login, persetujuan surat, verifikasi kas, dan pendaftaran terekam otomatis secara permanen dengan IP address dan timestamp tanpa dapat dimanipulasi.';
+      }
+
+      return '<div class="p-4 sm:p-5 rounded-2xl bg-white border-2 border-emerald-600/50 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 shadow-sm">' +
+        '<div class="flex items-start gap-3 min-w-0">' +
+        '<div class="h-9 w-9 rounded-xl bg-emerald-800 text-white flex items-center justify-center font-black text-sm flex-shrink-0 mt-0.5">' + icon + '</div>' +
+        '<div class="text-xs sm:text-sm text-gray-950 font-medium leading-relaxed min-w-0">' + text + '</div>' +
+        '</div>' +
+        '<div class="flex items-center gap-2 self-end sm:self-center flex-shrink-0 flex-wrap">' +
+        '<button type="button" data-reset-demo class="btn btn-ghost border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs px-3 py-2 rounded-xl font-bold flex items-center gap-1.5 whitespace-nowrap cursor-pointer shadow-2xs" title="Kembalikan data ke kondisi awal">' +
+        '🔄 Reset Simulasi</button>' +
+        '<button type="button" data-open-demo-guide class="btn btn-primary text-xs px-3.5 py-2 rounded-xl font-bold flex items-center gap-1.5 whitespace-nowrap cursor-pointer shadow-xs">' +
+        '🧭 Panduan Alur Peran →</button>' +
+        '</div>' +
+        '</div>';
     },
 
     // ---------------------------------------------------------------
     // TOPBAR & SIDEBAR
     // ---------------------------------------------------------------
     renderTopbar: function () {
-      var u = this.state.user;
+      var u = this.state.user || {};
       var av = document.getElementById('userAvatar');
       var nm = document.getElementById('userName');
       var rl = document.getElementById('userRole');
       if (av) av.textContent = Auth.initials();
-      if (nm) nm.textContent = u.full_name || u.username;
-      var role = u.role_label || (window.ROLES[u.role] || u.role);
+      if (nm) nm.textContent = u.full_name || u.username || 'Pengguna';
+      var role = u.role_label || (window.ROLES[u.role] || u.role || 'Pengurus');
       if (u.division_label) role += ' · ' + u.division_label;
       if (rl) rl.textContent = role;
+
+      // Render banner mode demo jika sesi saat ini adalah mode simulasi
+      var isDemo = Auth.isDemoMode() || (localStorage.getItem('siapii_is_demo') === '1');
+      var guideTrigger = document.getElementById('btnTopbarDemoGuide');
+      var demoBanner = document.getElementById('demoModeBanner');
+      var demoRoleEl = document.getElementById('demoBannerRoleName');
+      var btnBannerGuide = document.getElementById('btnBannerDemoGuide');
+      var btnBannerSwitch = document.getElementById('btnBannerSwitchDemo');
+      var btnBannerReset = document.getElementById('btnBannerResetDemo');
+      var self = this;
+
+      if (isDemo) {
+        if (demoBanner) {
+          demoBanner.classList.remove('hidden');
+          if (demoRoleEl) demoRoleEl.textContent = u.role_label || (window.ROLES[u.role] || u.role);
+          if (btnBannerReset) {
+            btnBannerReset.onclick = function () {
+              if (window.DemoStore) window.DemoStore.reset();
+              self.toast('Data simulasi demo berhasil direset ke kondisi awal.', 'success');
+              self.router();
+            };
+          }
+          if (btnBannerGuide) {
+            btnBannerGuide.onclick = function () { self.openDemoGuideModal(); };
+          }
+          if (btnBannerSwitch) {
+            btnBannerSwitch.onclick = function () { Auth.logout(); };
+          }
+        }
+        if (!guideTrigger) {
+          var topbarRight = document.querySelector('header .relative.flex-shrink-0');
+          if (topbarRight) {
+            var btnEl = document.createElement('button');
+            btnEl.id = 'btnTopbarDemoGuide';
+            btnEl.type = 'button';
+            btnEl.className = 'mr-2 px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-gray-950 font-black text-xs hidden md:inline-flex items-center gap-1.5 shadow-xs transition cursor-pointer active:scale-95';
+            btnEl.innerHTML = '<svg class="w-3.5 h-3.5 text-gray-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg><span>Panduan Alur Demo</span>';
+            btnEl.addEventListener('click', function () { self.openDemoGuideModal(); });
+            topbarRight.parentNode.insertBefore(btnEl, topbarRight);
+          }
+        }
+      } else {
+        if (demoBanner) demoBanner.classList.add('hidden');
+        if (guideTrigger) guideTrigger.remove();
+      }
     },
 
     /** Daftar menu sesuai peran (RBAC frontend; backend tetap penjaga mutlak). */
@@ -231,16 +1046,15 @@
       }
       // Divisi Kerja untuk semua 8 peran pengurus
       items.push({ id: 'divisi', label: 'Divisi Kerja', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' });
-      // Daftar akun: read-only untuk pengurus inti; tulis hanya SUPERADMIN.
-      if (has(['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'BENDAHARA'])) {
+      // Daftar akun: read-only untuk pengurus inti & pengawas; tulis hanya SUPERADMIN.
+      if (has(['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'BENDAHARA', 'PEMBINA', 'PENGAWAS'])) {
         items.push({ id: 'pengguna', label: 'Manajemen Pengguna', icon: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-3.13a4 4 0 10-8 0 4 4 0 008 0zm6 0a4 4 0 10-8 0 4 4 0 008 0z' });
       }
       if (has(['SUPERADMIN', 'KETUA', 'PEMBINA', 'PENGAWAS'])) {
         items.push({ id: 'audit', label: 'Jejak Audit', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' });
       }
-      // Pengaturan & Master: SUPERADMIN/KETUA (master penuh) atau editor redaksi
-      // konten (hanya sub-tab Redaksi yang ditampilkan oleh renderPengaturan).
-      if (has(['SUPERADMIN', 'KETUA']) || canEditorial) {
+      // Pengaturan & Master: SUPERADMIN, KETUA, SEKRETARIS, BENDAHARA, PEMBINA, PENGAWAS, atau editor redaksi
+      if (has(['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'BENDAHARA', 'PEMBINA', 'PENGAWAS']) || canEditorial) {
         items.push({ id: 'pengaturan', label: 'Pengaturan & Master', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' });
       }
       items.push({ id: 'profil', label: 'Profil Saya', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' });
@@ -274,7 +1088,23 @@
 
     router: function () {
       var self = (this && this.PAGES) ? this : window.App;
-      var hash = (window.location.hash || '#/dashboard').replace('#', '').replace('/', '');
+      var rawHash = window.location.hash || '';
+
+      // Bila belum login atau URL rute login, alihkan langsung ke layar login
+      if (!Auth.isLoggedIn() || rawHash.indexOf('#login') === 0) {
+        self.showLogin(rawHash);
+        return;
+      }
+
+      if (!self.state.user) {
+        self.state.user = Auth.user;
+      }
+      if (!self.state.user) {
+        self.showLogin();
+        return;
+      }
+
+      var hash = (rawHash || '#/dashboard').replace('#', '').replace('/', '');
       var key = hash.split('&')[0];
       var page = self.PAGES[key];
       if (!page) { page = self.PAGES.dashboard; key = 'dashboard'; }
@@ -297,12 +1127,315 @@
 
       self.closeSidebar();
 
-      // Transisi instan dengan progress bar halus di bagian atas
+      // Transisi instan dengan progress bar halus & animasi page-enter
       if (typeof Auth.showProgress === 'function') Auth.showProgress();
+      var mainEl = document.getElementById('mainContent');
+      if (mainEl) {
+        mainEl.classList.remove('page-enter');
+        void mainEl.offsetWidth;
+        mainEl.classList.add('page-enter');
+      }
       self[page.fn]();
+      self.appendPortalFooter();
       setTimeout(function () {
         if (typeof Auth.hideProgress === 'function') Auth.hideProgress();
       }, 350);
+    },
+
+    /** Menambahkan footer resmi terpadu di bagian bawah konten modul */
+    appendPortalFooter: function () {
+      var mainEl = document.getElementById('mainContent');
+      if (!mainEl) return;
+      var existing = document.getElementById('portalGlobalFooter');
+      if (existing) existing.remove();
+      var footer = document.createElement('footer');
+      footer.id = 'portalGlobalFooter';
+      footer.className = 'portal-footer';
+      footer.innerHTML = 'Yayasan APII DPW Jabodetabek &copy; 2026 &bull; Dikembangkan oleh <a href="https://sigitadi.id" target="_blank" rel="noopener">sigitadi.id</a>';
+      mainEl.appendChild(footer);
+    },
+
+    /**
+     * Navigasi terprogram antar rute sekaligus mengeksekusi aksi kontekstual alur kerja
+     * Digunakan oleh tombol langkah interaktif panduan mode demo dan tautan lintas modul.
+     */
+    navigate: function (pageKey, actionKey) {
+      var self = this;
+      var cleanKey = (pageKey || 'dashboard').replace('#', '').replace('/', '');
+      if (cleanKey.indexOf('&') !== -1) cleanKey = cleanKey.split('&')[0];
+
+      // Tutup modal panduan atau dialog yang sedang aktif jika ada
+      if (document.getElementById('modalPanel')) {
+        self.closeModal();
+      }
+
+      // Siapkan sub-tab modul tujuan sebelum router merender
+      if (cleanKey === 'pengaturan') {
+        if (!self.state.pengaturan) self.state.pengaturan = {};
+        if (actionKey === 'pendaftaran') self.state.pengaturan.tab = 'pendaftaran';
+        else if (actionKey === 'rekening') self.state.pengaturan.tab = 'rekening';
+        else if (actionKey === 'redaksi') self.state.pengaturan.tab = 'redaksi';
+        else if (actionKey === 'surat_kop') self.state.pengaturan.tab = 'surat';
+        else if (actionKey === 'keuangan') self.state.pengaturan.tab = 'keuangan';
+      } else if (cleanKey === 'pengguna') {
+        if (!self.state.pengguna) self.state.pengguna = {};
+        if (actionKey === 'verifikasi_pendaftar' || actionKey === 'pendaftar') {
+          self.state.pengguna.tab = 'pendaftar';
+        } else {
+          self.state.pengguna.tab = 'pengurus';
+        }
+      }
+
+      var targetHash = '#/' + cleanKey;
+      if (window.location.hash === targetHash) {
+        self.router();
+      } else {
+        window.location.hash = targetHash;
+      }
+
+      // Jalankan aksi kontekstual setelah rute target selesai dimuat di DOM
+      if (actionKey) {
+        setTimeout(function () {
+          self.executeGuideAction(actionKey);
+        }, 260);
+      }
+    },
+
+    /**
+     * Eksekusi aksi spesifik dari tombol alur kerja demo:
+     * membuka formulir input, modal pratinjau A4, detail voucher, atau menyorot elemen aksi.
+     */
+    executeGuideAction: function (actionKey) {
+      var self = this;
+      if (!actionKey) return;
+
+      switch (actionKey) {
+        case 'action_inbox': {
+          var tryFindInbox = function (attempts) {
+            var inboxEl = document.getElementById('dashInbox');
+            if (inboxEl) {
+              inboxEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              inboxEl.classList.add('ring-4', 'ring-amber-400', 'ring-offset-2', 'transition-all');
+              setTimeout(function () {
+                inboxEl.classList.remove('ring-4', 'ring-amber-400', 'ring-offset-2');
+              }, 3000);
+              self.toast('Action Inbox disorot untuk ditinjau.', 'info');
+            } else if (attempts > 0) {
+              setTimeout(function () { tryFindInbox(attempts - 1); }, 150);
+            }
+          };
+          tryFindInbox(5);
+          break;
+        }
+
+        case 'buat_surat': {
+          self.suratForm(null);
+          self.toast('Membuka formulir draf surat dinas baru.', 'info');
+          break;
+        }
+
+        case 'preview_surat': {
+          var openFirstSurat = function (items) {
+            if (!items || !items.length) {
+              self.toast('Daftar surat sedang disiapkan...', 'info');
+              return;
+            }
+            var target = items.filter(function (s) {
+              return s.status === 'PENDING_APPROVAL' || s.status === 'SUBMITTED' || s.status === 'DRAFT';
+            })[0] || items[0];
+            self.suratDetail(target);
+            self.toast('Membuka Pratinjau Kertas Virtual A4 surat resmi.', 'info');
+          };
+          if (Auth.isDemoMode() && window.DemoStore && window.DemoStore.data && window.DemoStore.data.surat) {
+            openFirstSurat(window.DemoStore.data.surat);
+          } else {
+            Auth.get('getListSurat', { limit: 50 }).then(function (res) {
+              openFirstSurat((res && res.items) || []);
+            }).catch(function () {
+              self.toast('Gagal memuat surat.', 'error');
+            });
+          }
+          break;
+        }
+
+        case 'tambah_voucher': {
+          self.voucherForm();
+          self.toast('Membuka formulir pencatatan voucher kas baru.', 'info');
+          break;
+        }
+
+        case 'verifikasi_kas': {
+          var openFirstVoucher = function (items) {
+            if (!items || !items.length) {
+              self.toast('Daftar voucher kas sedang disiapkan...', 'info');
+              return;
+            }
+            var role = (self.state.user && self.state.user.role) || '';
+            var target = null;
+            if (role === 'KETUA') {
+              target = items.filter(function (k) { return k.status === 'VERIFIED_BY_BENDAHARA'; })[0];
+            } else {
+              target = items.filter(function (k) { return k.status === 'PENDING'; })[0];
+            }
+            if (!target) target = items[0];
+            self.voucherDetail(target);
+            self.toast('Membuka rincian voucher kas untuk verifikasi/persetujuan.', 'info');
+          };
+          if (Auth.isDemoMode() && window.DemoStore && window.DemoStore.data && window.DemoStore.data.keuangan) {
+            openFirstVoucher(window.DemoStore.data.keuangan);
+          } else {
+            Auth.get('getListKeuangan', { limit: 50 }).then(function (res) {
+              openFirstVoucher((res && res.items) || []);
+            }).catch(function () {
+              self.toast('Gagal memuat keuangan.', 'error');
+            });
+          }
+          break;
+        }
+
+        case 'cetak_kwitansi': {
+          var openKwitansi = function (items) {
+            if (!items || !items.length) {
+              self.toast('Daftar voucher kas sedang disiapkan...', 'info');
+              return;
+            }
+            var target = items.filter(function (k) { return k.status === 'APPROVED' || k.status === 'VERIFIED_BY_BENDAHARA'; })[0] || items[0];
+            self.printKwitansi(target);
+            self.toast('Membuka pratinjau cetak kwitansi resmi yayasan.', 'info');
+          };
+          if (Auth.isDemoMode() && window.DemoStore && window.DemoStore.data && window.DemoStore.data.keuangan) {
+            openKwitansi(window.DemoStore.data.keuangan);
+          } else {
+            Auth.get('getListKeuangan', { limit: 50 }).then(function (res) {
+              openKwitansi((res && res.items) || []);
+            }).catch(function () {
+              self.toast('Gagal memuat keuangan.', 'error');
+            });
+          }
+          break;
+        }
+
+        case 'ajukan_program': {
+          self.submissionForm(null);
+          self.toast('Membuka formulir usulan program divisi baru.', 'info');
+          break;
+        }
+
+        case 'divisi': {
+          self.toast('Menampilkan daftar program & usulan kegiatan divisi.', 'info');
+          break;
+        }
+
+        case 'divisi_stepper': {
+          var openStepper = function (items) {
+            if (!items || !items.length) {
+              self.toast('Daftar program divisi sedang dimuat...', 'info');
+              return;
+            }
+            var target = items.filter(function (d) { return d.status === 'DISETUJUI' || d.status === 'PELAKSANAAN' || d.status === 'AJUKAN'; })[0] || items[0];
+            self.submissionDetail(target);
+            self.toast('Membuka rincian & stepper siklus 5 tahap program kerja.', 'info');
+          };
+          if (Auth.isDemoMode() && window.DemoStore && window.DemoStore.data && window.DemoStore.data.divisi) {
+            openStepper(window.DemoStore.data.divisi);
+          } else {
+            Auth.get('getListDivisi', { limit: 50 }).then(function (res) {
+              openStepper((res && res.items) || []);
+            }).catch(function () {
+              self.toast('Gagal memuat program divisi.', 'error');
+            });
+          }
+          break;
+        }
+
+        case 'divisi_lpj': {
+          var openLPJ = function (items) {
+            if (!items || !items.length) {
+              self.toast('Daftar program divisi sedang dimuat...', 'info');
+              return;
+            }
+            var target = items.filter(function (d) { return d.can_lpj || d.status === 'APPROVED' || d.status === 'PELAKSANAAN' || d.status === 'DISETUJUI'; })[0] || items[0];
+            if (target) {
+              self.submissionLPJForm(target);
+              self.toast('Membuka formulir LPJ program kegiatan.', 'info');
+            } else {
+              self.toast('Pilih salah satu program yang selesai untuk mengisi LPJ.', 'info');
+            }
+          };
+          if (Auth.isDemoMode() && window.DemoStore && window.DemoStore.data && window.DemoStore.data.divisi) {
+            openLPJ(window.DemoStore.data.divisi);
+          } else {
+            Auth.get('getListDivisi', { limit: 50 }).then(function (res) {
+              openLPJ((res && res.items) || []);
+            }).catch(function () {
+              self.toast('Gagal memuat program divisi.', 'error');
+            });
+          }
+          break;
+        }
+
+        case 'verifikasi_pendaftar': {
+          var openPendaftar = function (items) {
+            if (!items || !items.length) {
+              self.toast('Daftar berkas pendaftar sedang dimuat...', 'info');
+              return;
+            }
+            var target = items.filter(function (p) {
+              return p.status === 'PENDING' || p.status === 'VERIFIED_SEKRETARIS' || p.status === 'DIVERIFIKASI_SEKRETARIS';
+            })[0] || items[0];
+            self.pendaftarDetail(target);
+            self.toast('Membuka formulir verifikasi berkas pendaftar (KTP ber-watermark).', 'info');
+          };
+          if (Auth.isDemoMode() && window.DemoStore && window.DemoStore.data && window.DemoStore.data.pendaftar) {
+            openPendaftar(window.DemoStore.data.pendaftar);
+          } else {
+            Auth.getCached('getListPendaftar', null, function (res) {
+              openPendaftar((res && res.items) || []);
+            });
+          }
+          break;
+        }
+
+        case 'pendaftaran': {
+          self.toast('Membuka kebijakan & ketentuan pendaftaran anggota.', 'info');
+          break;
+        }
+
+        case 'rekening': {
+          self.toast('Membuka Master Rekening kas yayasan.', 'info');
+          break;
+        }
+
+        case 'redaksi': {
+          self.toast('Membuka Mini-CMS Redaksi warta & publikasi yayasan.', 'info');
+          break;
+        }
+
+        case 'surat_kop': {
+          self.toast('Membuka konfigurasi format penomoran & KOP dinas.', 'info');
+          break;
+        }
+
+        case 'pengguna': {
+          self.toast('Membuka manajemen pengguna & hak akses RBAC.', 'info');
+          break;
+        }
+
+        case 'audit': {
+          self.toast('Membuka Jejak Audit forensik sistem.', 'info');
+          break;
+        }
+
+        case 'keuangan': {
+          self.toast('Membuka buku kas yayasan.', 'info');
+          break;
+        }
+
+        case 'surat': {
+          self.toast('Membuka buku arsip persuratan dinas.', 'info');
+          break;
+        }
+      }
     },
 
     bindGlobal: function () {
@@ -324,22 +1457,39 @@
       // Menu user.
       var umb = document.getElementById('userMenuBtn');
       var um = document.getElementById('userMenu');
-      umb.addEventListener('click', function (e) {
-        e.stopPropagation();
-        um.classList.toggle('hidden');
-      });
+      if (umb && um) {
+        umb.addEventListener('click', function (e) {
+          e.stopPropagation();
+          um.classList.toggle('hidden');
+        });
+        document.addEventListener('click', function (e) {
+          if (!um.classList.contains('hidden') && !um.contains(e.target) && !umb.contains(e.target)) {
+            um.classList.add('hidden');
+          }
+        });
+        um.addEventListener('click', function (e) {
+          var b = e.target.closest('.user-menu-item');
+          if (b) { um.classList.add('hidden'); window.location.hash = '#/' + b.getAttribute('data-nav'); }
+        });
+      }
+
+      // Logout dari user menu & event delegation untuk seluruh tombol Keluar / Ganti Peran
+      var logoutBtn = document.getElementById('logoutBtn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (um) um.classList.add('hidden');
+          Auth.logout();
+        });
+      }
+
       document.addEventListener('click', function (e) {
-        if (!um.classList.contains('hidden') && !um.contains(e.target) && !umb.contains(e.target)) {
-          um.classList.add('hidden');
+        var btn = e.target.closest('#btnBannerSwitchDemo, #btnDashSwitchDemo, [data-action="logout"]');
+        if (btn) {
+          e.preventDefault();
+          Auth.logout();
         }
       });
-      um.addEventListener('click', function (e) {
-        var b = e.target.closest('.user-menu-item');
-        if (b) { um.classList.add('hidden'); window.location.hash = '#/' + b.getAttribute('data-nav'); }
-      });
-
-      // Logout.
-      document.getElementById('logoutBtn').addEventListener('click', function () { Auth.logout(); });
 
       // Toggle sidebar mobile.
       document.getElementById('menuToggle').addEventListener('click', function () {
@@ -407,6 +1557,81 @@
       if (!text) return;
       var url = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text);
       window.open(url, '_blank', 'noopener,noreferrer');
+    },
+
+    /** Fallback salin teks ke clipboard jika Clipboard API tidak didukung */
+    copyFallback: function (text) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        this.toast('Teks WhatsApp berhasil disalin ke clipboard!', 'success');
+      } catch (e) {
+        this.toast('Gagal menyalin teks otomatis. Silakan salin manual.', 'warning');
+      }
+      document.body.removeChild(ta);
+    },
+
+    /** Modal Pratinjau Pesan WhatsApp sebelum kirim/salin (ramah mode demo). */
+    previewWhatsApp: function (title, text) {
+      if (!text) return;
+      var self = this;
+      var encoded = encodeURIComponent(text);
+      var waUrl = 'https://api.whatsapp.com/send?text=' + encoded;
+
+      this.openModal(
+        '<div class="p-5 sm:p-6">' +
+        '<div class="flex items-center justify-between pb-3.5 mb-4 border-b border-gray-100">' +
+        '<div class="flex items-center gap-2.5">' +
+        '<div class="w-8 h-8 rounded-xl bg-[#25D366] text-white flex items-center justify-center flex-shrink-0 shadow-xs">' +
+        '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
+        '</div>' +
+        '<div>' +
+        '<h4 class="font-extrabold text-gray-900 text-sm sm:text-base leading-tight">' + Auth.esc(title || 'Pratinjau Pesan WhatsApp') + '</h4>' +
+        '<span class="text-[11px] text-gray-500">Format resmi otomatis siap didistribusikan</span>' +
+        '</div>' +
+        '</div>' +
+        '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 cursor-pointer">' +
+        '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
+        '</button>' +
+        '</div>' +
+        '<div class="mb-4">' +
+        '<label class="lbl mb-1.5 text-xs text-gray-600 font-bold">Isi Format Pesan WhatsApp:</label>' +
+        '<textarea id="waPreviewText" readonly rows="8" class="field text-xs font-mono bg-gray-50 border border-gray-200 select-all p-3 leading-relaxed">' + Auth.esc(text) + '</textarea>' +
+        '</div>' +
+        '<div class="flex flex-col sm:flex-row gap-2.5 pt-1">' +
+        '<button type="button" id="btnCopyWaText" class="btn btn-ghost flex-1 py-2.5 rounded-xl text-xs font-bold border border-gray-300 hover:bg-gray-100 inline-flex items-center justify-center gap-1.5 cursor-pointer">' +
+        '<span>📋 Salin Teks Pesan</span>' +
+        '</button>' +
+        '<a href="' + waUrl + '" target="_blank" rel="noopener noreferrer" class="btn flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-[#25D366] hover:bg-[#1EBE5D] inline-flex items-center justify-center gap-1.5 shadow-sm cursor-pointer">' +
+        '<span>Buka WhatsApp Langsung ↗</span>' +
+        '</a>' +
+        '</div>' +
+        '</div>'
+      );
+
+      var btnCopy = document.getElementById('btnCopyWaText');
+      if (btnCopy) {
+        btnCopy.onclick = function () {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () {
+              self.toast('Teks WhatsApp berhasil disalin ke clipboard!', 'success');
+            }).catch(function () {
+              self.copyFallback(text);
+            });
+          } else {
+            self.copyFallback(text);
+          }
+        };
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+        b.addEventListener('click', function () { self.closeModal(); });
+      });
     },
 
     /** Format teks WhatsApp untuk Surat Resmi. */
@@ -531,7 +1756,7 @@
         '" class="text-xs px-2.5 py-1.5 rounded-lg font-semibold transition ' +
         (cls === 'danger' ? 'bg-red-50 text-red-600 hover:bg-red-100' :
           cls === 'gold' ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' :
-          'bg-emerald-light text-emerald-dark hover:bg-emerald hover:text-white') +
+            'bg-emerald-light text-emerald-dark hover:bg-emerald hover:text-white') +
         '">' + label + '</button>';
     },
 
@@ -544,7 +1769,7 @@
     pageHead: function (title, desc, actionsHtml) {
       return '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">' +
         '<div><h2 class="text-xl font-extrabold text-emerald-dark">' + title + '</h2>' +
-        '<p class="text-sm text-gray-500 mt-1">' + desc + '</p></div>' +
+        '<p class="text-sm text-gray-700 font-medium mt-1">' + desc + '</p></div>' +
         (actionsHtml ? '<div class="flex gap-2 flex-wrap">' + actionsHtml + '</div>' : '') +
         '</div>';
     },
@@ -557,21 +1782,41 @@
       var u = this.state.user;
       var self = this;
 
+      var guideHtml = this.renderDashboardDemoGuide(u);
+
       main.innerHTML = this.pageHead('Selamat datang, ' + Auth.esc(u.full_name || u.username) + ' 👋',
         'Ringkasan aktivitas Yayasan APII DPW Jabodetabek hari ini.', '') +
+        guideHtml +
         '<div id="dashInbox" class="mb-8"></div>' +
         '<div id="dashCards" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">' +
-          '<div class="card bg-white rounded-2xl p-6 animate-pulse h-28"></div>'.repeat(4) +
+        '<div class="card bg-white rounded-2xl p-6 animate-pulse h-28"></div>'.repeat(4) +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
-          '<div class="px-6 py-4 border-b border-emerald-100 flex items-center justify-between">' +
-            '<h3 class="font-bold text-emerald-dark">Surat Terbaru</h3>' +
-            '<button data-nav="surat" class="text-sm text-emerald font-semibold hover:underline">Lihat semua →</button>' +
-          '</div>' +
-          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
-            '<th>Nomor &amp; Judul</th><th>Status</th><th>Tanggal</th>' +
-            '</tr></thead><tbody id="dashSurat">' + this.loadingRow(3) + '</tbody></table></div>' +
+        '<div class="px-6 py-4 border-b border-emerald-100 flex items-center justify-between">' +
+        '<h3 class="font-bold text-emerald-dark">Surat Terbaru</h3>' +
+        '<button data-nav="surat" class="text-sm text-emerald font-semibold hover:underline">Lihat semua →</button>' +
+        '</div>' +
+        '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+        '<th>Nomor &amp; Judul</th><th>Status</th><th>Tanggal</th>' +
+        '</tr></thead><tbody id="dashSurat">' + this.loadingRow(3) + '</tbody></table></div>' +
         '</div>';
+
+      // Event listener tombol panduan dashboard
+      var btnGuide = main.querySelector('#btnDashOpenFullGuide');
+      if (btnGuide) {
+        btnGuide.addEventListener('click', function () { self.openDemoGuideModal(); });
+      }
+      var btnSwitch = main.querySelector('#btnDashSwitchDemo');
+      if (btnSwitch) {
+        btnSwitch.addEventListener('click', function () { Auth.logout(); });
+      }
+      Array.prototype.forEach.call(main.querySelectorAll('[data-dash-guide-nav]'), function (b) {
+        b.addEventListener('click', function () {
+          var targetNav = b.getAttribute('data-dash-guide-nav');
+          var targetAct = b.getAttribute('data-dash-guide-act');
+          if (targetNav) self.navigate(targetNav, targetAct);
+        });
+      });
 
       // Klik "Lihat semua".
       main.querySelector('[data-nav="surat"]').addEventListener('click', function () {
@@ -601,45 +1846,45 @@
 
               return '<div class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-emerald-50/50 transition border-b border-gray-100 last:border-b-0">' +
                 '<div class="flex items-start gap-3.5 min-w-0">' +
-                  '<div class="mt-0.5 w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center ' + modColor + '">' +
-                    iconSvg +
-                  '</div>' +
-                  '<div class="min-w-0 flex-1">' +
-                    '<div class="flex items-center gap-2 flex-wrap mb-1">' +
-                      '<span class="badge ' + Auth.esc(it.badge_class || 'badge-PENDING') + '">' + Auth.esc(it.badge) + '</span>' +
-                      '<span class="text-xs font-mono text-gray-500">' + Auth.esc(it.subtitle) + '</span>' +
-                    '</div>' +
-                    '<h4 class="text-sm font-bold text-gray-900 truncate">' + Auth.esc(it.title) + '</h4>' +
-                    '<p class="text-xs text-gray-500 mt-0.5">' + Auth.esc(it.detail) + '</p>' +
-                  '</div>' +
+                '<div class="mt-0.5 w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center ' + modColor + '">' +
+                iconSvg +
+                '</div>' +
+                '<div class="min-w-0 flex-1">' +
+                '<div class="flex items-center gap-2 flex-wrap mb-1">' +
+                '<span class="badge ' + Auth.esc(it.badge_class || 'badge-PENDING') + '">' + Auth.esc(it.badge) + '</span>' +
+                '<span class="text-xs font-mono text-gray-500">' + Auth.esc(it.subtitle) + '</span>' +
+                '</div>' +
+                '<h4 class="text-sm font-bold text-gray-900 truncate">' + Auth.esc(it.title) + '</h4>' +
+                '<p class="text-xs text-gray-500 mt-0.5">' + Auth.esc(it.detail) + '</p>' +
+                '</div>' +
                 '</div>' +
                 '<div class="flex items-center gap-2 sm:self-center flex-shrink-0 w-full sm:w-auto">' +
-                  '<button type="button" data-inbox-wa="' + idx + '" class="btn btn-wa-ghost text-xs px-3 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm" title="Bagikan ke WhatsApp">' +
-                    '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
-                    '<span>WA</span>' +
-                  '</button>' +
-                  '<button type="button" data-nav-target="' + Auth.esc(it.target_nav) + '" data-item-id="' + Auth.esc(it.id) + '" class="flex-1 sm:flex-initial btn btn-primary text-xs px-4 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm">' +
-                    '<span>' + Auth.esc(it.action_label || 'Tinjau') + '</span>' +
-                    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>' +
-                  '</button>' +
+                '<button type="button" data-inbox-wa="' + idx + '" class="btn btn-wa-ghost text-xs px-3 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm" title="Bagikan ke WhatsApp">' +
+                '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
+                '<span>WA</span>' +
+                '</button>' +
+                '<button type="button" data-nav-target="' + Auth.esc(it.target_nav) + '" data-item-id="' + Auth.esc(it.id) + '" class="flex-1 sm:flex-initial btn btn-primary text-xs px-4 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm">' +
+                '<span>' + Auth.esc(it.action_label || 'Tinjau') + '</span>' +
+                '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>' +
+                '</button>' +
                 '</div>' +
-              '</div>';
+                '</div>';
             }).join('');
 
             inboxEl.innerHTML = '<div class="card bg-white rounded-2xl shadow-sm border border-amber-200 overflow-hidden ring-4 ring-amber-50/50">' +
               '<div class="px-5 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white flex items-center justify-between">' +
-                '<div class="flex items-center gap-2.5">' +
-                  '<div class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></div>' +
-                  '<h3 class="font-extrabold text-sm tracking-wide flex items-center gap-1.5">' +
-                    '<span>⚡ PERLU TINDAKAN ANDA</span>' +
-                  '</h3>' +
-                '</div>' +
-                '<span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm text-white">' +
-                  items.length + ' Menunggu' +
-                '</span>' +
+              '<div class="flex items-center gap-2.5">' +
+              '<div class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></div>' +
+              '<h3 class="font-extrabold text-sm tracking-wide flex items-center gap-1.5">' +
+              '<span>⚡ PERLU TINDAKAN ANDA</span>' +
+              '</h3>' +
+              '</div>' +
+              '<span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm text-white">' +
+              items.length + ' Menunggu' +
+              '</span>' +
               '</div>' +
               '<div class="divide-y divide-gray-100">' + itemsHtml + '</div>' +
-            '</div>';
+              '</div>';
 
             inboxEl.querySelectorAll('[data-inbox-wa]').forEach(function (btn) {
               btn.addEventListener('click', function () {
@@ -666,12 +1911,12 @@
           } else {
             inboxEl.innerHTML = '<div class="rounded-2xl p-4 bg-emerald-50/80 border border-emerald-200/80 text-emerald-900 flex items-center gap-3.5">' +
               '<div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">' +
-                '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
+              '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
               '</div>' +
               '<div class="text-xs sm:text-sm">' +
-                '<span class="font-bold text-emerald-950">Semua Beres!</span> Tidak ada dokumen atau permohonan yang memerlukan tindakan Anda saat ini.' +
+              '<span class="font-bold text-emerald-950">Semua Beres!</span> Tidak ada dokumen atau permohonan yang memerlukan tindakan Anda saat ini.' +
               '</div>' +
-            '</div>';
+              '</div>';
           }
         }
 
@@ -702,10 +1947,10 @@
         tb.innerHTML = list.length ? list.map(function (s) {
           return '<tr>' +
             '<td><div class="font-mono text-xs text-gray-500">' + Auth.esc(s.letter_number) + '</div>' +
-              '<div class="font-semibold text-emerald-dark">' + Auth.esc(s.title) + '</div></td>' +
+            '<div class="font-semibold text-emerald-dark">' + Auth.esc(s.title) + '</div></td>' +
             '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(s.status, s.status_label) + '</td>' +
             '<td class="text-gray-500 whitespace-nowrap text-xs"><span class="sm:hidden text-gray-400 font-medium">Tanggal: </span>' + Auth.esc(s.tanggal) + '</td>' +
-          '</tr>';
+            '</tr>';
         }).join('') : '<tr class="tbl-empty"><td colspan="3" class="text-center text-gray-400 py-8">Belum ada surat.</td></tr>';
       }).catch(function () { /* Auth.fetch sudah menampilkan toast */ });
     },
@@ -713,12 +1958,12 @@
     statCard: function (label, value, sub, icon) {
       return '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6">' +
         '<div class="flex items-start justify-between mb-3">' +
-          '<div class="h-11 w-11 bg-emerald-light rounded-xl flex items-center justify-center">' +
-          '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="' + icon + '" /></svg>' +
-          '</div></div>' +
+        '<div class="h-11 w-11 bg-emerald-light rounded-xl flex items-center justify-center">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="' + icon + '" /></svg>' +
+        '</div></div>' +
         '<div class="text-2xl font-extrabold text-emerald-dark leading-none mb-1">' + value + '</div>' +
-        '<div class="text-sm font-semibold text-gray-700">' + label + '</div>' +
-        '<div class="text-xs text-gray-400 mt-1">' + sub + '</div>' +
+        '<div class="text-sm font-bold text-gray-900">' + label + '</div>' +
+        '<div class="text-xs text-gray-700 font-medium mt-1">' + sub + '</div>' +
         '</div>';
     },
 
@@ -737,22 +1982,67 @@
         '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>' +
         'Buat Surat Baru</button>' : '';
 
+      var bannerHtml = this.getDemoContextBanner('surat');
+
       main.innerHTML = this.pageHead('Persuratan Resmi',
         'Draf → Persetujuan Ketua → Diterbitkan dengan PDF & sidik digital.', newBtn) +
+        bannerHtml +
+        '<!-- Panel Panduan Arti Warna Status Persuratan -->' +
+        '<div class="card bg-white rounded-2xl shadow-xs border border-emerald-100 p-4 mb-5">' +
+        '<div class="flex items-center gap-2 mb-2.5 pb-2 border-b border-gray-100">' +
+        '<span class="text-xs font-black text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">' +
+        '<span>📖 Panduan Arti Warna Status Persuratan:</span>' +
+        '</span>' +
+        '</div>' +
+        '<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">' +
+        '<div class="p-2.5 rounded-xl bg-gray-50 border border-gray-200 flex flex-col gap-1">' +
+        '<div class="flex items-center gap-1.5"><span class="badge badge-DRAFT">Draf</span> <strong class="text-gray-900 font-bold">Abu-abu</strong></div>' +
+        '<p class="text-[11px] text-gray-800 leading-snug">Konsep surat yang sedang disusun Sekretaris, belum diajukan ke pimpinan.</p>' +
+        '</div>' +
+        '<div class="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 flex flex-col gap-1">' +
+        '<div class="flex items-center gap-1.5"><span class="badge badge-PENDING_APPROVAL">Menunggu Persetujuan</span> <strong class="text-amber-950 font-bold">Kuning</strong></div>' +
+        '<p class="text-[11px] text-amber-950 leading-snug">Telah diajukan Sekretaris, menanti tanda tangan digital &amp; pengesahan Ketua DPW.</p>' +
+        '</div>' +
+        '<div class="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 flex flex-col gap-1">' +
+        '<div class="flex items-center gap-1.5"><span class="badge badge-PUBLISHED">Diterbitkan</span> <strong class="text-emerald-950 font-bold">Hijau</strong></div>' +
+        '<p class="text-[11px] text-emerald-950 leading-snug">Surat resmi sah, nomor terbit tercatat &amp; dokumen PDF ber-QR siap diedarkan.</p>' +
+        '</div>' +
+        '<div class="p-2.5 rounded-xl bg-red-50/70 border border-red-200 flex flex-col gap-1">' +
+        '<div class="flex items-center gap-1.5"><span class="badge badge-REJECTED">Ditolak</span> <strong class="text-red-950 font-bold">Merah</strong></div>' +
+        '<p class="text-[11px] text-red-950 leading-snug">Dikembalikan Ketua DPW dengan catatan perbaikan untuk direvisi oleh Sekretaris.</p>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 mb-6 flex flex-col sm:flex-row gap-3">' +
-          '<input id="suratQ" type="text" placeholder="Cari judul / nomor surat…" class="field flex-1" />' +
-          '<select id="suratStatus" class="field sm:w-52">' +
-            '<option value="">Semua Status</option>' +
-            '<option value="DRAFT">Draf</option><option value="PENDING_APPROVAL">Menunggu Persetujuan</option>' +
-            '<option value="PUBLISHED">Diterbitkan</option><option value="REJECTED">Ditolak</option>' +
-          '</select>' +
-          '<button id="suratCari" class="btn btn-ghost px-5 py-2.5 rounded-xl font-semibold text-sm">Cari</button>' +
+        '<input id="suratQ" type="text" placeholder="Cari judul / nomor surat…" class="field flex-1" />' +
+        '<select id="suratStatus" class="field sm:w-52">' +
+        '<option value="">Semua Status</option>' +
+        '<option value="DRAFT">Draf</option><option value="PENDING_APPROVAL">Menunggu Persetujuan</option>' +
+        '<option value="PUBLISHED">Diterbitkan</option><option value="REJECTED">Ditolak</option>' +
+        '</select>' +
+        '<button id="suratCari" class="btn btn-ghost px-5 py-2.5 rounded-xl font-semibold text-sm">Cari</button>' +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
-          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
-          '<th>Nomor &amp; Judul</th><th>Jenis</th><th>Status</th><th>Dibuat Oleh</th><th>Tanggal</th><th>Aksi</th>' +
-          '</tr></thead><tbody id="suratRows">' + this.loadingRow(6) + '</tbody></table></div>' +
+        '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+        '<th>Nomor &amp; Judul</th><th>Jenis</th><th>Status</th><th>Dibuat Oleh</th><th>Tanggal</th><th>Aksi</th>' +
+        '</tr></thead><tbody id="suratRows">' + this.loadingRow(6) + '</tbody></table></div>' +
         '</div>';
+
+      var guideBtn = main.querySelector('[data-open-demo-guide]');
+      if (guideBtn) {
+        guideBtn.addEventListener('click', function () { self.openDemoGuideModal(); });
+      }
+
+      var resetBtn = main.querySelector('[data-reset-demo]');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function () {
+          self.confirm('Reset Data Simulasi', 'Apakah Anda ingin mengembalikan seluruh data surat, kas, usulan divisi, dan pendaftar simulasi ke kondisi awal?', function () {
+            if (window.DemoStore) window.DemoStore.reset();
+            self.toast('Data simulasi telah di-reset ke kondisi awal.', 'success');
+            self.router();
+          });
+        });
+      }
 
       if (canWrite) {
         document.getElementById('btnSuratBaru').addEventListener('click', function () {
@@ -789,7 +2079,7 @@
           var acts = '';
           // Detail selalu tersedia.
           acts += self.aBtn('view', 'Detail', 'Lihat detail surat');
-          acts += self.waBtn('Bagikan surat ke WhatsApp');
+          acts += self.waBtn('Bagikan format surat ke WhatsApp');
           // Penulis: ajukkan draft.
           if (canWrite && s.status === 'DRAFT') {
             acts += self.aBtn('edit', 'Ubah', 'Ubah draf surat');
@@ -801,14 +2091,14 @@
             acts += self.aBtn('danger reject', 'Tolak', 'Tolak surat');
           }
           return '<tr data-id="' + s.id + '">' +
-            '<td><div class="font-mono text-xs text-gray-500">' + Auth.esc(s.letter_number) + '</div>' +
-              '<div class="font-semibold text-gray-900 leading-snug">' + Auth.esc(s.title) + '</div></td>' +
-            '<td class="whitespace-nowrap text-gray-600 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Jenis: </span>' + Auth.esc(s.letter_type_label) + '</td>' +
-            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(s.status, s.status_label) + '</td>' +
+            '<td><div class="font-mono text-xs text-gray-500 font-bold">' + Auth.esc(s.letter_number) + '</div>' +
+            '<div class="font-semibold text-gray-900 leading-snug">' + Auth.esc(s.title) + '</div></td>' +
+            '<td class="whitespace-nowrap text-gray-700 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Jenis: </span>' + Auth.esc(s.letter_type_label || s.letter_type || 'Surat') + '</td>' +
+            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(s.status, s.status_label || s.status) + '</td>' +
             '<td class="whitespace-nowrap text-gray-600 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Dibuat: </span>' + Auth.esc(s.created_by_name || s.created_by) + '</td>' +
-            '<td class="whitespace-nowrap text-gray-500 text-xs"><span class="sm:hidden text-gray-400 font-medium">Tanggal: </span>' + Auth.esc(s.tanggal_label) + '</td>' +
+            '<td class="whitespace-nowrap text-gray-600 text-xs"><span class="sm:hidden text-gray-400 font-medium">Tanggal: </span>' + Auth.esc(s.tanggal_label || s.tanggal_surat || s.tanggal || '-') + '</td>' +
             '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap min-w-[120px]">' + acts + '</div></td>' +
-          '</tr>';
+            '</tr>';
         }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada surat yang ditemukan.</td></tr>';
 
         // Binding aksi baris.
@@ -817,9 +2107,10 @@
           Array.prototype.forEach.call(tr.querySelectorAll('[data-act]'), function (b) {
             b.addEventListener('click', function () {
               var act = b.getAttribute('data-act');
-              var item = items.filter(function (x) { return x.id === id; })[0];
+              var item = items.filter(function (x) { return String(x.id) === String(id); })[0];
+              if (!item) return;
               if (act === 'view') self.suratDetail(item);
-              else if (act === 'wa') self.openWhatsApp(self.buildSuratWaText(item));
+              else if (act === 'wa') self.previewWhatsApp('Surat: ' + (item.title || item.letter_number), self.buildSuratWaText(item));
               else if (act === 'edit') self.suratForm(item);
               else if (act === 'submit') self.suratSubmit(item, canWrite, canApprove);
               else if (act === 'approve') self.suratApprove(item, canWrite, canApprove);
@@ -841,46 +2132,46 @@
 
       this.openModal(
         '<div class="p-4 sm:p-6">' +
-          '<div class="flex items-center justify-between gap-2 mb-5 flex-wrap">' +
-            '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
-              '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Draf Surat' : 'Buat Surat Baru') + '</h3>' +
-              (!isEdit ? '<button type="button" id="sfBookingBtn" class="btn btn-ghost px-2.5 py-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 rounded-xl inline-flex items-center gap-1 shadow-sm flex-shrink-0" title="Ambil/reservasi nomor surat resmi terlebih dahulu">🔖 Booking Nomor</button>' : '') +
-            '</div>' +
-            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 ml-auto">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
-          '</div>' +
-          '<form id="suratFormEl" class="space-y-4">' +
-            '<div><label class="lbl">Jenis Surat</label><select id="sfType" class="field">' + typeOpts + '</select></div>' +
-            '<div id="sfCustomBox" class="hidden p-3.5 bg-amber-50 rounded-xl border border-amber-200 space-y-2">' +
-              '<div class="text-xs font-bold text-amber-900">Jenis Surat Kustom Baru:</div>' +
-              '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">' +
-                '<input id="sfCustomCode" type="text" placeholder="Kode (cth: NOTULEN_KHUSUS)" class="field text-xs font-mono uppercase" />' +
-                '<input id="sfCustomLabel" type="text" placeholder="Nama Jenis (cth: Notulen Rapat Khusus)" class="field text-xs" />' +
-              '</div>' +
-            '</div>' +
-            '<div><label class="lbl">Judul / Perihal Surat <span class="text-red-500">*</span></label>' +
-              '<input id="sfTitle" type="text" required class="field" placeholder="cth: Undangan Rapat Kerja DPW" value="' + Auth.esc(item ? item.title : '') + '" /></div>' +
-            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Tanggal Surat</label><input id="sfTanggal" type="date" class="field" value="' + (item ? item.tanggal_surat : new Date().toISOString().slice(0, 10)) + '" /></div>' +
-              '<div><label class="lbl">Nomor Surat</label><input id="sfNomor" type="text" class="field font-mono text-xs" placeholder="(otomatis bila kosong)" value="' + Auth.esc(item ? item.letter_number : '') + '" /></div>' +
-            '</div>' +
-            '<div><label class="lbl">Menimbang (Konsideran)</label><textarea id="sfMenimbang" rows="2" class="field" placeholder="Pertimbangan latar belakang diterbitkannya surat…"></textarea></div>' +
-            '<div><label class="lbl">Mengingat (Dasar Hukum / AD-ART)</label><textarea id="sfMengingat" rows="2" class="field" placeholder="Dasar hukum / ketentuan anggaran dasar APII…"></textarea></div>' +
-            '<div><label class="lbl">Memutuskan / Isi Pokok Surat</label><textarea id="sfMemutuskan" rows="3" class="field" placeholder="Ketetapan, agenda rapat, atau isi pokok instruksi…"></textarea></div>' +
-            '<div>' +
-              '<label class="lbl">Lampiran Naskah / Dokumen Resmi (PDF/Gambar/Dokumen)</label>' +
-              '<input id="sfAttachmentFile" type="file" accept="application/pdf,image/*,.doc,.docx" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
-              (item && item.attachment_url ? '<a href="' + Auth.esc(item.attachment_url) + '" target="_blank" rel="noopener" class="text-xs text-emerald-800 font-bold underline mt-1.5 inline-flex items-center gap-1"><span>📎 Buka Lampiran Naskah di Drive</span></a>' : '') +
-              '<p class="text-[11px] text-gray-400 mt-1">File akan diunggah otomatis ke Google Drive folder <code>/Surat_Lampiran/</code>.</p>' +
-            '</div>' +
-            '<p class="text-xs text-gray-400">' + (isEdit
-              ? 'Kosongkan ketiga kotak isi untuk mempertahankan isi lama. Hanya Draf yang dapat diubah.'
-              : 'Isi surat dapat dilengkapi nanti selama masih berstatus Draf.') + '</p>' +
-            '<div class="flex gap-3 pt-2">' +
-              '<button type="submit" id="btnSubmitSurat" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">' + (isEdit ? 'Simpan Perubahan' : 'Simpan Draf Surat') + '</button>' +
-              '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
-            '</div>' +
-          '</form>' +
+        '<div class="flex items-center justify-between gap-2 mb-5 flex-wrap">' +
+        '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
+        '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Draf Surat' : 'Buat Surat Baru') + '</h3>' +
+        (!isEdit ? '<button type="button" id="sfBookingBtn" class="btn btn-ghost px-2.5 py-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 rounded-xl inline-flex items-center gap-1 shadow-sm flex-shrink-0" title="Ambil/reservasi nomor surat resmi terlebih dahulu">🔖 Booking Nomor</button>' : '') +
+        '</div>' +
+        '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 ml-auto">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+        '</div>' +
+        '<form id="suratFormEl" class="space-y-4">' +
+        '<div><label class="lbl">Jenis Surat</label><select id="sfType" class="field">' + typeOpts + '</select></div>' +
+        '<div id="sfCustomBox" class="hidden p-3.5 bg-amber-50 rounded-xl border border-amber-200 space-y-2">' +
+        '<div class="text-xs font-bold text-amber-900">Jenis Surat Kustom Baru:</div>' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">' +
+        '<input id="sfCustomCode" type="text" placeholder="Kode (cth: NOTULEN_KHUSUS)" class="field text-xs font-mono uppercase" />' +
+        '<input id="sfCustomLabel" type="text" placeholder="Nama Jenis (cth: Notulen Rapat Khusus)" class="field text-xs" />' +
+        '</div>' +
+        '</div>' +
+        '<div><label class="lbl">Judul / Perihal Surat <span class="text-red-500">*</span></label>' +
+        '<input id="sfTitle" type="text" required class="field" placeholder="cth: Undangan Rapat Kerja DPW" value="' + Auth.esc(item ? item.title : '') + '" /></div>' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
+        '<div><label class="lbl">Tanggal Surat</label><input id="sfTanggal" type="date" class="field" value="' + (item ? item.tanggal_surat : new Date().toISOString().slice(0, 10)) + '" /></div>' +
+        '<div><label class="lbl">Nomor Surat</label><input id="sfNomor" type="text" class="field font-mono text-xs" placeholder="(otomatis bila kosong)" value="' + Auth.esc(item ? item.letter_number : '') + '" /></div>' +
+        '</div>' +
+        '<div><label class="lbl">Menimbang (Konsideran)</label><textarea id="sfMenimbang" rows="2" class="field" placeholder="Pertimbangan latar belakang diterbitkannya surat…"></textarea></div>' +
+        '<div><label class="lbl">Mengingat (Dasar Hukum / AD-ART)</label><textarea id="sfMengingat" rows="2" class="field" placeholder="Dasar hukum / ketentuan anggaran dasar APII…"></textarea></div>' +
+        '<div><label class="lbl">Memutuskan / Isi Pokok Surat</label><textarea id="sfMemutuskan" rows="3" class="field" placeholder="Ketetapan, agenda rapat, atau isi pokok instruksi…"></textarea></div>' +
+        '<div>' +
+        '<label class="lbl">Lampiran Naskah / Dokumen Resmi (PDF/Gambar/Dokumen)</label>' +
+        '<input id="sfAttachmentFile" type="file" accept="application/pdf,image/*,.doc,.docx" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
+        (item && item.attachment_url ? '<a href="' + Auth.esc(item.attachment_url) + '" target="_blank" rel="noopener" class="text-xs text-emerald-800 font-bold underline mt-1.5 inline-flex items-center gap-1"><span>📎 Buka Lampiran Naskah di Drive</span></a>' : '') +
+        '<p class="text-[11px] text-gray-400 mt-1">File akan diunggah otomatis ke Google Drive folder <code>/Surat_Lampiran/</code>.</p>' +
+        '</div>' +
+        '<p class="text-xs text-gray-400">' + (isEdit
+          ? 'Kosongkan ketiga kotak isi untuk mempertahankan isi lama. Hanya Draf yang dapat diubah.'
+          : 'Isi surat dapat dilengkapi nanti selama masih berstatus Draf.') + '</p>' +
+        '<div class="flex gap-3 pt-2">' +
+        '<button type="submit" id="btnSubmitSurat" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">' + (isEdit ? 'Simpan Perubahan' : 'Simpan Draf Surat') + '</button>' +
+        '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
+        '</div>' +
+        '</form>' +
         '</div>');
 
       // Tutup modal.
@@ -911,7 +2202,7 @@
                 self.toast('Nomor surat berhasil dipesan.', 'success');
               }
               self.refreshSurat();
-            }).catch(function () {});
+            }).catch(function () { });
           });
         });
       }
@@ -978,6 +2269,7 @@
 
     /** Modal detail surat dengan Pratinjau Kertas Virtual A4 (Paper Replica) & Metadata. */
     suratDetail: function (s) {
+      if (!s) return;
       var self = this;
       var canApprove = ['SUPERADMIN', 'KETUA'].indexOf(this.state.user.role) !== -1;
       var canWrite = ['SUPERADMIN', 'SEKRETARIS'].indexOf(this.state.user.role) !== -1;
@@ -1025,8 +2317,8 @@
         watermarkHtml = '<div class="paper-watermark paper-watermark-REJECTED">DITOLAK</div>';
       }
 
-      var ketuaName = s.approved_by || 'Dr. H. Ahmad Fauzi, M.Pd';
-      var sekretarisName = s.created_by_name || s.created_by || 'M. Rahmatullah, S.T';
+      var ketuaName = s.approved_by || s.signer_name || 'Ustadz Muhammad Hanafi';
+      var sekretarisName = s.created_by_name || s.created_by || 'Sigit Adi Irianto';
 
       // Rows metadata
       var metaRows = [
@@ -1045,159 +2337,159 @@
       var modalHtml = '<div class="p-4 sm:p-6">' +
         // Header Modal
         '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-100 no-print">' +
-          '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
-            '<div class="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl">' +
-              '<button type="button" id="tabPaperBtn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-emerald-dark shadow-sm transition">📄 Kertas A4</button>' +
-              '<button type="button" id="tabMetaBtn" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-900 transition">📋 Metadata</button>' +
-            '</div>' +
-            self.badge(s.status, s.status_label) +
-          '</div>' +
-          '<div class="flex items-center gap-1.5 self-start sm:self-center flex-wrap w-full sm:w-auto justify-start sm:justify-end">' +
-            '<button type="button" id="btnWaShareLetter" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-wa-ghost shadow-sm" title="Bagikan Ringkasan ke WhatsApp">' +
-              '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
-              '<span>Share WA</span>' +
-            '</button>' +
-            '<button type="button" id="btnPrintLetter" class="btn btn-ghost text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5">' +
-              '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
-              '<span>Cetak</span>' +
-            '</button>' +
-            (s.pdf_url ?
-              '<a href="' + Auth.esc(s.pdf_url) + '" target="_blank" rel="noopener" class="btn btn-primary text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5">' +
-                '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
-                '<span>Unduh PDF</span>' +
-              '</a>' : '') +
-            (s.qr_verify_url ?
-              '<button type="button" id="btnCopyVerify" class="btn btn-ghost text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5" title="Salin Link Publik">' +
-                '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>' +
-                '<span class="hidden sm:inline">Salin Link</span>' +
-              '</button>' : '') +
-            '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100 transition">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
-            '</button>' +
-          '</div>' +
+        '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
+        '<div class="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl">' +
+        '<button type="button" id="tabPaperBtn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-emerald-dark shadow-sm transition">📄 Kertas A4</button>' +
+        '<button type="button" id="tabMetaBtn" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-900 transition">📋 Metadata</button>' +
+        '</div>' +
+        self.badge(s.status, s.status_label) +
+        '</div>' +
+        '<div class="flex items-center gap-1.5 self-start sm:self-center flex-wrap w-full sm:w-auto justify-start sm:justify-end">' +
+        '<button type="button" id="btnWaShareLetter" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-wa-ghost shadow-sm" title="Bagikan Ringkasan ke WhatsApp">' +
+        '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
+        '<span>Share WA</span>' +
+        '</button>' +
+        '<button type="button" id="btnPrintLetter" class="btn btn-ghost text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5">' +
+        '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
+        '<span>Cetak</span>' +
+        '</button>' +
+        (s.pdf_url ?
+          '<a href="' + Auth.esc(s.pdf_url) + '" target="_blank" rel="noopener" class="btn btn-primary text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5">' +
+          '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
+          '<span>Unduh PDF</span>' +
+          '</a>' : '') +
+        (s.qr_verify_url ?
+          '<button type="button" id="btnCopyVerify" class="btn btn-ghost text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5" title="Salin Link Publik">' +
+          '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>' +
+          '<span class="hidden sm:inline">Salin Link</span>' +
+          '</button>' : '') +
+        '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100 transition">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
+        '</button>' +
+        '</div>' +
         '</div>' +
 
         // Tab A: Kertas Virtual A4
         '<div id="viewPaper" class="overflow-x-auto py-2 -mx-1 sm:mx-0">' +
-          '<div id="printPaperArea" class="paper-a4 p-3.5 sm:p-10 text-gray-900 shadow-xl border border-gray-200 rounded-xl relative overflow-hidden bg-white max-w-[760px] mx-auto select-text">' +
-            watermarkHtml +
+        '<div id="printPaperArea" class="paper-a4 p-3.5 sm:p-10 text-gray-900 shadow-xl border border-gray-200 rounded-xl relative overflow-hidden bg-white max-w-[760px] mx-auto select-text">' +
+        watermarkHtml +
 
-            // KOP SURAT (Dukungan Gambar KOP Resmi Uploaded vs Teks Standar)
-            (window._kopSettings && window._kopSettings.kop_mode === 'image' && window._kopSettings.kop_image_base64
-              ? '<div class="mb-2 text-center"><img src="' + window._kopSettings.kop_image_base64 + '" alt="KOP Surat Resmi" class="w-full max-h-36 object-contain mx-auto" /></div>'
-              : '<div class="flex items-center gap-2.5 sm:gap-6 mb-2">' +
-                  '<img src="logo.png" alt="Logo DPW APII" class="w-12 h-12 sm:w-20 sm:h-20 object-contain flex-shrink-0" />' +
-                  '<div class="flex-1 text-center font-serif leading-tight min-w-0">' +
-                    '<div class="text-[10px] sm:text-xs font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
-                    '<div class="text-xs sm:text-lg font-black text-gray-900 tracking-tight mt-0.5 break-words">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
-                    '<div class="text-[11px] sm:text-sm font-bold text-gray-800 tracking-normal">WILAYAH JABODETABEK</div>' +
-                    '<div class="text-[8.5px] sm:text-[10.5px] text-gray-600 font-sans mt-1 leading-snug">' +
-                      'Gedung Pusat Dakwah APII Wilayah Jabodetabek Lt. 3, Jl. Kramat Raya No. 45, Senen, Jakarta Pusat 10450<br class="hidden sm:inline"/>' +
-                      'Telp: (021) 390-8812 &bull; Email: sekretariat.dpw@apii-jabodetabek.or.id &bull; Website: siapii.sigitadi.id' +
-                    '</div>' +
-                  '</div>' +
-                '</div>'
-            ) +
-
-            // DOUBLE DIVIDER LINE
-            '<div class="hr-double-top"></div>' +
-            '<div class="hr-double-bottom"></div>' +
-
-            // JUDUL SURAT & NOMOR
-            '<div class="text-center my-6">' +
-              '<h2 class="text-sm sm:text-base font-bold uppercase tracking-widest underline decoration-2 underline-offset-4">' +
-                Auth.esc(s.letter_type_label || 'SURAT RESMI') +
-              '</h2>' +
-              '<div class="font-mono text-xs text-gray-700 mt-1.5 font-medium">' +
-                'Nomor : ' + Auth.esc(s.letter_number) +
-              '</div>' +
-              '<div class="text-xs font-bold uppercase text-gray-800 mt-3 tracking-wider">TENTANG</div>' +
-              '<div class="text-xs sm:text-sm font-black uppercase text-gray-900 max-w-lg mx-auto mt-1 leading-snug">' +
-                Auth.esc(s.title) +
-              '</div>' +
-            '</div>' +
-
-            // ISI DOKUMEN
-            '<div class="my-6 space-y-4 text-xs sm:text-[13px] leading-relaxed text-gray-800 text-justify">' +
-              bodyHtml +
-            '</div>' +
-
-            // PENETAPAN
-            '<div class="mt-8 text-right text-xs sm:text-[13px] text-gray-800 font-serif">' +
-              '<div>Ditetapkan di : <strong>Jakarta</strong></div>' +
-              '<div>Pada tanggal : <strong>' + Auth.esc(s.tanggal_label || s.tanggal_surat) + '</strong></div>' +
-            '</div>' +
-
-            // BLOK TANDA TANGAN & STEMPEL
-            '<div class="mt-8 grid grid-cols-2 gap-4 text-xs sm:text-[13px] font-serif">' +
-              // SEKRETARIS (Kiri)
-              '<div class="text-center">' +
-                '<div class="font-medium text-gray-700">Sekretaris DPW Jabodetabek,</div>' +
-                '<div class="h-20 sm:h-24 flex items-center justify-center">' +
-                  (s.status === 'PUBLISHED' ? '<span class="font-serif italic text-emerald-800 text-xs sm:text-sm opacity-60">Tertanda digital</span>' : '') +
-                '</div>' +
-                '<div class="font-bold underline text-gray-900">' + Auth.esc(sekretarisName) + '</div>' +
-                '<div class="text-[10px] text-gray-500 font-sans mt-0.5">Sekretaris Wilayah</div>' +
-              '</div>' +
-
-              // KETUA + STEMPEL BASAH (Kanan)
-              '<div class="text-center relative">' +
-                '<div class="font-medium text-gray-700">Ketua DPW Jabodetabek,</div>' +
-                '<div class="h-20 sm:h-24 relative flex items-center justify-center">' +
-                  (s.status === 'PUBLISHED' ?
-                    '<img src="stempel.png" alt="Stempel Basah Resmi APII" class="stempel-basah" />' +
-                    '<span class="font-serif italic text-emerald-900 text-xs sm:text-sm opacity-70 relative z-[2]">Tertanda & Disahkan</span>'
-                    : '') +
-                '</div>' +
-                '<div class="font-bold underline text-gray-900 relative z-[4]">' + Auth.esc(ketuaName) + '</div>' +
-                '<div class="text-[10px] text-gray-500 font-sans mt-0.5 relative z-[4]">Ketua Dewan Pimpinan Wilayah</div>' +
-              '</div>' +
-            '</div>' +
-
-            // FOOTER RESMI KERTAS
-            '<div class="mt-12 pt-3 border-t border-gray-300 flex flex-col sm:flex-row items-center justify-between text-[9px] sm:text-[10px] text-gray-500 font-sans gap-2">' +
-              '<div>Yayasan Aliansi Pendidikan dan Informatika Indonesia (APII) DPW Jabodetabek</div>' +
-              (s.status === 'PUBLISHED' ?
-                '<div class="text-emerald-700 font-medium flex items-center gap-1.5">' +
-                  '<span>🔒 Dokumen Sah Terverifikasi</span>' +
-                  (s.qr_verify_url ? '• <a href="' + Auth.esc(s.qr_verify_url) + '" target="_blank" rel="noopener" class="underline hover:text-emerald-900">Cek Keaslian Digital</a>' : '') +
-                '</div>' : '<div class="text-gray-400">Salinan Dokumen Internal</div>') +
-            '</div>' +
+        // KOP SURAT (Dukungan Gambar KOP Resmi Uploaded vs Teks Standar)
+        (window._kopSettings && window._kopSettings.kop_mode === 'image' && window._kopSettings.kop_image_base64
+          ? '<div class="mb-2 text-center"><img src="' + window._kopSettings.kop_image_base64 + '" alt="KOP Surat Resmi" class="w-full max-h-36 object-contain mx-auto" /></div>'
+          : '<div class="flex items-center gap-2.5 sm:gap-6 mb-2">' +
+          '<img src="logo.png" alt="Logo DPW APII" class="w-12 h-12 sm:w-20 sm:h-20 object-contain flex-shrink-0" />' +
+          '<div class="flex-1 text-center font-serif leading-tight min-w-0">' +
+          '<div class="text-[10px] sm:text-xs font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
+          '<div class="text-xs sm:text-lg font-black text-gray-900 tracking-tight mt-0.5 break-words">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
+          '<div class="text-[11px] sm:text-sm font-bold text-gray-800 tracking-normal">WILAYAH JABODETABEK</div>' +
+          '<div class="text-[8.5px] sm:text-[10.5px] text-gray-600 font-sans mt-1 leading-snug">' +
+          'Gedung Pusat Dakwah APII Wilayah Jabodetabek Lt. 3, Jl. Kramat Raya No. 45, Senen, Jakarta Pusat 10450<br class="hidden sm:inline"/>' +
+          'Telp: (021) 390-8812 &bull; Email: sekretariat.dpw@apii-jabodetabek.or.id &bull; Website: siapii.sigitadi.id' +
           '</div>' +
+          '</div>' +
+          '</div>'
+        ) +
+
+        // DOUBLE DIVIDER LINE
+        '<div class="hr-double-top"></div>' +
+        '<div class="hr-double-bottom"></div>' +
+
+        // JUDUL SURAT & NOMOR
+        '<div class="text-center my-6">' +
+        '<h2 class="text-sm sm:text-base font-bold uppercase tracking-widest underline decoration-2 underline-offset-4">' +
+        Auth.esc(s.letter_type_label || 'SURAT RESMI') +
+        '</h2>' +
+        '<div class="font-mono text-xs text-gray-700 mt-1.5 font-medium">' +
+        'Nomor : ' + Auth.esc(s.letter_number) +
+        '</div>' +
+        '<div class="text-xs font-bold uppercase text-gray-800 mt-3 tracking-wider">TENTANG</div>' +
+        '<div class="text-xs sm:text-sm font-black uppercase text-gray-900 max-w-lg mx-auto mt-1 leading-snug">' +
+        Auth.esc(s.title) +
+        '</div>' +
+        '</div>' +
+
+        // ISI DOKUMEN
+        '<div class="my-6 space-y-4 text-xs sm:text-[13px] leading-relaxed text-gray-800 text-justify">' +
+        bodyHtml +
+        '</div>' +
+
+        // PENETAPAN
+        '<div class="mt-8 text-right text-xs sm:text-[13px] text-gray-800 font-serif">' +
+        '<div>Ditetapkan di : <strong>Jakarta</strong></div>' +
+        '<div>Pada tanggal : <strong>' + Auth.esc(s.tanggal_label || s.tanggal_surat) + '</strong></div>' +
+        '</div>' +
+
+        // BLOK TANDA TANGAN & STEMPEL
+        '<div class="mt-8 grid grid-cols-2 gap-4 text-xs sm:text-[13px] font-serif">' +
+        // SEKRETARIS (Kiri)
+        '<div class="text-center">' +
+        '<div class="font-medium text-gray-700">Sekretaris DPW Jabodetabek,</div>' +
+        '<div class="h-20 sm:h-24 flex items-center justify-center">' +
+        (s.status === 'PUBLISHED' ? '<span class="font-serif italic text-emerald-800 text-xs sm:text-sm opacity-60">Tertanda digital</span>' : '') +
+        '</div>' +
+        '<div class="font-bold underline text-gray-900">' + Auth.esc(sekretarisName) + '</div>' +
+        '<div class="text-[10px] text-gray-500 font-sans mt-0.5">Sekretaris Wilayah</div>' +
+        '</div>' +
+
+        // KETUA + STEMPEL BASAH (Kanan)
+        '<div class="text-center relative">' +
+        '<div class="font-medium text-gray-700">Ketua DPW Jabodetabek,</div>' +
+        '<div class="h-20 sm:h-24 relative flex items-center justify-center">' +
+        (s.status === 'PUBLISHED' ?
+          '<img src="stempel.png" alt="Stempel Basah Resmi APII" class="stempel-basah" />' +
+          '<span class="font-serif italic text-emerald-900 text-xs sm:text-sm opacity-70 relative z-[2]">Tertanda & Disahkan</span>'
+          : '') +
+        '</div>' +
+        '<div class="font-bold underline text-gray-900 relative z-[4]">' + Auth.esc(ketuaName) + '</div>' +
+        '<div class="text-[10px] text-gray-500 font-sans mt-0.5 relative z-[4]">Ketua Dewan Pimpinan Wilayah</div>' +
+        '</div>' +
+        '</div>' +
+
+        // FOOTER RESMI KERTAS
+        '<div class="mt-12 pt-3 border-t border-gray-300 flex flex-col sm:flex-row items-center justify-between text-[9px] sm:text-[10px] text-gray-500 font-sans gap-2">' +
+        '<div>Yayasan Aliansi Pendidikan dan Informatika Indonesia (APII) DPW Jabodetabek</div>' +
+        (s.status === 'PUBLISHED' ?
+          '<div class="text-emerald-700 font-medium flex items-center gap-1.5">' +
+          '<span>🔒 Dokumen Sah Terverifikasi</span>' +
+          (s.qr_verify_url ? '• <a href="' + Auth.esc(s.qr_verify_url) + '" target="_blank" rel="noopener" class="underline hover:text-emerald-900">Cek Keaslian Digital</a>' : '') +
+          '</div>' : '<div class="text-gray-400">Salinan Dokumen Internal</div>') +
+        '</div>' +
+        '</div>' +
         '</div>' +
 
         // Tab B: Metadata
         '<div id="viewMeta" class="hidden py-2 space-y-1">' +
-          metaRows.map(function (r) {
-            var val = r[2] === 'badge' ? self.badge(s.status, s.status_label)
-              : r[2] === 'mono' ? '<span class="font-mono text-xs break-all">' + Auth.esc(r[1]) + '</span>'
+        metaRows.map(function (r) {
+          var val = r[2] === 'badge' ? self.badge(s.status, s.status_label)
+            : r[2] === 'mono' ? '<span class="font-mono text-xs break-all">' + Auth.esc(r[1]) + '</span>'
               : r[2] === 'warn' ? '<span class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl block border border-red-100">' + Auth.esc(r[1]) + '</span>'
-              : r[2] === 'link' ? '<a href="' + Auth.esc(r[1]) + '" target="_blank" rel="noopener" class="text-emerald text-xs font-semibold hover:underline break-all">' + Auth.esc(r[1]) + ' ↗</a>'
-              : '<span class="text-sm text-gray-800">' + Auth.esc(r[1]) + '</span>';
-            return '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-2.5 border-b border-gray-100">' +
-              '<div class="text-xs font-bold text-gray-400 uppercase tracking-wide sm:w-44 flex-shrink-0">' + r[0] + '</div>' +
-              '<div class="min-w-0 flex-1">' + val + '</div></div>';
-          }).join('') +
+                : r[2] === 'link' ? '<a href="' + Auth.esc(r[1]) + '" target="_blank" rel="noopener" class="text-emerald text-xs font-semibold hover:underline break-all">' + Auth.esc(r[1]) + ' ↗</a>'
+                  : '<span class="text-sm text-gray-800">' + Auth.esc(r[1]) + '</span>';
+          return '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-2.5 border-b border-gray-100">' +
+            '<div class="text-xs font-bold text-gray-400 uppercase tracking-wide sm:w-44 flex-shrink-0">' + r[0] + '</div>' +
+            '<div class="min-w-0 flex-1">' + val + '</div></div>';
+        }).join('') +
         '</div>' +
 
         // Approval Action Bar (Khusus Pimpinan saat status PENDING_APPROVAL)
         (canApprove && s.status === 'PENDING_APPROVAL' ?
           '<div class="mt-6 pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-amber-50/70 p-4 rounded-2xl border border-amber-200 no-print">' +
-            '<div class="text-xs text-amber-900 font-medium text-center sm:text-left">' +
-              '⚡ <strong>Persetujuan Pimpinan:</strong> Dokumen menunggu keputusan Anda untuk disahkan dan diterbitkan dengan PDF & stempel resmi.' +
-            '</div>' +
-            '<div class="flex gap-2 w-full sm:w-auto flex-shrink-0">' +
-              '<button type="button" id="modalApproveBtn" class="btn btn-primary text-xs px-4 py-2.5 rounded-xl font-bold flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-sm">' +
-                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
-                '<span>Setujui & Terbitkan</span>' +
-              '</button>' +
-              '<button type="button" id="modalRejectBtn" class="btn btn-danger text-xs px-4 py-2.5 rounded-xl font-bold flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-sm">' +
-                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
-                '<span>Tolak</span>' +
-              '</button>' +
-            '</div>' +
+          '<div class="text-xs text-amber-900 font-medium text-center sm:text-left">' +
+          '⚡ <strong>Persetujuan Pimpinan:</strong> Dokumen menunggu keputusan Anda untuk disahkan dan diterbitkan dengan PDF & stempel resmi.' +
+          '</div>' +
+          '<div class="flex gap-2 w-full sm:w-auto flex-shrink-0">' +
+          '<button type="button" id="modalApproveBtn" class="btn btn-primary text-xs px-4 py-2.5 rounded-xl font-bold flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-sm">' +
+          '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
+          '<span>Setujui & Terbitkan</span>' +
+          '</button>' +
+          '<button type="button" id="modalRejectBtn" class="btn btn-danger text-xs px-4 py-2.5 rounded-xl font-bold flex-1 sm:flex-initial flex items-center justify-center gap-1.5 shadow-sm">' +
+          '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
+          '<span>Tolak</span>' +
+          '</button>' +
+          '</div>' +
           '</div>' : '') +
-      '</div>';
+        '</div>';
 
       this.openModal(modalHtml, 'max-w-4xl');
 
@@ -1279,16 +2571,16 @@
       var self = this;
       this.openModal(
         '<div class="p-4 sm:p-6">' +
-          '<div class="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-5">' +
-            '<div class="h-10 w-10 sm:h-11 sm:w-11 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></div>' +
-            '<div class="min-w-0"><h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + title + '</h3>' +
-            '<p class="text-xs sm:text-sm text-gray-600 mt-1 break-words">' + html + '</p></div>' +
-          '</div>' +
-          '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3">' +
-            '<button id="confirmYes" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">Ya, Lanjutkan</button>' +
-            '<button data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
-          '</div>' +
+        '<div class="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-5">' +
+        '<div class="h-10 w-10 sm:h-11 sm:w-11 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></div>' +
+        '<div class="min-w-0"><h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + title + '</h3>' +
+        '<p class="text-xs sm:text-sm text-gray-600 mt-1 break-words">' + html + '</p></div>' +
+        '</div>' +
+        '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3">' +
+        '<button id="confirmYes" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">Ya, Lanjutkan</button>' +
+        '<button data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
+        '</div>' +
         '</div>');
       Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
         b.addEventListener('click', function () { self.closeModal(); });
@@ -1304,16 +2596,16 @@
       var self = this;
       this.openModal(
         '<div class="p-4 sm:p-6">' +
-          '<h3 class="text-base sm:text-lg font-extrabold text-red-600 mb-2 break-words">' + title + '</h3>' +
-          '<p class="text-xs sm:text-sm text-gray-600 mb-4 break-words">' + descHtml + '</p>' +
-          '<form id="rejectFormEl">' +
-            '<label class="lbl">Alasan Penolakan <span class="text-red-500">*</span></label>' +
-            '<textarea id="rejectNotes" required rows="3" class="field" placeholder="Tulis alasan penolakan…"></textarea>' +
-            '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-4">' +
-              '<button type="submit" class="btn btn-danger flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">Tolak</button>' +
-              '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
-            '</div>' +
-          '</form>' +
+        '<h3 class="text-base sm:text-lg font-extrabold text-red-600 mb-2 break-words">' + title + '</h3>' +
+        '<p class="text-xs sm:text-sm text-gray-600 mb-4 break-words">' + descHtml + '</p>' +
+        '<form id="rejectFormEl">' +
+        '<label class="lbl">Alasan Penolakan <span class="text-red-500">*</span></label>' +
+        '<textarea id="rejectNotes" required rows="3" class="field" placeholder="Tulis alasan penolakan…"></textarea>' +
+        '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-4">' +
+        '<button type="submit" class="btn btn-danger flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">Tolak</button>' +
+        '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
+        '</div>' +
+        '</form>' +
         '</div>');
       Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
         b.addEventListener('click', function () { self.closeModal(); });
@@ -1325,7 +2617,7 @@
             self.closeModal();
             self.toast('Dokumen telah ditolak.', 'success');
             if (onDone) onDone();
-          }).catch(function () {});
+          }).catch(function () { });
       });
     },
 
@@ -1338,7 +2630,7 @@
             self.openWhatsApp(self.buildSuratWaText(item));
           });
           self.refreshSurat();
-        }).catch(function () {});
+        }).catch(function () { });
       });
     },
 
@@ -1351,7 +2643,7 @@
             self.openWhatsApp(self.buildSuratWaText(item));
           });
           self.refreshSurat();
-        }).catch(function () {});
+        }).catch(function () { });
       });
     },
 
@@ -1378,27 +2670,46 @@
         '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>' +
         'Buat Voucher</button>' : '';
 
+      var bannerHtml = this.getDemoContextBanner('keuangan');
+
       main.innerHTML = this.pageHead('Buku Kas &amp; Voucher',
         'Verifikasi ganda: Bendahara → Ketua. Hanya voucher APPROVED yang masuk saldo.', newBtn) +
+        bannerHtml +
         '<div id="keuCards" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">' +
-          '<div class="card bg-white rounded-2xl p-6 animate-pulse h-28"></div>'.repeat(3) +
+        '<div class="card bg-white rounded-2xl p-6 animate-pulse h-28"></div>'.repeat(3) +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 mb-6 flex flex-col sm:flex-row gap-3">' +
-          '<input id="keuQ" type="text" placeholder="Cari nomor voucher / keterangan…" class="field flex-1" />' +
-          '<select id="keuStatus" class="field sm:w-48">' +
-            '<option value="">Semua Status</option><option value="PENDING">Menunggu Verifikasi</option>' +
-            '<option value="VERIFIED_BY_BENDAHARA">Diverifikasi Bendahara</option>' +
-            '<option value="APPROVED">Disetujui</option><option value="REJECTED">Ditolak</option>' +
-          '</select>' +
-          '<select id="keuType" class="field sm:w-40">' +
-            '<option value="">Semua Jenis</option><option value="MASUK">Kas Masuk</option><option value="KELUAR">Kas Keluar</option>' +
-          '</select>' +
+        '<input id="keuQ" type="text" placeholder="Cari nomor voucher / keterangan…" class="field flex-1" />' +
+        '<select id="keuStatus" class="field sm:w-48">' +
+        '<option value="">Semua Status</option><option value="PENDING">Menunggu Verifikasi</option>' +
+        '<option value="VERIFIED_BY_BENDAHARA">Diverifikasi Bendahara</option>' +
+        '<option value="APPROVED">Disetujui</option><option value="REJECTED">Ditolak</option>' +
+        '</select>' +
+        '<select id="keuType" class="field sm:w-40">' +
+        '<option value="">Semua Jenis</option><option value="MASUK">Kas Masuk</option><option value="KELUAR">Kas Keluar</option>' +
+        '</select>' +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
-          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
-          '<th>Nomor Voucher</th><th>Jenis</th><th>Jumlah</th><th>Akun</th><th>Status</th><th>Aksi</th>' +
-          '</tr></thead><tbody id="keuRows">' + this.loadingRow(6) + '</tbody></table></div>' +
+        '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+        '<th>Nomor Voucher</th><th>Jenis</th><th>Jumlah</th><th>Akun</th><th>Status</th><th>Aksi</th>' +
+        '</tr></thead><tbody id="keuRows">' + this.loadingRow(6) + '</tbody></table></div>' +
         '</div>';
+
+      var guideBtn = main.querySelector('[data-open-demo-guide]');
+      if (guideBtn) {
+        guideBtn.addEventListener('click', function () { self.openDemoGuideModal(); });
+      }
+
+      var resetBtn = main.querySelector('[data-reset-demo]');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function () {
+          self.confirm('Reset Data Simulasi', 'Apakah Anda ingin mengembalikan seluruh data surat, kas, usulan divisi, dan pendaftar simulasi ke kondisi awal?', function () {
+            if (window.DemoStore) window.DemoStore.reset();
+            self.toast('Data simulasi telah di-reset ke kondisi awal.', 'success');
+            self.router();
+          });
+        });
+      }
 
       if (canWrite) {
         document.getElementById('btnVoucherBaru').addEventListener('click', function () {
@@ -1457,7 +2768,7 @@
         tb.innerHTML = items.length ? items.map(function (k) {
           var acts = '';
           acts += self.aBtn('view', 'Detail', 'Lihat detail voucher');
-          acts += self.waBtn('Bagikan voucher ke WhatsApp');
+          acts += self.waBtn('Bagikan format voucher ke WhatsApp');
           if (canWrite && k.status === 'PENDING') {
             acts += self.aBtn('verify-bend', 'Verifikasi', 'Verifikasi sebagai Bendahara');
           }
@@ -1473,17 +2784,20 @@
             '<div class="mt-1"><a href="' + Auth.esc(k.receipt_url) + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200 transition" title="Buka Bukti Transaksi di Google Drive">' +
             '<svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg> Bukti Kas ↗</a></div>' : '';
 
+          var amtStr = k.amount_label || ('Rp ' + Number(k.amount || 0).toLocaleString('id-ID'));
+          var amtClean = amtStr.replace('Rp ', '');
+
           return '<tr data-id="' + k.id + '">' +
-            '<td><div class="font-mono text-xs text-gray-500">' + Auth.esc(k.voucher_number) + '</div>' +
-              '<div class="text-sm font-semibold text-gray-900 leading-snug">' + Auth.esc(k.description) + '</div>' + receiptLink + '</td>' +
+            '<td><div class="font-mono text-xs text-gray-500 font-bold">' + Auth.esc(k.voucher_number) + '</div>' +
+            '<div class="text-sm font-semibold text-gray-900 leading-snug">' + Auth.esc(k.description) + '</div>' + receiptLink + '</td>' +
             '<td><span class="badge ' + (k.type === 'MASUK' ? 'badge-PUBLISHED' : 'badge-DRAFT') + '">' +
-              (k.type === 'MASUK' ? 'Kas Masuk' : 'Kas Keluar') + '</span></td>' +
+            (k.type === 'MASUK' ? 'Kas Masuk' : 'Kas Keluar') + '</span></td>' +
             '<td class="font-bold whitespace-nowrap ' + (k.type === 'MASUK' ? 'text-emerald' : 'text-red-600') + '">' +
-              (k.type === 'MASUK' ? '+ ' : '− ') + Auth.esc(k.amount_label.replace('Rp ', '')) + '</td>' +
-            '<td class="whitespace-nowrap text-gray-600 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Akun: </span>' + Auth.esc(k.account_label) + '</td>' +
-            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(k.status, k.status_label) + '</td>' +
+            (k.type === 'MASUK' ? '+ ' : '− ') + Auth.esc(amtClean) + '</td>' +
+            '<td class="whitespace-nowrap text-gray-600 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Akun: </span>' + Auth.esc(k.account_label || k.account_code || 'Kas BSI') + '</td>' +
+            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(k.status, k.status_label || k.status) + '</td>' +
             '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap min-w-[120px]">' + acts + '</div></td>' +
-          '</tr>';
+            '</tr>';
         }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada voucher yang ditemukan.</td></tr>';
 
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
@@ -1491,9 +2805,10 @@
           Array.prototype.forEach.call(tr.querySelectorAll('[data-act]'), function (b) {
             b.addEventListener('click', function () {
               var act = b.getAttribute('data-act');
-              var item = items.filter(function (x) { return x.id === id; })[0];
+              var item = items.filter(function (x) { return String(x.id) === String(id); })[0];
+              if (!item) return;
               if (act === 'view') self.voucherDetail(item);
-              else if (act === 'wa') self.openWhatsApp(self.buildKeuanganWaText(item));
+              else if (act === 'wa') self.previewWhatsApp('Voucher: ' + (item.voucher_number || item.description), self.buildKeuanganWaText(item));
               else if (act === 'verify-bend') self.voucherVerify(item, 'verifyVoucherBendahara',
                 'Verifikasi Bendahara', 'diverifikasi Bendahara & menunggu verifikasi Ketua');
               else if (act === 'approve') self.voucherVerify(item, 'verifyVoucherKetum',
@@ -1516,13 +2831,13 @@
       var self = this;
       this.confirm(title, 'Voucher <b>' + Auth.esc(item.voucher_number) + '</b> sebesar <b>' +
         Auth.esc(item.amount_label) + '</b> akan ' + effect + '. Lanjutkan?', function () {
-        Auth.fetch(action, { id: item.id }).then(function () {
-          self.toast('Voucher berhasil diproses.', 'success', '📲 Kabari via WA', function () {
-            self.openWhatsApp(self.buildKeuanganWaText(item));
-          });
-          self.refreshKeuangan();
-        }).catch(function () {});
-      });
+          Auth.fetch(action, { id: item.id }).then(function () {
+            self.toast('Voucher berhasil diproses.', 'success', '📲 Kabari via WA', function () {
+              self.openWhatsApp(self.buildKeuanganWaText(item));
+            });
+            self.refreshKeuangan();
+          }).catch(function () { });
+        });
     },
 
     voucherReject: function (item) {
@@ -1534,6 +2849,7 @@
 
     /** Modal detail voucher keuangan dengan aksi WhatsApp, otorisasi & cetak kwitansi. */
     voucherDetail: function (k) {
+      if (!k) return;
       var self = this;
       var u = this.state.user;
       var canWrite = ['SUPERADMIN', 'BENDAHARA'].indexOf(u.role) !== -1;
@@ -1557,74 +2873,74 @@
 
       var modalHtml = '<div class="p-4 sm:p-6">' +
         '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-100">' +
-          '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
-            '<span class="font-mono text-xs font-bold text-gray-500 break-all">' + Auth.esc(k.voucher_number) + '</span>' +
-            self.badge(k.status, k.status_label) +
-          '</div>' +
-          '<div class="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end">' +
-            '<button type="button" id="btnPrintKwitansi" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-ghost shadow-sm" title="Cetak Kwitansi / Slip Pembayaran">' +
-              '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
-              '<span>Cetak Kwitansi</span>' +
-            '</button>' +
-            '<button type="button" id="btnWaShareVoucher" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-wa-ghost shadow-sm" title="Bagikan ke WhatsApp">' +
-              '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
-              '<span>Share WA</span>' +
-            '</button>' +
-            '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
-            '</button>' +
-          '</div>' +
+        '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
+        '<span class="font-mono text-xs font-bold text-gray-500 break-all">' + Auth.esc(k.voucher_number) + '</span>' +
+        self.badge(k.status, k.status_label) +
+        '</div>' +
+        '<div class="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end">' +
+        '<button type="button" id="btnPrintKwitansi" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-ghost shadow-sm" title="Cetak Kwitansi / Slip Pembayaran">' +
+        '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
+        '<span>Cetak Kwitansi</span>' +
+        '</button>' +
+        '<button type="button" id="btnWaShareVoucher" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-wa-ghost shadow-sm" title="Bagikan ke WhatsApp">' +
+        '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
+        '<span>Share WA</span>' +
+        '</button>' +
+        '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
+        '</button>' +
+        '</div>' +
         '</div>' +
         '<div class="bg-gradient-to-br ' + bgBanner + ' rounded-2xl p-4 sm:p-6 border border-gray-200/80 mb-5 text-center">' +
-          '<div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">' + (isMasuk ? 'Total Kas Masuk' : 'Total Pengeluaran Kas') + '</div>' +
-          '<div class="text-2xl sm:text-3xl font-black ' + amountColor + ' tracking-tight break-words">' + (isMasuk ? '+ ' : '− ') + Auth.esc(k.amount_label) + '</div>' +
-          '<div class="text-xs sm:text-sm font-semibold text-gray-800 mt-2 max-w-md mx-auto break-words">' + Auth.esc(k.description) + '</div>' +
+        '<div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">' + (isMasuk ? 'Total Kas Masuk' : 'Total Pengeluaran Kas') + '</div>' +
+        '<div class="text-2xl sm:text-3xl font-black ' + amountColor + ' tracking-tight break-words">' + (isMasuk ? '+ ' : '− ') + Auth.esc(k.amount_label) + '</div>' +
+        '<div class="text-xs sm:text-sm font-semibold text-gray-800 mt-2 max-w-md mx-auto break-words">' + Auth.esc(k.description) + '</div>' +
         '</div>' +
         (k.receipt_url ?
           '<div class="mb-5 p-3.5 sm:p-4 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">' +
-            '<div class="flex items-center gap-3">' +
-              '<div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">' +
-                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
-              '</div>' +
-              '<div><div class="text-xs font-bold text-emerald-950">Bukti Kas / Nota Transaksi</div>' +
-                '<div class="text-[11px] text-emerald-700">Tersimpan di Google Drive / Cloud</div></div>' +
-            '</div>' +
-            '<a href="' + Auth.esc(k.receipt_url) + '" target="_blank" rel="noopener noreferrer" class="btn text-xs bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm inline-flex items-center gap-1.5 transition self-start sm:self-center">Buka Bukti ↗</a>' +
+          '<div class="flex items-center gap-3">' +
+          '<div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">' +
+          '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
+          '</div>' +
+          '<div><div class="text-xs font-bold text-emerald-950">Bukti Kas / Nota Transaksi</div>' +
+          '<div class="text-[11px] text-emerald-700">Tersimpan di Google Drive / Cloud</div></div>' +
+          '</div>' +
+          '<a href="' + Auth.esc(k.receipt_url) + '" target="_blank" rel="noopener noreferrer" class="btn text-xs bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm inline-flex items-center gap-1.5 transition self-start sm:self-center">Buka Bukti ↗</a>' +
           '</div>' : '') +
         '<div class="space-y-1 divide-y divide-gray-100">' +
-          metaRows.map(function (r) {
-            var val = r[2] === 'mono' ? '<span class="font-mono text-xs text-gray-700 font-semibold">' + Auth.esc(r[1]) + '</span>'
-              : r[2] === 'warn' ? '<span class="text-sm text-red-600 bg-red-50 px-3 py-1.5 rounded-xl block border border-red-100 font-medium">' + Auth.esc(r[1]) + '</span>'
+        metaRows.map(function (r) {
+          var val = r[2] === 'mono' ? '<span class="font-mono text-xs text-gray-700 font-semibold">' + Auth.esc(r[1]) + '</span>'
+            : r[2] === 'warn' ? '<span class="text-sm text-red-600 bg-red-50 px-3 py-1.5 rounded-xl block border border-red-100 font-medium">' + Auth.esc(r[1]) + '</span>'
               : '<span class="text-sm text-gray-800 font-medium">' + Auth.esc(r[1]) + '</span>';
-            return '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-2.5">' +
-              '<span class="text-xs font-bold text-gray-400 uppercase tracking-wide">' + r[0] + '</span>' +
-              '<div>' + val + '</div>' +
+          return '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-2.5">' +
+            '<span class="text-xs font-bold text-gray-400 uppercase tracking-wide">' + r[0] + '</span>' +
+            '<div>' + val + '</div>' +
             '</div>';
-          }).join('') +
+        }).join('') +
         '</div>' +
         (canWrite ?
           '<div class="mt-4 pt-3 border-t border-gray-100">' +
-            '<details class="text-xs text-gray-600 group">' +
-              '<summary class="font-semibold cursor-pointer text-emerald-700 hover:text-emerald-800 select-none flex items-center gap-1 py-1">' +
-                '<span>' + (k.receipt_url ? '✏️ Ganti Tautan Bukti Kas' : '➕ Tambah Tautan Bukti Kas Google Drive') + '</span>' +
-              '</summary>' +
-              '<div class="mt-2.5 flex gap-2">' +
-                '<input id="vDetailReceiptInput" type="url" class="field text-xs flex-1" placeholder="https://drive.google.com/..." value="' + Auth.esc(k.receipt_url || '') + '" />' +
-                '<button type="button" id="btnSaveVoucherReceipt" class="btn btn-primary text-xs px-3.5 py-2 rounded-xl font-bold">Simpan</button>' +
-              '</div>' +
-            '</details>' +
+          '<details class="text-xs text-gray-600 group">' +
+          '<summary class="font-semibold cursor-pointer text-emerald-700 hover:text-emerald-800 select-none flex items-center gap-1 py-1">' +
+          '<span>' + (k.receipt_url ? '✏️ Ganti Tautan Bukti Kas' : '➕ Tambah Tautan Bukti Kas Google Drive') + '</span>' +
+          '</summary>' +
+          '<div class="mt-2.5 flex gap-2">' +
+          '<input id="vDetailReceiptInput" type="url" class="field text-xs flex-1" placeholder="https://drive.google.com/..." value="' + Auth.esc(k.receipt_url || '') + '" />' +
+          '<button type="button" id="btnSaveVoucherReceipt" class="btn btn-primary text-xs px-3.5 py-2 rounded-xl font-bold">Simpan</button>' +
+          '</div>' +
+          '</details>' +
           '</div>' : '') +
         (canWrite && k.status === 'PENDING' ?
           '<div class="mt-6 pt-4 border-t border-gray-100 flex gap-2">' +
-            '<button type="button" id="vDetailVerifyBend" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Verifikasi Bendahara</button>' +
-            '<button type="button" id="vDetailReject" class="btn btn-danger px-4 py-2.5 rounded-xl font-bold text-xs">Tolak</button>' +
+          '<button type="button" id="vDetailVerifyBend" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Verifikasi Bendahara</button>' +
+          '<button type="button" id="vDetailReject" class="btn btn-danger px-4 py-2.5 rounded-xl font-bold text-xs">Tolak</button>' +
           '</div>' :
           canApprove && k.status === 'VERIFIED_BY_BENDAHARA' ?
-          '<div class="mt-6 pt-4 border-t border-gray-100 flex gap-2">' +
+            '<div class="mt-6 pt-4 border-t border-gray-100 flex gap-2">' +
             '<button type="button" id="vDetailApproveKetum" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Setujui Pengeluaran (Ketua)</button>' +
             '<button type="button" id="vDetailReject" class="btn btn-danger px-4 py-2.5 rounded-xl font-bold text-xs">Tolak</button>' +
-          '</div>' : '') +
-      '</div>';
+            '</div>' : '') +
+        '</div>';
 
       this.openModal(modalHtml, 'max-w-xl');
 
@@ -1696,82 +3012,82 @@
       var kopHtml = (window._kopSettings && window._kopSettings.kop_mode === 'image' && window._kopSettings.kop_image_base64)
         ? '<div class="mb-3 text-center"><img src="' + window._kopSettings.kop_image_base64 + '" alt="KOP APII" class="w-full max-h-28 object-contain mx-auto" /></div>'
         : '<div class="flex items-center gap-3 sm:gap-4 mb-2 pb-2 border-b-2 border-emerald-900">' +
-            '<img src="logo.png" alt="Logo DPW APII" class="w-10 h-10 sm:w-14 sm:h-14 object-contain flex-shrink-0" />' +
-            '<div class="flex-1 text-center font-serif leading-tight min-w-0">' +
-              '<div class="text-[9px] sm:text-[11px] font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
-              '<div class="text-xs sm:text-base font-black text-gray-900 tracking-tight break-words">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
-              '<div class="text-[10px] sm:text-xs font-bold text-gray-800">WILAYAH JABODETABEK</div>' +
-              '<div class="text-[8px] sm:text-[9px] text-gray-600 font-sans mt-0.5 break-words">' +
-                'Gedung Pusat Dakwah APII Wilayah Jabodetabek &bull; Telp: (021) 390-8812 &bull; Website: siapii.sigitadi.id' +
-              '</div>' +
-            '</div>' +
-          '</div>';
+        '<img src="logo.png" alt="Logo DPW APII" class="w-10 h-10 sm:w-14 sm:h-14 object-contain flex-shrink-0" />' +
+        '<div class="flex-1 text-center font-serif leading-tight min-w-0">' +
+        '<div class="text-[9px] sm:text-[11px] font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
+        '<div class="text-xs sm:text-base font-black text-gray-900 tracking-tight break-words">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
+        '<div class="text-[10px] sm:text-xs font-bold text-gray-800">WILAYAH JABODETABEK</div>' +
+        '<div class="text-[8px] sm:text-[9px] text-gray-600 font-sans mt-0.5 break-words">' +
+        'Gedung Pusat Dakwah APII Wilayah Jabodetabek &bull; Telp: (021) 390-8812 &bull; Website: siapii.sigitadi.id' +
+        '</div>' +
+        '</div>' +
+        '</div>';
 
       var modalHtml = '<div class="p-3.5 sm:p-6">' +
         '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-gray-100 no-print">' +
-          '<h3 class="text-xs sm:text-sm font-bold text-gray-700">Pratinjau Cetak Kwitansi Resmi</h3>' +
-          '<div class="flex items-center gap-2 justify-end">' +
-            '<button type="button" id="btnDoPrintKwitansi" class="btn btn-primary text-xs px-3 sm:px-4 py-2 rounded-xl font-bold inline-flex items-center gap-1.5 shadow-sm">' +
-              '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
-              '<span>Cetak / PDF</span>' +
-            '</button>' +
-            '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
-            '</button>' +
-          '</div>' +
+        '<h3 class="text-xs sm:text-sm font-bold text-gray-700">Pratinjau Cetak Kwitansi Resmi</h3>' +
+        '<div class="flex items-center gap-2 justify-end">' +
+        '<button type="button" id="btnDoPrintKwitansi" class="btn btn-primary text-xs px-3 sm:px-4 py-2 rounded-xl font-bold inline-flex items-center gap-1.5 shadow-sm">' +
+        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
+        '<span>Cetak / PDF</span>' +
+        '</button>' +
+        '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
+        '</button>' +
+        '</div>' +
         '</div>' +
 
         // Kertas Kwitansi Area
         '<div id="printKwitansiArea" class="p-4 sm:p-8 bg-white border border-gray-300 rounded-2xl shadow-lg max-w-[700px] w-full mx-auto text-gray-900 select-text text-xs sm:text-sm font-sans overflow-x-hidden">' +
-          kopHtml +
-          '<div class="text-center my-3">' +
-            '<h2 class="text-xs sm:text-base font-extrabold uppercase tracking-wider underline decoration-2 underline-offset-4 break-words">' +
-              (isMasuk ? 'BUKTI PENERIMAAN KAS / KWITANSI' : 'BUKTI PENGELUARAN KAS / KWITANSI') +
-            '</h2>' +
-            '<div class="font-mono text-xs text-gray-600 mt-1 break-all">Nomor: ' + Auth.esc(k.voucher_number) + '</div>' +
-          '</div>' +
-          '<div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2 text-xs text-gray-600 mb-4 pb-2 border-b border-gray-200">' +
-            '<div>Tanggal Transaksi: <strong class="text-gray-900">' + Auth.esc(k.transaction_date) + '</strong></div>' +
-            '<div class="text-left sm:text-right">Akun Kas: <strong class="text-gray-900 break-words">' + Auth.esc(k.account_label || k.account) + '</strong></div>' +
-          '</div>' +
-          '<div class="space-y-3 leading-relaxed">' +
-            '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">' + (isMasuk ? 'Telah Diterima Dari' : 'Diserahkan Kepada') + ' :</span>' +
-              '<span class="font-bold text-gray-900 break-words">' + Auth.esc(k.created_by || 'Bendahara DPW APII') + '</span></div>' +
-            '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">Jumlah Uang :</span>' +
-              '<span class="font-black text-emerald-800 text-base sm:text-lg break-words">' + Auth.esc(k.amount_label) + '</span></div>' +
-            '<div class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs sm:text-sm font-serif italic text-gray-800 break-words">' +
-              'Terbilang: &ldquo;<strong>' + Auth.esc(terbilangText) + '</strong>&rdquo;' +
-            '</div>' +
-            '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3 pt-1"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">Kategori :</span>' +
-              '<span class="text-gray-800 break-words">' + Auth.esc(k.category || 'Operasional') + '</span></div>' +
-            '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">Untuk Keperluan :</span>' +
-              '<span class="font-medium text-gray-900 flex-1 break-words">' + Auth.esc(k.description) + '</span></div>' +
-          '</div>' +
-
-          // 3 Kolom Tanda Tangan: responsif mobile
-          '<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-2 mt-8 pt-4 border-t border-gray-200 text-center text-xs">' +
-            '<div>' +
-              '<div class="text-gray-500 mb-1">' + (isMasuk ? 'Penyetor / Penerima' : 'Penerima Dana') + '</div>' +
-              '<div class="h-10 sm:h-16 flex items-center justify-center text-[10px] text-gray-300 italic">(Tanda Tangan)</div>' +
-              '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1 break-words">( ..................................... )</div>' +
-            '</div>' +
-            '<div>' +
-              '<div class="text-gray-500 mb-1">Bendahara DPW</div>' +
-              '<div class="h-10 sm:h-16 flex items-center justify-center font-serif text-emerald-900 font-semibold text-xs break-words">' + Auth.esc(k.verified_by_bendahara || 'M. Yusuf Ramadhan, S.E') + '</div>' +
-              '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1 break-words">M. Yusuf Ramadhan, S.E</div>' +
-            '</div>' +
-            '<div>' +
-              '<div class="text-gray-500 mb-1">Mengetahui, Ketua DPW</div>' +
-              '<div class="h-10 sm:h-16 flex items-center justify-center font-serif text-emerald-900 font-semibold text-xs break-words">' + Auth.esc(k.approved_by_ketum || 'Dr. H. Ahmad Fauzi, M.Pd') + '</div>' +
-              '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1 break-words">Dr. H. Ahmad Fauzi, M.Pd</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="mt-6 pt-2 border-t border-gray-100 flex flex-col sm:flex-row justify-between gap-1 text-[10px] text-gray-400 font-mono">' +
-            '<span>SIAP APII DPW Jabodetabek</span>' +
-            '<span>Status: ' + Auth.esc(k.status) + '</span>' +
-          '</div>' +
+        kopHtml +
+        '<div class="text-center my-3">' +
+        '<h2 class="text-xs sm:text-base font-extrabold uppercase tracking-wider underline decoration-2 underline-offset-4 break-words">' +
+        (isMasuk ? 'BUKTI PENERIMAAN KAS / KWITANSI' : 'BUKTI PENGELUARAN KAS / KWITANSI') +
+        '</h2>' +
+        '<div class="font-mono text-xs text-gray-600 mt-1 break-all">Nomor: ' + Auth.esc(k.voucher_number) + '</div>' +
         '</div>' +
-      '</div>';
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2 text-xs text-gray-600 mb-4 pb-2 border-b border-gray-200">' +
+        '<div>Tanggal Transaksi: <strong class="text-gray-900">' + Auth.esc(k.transaction_date) + '</strong></div>' +
+        '<div class="text-left sm:text-right">Akun Kas: <strong class="text-gray-900 break-words">' + Auth.esc(k.account_label || k.account) + '</strong></div>' +
+        '</div>' +
+        '<div class="space-y-3 leading-relaxed">' +
+        '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">' + (isMasuk ? 'Telah Diterima Dari' : 'Diserahkan Kepada') + ' :</span>' +
+        '<span class="font-bold text-gray-900 break-words">' + Auth.esc(k.created_by || 'Bendahara DPW APII') + '</span></div>' +
+        '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">Jumlah Uang :</span>' +
+        '<span class="font-black text-emerald-800 text-base sm:text-lg break-words">' + Auth.esc(k.amount_label) + '</span></div>' +
+        '<div class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs sm:text-sm font-serif italic text-gray-800 break-words">' +
+        'Terbilang: &ldquo;<strong>' + Auth.esc(terbilangText) + '</strong>&rdquo;' +
+        '</div>' +
+        '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3 pt-1"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">Kategori :</span>' +
+        '<span class="text-gray-800 break-words">' + Auth.esc(k.category || 'Operasional') + '</span></div>' +
+        '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">Untuk Keperluan :</span>' +
+        '<span class="font-medium text-gray-900 flex-1 break-words">' + Auth.esc(k.description) + '</span></div>' +
+        '</div>' +
+
+        // 3 Kolom Tanda Tangan: responsif mobile
+        '<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-2 mt-8 pt-4 border-t border-gray-200 text-center text-xs">' +
+        '<div>' +
+        '<div class="text-gray-500 mb-1">' + (isMasuk ? 'Penyetor / Penerima' : 'Penerima Dana') + '</div>' +
+        '<div class="h-10 sm:h-16 flex items-center justify-center text-[10px] text-gray-300 italic">(Tanda Tangan)</div>' +
+        '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1 break-words">( ..................................... )</div>' +
+        '</div>' +
+        '<div>' +
+        '<div class="text-gray-500 mb-1">Bendahara Umum DPW</div>' +
+        '<div class="h-10 sm:h-16 flex items-center justify-center font-serif text-emerald-900 font-semibold text-xs break-words">' + Auth.esc(k.verified_by_bendahara || 'Sri Wati') + '</div>' +
+        '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1 break-words">Sri Wati</div>' +
+        '</div>' +
+        '<div>' +
+        '<div class="text-gray-500 mb-1">Mengetahui, Ketua Umum DPW</div>' +
+        '<div class="h-10 sm:h-16 flex items-center justify-center font-serif text-emerald-900 font-semibold text-xs break-words">' + Auth.esc(k.approved_by_ketum || 'Ustadz Muhammad Hanafi') + '</div>' +
+        '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1 break-words">Ustadz Muhammad Hanafi</div>' +
+        '</div>' +
+        '</div>' +
+        '<div class="mt-6 pt-2 border-t border-gray-100 flex flex-col sm:flex-row justify-between gap-1 text-[10px] text-gray-400 font-mono">' +
+        '<span>SIAP APII DPW Jabodetabek</span>' +
+        '<span>Status: ' + Auth.esc(k.status) + '</span>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
 
       this.openModal(modalHtml, 'max-w-2xl');
 
@@ -1826,42 +3142,42 @@
 
         self.openModal(
           '<div class="p-4 sm:p-6">' +
-            '<div class="flex items-center justify-between gap-2 mb-5">' +
-              '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark">Buat Voucher Kas Baru</h3>' +
-              '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
-                '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
-            '</div>' +
-            '<form id="voucherFormEl" class="space-y-4">' +
-              '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
-                '<div><label class="lbl">Jenis Transaksi</label><select id="vfType" class="field">' +
-                  '<option value="MASUK">Kas Masuk (Penerimaan)</option><option value="KELUAR">Kas Keluar (Pengeluaran)</option></select></div>' +
-                '<div><label class="lbl">Akun Kas</label><select id="vfAccount" class="field">' + accOpts + '</select></div>' +
-              '</div>' +
-              '<div><label class="lbl">Jumlah (Rp) <span class="text-red-500">*</span></label>' +
-                '<input id="vfAmount" type="number" min="1" step="1" required class="field" placeholder="cth: 1500000" /></div>' +
-              '<div>' +
-                '<label class="lbl">Kategori Transaksi</label>' +
-                '<select id="vfCategorySelect" class="field">' + buildCatOptions('MASUK') + '</select>' +
-                '<input id="vfCategoryCustom" type="text" class="field mt-2 hidden" placeholder="Ketik nama kategori transaksi baru…" />' +
-              '</div>' +
-              '<div><label class="lbl">Keterangan Transaksi <span class="text-red-500">*</span></label>' +
-                '<textarea id="vfDesc" required rows="3" class="field" placeholder="Uraian peruntukan atau sumber dana…"></textarea></div>' +
-              '<div><label class="lbl">Tanggal Transaksi</label>' +
-                '<input id="vfTanggal" type="date" class="field" value="' + new Date().toISOString().slice(0, 10) + '" /></div>' +
-              '<div>' +
-                '<label class="lbl">Unggah Bukti Nota / Kuitansi / Struk (Gambar/PDF)</label>' +
-                '<input id="vfReceiptFile" type="file" accept="image/*,application/pdf" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
-                '<p class="text-[11px] text-gray-400 mt-1">File akan diunggah otomatis ke Google Drive folder <code>/Keuangan_Bukti_Nota/</code>.</p>' +
-              '</div>' +
-              '<div><label class="lbl">Atau Tautan Google Drive / Cloud Eksternal (Opsional)</label>' +
-                '<input id="vfReceipt" type="url" class="field text-xs" placeholder="https://drive.google.com/file/d/.../view" />' +
-              '</div>' +
-              '<p class="text-xs text-gray-400">Kas Masuk langsung disahkan Bendahara. Kas Keluar diverifikasi bertingkat oleh Bendahara &amp; disetujui Ketua DPW.</p>' +
-              '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
-                '<button type="submit" id="btnSubmitVoucher" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">Simpan Voucher</button>' +
-                '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
-              '</div>' +
-            '</form>' +
+          '<div class="flex items-center justify-between gap-2 mb-5">' +
+          '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark">Buat Voucher Kas Baru</h3>' +
+          '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+          '</div>' +
+          '<form id="voucherFormEl" class="space-y-4">' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
+          '<div><label class="lbl">Jenis Transaksi</label><select id="vfType" class="field">' +
+          '<option value="MASUK">Kas Masuk (Penerimaan)</option><option value="KELUAR">Kas Keluar (Pengeluaran)</option></select></div>' +
+          '<div><label class="lbl">Akun Kas</label><select id="vfAccount" class="field">' + accOpts + '</select></div>' +
+          '</div>' +
+          '<div><label class="lbl">Jumlah (Rp) <span class="text-red-500">*</span></label>' +
+          '<input id="vfAmount" type="number" min="1" step="1" required class="field" placeholder="cth: 1500000" /></div>' +
+          '<div>' +
+          '<label class="lbl">Kategori Transaksi</label>' +
+          '<select id="vfCategorySelect" class="field">' + buildCatOptions('MASUK') + '</select>' +
+          '<input id="vfCategoryCustom" type="text" class="field mt-2 hidden" placeholder="Ketik nama kategori transaksi baru…" />' +
+          '</div>' +
+          '<div><label class="lbl">Keterangan Transaksi <span class="text-red-500">*</span></label>' +
+          '<textarea id="vfDesc" required rows="3" class="field" placeholder="Uraian peruntukan atau sumber dana…"></textarea></div>' +
+          '<div><label class="lbl">Tanggal Transaksi</label>' +
+          '<input id="vfTanggal" type="date" class="field" value="' + new Date().toISOString().slice(0, 10) + '" /></div>' +
+          '<div>' +
+          '<label class="lbl">Unggah Bukti Nota / Kuitansi / Struk (Gambar/PDF)</label>' +
+          '<input id="vfReceiptFile" type="file" accept="image/*,application/pdf" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
+          '<p class="text-[11px] text-gray-400 mt-1">File akan diunggah otomatis ke Google Drive folder <code>/Keuangan_Bukti_Nota/</code>.</p>' +
+          '</div>' +
+          '<div><label class="lbl">Atau Tautan Google Drive / Cloud Eksternal (Opsional)</label>' +
+          '<input id="vfReceipt" type="url" class="field text-xs" placeholder="https://drive.google.com/file/d/.../view" />' +
+          '</div>' +
+          '<p class="text-xs text-gray-400">Kas Masuk langsung disahkan Bendahara. Kas Keluar diverifikasi bertingkat oleh Bendahara &amp; disetujui Ketua DPW.</p>' +
+          '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
+          '<button type="submit" id="btnSubmitVoucher" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">Simpan Voucher</button>' +
+          '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
+          '</div>' +
+          '</form>' +
           '</div>');
 
         var typeSel = document.getElementById('vfType');
@@ -1964,24 +3280,81 @@
         '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>' +
         'Usulkan Program</button>' : '';
 
+      var bannerHtml = this.getDemoContextBanner('divisi');
+
       main.innerHTML = this.pageHead('Divisi Kerja',
         canSubmit
           ? 'Usulkan program divisi Anda. Persetujuan hanya melalui Approval Board Ketua.'
           : 'Usulan program dari seluruh divisi kerja. Persetujuan melalui Approval Board Ketua.', newBtn) +
+        bannerHtml +
+        '<!-- Panel Panduan Siklus 5-Tahap Program Divisi & Arti Pagu Anggaran -->' +
+        '<div class="card bg-white rounded-2xl shadow-xs border border-emerald-100 p-4 mb-5 space-y-3.5">' +
+        '<div class="flex items-center justify-between pb-2 border-b border-gray-100">' +
+        '<span class="text-xs font-black text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">' +
+        '<span>📖 Panduan Siklus 5-Tahap Program Divisi &amp; Arti Pagu Anggaran:</span>' +
+        '</span>' +
+        '</div>' +
+        '<div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">' +
+        '<div class="p-2.5 rounded-xl bg-gray-50 border border-gray-200 flex flex-col gap-1">' +
+        '<div class="flex items-center gap-1.5"><span class="badge badge-DRAFT">Draf</span></div>' +
+        '<p class="text-[11px] text-gray-800 leading-snug"><strong class="text-gray-900 block font-bold">1. Konsep Internal</strong>Usulan masih dirancang divisi, belum diajukan.</p>' +
+        '</div>' +
+        '<div class="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 flex flex-col gap-1">' +
+        '<div class="flex items-center gap-1.5"><span class="badge badge-PENDING">Diajukan</span></div>' +
+        '<p class="text-[11px] text-amber-950 leading-snug"><strong class="text-amber-950 block font-bold">2. Approval Board</strong>Menunggu persetujuan pimpinan &amp; alokasi pagu.</p>' +
+        '</div>' +
+        '<div class="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 flex flex-col gap-1">' +
+        '<div class="flex items-center gap-1.5"><span class="badge badge-APPROVED">Disetujui</span></div>' +
+        '<p class="text-[11px] text-emerald-950 leading-snug"><strong class="text-emerald-950 block font-bold">3. Siap Jalan</strong>Disahkan Ketua, dana siap diajukan ke Bendahara.</p>' +
+        '</div>' +
+        '<div class="p-2.5 rounded-xl bg-purple-50/70 border border-purple-200 flex flex-col gap-1">' +
+        '<div class="flex items-center gap-1.5"><span class="badge badge-PELAKSANAAN">Pelaksanaan</span></div>' +
+        '<p class="text-[11px] text-purple-950 leading-snug"><strong class="text-purple-950 block font-bold">4. Di Lapangan</strong>Divisi mengeksekusi kegiatan sesuai sasaran &amp; jadwal.</p>' +
+        '</div>' +
+        '<div class="p-2.5 rounded-xl bg-teal-50/70 border border-teal-200 flex flex-col gap-1 col-span-2 sm:col-span-1">' +
+        '<div class="flex items-center gap-1.5"><span class="badge badge-LPJ_SELESAI">LPJ Selesai</span></div>' +
+        '<p class="text-[11px] text-teal-950 leading-snug"><strong class="text-teal-950 block font-bold">5. Akuntabel</strong>Kegiatan tuntas, berkas kwitansi &amp; LPJ diterima sah.</p>' +
+        '</div>' +
+        '</div>' +
+        '<div class="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">' +
+        '<div class="flex items-center gap-2">' +
+        '<span class="text-base">💰</span>' +
+        '<span class="text-[11px] text-emerald-950 leading-tight">' +
+        '<strong class="font-bold">Arti Anggaran di Tabel:</strong> Nominal adalah <span class="font-bold text-gray-900">Estimasi Pagu Plafon</span> yang diajukan/disetujui. Setelah kegiatan tuntas, realisasi dipertanggungjawabkan melalui Laporan Pertanggungjawaban (LPJ).' +
+        '</span>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 mb-6 flex flex-col sm:flex-row gap-3">' +
-          '<input id="divQ" type="text" placeholder="Cari judul / tracking ID…" class="field flex-1" />' +
-          '<select id="divStatus" class="field sm:w-48">' +
-            '<option value="">Semua Status</option><option value="DRAFT">Draf</option>' +
-            '<option value="AJUKAN">Diajukan</option><option value="DISETUJUI">Disetujui</option>' +
-            '<option value="PELAKSANAAN">Pelaksanaan</option><option value="LPJ_SELESAI">LPJ Selesai</option>' +
-            '<option value="DITOLAK">Ditolak</option>' +
-          '</select>' +
+        '<input id="divQ" type="text" placeholder="Cari judul / tracking ID…" class="field flex-1" />' +
+        '<select id="divStatus" class="field sm:w-48">' +
+        '<option value="">Semua Status</option><option value="DRAFT">Draf</option>' +
+        '<option value="AJUKAN">Diajukan</option><option value="DISETUJUI">Disetujui</option>' +
+        '<option value="PELAKSANAAN">Pelaksanaan</option><option value="LPJ_SELESAI">LPJ Selesai</option>' +
+        '<option value="DITOLAK">Ditolak</option>' +
+        '</select>' +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
-          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
-          '<th>Tracking</th><th>Program</th><th>Divisi</th><th>Anggaran</th><th>Status</th><th>Aksi</th>' +
-          '</tr></thead><tbody id="divRows">' + this.loadingRow(6) + '</tbody></table></div>' +
+        '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+        '<th>Tracking</th><th>Program</th><th>Divisi</th><th>Anggaran</th><th>Status</th><th>Aksi</th>' +
+        '</tr></thead><tbody id="divRows">' + this.loadingRow(6) + '</tbody></table></div>' +
         '</div>';
+
+      var guideBtn = main.querySelector('[data-open-demo-guide]');
+      if (guideBtn) {
+        guideBtn.addEventListener('click', function () { self.openDemoGuideModal(); });
+      }
+
+      var resetBtn = main.querySelector('[data-reset-demo]');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function () {
+          self.confirm('Reset Data Simulasi', 'Apakah Anda ingin mengembalikan seluruh data surat, kas, usulan divisi, dan pendaftar simulasi ke kondisi awal?', function () {
+            if (window.DemoStore) window.DemoStore.reset();
+            self.toast('Data simulasi telah di-reset ke kondisi awal.', 'success');
+            self.router();
+          });
+        });
+      }
 
       if (canSubmit) {
         document.getElementById('btnUsulanBaru').addEventListener('click', function () {
@@ -2016,7 +3389,7 @@
         tb.innerHTML = items.length ? items.map(function (d) {
           var acts = '';
           acts += self.aBtn('view', 'Detail', 'Lihat detail usulan');
-          acts += self.waBtn('Bagikan usulan ke WhatsApp');
+          acts += self.waBtn('Bagikan format usulan ke WhatsApp');
           if (d.can_edit) acts += self.aBtn('edit', 'Ubah', 'Ubah draf usulan');
           if (d.can_submit) acts += self.aBtn('submit', 'Ajukan', 'Kirim ke Approval Board Ketua');
           if (canApprove && d.status === 'AJUKAN') {
@@ -2032,14 +3405,14 @@
           if (!acts) acts = '<span class="text-xs text-gray-300">—</span>';
 
           return '<tr data-id="' + d.id + '">' +
-            '<td><div class="font-mono text-xs text-gray-500">' + Auth.esc(d.tracking_id) + '</div>' +
-              '<div class="font-semibold text-gray-900 leading-snug">' + Auth.esc(d.program_title) + '</div>' +
-              '<div class="text-xs text-gray-500 line-clamp-1 mt-0.5">' + Auth.esc(d.description) + '</div></td>' +
-            '<td class="whitespace-nowrap text-gray-600 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Divisi: </span>' + Auth.esc(d.division_label) + '</td>' +
-            '<td class="whitespace-nowrap font-bold text-gray-800 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Anggaran: </span>' + Auth.esc(d.budget_label) + '</td>' +
-            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(d.status, d.status_label) + '</td>' +
+            '<td><div class="font-mono text-xs text-gray-500 font-bold">' + Auth.esc(d.tracking_id || ('#REQ-' + d.id)) + '</div>' +
+            '<div class="font-semibold text-gray-900 leading-snug">' + Auth.esc(d.program_title || d.title || 'Usulan Program') + '</div>' +
+            '<div class="text-xs text-gray-500 line-clamp-1 mt-0.5">' + Auth.esc(d.description || '') + '</div></td>' +
+            '<td class="whitespace-nowrap text-gray-700 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Divisi: </span>' + Auth.esc(d.division_label || d.division_name || d.division || 'Divisi Kerja') + '</td>' +
+            '<td class="whitespace-nowrap font-bold text-gray-900 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Anggaran: </span>' + Auth.esc(d.budget_label || ('Rp ' + Number(d.budget_estimate || d.anggaran || 0).toLocaleString('id-ID'))) + '</td>' +
+            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(d.status, d.status_label || d.status) + '</td>' +
             '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap min-w-[120px]">' + acts + '</div></td>' +
-          '</tr>';
+            '</tr>';
         }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada usulan yang ditemukan.</td></tr>';
 
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
@@ -2047,9 +3420,10 @@
           Array.prototype.forEach.call(tr.querySelectorAll('[data-act]'), function (b) {
             b.addEventListener('click', function () {
               var act = b.getAttribute('data-act');
-              var item = items.filter(function (x) { return x.id === id; })[0];
+              var item = items.filter(function (x) { return String(x.id) === String(id); })[0];
+              if (!item) return;
               if (act === 'view') self.submissionDetail(item);
-              else if (act === 'wa') self.openWhatsApp(self.buildDivisiWaText(item));
+              else if (act === 'wa') self.previewWhatsApp('Usulan: ' + (item.program_title || item.title || item.tracking_id), self.buildDivisiWaText(item));
               else if (act === 'edit') self.submissionForm(item);
               else if (act === 'submit') self.submissionAjukan(item);
               else if (act === 'approve') self.submissionApprove(item);
@@ -2072,6 +3446,7 @@
 
     /** Modal detail usulan program divisi dengan aksi WhatsApp & otorisasi. */
     submissionDetail: function (d) {
+      if (!d) return;
       var self = this;
       var u = this.state.user;
       var canApprove = ['SUPERADMIN', 'KETUA'].indexOf(u.role) !== -1;
@@ -2090,46 +3465,46 @@
       if (d.status === 'DITOLAK') {
         stepperHtml = '<div class="p-3.5 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-800 text-xs mb-5 font-semibold">' +
           '<span class="text-xl">❌</span> <div><div>Usulan Ditolak / Perlu Perbaikan</div><div class="text-[11px] text-red-600 font-normal">Silakan perbaiki poin-poin yang diminta oleh Ketua DPW.</div></div>' +
-        '</div>';
+          '</div>';
       } else {
         stepperHtml = '<div class="mb-5 bg-emerald-50/50 p-3.5 sm:p-4 rounded-2xl border border-emerald-100">' +
           '<div class="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider mb-3">Siklus Program Kerja (5 Tahap)</div>' +
           '<div class="overflow-x-auto pb-1 -mx-1 px-1">' +
-            '<div class="grid grid-cols-5 gap-1.5 text-center min-w-[320px]">' +
-            lifecycleSteps.map(function (st, idx) {
-              var isPassed = idx < currentRank;
-              var isCurrent = idx === currentRank;
-              var circleCls = isPassed ? 'bg-emerald-600 text-white shadow-xs' :
-                isCurrent ? 'bg-emerald-500 text-white ring-4 ring-emerald-200 shadow-sm' :
+          '<div class="grid grid-cols-5 gap-1.5 text-center min-w-[320px]">' +
+          lifecycleSteps.map(function (st, idx) {
+            var isPassed = idx < currentRank;
+            var isCurrent = idx === currentRank;
+            var circleCls = isPassed ? 'bg-emerald-600 text-white shadow-xs' :
+              isCurrent ? 'bg-emerald-500 text-white ring-4 ring-emerald-200 shadow-sm' :
                 'bg-gray-100 text-gray-400';
-              var textCls = (isPassed || isCurrent) ? 'font-bold text-gray-800' : 'text-gray-400';
-              return '<div class="flex flex-col items-center">' +
-                '<div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold mb-1.5 transition ' + circleCls + '">' +
-                  (isPassed ? '✓' : st.icon) +
-                '</div>' +
-                '<div class="text-[10px] leading-tight ' + textCls + '">' + st.l + '</div>' +
+            var textCls = (isPassed || isCurrent) ? 'font-bold text-gray-800' : 'text-gray-400';
+            return '<div class="flex flex-col items-center">' +
+              '<div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold mb-1.5 transition ' + circleCls + '">' +
+              (isPassed ? '✓' : st.icon) +
+              '</div>' +
+              '<div class="text-[10px] leading-tight ' + textCls + '">' + st.l + '</div>' +
               '</div>';
-            }).join('') +
+          }).join('') +
           '</div>' +
           '</div>' +
-        '</div>';
+          '</div>';
       }
 
       var lpjHtml = (d.status === 'LPJ_SELESAI' || d.lpj_url) ?
         '<div class="mt-5 p-4 bg-teal-50/90 border border-teal-200 rounded-2xl">' +
-          '<div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-teal-100">' +
-            '<div class="flex items-center gap-2">' +
-              '<span class="text-lg">📋</span>' +
-              '<span class="text-xs font-bold text-teal-950 uppercase tracking-wide">Laporan Pertanggungjawaban (LPJ)</span>' +
-            '</div>' +
-            '<span class="badge badge-LPJ_SELESAI">Selesai Akuntabel</span>' +
-          '</div>' +
-          '<div class="grid sm:grid-cols-2 gap-2 text-xs mb-3">' +
-            '<div><span class="text-gray-500">Estimasi Awal:</span> <div class="font-bold text-gray-800">' + Auth.esc(d.budget_label) + '</div></div>' +
-            '<div><span class="text-gray-500">Realisasi Anggaran:</span> <div class="font-bold text-teal-700">' + Auth.esc(d.realisasi_label || ('Rp ' + Number(d.realisasi_anggaran || 0).toLocaleString('id-ID'))) + '</div></div>' +
-          '</div>' +
-          (d.lpj_notes ? '<div class="text-xs text-gray-700 bg-white p-3 rounded-xl border border-teal-100 mb-3 leading-relaxed"><strong class="text-gray-900">Catatan Pelaksanaan:</strong> ' + Auth.esc(d.lpj_notes) + '</div>' : '') +
-          (d.lpj_url ? '<a href="' + Auth.esc(d.lpj_url) + '" target="_blank" rel="noopener noreferrer" class="btn text-xs bg-teal-700 hover:bg-teal-800 text-white px-4 py-2.5 rounded-xl font-bold shadow-sm inline-flex items-center gap-1.5 w-full justify-center transition">Buka Berkas LPJ di Google Drive ↗</a>' : '') +
+        '<div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-teal-100">' +
+        '<div class="flex items-center gap-2">' +
+        '<span class="text-lg">📋</span>' +
+        '<span class="text-xs font-bold text-teal-950 uppercase tracking-wide">Laporan Pertanggungjawaban (LPJ)</span>' +
+        '</div>' +
+        '<span class="badge badge-LPJ_SELESAI">Selesai Akuntabel</span>' +
+        '</div>' +
+        '<div class="grid sm:grid-cols-2 gap-2 text-xs mb-3">' +
+        '<div><span class="text-gray-500">Estimasi Awal:</span> <div class="font-bold text-gray-800">' + Auth.esc(d.budget_label) + '</div></div>' +
+        '<div><span class="text-gray-500">Realisasi Anggaran:</span> <div class="font-bold text-teal-700">' + Auth.esc(d.realisasi_label || ('Rp ' + Number(d.realisasi_anggaran || 0).toLocaleString('id-ID'))) + '</div></div>' +
+        '</div>' +
+        (d.lpj_notes ? '<div class="text-xs text-gray-700 bg-white p-3 rounded-xl border border-teal-100 mb-3 leading-relaxed"><strong class="text-gray-900">Catatan Pelaksanaan:</strong> ' + Auth.esc(d.lpj_notes) + '</div>' : '') +
+        (d.lpj_url ? '<a href="' + Auth.esc(d.lpj_url) + '" target="_blank" rel="noopener noreferrer" class="btn text-xs bg-teal-700 hover:bg-teal-800 text-white px-4 py-2.5 rounded-xl font-bold shadow-sm inline-flex items-center gap-1.5 w-full justify-center transition">Buka Berkas LPJ di Google Drive ↗</a>' : '') +
         '</div>' : '';
 
       var metaRows = [
@@ -2145,59 +3520,59 @@
 
       var modalHtml = '<div class="p-4 sm:p-6">' +
         '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-100">' +
-          '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
-            '<span class="font-mono text-xs font-bold text-gray-500 break-all">' + Auth.esc(d.tracking_id) + '</span>' +
-            self.badge(d.status, d.status_label) +
-          '</div>' +
-          '<div class="flex items-center gap-2 justify-end">' +
-            '<button type="button" id="btnWaShareSub" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-wa-ghost shadow-sm" title="Bagikan ke WhatsApp">' +
-              '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
-              '<span>Share WA</span>' +
-            '</button>' +
-            '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
-            '</button>' +
-          '</div>' +
+        '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
+        '<span class="font-mono text-xs font-bold text-gray-500 break-all">' + Auth.esc(d.tracking_id) + '</span>' +
+        self.badge(d.status, d.status_label) +
+        '</div>' +
+        '<div class="flex items-center gap-2 justify-end">' +
+        '<button type="button" id="btnWaShareSub" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-wa-ghost shadow-sm" title="Bagikan ke WhatsApp">' +
+        '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
+        '<span>Share WA</span>' +
+        '</button>' +
+        '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
+        '</button>' +
+        '</div>' +
         '</div>' +
         stepperHtml +
         '<div class="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-4 sm:p-6 border border-emerald-100 mb-5">' +
-          '<div class="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">' + Auth.esc(d.division_label || d.division) + '</div>' +
-          '<h3 class="text-lg sm:text-xl font-extrabold text-gray-900 leading-snug break-words">' + Auth.esc(d.program_title) + '</h3>' +
-          '<div class="flex items-center gap-3 mt-3 flex-wrap text-xs text-gray-600">' +
-            '<span>💰 Anggaran: <strong class="text-emerald-dark font-bold break-words">' + Auth.esc(d.budget_label) + '</strong></span>' +
-            '<span>📅 Rencana: <strong>' + Auth.esc(d.execution_date || 'Fleksibel') + '</strong></span>' +
-          '</div>' +
+        '<div class="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">' + Auth.esc(d.division_label || d.division) + '</div>' +
+        '<h3 class="text-lg sm:text-xl font-extrabold text-gray-900 leading-snug break-words">' + Auth.esc(d.program_title) + '</h3>' +
+        '<div class="flex items-center gap-3 mt-3 flex-wrap text-xs text-gray-600">' +
+        '<span>💰 Anggaran: <strong class="text-emerald-dark font-bold break-words">' + Auth.esc(d.budget_label) + '</strong></span>' +
+        '<span>📅 Rencana: <strong>' + Auth.esc(d.execution_date || 'Fleksibel') + '</strong></span>' +
+        '</div>' +
         '</div>' +
         '<div class="mb-5">' +
-          '<div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Rincian Deskripsi Program</div>' +
-          '<div class="bg-gray-50 p-4 rounded-xl text-sm text-gray-800 leading-relaxed whitespace-pre-line border border-gray-100">' +
-            Auth.esc(d.description) +
-          '</div>' +
+        '<div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Rincian Deskripsi Program</div>' +
+        '<div class="bg-gray-50 p-4 rounded-xl text-sm text-gray-800 leading-relaxed whitespace-pre-line border border-gray-100">' +
+        Auth.esc(d.description) +
+        '</div>' +
         '</div>' +
         lpjHtml +
         '<div class="space-y-1 divide-y divide-gray-100 mt-4">' +
-          metaRows.map(function (r) {
-            var val = r[2] === 'badge' ? self.badge(d.status, d.status_label)
-              : r[2] === 'mono' ? '<span class="font-mono text-xs text-gray-700 font-semibold">' + Auth.esc(r[1]) + '</span>'
+        metaRows.map(function (r) {
+          var val = r[2] === 'badge' ? self.badge(d.status, d.status_label)
+            : r[2] === 'mono' ? '<span class="font-mono text-xs text-gray-700 font-semibold">' + Auth.esc(r[1]) + '</span>'
               : r[2] === 'bold' ? '<span class="font-bold text-sm text-gray-900">' + Auth.esc(r[1]) + '</span>'
-              : r[2] === 'warn' ? '<span class="text-sm text-red-600 bg-red-50 px-3 py-1.5 rounded-xl block border border-red-100 font-medium">' + Auth.esc(r[1]) + '</span>'
-              : '<span class="text-sm text-gray-800 font-medium">' + Auth.esc(r[1]) + '</span>';
-            return '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-2.5">' +
-              '<span class="text-xs font-bold text-gray-400 uppercase tracking-wide">' + r[0] + '</span>' +
-              '<div>' + val + '</div>' +
+                : r[2] === 'warn' ? '<span class="text-sm text-red-600 bg-red-50 px-3 py-1.5 rounded-xl block border border-red-100 font-medium">' + Auth.esc(r[1]) + '</span>'
+                  : '<span class="text-sm text-gray-800 font-medium">' + Auth.esc(r[1]) + '</span>';
+          return '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-2.5">' +
+            '<span class="text-xs font-bold text-gray-400 uppercase tracking-wide">' + r[0] + '</span>' +
+            '<div>' + val + '</div>' +
             '</div>';
-          }).join('') +
+        }).join('') +
         '</div>' +
         '<div class="mt-6 pt-4 border-t border-gray-100 flex gap-2 flex-wrap">' +
-          (d.can_edit ? '<button type="button" id="subDetailEdit" class="btn btn-ghost text-xs px-4 py-2.5 rounded-xl font-bold">Ubah Draf</button>' : '') +
-          (d.can_submit ? '<button type="button" id="subDetailSubmit" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Ajukan ke Ketua</button>' : '') +
-          (canApprove && d.status === 'AJUKAN' ?
-            '<button type="button" id="subDetailApprove" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Setujui Program</button>' +
-            '<button type="button" id="subDetailReject" class="btn btn-danger px-4 py-2.5 rounded-xl font-bold text-xs">Tolak</button>' : '') +
-          (d.can_start ? '<button type="button" id="subDetailStart" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">🚀 Mulai Pelaksanaan</button>' : '') +
-          (d.can_lpj ? '<button type="button" id="subDetailLPJ" class="btn bg-teal-700 hover:bg-teal-800 text-white flex-1 py-2.5 rounded-xl font-bold text-xs">📋 Serahkan LPJ</button>' : '') +
+        (d.can_edit ? '<button type="button" id="subDetailEdit" class="btn btn-ghost text-xs px-4 py-2.5 rounded-xl font-bold">Ubah Draf</button>' : '') +
+        (d.can_submit ? '<button type="button" id="subDetailSubmit" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Ajukan ke Ketua</button>' : '') +
+        (canApprove && d.status === 'AJUKAN' ?
+          '<button type="button" id="subDetailApprove" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Setujui Program</button>' +
+          '<button type="button" id="subDetailReject" class="btn btn-danger px-4 py-2.5 rounded-xl font-bold text-xs">Tolak</button>' : '') +
+        (d.can_start ? '<button type="button" id="subDetailStart" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">🚀 Mulai Pelaksanaan</button>' : '') +
+        (d.can_lpj ? '<button type="button" id="subDetailLPJ" class="btn bg-teal-700 hover:bg-teal-800 text-white flex-1 py-2.5 rounded-xl font-bold text-xs">📋 Serahkan LPJ</button>' : '') +
         '</div>' +
-      '</div>';
+        '</div>';
 
       this.openModal(modalHtml, 'max-w-xl');
 
@@ -2274,37 +3649,37 @@
       // Peran divisi TIDAK boleh memilih divisi lain (backend memaksa dari token).
       var divField = (!isSuperadmin)
         ? '<input type="hidden" id="dfDivision" value="' + Auth.esc(item ? item.division : u.division) + '" />' +
-          '<div><label class="lbl">Divisi</label><input type="text" class="field bg-gray-50" value="' +
-          Auth.esc(item ? item.division_label : (u.division_label || window.DIVISIONS[u.division] || '')) + '" readonly /></div>'
+        '<div><label class="lbl">Divisi</label><input type="text" class="field bg-gray-50" value="' +
+        Auth.esc(item ? item.division_label : (u.division_label || window.DIVISIONS[u.division] || '')) + '" readonly /></div>'
         : '<div><label class="lbl">Divisi</label><select id="dfDivision" class="field">' + divOpts + '</select></div>';
 
       this.openModal(
         '<div class="p-4 sm:p-6">' +
-          '<div class="flex items-center justify-between gap-2 mb-5">' +
-            '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + (isEdit ? 'Ubah Usulan Program' : 'Usulkan Program Divisi') + '</h3>' +
-            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
-          '</div>' +
-          '<form id="subFormEl" class="space-y-4">' +
-            '<div><label class="lbl">Judul Program <span class="text-red-500">*</span></label>' +
-              '<input id="dfTitle" type="text" required class="field" placeholder="cth: Workshop Kepenulisan Islam" value="' + Auth.esc(item ? item.program_title : '') + '" /></div>' +
-            '<div><label class="lbl">Deskripsi Program <span class="text-red-500">*</span></label>' +
-              '<textarea id="dfDesc" required rows="4" class="field" placeholder="Rincian program…">' + Auth.esc(item ? item.description : '') + '</textarea></div>' +
-            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Estimasi Anggaran (Rp)</label>' +
-                '<input id="dfBudget" type="number" min="0" step="1" class="field" placeholder="cth: 5000000" value="' + (item ? item.budget_estimate : '') + '" /></div>' +
-              '<div><label class="lbl">Target Peserta</label>' +
-                '<input id="dfTarget" type="text" class="field" placeholder="cth: 50 mahasiswa" value="' + Auth.esc(item ? item.target_audience : '') + '" /></div>' +
-            '</div>' +
-            divField +
-            '<div><label class="lbl">Tanggal Pelaksanaan</label>' +
-              '<input id="dfTanggal" type="date" class="field" value="' + (item ? item.execution_date : '') + '" /></div>' +
-            '<p class="text-xs text-gray-400">Usulan disimpan sebagai Draf. Ajukan ke Ketua setelah siap — divisi tidak dapat mempublikasi sendiri.</p>' +
-            '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
-              '<button type="submit" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">' + (isEdit ? 'Simpan Perubahan' : 'Simpan Draf') + '</button>' +
-              '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
-            '</div>' +
-          '</form>' +
+        '<div class="flex items-center justify-between gap-2 mb-5">' +
+        '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + (isEdit ? 'Ubah Usulan Program' : 'Usulkan Program Divisi') + '</h3>' +
+        '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+        '</div>' +
+        '<form id="subFormEl" class="space-y-4">' +
+        '<div><label class="lbl">Judul Program <span class="text-red-500">*</span></label>' +
+        '<input id="dfTitle" type="text" required class="field" placeholder="cth: Workshop Kepenulisan Islam" value="' + Auth.esc(item ? item.program_title : '') + '" /></div>' +
+        '<div><label class="lbl">Deskripsi Program <span class="text-red-500">*</span></label>' +
+        '<textarea id="dfDesc" required rows="4" class="field" placeholder="Rincian program…">' + Auth.esc(item ? item.description : '') + '</textarea></div>' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
+        '<div><label class="lbl">Estimasi Anggaran (Rp)</label>' +
+        '<input id="dfBudget" type="number" min="0" step="1" class="field" placeholder="cth: 5000000" value="' + (item ? item.budget_estimate : '') + '" /></div>' +
+        '<div><label class="lbl">Target Peserta</label>' +
+        '<input id="dfTarget" type="text" class="field" placeholder="cth: 50 mahasiswa" value="' + Auth.esc(item ? item.target_audience : '') + '" /></div>' +
+        '</div>' +
+        divField +
+        '<div><label class="lbl">Tanggal Pelaksanaan</label>' +
+        '<input id="dfTanggal" type="date" class="field" value="' + (item ? item.execution_date : '') + '" /></div>' +
+        '<p class="text-xs text-gray-400">Usulan disimpan sebagai Draf. Ajukan ke Ketua setelah siap — divisi tidak dapat mempublikasi sendiri.</p>' +
+        '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
+        '<button type="submit" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">' + (isEdit ? 'Simpan Perubahan' : 'Simpan Draf') + '</button>' +
+        '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
+        '</div>' +
+        '</form>' +
         '</div>');
 
       Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
@@ -2341,7 +3716,7 @@
             }));
           } : null);
           self.refreshDivisi();
-        }).catch(function () {});
+        }).catch(function () { });
       });
     },
 
@@ -2349,26 +3724,26 @@
       var self = this;
       this.confirm('Ajukan Program', 'Usulan <b>' + Auth.esc(item.tracking_id) + '</b> — ' +
         '<b>' + Auth.esc(item.program_title) + '</b> akan dikirim ke Approval Board Ketua. Lanjutkan?', function () {
-        Auth.fetch('ajukanSubmission', { id: item.id }).then(function () {
-          self.toast('Usulan diajukan ke Ketua.', 'success', '📲 Kabari via WA', function () {
-            self.openWhatsApp(self.buildDivisiWaText(item));
-          });
-          self.refreshDivisi();
-        }).catch(function () {});
-      });
+          Auth.fetch('ajukanSubmission', { id: item.id }).then(function () {
+            self.toast('Usulan diajukan ke Ketua.', 'success', '📲 Kabari via WA', function () {
+              self.openWhatsApp(self.buildDivisiWaText(item));
+            });
+            self.refreshDivisi();
+          }).catch(function () { });
+        });
     },
 
     submissionApprove: function (item) {
       var self = this;
       this.confirm('Setujui Program', 'Usulan <b>' + Auth.esc(item.program_title) + '</b> dari divisi <b>' +
         Auth.esc(item.division_label) + '</b> akan disetujui. Lanjutkan?', function () {
-        Auth.fetch('approveSubmission', { id: item.id }).then(function () {
-          self.toast('Usulan program disetujui.', 'success', '📲 Bagikan WA', function () {
-            self.openWhatsApp(self.buildDivisiWaText(item));
-          });
-          self.refreshDivisi();
-        }).catch(function () {});
-      });
+          Auth.fetch('approveSubmission', { id: item.id }).then(function () {
+            self.toast('Usulan program disetujui.', 'success', '📲 Bagikan WA', function () {
+              self.openWhatsApp(self.buildDivisiWaText(item));
+            });
+            self.refreshDivisi();
+          }).catch(function () { });
+        });
     },
 
     submissionReject: function (item) {
@@ -2383,17 +3758,17 @@
       this.confirm('Mulai Pelaksanaan Program',
         'Program <b>' + Auth.esc(item.program_title) + '</b> (' + Auth.esc(item.tracking_id) + ') dari divisi <b>' +
         Auth.esc(item.division_label) + '</b> akan masuk tahap <b>Pelaksanaan</b> di lapangan. Lanjutkan?', function () {
-        Auth.fetch('startExecution', { id: item.id }).then(function () {
-          self.toast('Program kerja resmi masuk tahap Pelaksanaan!', 'success', '📲 Bagikan WA', function () {
-            self.openWhatsApp(self.buildDivisiWaText(Object.assign({}, item, {
-              status: 'PELAKSANAAN',
-              status_label: 'Pelaksanaan',
-              started_at: new Date().toISOString()
-            })));
-          });
-          self.refreshDivisi();
-        }).catch(function () {});
-      });
+          Auth.fetch('startExecution', { id: item.id }).then(function () {
+            self.toast('Program kerja resmi masuk tahap Pelaksanaan!', 'success', '📲 Bagikan WA', function () {
+              self.openWhatsApp(self.buildDivisiWaText(Object.assign({}, item, {
+                status: 'PELAKSANAAN',
+                status_label: 'Pelaksanaan',
+                started_at: new Date().toISOString()
+              })));
+            });
+            self.refreshDivisi();
+          }).catch(function () { });
+        });
     },
 
     /** Modal serahkan Laporan Pertanggungjawaban (LPJ). */
@@ -2403,35 +3778,35 @@
 
       this.openModal(
         '<div class="p-4 sm:p-6">' +
-          '<div class="flex items-center justify-between gap-2 mb-4">' +
-            '<div class="min-w-0">' +
-              '<h3 class="text-base sm:text-lg font-extrabold text-teal-900 break-words">Serahkan LPJ Program Kerja</h3>' +
-              '<p class="text-xs text-gray-500 font-mono break-all">' + Auth.esc(item.tracking_id) + ' — ' + Auth.esc(item.program_title) + '</p>' +
-            '</div>' +
-            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
-            '</button>' +
-          '</div>' +
-          '<div class="bg-teal-50/70 border border-teal-100 rounded-2xl p-4 mb-4 text-xs text-teal-900">' +
-            '<div class="flex flex-col sm:flex-row justify-between sm:items-center gap-1 mb-1 font-semibold">' +
-              '<span>Divisi: ' + Auth.esc(item.division_label) + '</span>' +
-              '<span>Estimasi Awal: ' + Auth.esc(item.budget_label) + '</span>' +
-            '</div>' +
-            '<p class="text-gray-600">Setelah LPJ diserahkan, status program menjadi <strong>LPJ Selesai</strong> secara akuntabel.</p>' +
-          '</div>' +
-          '<form id="lpjFormEl" class="space-y-4">' +
-            '<div><label class="lbl">Tautan Dokumen LPJ (Google Drive / Cloud) <span class="text-red-500">*</span></label>' +
-              '<input id="lpjUrl" type="url" required class="field" placeholder="https://drive.google.com/drive/folders/..." value="' + Auth.esc(item.lpj_url || '') + '" />' +
-              '<p class="text-[11px] text-gray-400 mt-1">Lampirkan tautan folder/file dokumen LPJ, laporan kegiatan, &amp; bukti pengeluaran di Google Drive.</p></div>' +
-            '<div><label class="lbl">Realisasi Anggaran Akhir (Rp) <span class="text-red-500">*</span></label>' +
-              '<input id="lpjRealisasi" type="number" min="0" step="1" required class="field" placeholder="cth: 4800000" value="' + defaultRealisasi + '" /></div>' +
-            '<div><label class="lbl">Catatan &amp; Evaluasi Pelaksanaan</label>' +
-              '<textarea id="lpjNotes" rows="3" class="field" placeholder="Catatan keberhasilan, kendala, atau evaluasi kegiatan…">' + Auth.esc(item.lpj_notes || '') + '</textarea></div>' +
-            '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
-              '<button type="submit" class="btn bg-teal-700 hover:bg-teal-800 text-white flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm">Kirim LPJ Selesai</button>' +
-              '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
-            '</div>' +
-          '</form>' +
+        '<div class="flex items-center justify-between gap-2 mb-4">' +
+        '<div class="min-w-0">' +
+        '<h3 class="text-base sm:text-lg font-extrabold text-teal-900 break-words">Serahkan LPJ Program Kerja</h3>' +
+        '<p class="text-xs text-gray-500 font-mono break-all">' + Auth.esc(item.tracking_id) + ' — ' + Auth.esc(item.program_title) + '</p>' +
+        '</div>' +
+        '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
+        '</button>' +
+        '</div>' +
+        '<div class="bg-teal-50/70 border border-teal-100 rounded-2xl p-4 mb-4 text-xs text-teal-900">' +
+        '<div class="flex flex-col sm:flex-row justify-between sm:items-center gap-1 mb-1 font-semibold">' +
+        '<span>Divisi: ' + Auth.esc(item.division_label) + '</span>' +
+        '<span>Estimasi Awal: ' + Auth.esc(item.budget_label) + '</span>' +
+        '</div>' +
+        '<p class="text-gray-600">Setelah LPJ diserahkan, status program menjadi <strong>LPJ Selesai</strong> secara akuntabel.</p>' +
+        '</div>' +
+        '<form id="lpjFormEl" class="space-y-4">' +
+        '<div><label class="lbl">Tautan Dokumen LPJ (Google Drive / Cloud) <span class="text-red-500">*</span></label>' +
+        '<input id="lpjUrl" type="url" required class="field" placeholder="https://drive.google.com/drive/folders/..." value="' + Auth.esc(item.lpj_url || '') + '" />' +
+        '<p class="text-[11px] text-gray-400 mt-1">Lampirkan tautan folder/file dokumen LPJ, laporan kegiatan, &amp; bukti pengeluaran di Google Drive.</p></div>' +
+        '<div><label class="lbl">Realisasi Anggaran Akhir (Rp) <span class="text-red-500">*</span></label>' +
+        '<input id="lpjRealisasi" type="number" min="0" step="1" required class="field" placeholder="cth: 4800000" value="' + defaultRealisasi + '" /></div>' +
+        '<div><label class="lbl">Catatan &amp; Evaluasi Pelaksanaan</label>' +
+        '<textarea id="lpjNotes" rows="3" class="field" placeholder="Catatan keberhasilan, kendala, atau evaluasi kegiatan…">' + Auth.esc(item.lpj_notes || '') + '</textarea></div>' +
+        '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
+        '<button type="submit" class="btn bg-teal-700 hover:bg-teal-800 text-white flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm">Kirim LPJ Selesai</button>' +
+        '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
+        '</div>' +
+        '</form>' +
         '</div>');
 
       Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
@@ -2458,7 +3833,7 @@
             })));
           });
           self.refreshDivisi();
-        }).catch(function () {});
+        }).catch(function () { });
       });
     },
 
@@ -2472,18 +3847,21 @@
 
       var newBtn = (currentTab === 'pengurus' && Auth.isSuperadmin())
         ? '<button id="btnUserBaru" class="btn btn-primary px-5 py-2.5 rounded-xl inline-flex items-center gap-2 font-bold text-sm">' +
-          '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>' +
-          'Buat Akun Pengurus</button>'
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>' +
+        'Buat Akun Pengurus</button>'
         : '';
 
-      main.innerHTML = this.pageHead('Manajemen Pengguna &amp; Pendaftar',
-        'Kelola 8 peran pengurus yayasan dan verifikasi berkas calon anggota dari portal publik.', newBtn) +
+      var subTitle = Auth.isDemoMode()
+        ? 'Daftar susunan pengurus yayasan dan verifikasi berkas calon anggota dari portal publik.'
+        : 'Kelola 8 peran pengurus yayasan dan verifikasi berkas calon anggota dari portal publik.';
+
+      main.innerHTML = this.pageHead('Manajemen Pengguna &amp; Pendaftar', subTitle, newBtn) +
         '<div class="flex items-center gap-2 p-1.5 bg-gray-100 rounded-2xl mb-6 max-w-md">' +
-          '<button type="button" id="tabPengurusBtn" class="flex-1 py-2 px-4 rounded-xl text-xs font-bold transition ' + (currentTab === 'pengurus' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">👥 Pengurus Yayasan</button>' +
-          '<button type="button" id="tabPendaftarBtn" class="flex-1 py-2 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ' + (currentTab === 'pendaftar' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">' +
-            '<span>📥 Pendaftaran Masuk</span>' +
-            '<span id="pendaftarBadge" class="hidden px-2 py-0.5 text-[10px] rounded-full bg-amber-500 text-white font-extrabold">0</span>' +
-          '</button>' +
+        '<button type="button" id="tabPengurusBtn" class="flex-1 py-2 px-4 rounded-xl text-xs font-bold transition ' + (currentTab === 'pengurus' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">👥 Pengurus Yayasan</button>' +
+        '<button type="button" id="tabPendaftarBtn" class="flex-1 py-2 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ' + (currentTab === 'pendaftar' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">' +
+        '<span>📥 Pendaftaran Masuk</span>' +
+        '<span id="pendaftarBadge" class="hidden px-2 py-0.5 text-[10px] rounded-full bg-amber-500 text-white font-extrabold">0</span>' +
+        '</button>' +
         '</div>' +
         '<div id="penggunaContainer"></div>';
 
@@ -2519,12 +3897,12 @@
       var self = this;
       box.innerHTML =
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 mb-6">' +
-          '<input id="usrQ" type="text" placeholder="Cari nama pengurus / username…" class="field" />' +
+        '<input id="usrQ" type="text" placeholder="Cari nama pengurus / username…" class="field" />' +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
-          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
-          '<th>Username</th><th>Nama Pengurus</th><th>Peran Organisasi</th><th>Divisi Kerja</th><th>Status Akun</th><th>Aksi</th>' +
-          '</tr></thead><tbody id="usrRows">' + this.loadingRow(6) + '</tbody></table></div>' +
+        '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+        '<th>Username</th><th>Nama Pengurus</th><th>Peran Organisasi</th><th>Divisi Kerja</th><th>Status Akun</th><th>Aksi</th>' +
+        '</tr></thead><tbody id="usrRows">' + this.loadingRow(6) + '</tbody></table></div>' +
         '</div>';
 
       var btnBaru = document.getElementById('btnUserBaru');
@@ -2549,31 +3927,36 @@
 
       Auth.getCached('getListPengguna', null, function (data) {
         var users = (data && data.users) || [];
+        if (Auth.isDemoMode()) {
+          users = users.filter(function (u) {
+            return (u.role || '').toUpperCase() !== 'SUPERADMIN' && (u.username || '').toLowerCase() !== 'superadmin';
+          });
+        }
         var ql = (q || '').toLowerCase();
         if (ql) {
           users = users.filter(function (u) {
             return (u.username || '').toLowerCase().indexOf(ql) !== -1 ||
-                   (u.full_name || '').toLowerCase().indexOf(ql) !== -1;
+              (u.full_name || '').toLowerCase().indexOf(ql) !== -1;
           });
         }
         tb.innerHTML = users.length ? users.map(function (u) {
           return '<tr data-id="' + u.id + '">' +
             '<td><div class="font-mono text-xs font-semibold text-emerald-dark">' + Auth.esc(u.username) + '</div>' +
-              '<div class="font-semibold text-gray-900 leading-snug">' + Auth.esc(u.full_name || '—') + '</div>' +
-              '<div class="text-xs text-gray-400 font-normal">' + Auth.esc(u.email || '') + '</div></td>' +
+            '<div class="font-semibold text-gray-900 leading-snug">' + Auth.esc(u.full_name || '—') + '</div>' +
+            '<div class="text-xs text-gray-400 font-normal">' + Auth.esc(u.email || '') + '</div></td>' +
             '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Peran: </span><span class="badge badge-PUBLISHED">' + Auth.esc(u.role_label || u.role) + '</span></td>' +
             '<td class="text-gray-600 whitespace-nowrap text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Divisi: </span>' + Auth.esc(u.division_label || '—') + '</td>' +
-            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + (u.is_active === 'TRUE'
+            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + ((u.is_active === 'TRUE' || u.is_active === true || u.status === 'ACTIVE')
               ? '<span class="badge badge-PUBLISHED">Aktif</span>'
               : '<span class="badge badge-REJECTED">Nonaktif</span>') + '</td>' +
             '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap">' +
-              (Auth.isSuperadmin()
-                ? self.aBtn('edit', 'Ubah', 'Ubah akun') +
-                  self.aBtn(u.is_active === 'TRUE' ? 'danger toggle' : 'toggle',
-                    u.is_active === 'TRUE' ? 'Nonaktifkan' : 'Aktifkan', 'Ubah status akun')
-                : '<span class="text-xs text-gray-300">—</span>') +
-              '</div></td>' +
-          '</tr>';
+            (Auth.isSuperadmin()
+              ? self.aBtn('edit', 'Ubah', 'Ubah akun') +
+              self.aBtn(u.is_active === 'TRUE' ? 'danger toggle' : 'toggle',
+                u.is_active === 'TRUE' ? 'Nonaktifkan' : 'Aktifkan', 'Ubah status akun')
+              : '<span class="text-xs text-gray-300">—</span>') +
+            '</div></td>' +
+            '</tr>';
         }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada pengurus yang ditemukan.</td></tr>';
 
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
@@ -2581,7 +3964,7 @@
           Array.prototype.forEach.call(tr.querySelectorAll('[data-act]'), function (b) {
             b.addEventListener('click', function () {
               var act = b.getAttribute('data-act');
-              var item = users.filter(function (x) { return x.id === id; })[0];
+              var item = users.filter(function (x) { return String(x.id) === String(id); })[0];
               if (act === 'edit') self.userForm(item);
               else if (act === 'toggle') self.userToggle(item);
             });
@@ -2595,22 +3978,22 @@
       var self = this;
       box.innerHTML =
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 mb-6 flex flex-col sm:flex-row gap-3 items-center">' +
-          '<input id="pendaftarQ" type="text" placeholder="Cari nama pemohon / NIK / WA / kota…" class="field flex-1" />' +
-          '<select id="pendaftarStatus" class="field sm:w-56">' +
-            '<option value="">Semua Status Berkas</option>' +
-            '<option value="PENDING">Menunggu Sekretariat</option>' +
-            '<option value="VERIFIED_SEKRETARIS">Terverifikasi Sekretaris</option>' +
-            '<option value="APPROVED">Disetujui Ketua DPW</option>' +
-            '<option value="REJECTED">Ditolak</option>' +
-          '</select>' +
-          '<button type="button" id="btnExportPendaftar" class="btn btn-ghost px-4 py-2.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border border-emerald-200 text-emerald-800 hover:bg-emerald-50 whitespace-nowrap">' +
-            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
-            '<span>📥 Ekspor CSV</span></button>' +
+        '<input id="pendaftarQ" type="text" placeholder="Cari nama pemohon / NIK / WA / kota…" class="field flex-1" />' +
+        '<select id="pendaftarStatus" class="field sm:w-56">' +
+        '<option value="">Semua Status Berkas</option>' +
+        '<option value="PENDING">Menunggu Sekretariat</option>' +
+        '<option value="VERIFIED_SEKRETARIS">Terverifikasi Sekretaris</option>' +
+        '<option value="APPROVED">Disetujui Ketua DPW</option>' +
+        '<option value="REJECTED">Ditolak</option>' +
+        '</select>' +
+        '<button type="button" id="btnExportPendaftar" class="btn btn-ghost px-4 py-2.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border border-emerald-200 text-emerald-800 hover:bg-emerald-50 whitespace-nowrap">' +
+        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
+        '<span>📥 Ekspor CSV</span></button>' +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
-          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
-          '<th>No. Registrasi &amp; Nama</th><th>NIK &amp; Kontak</th><th>Domisili</th><th>Tgl Daftar</th><th>Status</th><th>Aksi</th>' +
-          '</tr></thead><tbody id="pendaftarRows">' + this.loadingRow(6) + '</tbody></table></div>' +
+        '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+        '<th>No. Registrasi &amp; Nama</th><th>NIK &amp; Kontak</th><th>Domisili</th><th>Tgl Daftar</th><th>Status</th><th>Aksi</th>' +
+        '</tr></thead><tbody id="pendaftarRows">' + this.loadingRow(6) + '</tbody></table></div>' +
         '</div>';
 
       var load = function () {
@@ -2662,10 +4045,10 @@
         if (q) {
           items = items.filter(function (x) {
             return (x.nama_lengkap || '').toLowerCase().indexOf(q) !== -1 ||
-                   (x.nik || '').toLowerCase().indexOf(q) !== -1 ||
-                   (x.whatsapp || '').toLowerCase().indexOf(q) !== -1 ||
-                   (x.registration_no || '').toLowerCase().indexOf(q) !== -1 ||
-                   (x.kota || '').toLowerCase().indexOf(q) !== -1;
+              (x.nik || '').toLowerCase().indexOf(q) !== -1 ||
+              (x.whatsapp || '').toLowerCase().indexOf(q) !== -1 ||
+              (x.registration_no || '').toLowerCase().indexOf(q) !== -1 ||
+              (x.kota || '').toLowerCase().indexOf(q) !== -1;
           });
         }
         if (st) {
@@ -2676,18 +4059,18 @@
           var statusBadge = self.badge(p.status, p.status_label || p.status);
           return '<tr data-id="' + p.id + '">' +
             '<td><div class="font-mono text-xs text-gray-500 font-bold">' + Auth.esc(p.registration_no) + '</div>' +
-              '<div class="font-bold text-gray-900 leading-snug">' + Auth.esc(p.nama_lengkap) + '</div>' +
-              '<div class="text-xs text-gray-500">' + Auth.esc(p.profesi || '') + '</div></td>' +
+            '<div class="font-bold text-gray-900 leading-snug">' + Auth.esc(p.nama_lengkap) + '</div>' +
+            '<div class="text-xs text-gray-500">' + Auth.esc(p.profesi || '') + '</div></td>' +
             '<td><div class="font-mono text-xs text-gray-600">' + Auth.esc(p.nik) + '</div>' +
-              '<div class="text-xs text-emerald-800 font-semibold">WA: ' + Auth.esc(p.whatsapp) + '</div>' +
-              '<div class="text-xs text-gray-400">' + Auth.esc(p.email || '') + '</div></td>' +
+            '<div class="text-xs text-emerald-800 font-semibold">WA: ' + Auth.esc(p.whatsapp) + '</div>' +
+            '<div class="text-xs text-gray-400">' + Auth.esc(p.email || '') + '</div></td>' +
             '<td class="text-gray-700 text-xs sm:text-sm">' + Auth.esc(p.kota || '—') + '</td>' +
             '<td class="text-gray-500 text-xs whitespace-nowrap">' + Auth.esc((p.created_at || '').slice(0, 10)) + '</td>' +
             '<td>' + statusBadge + '</td>' +
             '<td class="tbl-actions"><div class="flex gap-1.5">' +
-              self.aBtn('review', 'Periksa Berkas', 'Lihat biodata, KTP & foto selfie') +
+            self.aBtn('review', 'Periksa Berkas', 'Lihat biodata, KTP & foto selfie') +
             '</div></td>' +
-          '</tr>';
+            '</tr>';
         }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada pendaftar yang sesuai filter.</td></tr>';
 
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
@@ -2695,7 +4078,7 @@
           var btn = tr.querySelector('[data-act="review"]');
           if (btn) {
             btn.addEventListener('click', function () {
-              var item = items.filter(function (x) { return x.id === id; })[0];
+              var item = items.filter(function (x) { return String(x.id) === String(id); })[0];
               if (item) self.pendaftarDetail(item);
             });
           }
@@ -2712,82 +4095,82 @@
 
       var ktpHtml = p.ktp_image_url
         ? '<div class="mt-2 text-center">' +
-            '<a href="' + Auth.esc(p.ktp_image_url) + '" target="_blank" rel="noopener">' +
-              '<img src="' + Auth.esc(p.ktp_image_url) + '" alt="KTP Watermarked" class="max-h-48 max-w-full object-contain rounded-xl border border-gray-200 mx-auto shadow-sm hover:opacity-95 transition" />' +
-            '</a>' +
-            '<p class="text-[11px] text-gray-500 mt-1 italic">Klik gambar untuk melihat resolusi penuh (Watermarked ARSIP APII)</p>' +
-          '</div>'
+        '<a href="' + Auth.esc(p.ktp_image_url) + '" target="_blank" rel="noopener">' +
+        '<img src="' + Auth.esc(p.ktp_image_url) + '" alt="KTP Watermarked" class="max-h-48 max-w-full object-contain rounded-xl border border-gray-200 mx-auto shadow-sm hover:opacity-95 transition" />' +
+        '</a>' +
+        '<p class="text-[11px] text-gray-500 mt-1 italic">Klik gambar untuk melihat resolusi penuh (Watermarked ARSIP APII)</p>' +
+        '</div>'
         : '<div class="p-6 bg-gray-50 rounded-xl text-center text-xs text-gray-400">Tidak ada lampiran foto KTP</div>';
 
       var selfieHtml = p.selfie_image_url
         ? '<div class="mt-2 text-center">' +
-            '<a href="' + Auth.esc(p.selfie_image_url) + '" target="_blank" rel="noopener">' +
-              '<img src="' + Auth.esc(p.selfie_image_url) + '" alt="Pas Foto / Selfie" class="max-h-48 max-w-full object-contain rounded-xl border border-gray-200 mx-auto shadow-sm hover:opacity-95 transition" />' +
-            '</a>' +
-            '<p class="text-[11px] text-gray-500 mt-1 italic">Foto Verifikasi Wajah Pemohon</p>' +
-          '</div>'
+        '<a href="' + Auth.esc(p.selfie_image_url) + '" target="_blank" rel="noopener">' +
+        '<img src="' + Auth.esc(p.selfie_image_url) + '" alt="Pas Foto / Selfie" class="max-h-48 max-w-full object-contain rounded-xl border border-gray-200 mx-auto shadow-sm hover:opacity-95 transition" />' +
+        '</a>' +
+        '<p class="text-[11px] text-gray-500 mt-1 italic">Foto Verifikasi Wajah Pemohon</p>' +
+        '</div>'
         : '<div class="p-6 bg-gray-50 rounded-xl text-center text-xs text-gray-400">Tidak ada lampiran foto selfie</div>';
 
       var modalHtml = '<div class="p-4 sm:p-6">' +
         '<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-gray-100 gap-2">' +
-          '<div class="min-w-0">' +
-            '<div class="font-mono text-xs text-gray-500 font-bold break-all">' + Auth.esc(p.registration_no) + '</div>' +
-            '<h3 class="text-base sm:text-lg font-black text-emerald-dark break-words">' + Auth.esc(p.nama_lengkap) + '</h3>' +
-          '</div>' +
-          '<div class="flex items-center gap-2 justify-end flex-wrap">' +
-            self.badge(p.status, p.status_label || p.status) +
-            '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
-            '</button>' +
-          '</div>' +
+        '<div class="min-w-0">' +
+        '<div class="font-mono text-xs text-gray-500 font-bold break-all">' + Auth.esc(p.registration_no) + '</div>' +
+        '<h3 class="text-base sm:text-lg font-black text-emerald-dark break-words">' + Auth.esc(p.nama_lengkap) + '</h3>' +
+        '</div>' +
+        '<div class="flex items-center gap-2 justify-end flex-wrap">' +
+        self.badge(p.status, p.status_label || p.status) +
+        '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
+        '</button>' +
+        '</div>' +
         '</div>' +
 
         // Detail Biodata
         '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs mb-6">' +
-          '<div class="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-100">' +
-            '<div><span class="text-gray-400 block">NIK:</span><span class="font-mono font-bold text-gray-900 break-all">' + Auth.esc(p.nik) + '</span></div>' +
-            '<div><span class="text-gray-400 block">Tempat, Tanggal Lahir:</span><span class="font-semibold text-gray-800 break-words">' + Auth.esc(p.tempat_lahir || '-') + ', ' + Auth.esc(p.tanggal_lahir || '-') + '</span></div>' +
-            '<div><span class="text-gray-400 block">Jenis Kelamin:</span><span class="font-semibold text-gray-800 break-words">' + Auth.esc(p.jenis_kelamin || '-') + '</span></div>' +
-            '<div><span class="text-gray-400 block">Profesi / Keahlian:</span><span class="font-semibold text-gray-800 break-words">' + Auth.esc(p.profesi || '-') + '</span></div>' +
-          '</div>' +
-          '<div class="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-100">' +
-            '<div><span class="text-gray-400 block">WhatsApp:</span><a href="https://wa.me/' + encodeURIComponent((p.whatsapp || '').replace(/[^0-9]/g, '')) + '" target="_blank" class="font-bold text-emerald font-mono hover:underline break-all">' + Auth.esc(p.whatsapp) + ' ↗</a></div>' +
-            '<div><span class="text-gray-400 block">Email:</span><span class="font-semibold text-gray-800 break-all">' + Auth.esc(p.email || '-') + '</span></div>' +
-            '<div><span class="text-gray-400 block">Kota / Domisili:</span><span class="font-semibold text-gray-800 break-words">' + Auth.esc(p.kota || '-') + '</span></div>' +
-            '<div><span class="text-gray-400 block">Alamat Lengkap:</span><span class="text-gray-800 break-words">' + Auth.esc(p.alamat || '-') + '</span></div>' +
-          '</div>' +
+        '<div class="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-100">' +
+        '<div><span class="text-gray-400 block">NIK:</span><span class="font-mono font-bold text-gray-900 break-all">' + Auth.esc(p.nik) + '</span></div>' +
+        '<div><span class="text-gray-400 block">Tempat, Tanggal Lahir:</span><span class="font-semibold text-gray-800 break-words">' + Auth.esc(p.tempat_lahir || '-') + ', ' + Auth.esc(p.tanggal_lahir || '-') + '</span></div>' +
+        '<div><span class="text-gray-400 block">Jenis Kelamin:</span><span class="font-semibold text-gray-800 break-words">' + Auth.esc(p.jenis_kelamin || '-') + '</span></div>' +
+        '<div><span class="text-gray-400 block">Profesi / Keahlian:</span><span class="font-semibold text-gray-800 break-words">' + Auth.esc(p.profesi || '-') + '</span></div>' +
+        '</div>' +
+        '<div class="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-100">' +
+        '<div><span class="text-gray-400 block">WhatsApp:</span><a href="https://wa.me/' + encodeURIComponent((p.whatsapp || '').replace(/[^0-9]/g, '')) + '" target="_blank" class="font-bold text-emerald font-mono hover:underline break-all">' + Auth.esc(p.whatsapp) + ' ↗</a></div>' +
+        '<div><span class="text-gray-400 block">Email:</span><span class="font-semibold text-gray-800 break-all">' + Auth.esc(p.email || '-') + '</span></div>' +
+        '<div><span class="text-gray-400 block">Kota / Domisili:</span><span class="font-semibold text-gray-800 break-words">' + Auth.esc(p.kota || '-') + '</span></div>' +
+        '<div><span class="text-gray-400 block">Alamat Lengkap:</span><span class="text-gray-800 break-words">' + Auth.esc(p.alamat || '-') + '</span></div>' +
+        '</div>' +
         '</div>' +
 
         (p.alasan_bergabung ?
           '<div class="p-3 bg-amber-50/70 rounded-xl border border-amber-200 mb-6 text-xs text-amber-950">' +
-            '<span class="font-bold block mb-1">Motivasi &amp; Alasan Bergabung APII:</span>' +
-            '<p class="italic break-words">' + Auth.esc(p.alasan_bergabung) + '</p>' +
+          '<span class="font-bold block mb-1">Motivasi &amp; Alasan Bergabung APII:</span>' +
+          '<p class="italic break-words">' + Auth.esc(p.alasan_bergabung) + '</p>' +
           '</div>' : '') +
 
         // Berkas Gambar KTP & Selfie
         '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">' +
-          '<div class="p-3 bg-white rounded-xl border border-emerald-100">' +
-            '<div class="text-xs font-bold text-emerald-dark">Foto KTP (Watermarked)</div>' +
-            ktpHtml +
-          '</div>' +
-          '<div class="p-3 bg-white rounded-xl border border-emerald-100">' +
-            '<div class="text-xs font-bold text-emerald-dark">Pas Foto / Selfie</div>' +
-            selfieHtml +
-          '</div>' +
+        '<div class="p-3 bg-white rounded-xl border border-emerald-100">' +
+        '<div class="text-xs font-bold text-emerald-dark">Foto KTP (Watermarked)</div>' +
+        ktpHtml +
+        '</div>' +
+        '<div class="p-3 bg-white rounded-xl border border-emerald-100">' +
+        '<div class="text-xs font-bold text-emerald-dark">Pas Foto / Selfie</div>' +
+        selfieHtml +
+        '</div>' +
         '</div>' +
 
         // Action Buttons Verifikasi Ganda & Cetak Tanda Terima
         '<div class="flex gap-2 pt-2 border-t border-gray-100 flex-wrap">' +
-          (canVerifySekretaris && p.status === 'PENDING' ?
-            '<button type="button" id="btnVerifSekretaris" class="btn btn-primary flex-1 py-3 rounded-xl font-bold text-xs shadow-sm">✅ Verifikasi Berkas (Sekretaris)</button>' : '') +
-          (canApproveKetum && (p.status === 'VERIFIED_SEKRETARIS' || p.status === 'DIVERIFIKASI_SEKRETARIS') ?
-            '<button type="button" id="btnApproveKetum" class="btn bg-gold hover:bg-gold-light text-emerald-dark flex-1 py-3 rounded-xl font-extrabold text-xs shadow-sm">🌟 Sahkan &amp; Setujui Anggota (Ketua DPW)</button>' : '') +
-          (p.status === 'PENDING' || p.status === 'VERIFIED_SEKRETARIS' || p.status === 'DIVERIFIKASI_SEKRETARIS' ?
-            '<button type="button" id="btnRejectPendaftar" class="btn btn-danger px-4 py-3 rounded-xl font-bold text-xs">Tolak Berkas</button>' : '') +
-          '<button type="button" id="btnPrintReceiptBtn" class="btn btn-ghost px-4 py-3 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 border border-gray-200"><span>🖨️ Cetak Tanda Terima</span></button>' +
-          '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold text-xs">Tutup</button>' +
+        (canVerifySekretaris && p.status === 'PENDING' ?
+          '<button type="button" id="btnVerifSekretaris" class="btn btn-primary flex-1 py-3 rounded-xl font-bold text-xs shadow-sm">✅ Verifikasi Berkas (Sekretaris)</button>' : '') +
+        (canApproveKetum && (p.status === 'VERIFIED_SEKRETARIS' || p.status === 'DIVERIFIKASI_SEKRETARIS') ?
+          '<button type="button" id="btnApproveKetum" class="btn bg-gold hover:bg-gold-light text-emerald-dark flex-1 py-3 rounded-xl font-extrabold text-xs shadow-sm">🌟 Sahkan &amp; Setujui Anggota (Ketua DPW)</button>' : '') +
+        (p.status === 'PENDING' || p.status === 'VERIFIED_SEKRETARIS' || p.status === 'DIVERIFIKASI_SEKRETARIS' ?
+          '<button type="button" id="btnRejectPendaftar" class="btn btn-danger px-4 py-3 rounded-xl font-bold text-xs">Tolak Berkas</button>' : '') +
+        '<button type="button" id="btnPrintReceiptBtn" class="btn btn-ghost px-4 py-3 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 border border-gray-200"><span>🖨️ Cetak Tanda Terima</span></button>' +
+        '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold text-xs">Tutup</button>' +
         '</div>' +
-      '</div>';
+        '</div>';
 
       this.openModal(modalHtml, 'max-w-2xl');
 
@@ -2799,7 +4182,7 @@
               self.closeModal();
               self.toast('Berkas berhasil diverifikasi oleh Sekretaris. Menunggu persetujuan Ketua DPW.', 'success');
               self.loadPendaftar();
-            }).catch(function () {});
+            }).catch(function () { });
           });
         });
       }
@@ -2812,7 +4195,7 @@
               self.closeModal();
               self.toast('Pendaftaran anggota berhasil disahkan & disetujui penuh oleh Ketua DPW.', 'success');
               self.loadPendaftar();
-            }).catch(function () {});
+            }).catch(function () { });
           });
         });
       }
@@ -2842,40 +4225,40 @@
       var self = this;
       var receiptHtml =
         '<div class="p-6 bg-white max-w-xl mx-auto printable-receipt" id="receiptPrintArea">' +
-          '<div class="flex items-center justify-between border-b-2 border-emerald-900 pb-3 mb-4">' +
-            '<div class="flex items-center gap-3">' +
-              '<div class="w-12 h-12 rounded-xl bg-emerald-900 text-gold-light flex items-center justify-center font-black text-xl">APII</div>' +
-              '<div>' +
-                '<h2 class="text-sm font-extrabold text-emerald-950 uppercase tracking-wide">YAYASAN APOLOGET ISLAM INDONESIA</h2>' +
-                '<p class="text-[10px] text-gray-600 font-semibold">DEWAN PIMPINAN WILAYAH (DPW) JABODETABEK</p>' +
-              '</div>' +
-            '</div>' +
-            '<div class="text-right">' +
-              '<span class="text-[10px] uppercase font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">TANDA TERIMA</span>' +
-              '<div class="text-[10px] text-gray-500 font-mono mt-0.5">' + Auth.esc((p.created_at || '').slice(0, 10)) + '</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="text-center my-3">' +
-            '<h3 class="text-base font-black text-gray-900 uppercase">BUKTI PENDAFTARAN ANGGOTA</h3>' +
-            '<div class="font-mono text-sm font-extrabold text-emerald-800 bg-emerald-50 inline-block px-3 py-1 rounded-lg border border-emerald-200 mt-1">' +
-              Auth.esc(p.registration_no || 'REG-APII') + '</div>' +
-          '</div>' +
-          '<div class="space-y-2 text-xs py-3 border-y border-dashed border-gray-300 my-3">' +
-            '<div class="flex justify-between"><span class="text-gray-500">Nama Lengkap:</span><strong class="text-gray-900">' + Auth.esc(p.nama_lengkap) + '</strong></div>' +
-            '<div class="flex justify-between"><span class="text-gray-500">NIK:</span><span class="font-mono font-bold text-gray-800">' + Auth.esc(p.nik) + '</span></div>' +
-            '<div class="flex justify-between"><span class="text-gray-500">WhatsApp / Telp:</span><span class="font-mono text-gray-800">' + Auth.esc(p.whatsapp) + '</span></div>' +
-            '<div class="flex justify-between"><span class="text-gray-500">Domisili:</span><span class="text-gray-800">' + Auth.esc(p.kota || '—') + '</span></div>' +
-            '<div class="flex justify-between"><span class="text-gray-500">Status Pendaftaran:</span>' + self.badge(p.status, p.status_label || p.status) + '</div>' +
-          '</div>' +
-          '<div class="p-3 bg-gray-50 rounded-xl text-[10px] text-gray-500 leading-relaxed mb-4">' +
-            'Dokumen ini adalah tanda terima registrasi pendaftaran resmi Yayasan APII DPW Jabodetabek. ' +
-            'Pendaftar dapat memantau status verifikasi berkas secara berkala melalui narahubung Sekretariat DPW.' +
-          '</div>' +
-          '<div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 no-print">' +
-            '<button type="button" id="btnDoPrintReceipt" class="btn btn-primary px-5 py-2.5 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 shadow-sm">' +
-              '<span>🖨️ Cetak / Simpan PDF</span></button>' +
-            '<button type="button" data-close class="btn btn-ghost px-4 py-2.5 rounded-xl font-semibold text-xs">Tutup</button>' +
-          '</div>' +
+        '<div class="flex items-center justify-between border-b-2 border-emerald-900 pb-3 mb-4">' +
+        '<div class="flex items-center gap-3">' +
+        '<div class="w-12 h-12 rounded-xl bg-emerald-900 text-gold-light flex items-center justify-center font-black text-xl">APII</div>' +
+        '<div>' +
+        '<h2 class="text-sm font-extrabold text-emerald-950 uppercase tracking-wide">YAYASAN APOLOGET ISLAM INDONESIA</h2>' +
+        '<p class="text-[10px] text-gray-600 font-semibold">DEWAN PIMPINAN WILAYAH (DPW) JABODETABEK</p>' +
+        '</div>' +
+        '</div>' +
+        '<div class="text-right">' +
+        '<span class="text-[10px] uppercase font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">TANDA TERIMA</span>' +
+        '<div class="text-[10px] text-gray-500 font-mono mt-0.5">' + Auth.esc((p.created_at || '').slice(0, 10)) + '</div>' +
+        '</div>' +
+        '</div>' +
+        '<div class="text-center my-3">' +
+        '<h3 class="text-base font-black text-gray-900 uppercase">BUKTI PENDAFTARAN ANGGOTA</h3>' +
+        '<div class="font-mono text-sm font-extrabold text-emerald-800 bg-emerald-50 inline-block px-3 py-1 rounded-lg border border-emerald-200 mt-1">' +
+        Auth.esc(p.registration_no || 'REG-APII') + '</div>' +
+        '</div>' +
+        '<div class="space-y-2 text-xs py-3 border-y border-dashed border-gray-300 my-3">' +
+        '<div class="flex justify-between"><span class="text-gray-500">Nama Lengkap:</span><strong class="text-gray-900">' + Auth.esc(p.nama_lengkap) + '</strong></div>' +
+        '<div class="flex justify-between"><span class="text-gray-500">NIK:</span><span class="font-mono font-bold text-gray-800">' + Auth.esc(p.nik) + '</span></div>' +
+        '<div class="flex justify-between"><span class="text-gray-500">WhatsApp / Telp:</span><span class="font-mono text-gray-800">' + Auth.esc(p.whatsapp) + '</span></div>' +
+        '<div class="flex justify-between"><span class="text-gray-500">Domisili:</span><span class="text-gray-800">' + Auth.esc(p.kota || '—') + '</span></div>' +
+        '<div class="flex justify-between"><span class="text-gray-500">Status Pendaftaran:</span>' + self.badge(p.status, p.status_label || p.status) + '</div>' +
+        '</div>' +
+        '<div class="p-3 bg-gray-50 rounded-xl text-[10px] text-gray-500 leading-relaxed mb-4">' +
+        'Dokumen ini adalah tanda terima registrasi pendaftaran resmi Yayasan APII DPW Jabodetabek. ' +
+        'Pendaftar dapat memantau status verifikasi berkas secara berkala melalui narahubung Sekretariat DPW.' +
+        '</div>' +
+        '<div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 no-print">' +
+        '<button type="button" id="btnDoPrintReceipt" class="btn btn-primary px-5 py-2.5 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 shadow-sm">' +
+        '<span>🖨️ Cetak / Simpan PDF</span></button>' +
+        '<button type="button" data-close class="btn btn-ghost px-4 py-2.5 rounded-xl font-semibold text-xs">Tutup</button>' +
+        '</div>' +
         '</div>';
 
       self.openModal(receiptHtml, 'max-w-xl');
@@ -2899,7 +4282,9 @@
       var R = window.ROLES || {};
       var D = window.DIVISIONS || {};
 
-      var roleOpts = Object.keys(R).map(function (k) {
+      var roleOpts = Object.keys(R).filter(function (k) {
+        return !Auth.isDemoMode() || k !== 'SUPERADMIN';
+      }).map(function (k) {
         return '<option value="' + k + '"' + (item && item.role === k ? ' selected' : '') + '>' + R[k] + '</option>';
       }).join('');
       var divOpts = '<option value="">— Tidak ada —</option>' + Object.keys(D).map(function (k) {
@@ -2908,36 +4293,36 @@
 
       this.openModal(
         '<div class="p-4 sm:p-6">' +
-          '<div class="flex items-center justify-between gap-2 mb-5">' +
-            '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + (isEdit ? 'Ubah Akun Pengurus' : 'Buat Akun Pengurus Baru') + '</h3>' +
-            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
-          '</div>' +
-          '<form id="userFormEl" class="space-y-4">' +
-            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Username <span class="text-red-500">*</span></label>' +
-                '<input id="ufUsername" type="text" ' + (isEdit ? 'readonly' : 'required') +
-                ' class="field font-mono" placeholder="cth: sekretaris2" value="' + Auth.esc(item ? item.username : '') + '" /></div>' +
-              '<div><label class="lbl">Nama Lengkap</label>' +
-                '<input id="ufNama" type="text" class="field" placeholder="Nama lengkap pengurus" value="' + Auth.esc(item ? item.full_name : '') + '" /></div>' +
-            '</div>' +
-            '<div><label class="lbl">Email</label>' +
-              '<input id="ufEmail" type="email" class="field" placeholder="email@contoh.com" value="' + Auth.esc(item ? item.email : '') + '" /></div>' +
-            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Peran Organisasi <span class="text-red-500">*</span></label><select id="ufRole" class="field">' + roleOpts + '</select></div>' +
-              '<div><label class="lbl">Divisi Kerja</label><select id="ufDivisi" class="field">' + divOpts + '</select></div>' +
-            '</div>' +
-            '<div><label class="lbl">Password ' + (isEdit ? '(kosongkan bila tidak diubah)' : '<span class="text-red-500">*</span>') + '</label>' +
-              '<input id="ufPassword" type="password" ' + (isEdit ? '' : 'required') +
-              ' class="field" minlength="6" placeholder="Minimal 6 karakter" /></div>' +
-            '<label class="flex items-center gap-2.5 text-sm cursor-pointer">' +
-              '<input id="ufAktif" type="checkbox" class="h-4 w-4 accent-emerald" ' +
-              (!isEdit || item.is_active === 'TRUE' ? 'checked' : '') + ' /> Akun aktif</label>' +
-            '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
-              '<button type="submit" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">' + (isEdit ? 'Simpan Perubahan' : 'Buat Akun Pengurus') + '</button>' +
-              '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
-            '</div>' +
-          '</form>' +
+        '<div class="flex items-center justify-between gap-2 mb-5">' +
+        '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + (isEdit ? 'Ubah Akun Pengurus' : 'Buat Akun Pengurus Baru') + '</h3>' +
+        '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+        '</div>' +
+        '<form id="userFormEl" class="space-y-4">' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
+        '<div><label class="lbl">Username <span class="text-red-500">*</span></label>' +
+        '<input id="ufUsername" type="text" ' + (isEdit ? 'readonly' : 'required') +
+        ' class="field font-mono" placeholder="cth: sekretaris2" value="' + Auth.esc(item ? item.username : '') + '" /></div>' +
+        '<div><label class="lbl">Nama Lengkap</label>' +
+        '<input id="ufNama" type="text" class="field" placeholder="Nama lengkap pengurus" value="' + Auth.esc(item ? item.full_name : '') + '" /></div>' +
+        '</div>' +
+        '<div><label class="lbl">Email</label>' +
+        '<input id="ufEmail" type="email" class="field" placeholder="email@contoh.com" value="' + Auth.esc(item ? item.email : '') + '" /></div>' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
+        '<div><label class="lbl">Peran Organisasi <span class="text-red-500">*</span></label><select id="ufRole" class="field">' + roleOpts + '</select></div>' +
+        '<div><label class="lbl">Divisi Kerja</label><select id="ufDivisi" class="field">' + divOpts + '</select></div>' +
+        '</div>' +
+        '<div><label class="lbl">Password ' + (isEdit ? '(kosongkan bila tidak diubah)' : '<span class="text-red-500">*</span>') + '</label>' +
+        '<input id="ufPassword" type="password" ' + (isEdit ? '' : 'required') +
+        ' class="field" minlength="6" placeholder="Minimal 6 karakter" /></div>' +
+        '<label class="flex items-center gap-2.5 text-sm cursor-pointer">' +
+        '<input id="ufAktif" type="checkbox" class="h-4 w-4 accent-emerald" ' +
+        (!isEdit || item.is_active === 'TRUE' ? 'checked' : '') + ' /> Akun aktif</label>' +
+        '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
+        '<button type="submit" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">' + (isEdit ? 'Simpan Perubahan' : 'Buat Akun Pengurus') + '</button>' +
+        '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
+        '</div>' +
+        '</form>' +
         '</div>');
 
       Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
@@ -2961,7 +4346,7 @@
           self.closeModal();
           self.toast(isEdit ? 'Akun pengurus berhasil diperbarui.' : 'Akun pengurus baru berhasil dibuat.', 'success');
           self.loadPengguna(document.getElementById('usrQ') ? document.getElementById('usrQ').value.trim() : '');
-        }).catch(function () {});
+        }).catch(function () { });
       });
     },
 
@@ -2976,7 +4361,7 @@
           }).then(function () {
             self.toast('Status akun berhasil diubah.', 'success');
             self.loadPengguna(document.getElementById('usrQ') ? document.getElementById('usrQ').value.trim() : '');
-          }).catch(function () {});
+          }).catch(function () { });
         });
     },
 
@@ -2991,44 +4376,47 @@
         '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
         '<span>Ekspor CSV</span></button>';
 
+      var bannerHtml = this.getDemoContextBanner('audit');
+
       main.innerHTML = this.pageHead('Jejak Audit &amp; Kepatuhan',
         'Catatan keamanan setiap aksi penting organisasi. Dilindungi integritas WORM tanpa hak hapus.', exportBtn) +
+        bannerHtml +
         // WORM Security Banner
         '<div class="p-5 bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-950 text-white rounded-2xl mb-6 shadow-md border border-emerald-800/60 flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">' +
-          '<div class="flex items-center gap-3.5">' +
-            '<div class="w-10 h-10 rounded-xl bg-gold text-emerald-dark flex items-center justify-center font-bold flex-shrink-0 shadow">' +
-              '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>' +
-            '</div>' +
-            '<div>' +
-              '<div class="font-extrabold text-sm sm:text-base text-gold-light flex items-center gap-2">' +
-                '<span>Jurnal Audit Terkunci &amp; Permanen (WORM - Write Once, Read Many)</span>' +
-                '<span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-800/80 text-emerald-200 border border-emerald-600">Anti-Hapus</span>' +
-              '</div>' +
-              '<p class="text-xs text-emerald-200/90 mt-0.5">Catatan ini dienkripsi pada database pusat dan tidak memiliki fungsi hapus demi akuntabilitas hukum organisasi APII.</p>' +
-            '</div>' +
-          '</div>' +
+        '<div class="flex items-center gap-3.5">' +
+        '<div class="w-10 h-10 rounded-xl bg-gold text-emerald-dark flex items-center justify-center font-bold flex-shrink-0 shadow">' +
+        '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>' +
+        '</div>' +
+        '<div>' +
+        '<div class="font-extrabold text-sm sm:text-base text-gold-light flex items-center gap-2">' +
+        '<span>Jurnal Audit Terkunci &amp; Permanen (WORM - Write Once, Read Many)</span>' +
+        '<span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-800/80 text-emerald-200 border border-emerald-600">Anti-Hapus</span>' +
+        '</div>' +
+        '<p class="text-xs text-emerald-200/90 mt-0.5">Catatan ini dienkripsi pada database pusat dan tidak memiliki fungsi hapus demi akuntabilitas hukum organisasi APII.</p>' +
+        '</div>' +
+        '</div>' +
         '</div>' +
 
         // Filter Bar
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 mb-6 flex flex-col sm:flex-row gap-3">' +
-          '<select id="auditModul" class="field sm:w-48 text-xs">' +
-            '<option value="">Semua Modul</option>' +
-            '<option value="AUTH">AUTH (Login/Logout)</option>' +
-            '<option value="SURAT">SURAT (Persuratan)</option>' +
-            '<option value="KEUANGAN">KEUANGAN (Buku Kas)</option>' +
-            '<option value="DIVISI">DIVISI (Program Kerja)</option>' +
-            '<option value="USER">USER (Pengguna)</option>' +
-            '<option value="PENDAFTAR">PENDAFTAR (Calon Anggota)</option>' +
-            '<option value="SETTINGS">SETTINGS (Pengaturan)</option>' +
-          '</select>' +
-          '<input id="auditActor" type="text" placeholder="Filter pelaku (username)…" class="field flex-1 text-xs" />' +
-          '<input id="auditDate" type="date" class="field sm:w-48 text-xs" />' +
+        '<select id="auditModul" class="field sm:w-48 text-xs">' +
+        '<option value="">Semua Modul</option>' +
+        '<option value="AUTH">AUTH (Login/Logout)</option>' +
+        '<option value="SURAT">SURAT (Persuratan)</option>' +
+        '<option value="KEUANGAN">KEUANGAN (Buku Kas)</option>' +
+        '<option value="DIVISI">DIVISI (Program Kerja)</option>' +
+        '<option value="USER">USER (Pengguna)</option>' +
+        '<option value="PENDAFTAR">PENDAFTAR (Calon Anggota)</option>' +
+        '<option value="SETTINGS">SETTINGS (Pengaturan)</option>' +
+        '</select>' +
+        '<input id="auditActor" type="text" placeholder="Filter pelaku (username)…" class="field flex-1 text-xs" />' +
+        '<input id="auditDate" type="date" class="field sm:w-48 text-xs" />' +
         '</div>' +
 
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
-          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
-          '<th>Waktu</th><th>Pelaku</th><th>Modul &amp; Aksi</th><th>Keterangan Aktivitas</th>' +
-          '</tr></thead><tbody id="auditRows">' + this.loadingRow(4) + '</tbody></table></div>' +
+        '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+        '<th>Waktu</th><th>Pelaku</th><th>Modul &amp; Aksi</th><th>Keterangan Aktivitas</th>' +
+        '</tr></thead><tbody id="auditRows">' + this.loadingRow(4) + '</tbody></table></div>' +
         '</div>';
 
       var filterLogs = function () {
@@ -3084,7 +4472,7 @@
             '<td class="font-semibold font-mono text-xs text-emerald-dark"><span class="sm:hidden text-gray-400 font-sans font-medium">Pelaku: </span>' + Auth.esc(l.actor) + '</td>' +
             '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Aksi: </span>' + modBadge + '<span class="badge ' + cls + '">' + Auth.esc(l.action) + '</span></td>' +
             '<td class="text-sm text-gray-700 leading-snug">' + Auth.esc(l.detail) + '</td>' +
-          '</tr>';
+            '</tr>';
         }).join('') : '<tr class="tbl-empty"><td colspan="4" class="text-center text-gray-400 py-10">Belum ada catatan audit yang sesuai filter.</td></tr>';
       });
     },
@@ -3131,29 +4519,54 @@
       var isMaster = ['SUPERADMIN', 'KETUA'].indexOf(role) !== -1;
       var canEditorial = isMaster || ['SUPERADMIN', 'KETUA', 'SEKRETARIS'].indexOf(role) !== -1 ||
         (['KETUA_DIVISI', 'ANGGOTA_DIVISI'].indexOf(role) !== -1 && (div === 'DIV_HUMAS' || div === 'DIV_SOSMED'));
-      var currentTab = this.state.pengaturan.tab || (isMaster ? 'rekening' : 'redaksi');
 
-      // Editor redaksi (Sekum/Humas/Medsos) hanya boleh melihat sub-tab Redaksi.
-      if (!isMaster && currentTab !== 'redaksi') currentTab = 'redaksi';
+      var canRekening = ['SUPERADMIN', 'KETUA', 'BENDAHARA', 'PEMBINA', 'PENGAWAS'].indexOf(role) !== -1;
+      var canSurat = ['SUPERADMIN', 'KETUA', 'SEKRETARIS'].indexOf(role) !== -1;
+      var canPendaftaran = ['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'PEMBINA', 'PENGAWAS'].indexOf(role) !== -1;
+      var canKeuanganTab = ['SUPERADMIN', 'KETUA', 'BENDAHARA', 'PEMBINA', 'PENGAWAS'].indexOf(role) !== -1;
+      var canRbac = ['SUPERADMIN', 'KETUA'].indexOf(role) !== -1;
+      var canDrive = ['SUPERADMIN', 'KETUA'].indexOf(role) !== -1;
+
+      var currentTab = this.state.pengaturan.tab;
+      if (!currentTab) {
+        if (canRekening) currentTab = 'rekening';
+        else if (canPendaftaran) currentTab = 'pendaftaran';
+        else if (canEditorial) currentTab = 'redaksi';
+        else currentTab = 'rekening';
+      }
+
+      // Validasi izin akses tab
+      if (currentTab === 'rekening' && !canRekening) currentTab = canEditorial ? 'redaksi' : 'pendaftaran';
+      if (currentTab === 'surat' && !canSurat) currentTab = canEditorial ? 'redaksi' : 'pendaftaran';
+      if (currentTab === 'pendaftaran' && !canPendaftaran) currentTab = canEditorial ? 'redaksi' : 'rekening';
+      if (currentTab === 'keuangan' && !canKeuanganTab) currentTab = canEditorial ? 'redaksi' : 'rekening';
+      if (currentTab === 'rbac' && !canRbac) currentTab = canEditorial ? 'redaksi' : 'rekening';
+      if (currentTab === 'drive' && !canDrive) currentTab = canEditorial ? 'redaksi' : 'rekening';
+      if (currentTab === 'redaksi' && !canEditorial) currentTab = canRekening ? 'rekening' : 'pendaftaran';
+      this.state.pengaturan.tab = currentTab;
+
+      var bannerHtml = this.getDemoContextBanner('pengaturan');
 
       main.innerHTML = this.pageHead('Pengaturan &amp; Master Data',
         isMaster
           ? 'Kelola master rekening kas, format penomoran & KOP surat resmi, pendaftaran anggota, aturan keuangan, RBAC, Google Drive, dan redaksi konten portal publik.'
-          : 'Kelola redaksi konten dinamis portal publik (apii.sigitadi.id): hero, profil, warta, agenda, kontak, dan FAQ.', '') +
+          : 'Konfigurasi master data, perizinan, dan publikasi warta portal.', '') +
+        bannerHtml +
         '<div class="flex items-center gap-2 p-1.5 bg-gray-100 rounded-2xl mb-6 flex-wrap max-w-4xl">' +
-          (isMaster ?
-            '<button type="button" data-ptab="rekening" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rekening' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💳 Master Rekening</button>' +
-            '<button type="button" data-ptab="surat" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'surat' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📄 Format &amp; KOP Surat</button>' +
-            '<button type="button" data-ptab="pendaftaran" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'pendaftaran' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📝 Pendaftaran</button>' +
-            '<button type="button" data-ptab="keuangan" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'keuangan' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💰 Keuangan</button>' +
-            '<button type="button" data-ptab="rbac" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rbac' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">🛡️ RBAC &amp; Publik</button>' +
-            '<button type="button" data-ptab="drive" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'drive' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">☁️ Google Drive</button>'
-          : '') +
-          (canEditorial ?
-            '<button type="button" data-ptab="redaksi" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'redaksi' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📰 Redaksi Konten Portal</button>'
-          : '') +
+        (canRekening ? '<button type="button" data-ptab="rekening" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rekening' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💳 Master Rekening</button>' : '') +
+        (canSurat ? '<button type="button" data-ptab="surat" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'surat' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📄 Format &amp; KOP Surat</button>' : '') +
+        (canPendaftaran ? '<button type="button" data-ptab="pendaftaran" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'pendaftaran' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📝 Pendaftaran</button>' : '') +
+        (canKeuanganTab ? '<button type="button" data-ptab="keuangan" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'keuangan' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💰 Keuangan</button>' : '') +
+        (canRbac ? '<button type="button" data-ptab="rbac" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rbac' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">🛡️ RBAC &amp; Publik</button>' : '') +
+        (canDrive ? '<button type="button" data-ptab="drive" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'drive' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">☁️ Google Drive</button>' : '') +
+        (canEditorial ? '<button type="button" data-ptab="redaksi" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'redaksi' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📰 Redaksi Konten Portal</button>' : '') +
         '</div>' +
         '<div id="pengaturanBox"></div>';
+
+      var guideBtn = main.querySelector('[data-open-demo-guide]');
+      if (guideBtn) {
+        guideBtn.addEventListener('click', function () { self.openDemoGuideModal(); });
+      }
 
       Array.prototype.forEach.call(main.querySelectorAll('[data-ptab]'), function (btn) {
         btn.addEventListener('click', function () {
@@ -3176,18 +4589,18 @@
       var self = this;
       box.innerHTML =
         '<div class="flex items-center justify-between mb-4 flex-wrap gap-2">' +
-          '<div>' +
-            '<h3 class="text-base font-extrabold text-emerald-dark">Master Rekening &amp; Kas Yayasan</h3>' +
-            '<p class="text-xs text-gray-500">Rekening dengan tanda &ldquo;Tampil di Publik&rdquo; akan langsung muncul di portal publik (apii.sigitadi.id).</p>' +
-          '</div>' +
-          '<button type="button" id="btnAddAccount" class="btn btn-primary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-sm">' +
-            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>' +
-            '<span>Tambah Rekening</span></button>' +
+        '<div>' +
+        '<h3 class="text-base font-extrabold text-emerald-dark">Master Rekening &amp; Kas Yayasan</h3>' +
+        '<p class="text-xs text-gray-500">Rekening dengan tanda &ldquo;Tampil di Publik&rdquo; akan langsung muncul di portal publik (apii.sigitadi.id).</p>' +
+        '</div>' +
+        '<button type="button" id="btnAddAccount" class="btn btn-primary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-sm">' +
+        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>' +
+        '<span>Tambah Rekening</span></button>' +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
-          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
-          '<th>Nama Rekening</th><th>Jenis</th><th>Bank / Lembaga</th><th>Nomor Rekening</th><th>Atas Nama</th><th>Kategori</th><th>Publik</th><th>Status</th><th>Aksi</th>' +
-          '</tr></thead><tbody id="accountRows">' + this.loadingRow(9) + '</tbody></table></div>' +
+        '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+        '<th>Nama Rekening</th><th>Jenis</th><th>Bank / Lembaga</th><th>Nomor Rekening</th><th>Atas Nama</th><th>Kategori</th><th>Publik</th><th>Status</th><th>Aksi</th>' +
+        '</tr></thead><tbody id="accountRows">' + this.loadingRow(9) + '</tbody></table></div>' +
         '</div>';
 
       document.getElementById('btnAddAccount').addEventListener('click', function () {
@@ -3229,10 +4642,10 @@
             '<td>' + (isPub ? '<span class="badge badge-PUBLISHED text-[11px]">🌐 Tampil di Publik</span>' : '<span class="badge text-gray-400 bg-gray-100 text-[11px]">🔒 Internal</span>') + '</td>' +
             '<td>' + (isAktif ? '<span class="badge badge-PUBLISHED">Aktif</span>' : '<span class="badge badge-REJECTED">Nonaktif</span>') + '</td>' +
             '<td class="tbl-actions"><div class="flex gap-1.5">' +
-              self.aBtn('edit-acc', 'Ubah', 'Ubah rincian rekening') +
-              self.aBtn('danger del-acc', 'Hapus', 'Hapus rekening') +
+            self.aBtn('edit-acc', 'Ubah', 'Ubah rincian rekening') +
+            self.aBtn('danger del-acc', 'Hapus', 'Hapus rekening') +
             '</div></td>' +
-          '</tr>';
+            '</tr>';
         }).join('') : '<tr class="tbl-empty"><td colspan="9" class="text-center text-gray-400 py-10">Belum ada rekening kas terdaftar. Silakan klik tombol "Tambah Rekening".</td></tr>';
 
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
@@ -3247,7 +4660,7 @@
                 Auth.cache.invalidate(['accounts', 'keuangan', 'dashboard']);
                 self.toast('Rekening berhasil dihapus.', 'success');
                 self.loadAccountsList();
-              }).catch(function () {});
+              }).catch(function () { });
             });
           };
         });
@@ -3272,58 +4685,58 @@
 
       this.openModal(
         '<div class="p-4 sm:p-6">' +
-          '<div class="flex items-center justify-between gap-2 mb-5">' +
-            '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + (isEdit ? 'Ubah Master Rekening Kas' : 'Tambah Rekening Kas Baru') + '</h3>' +
-            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
-          '</div>' +
-          '<form id="accFormEl" class="space-y-4">' +
-            '<div><label class="lbl">Nama Akun Rekening <span class="text-red-500">*</span></label>' +
-              '<input id="afNama" type="text" required class="field" placeholder="cth: Kas BSI Operasional Yayasan / Bank Mandiri Wakaf" value="' + Auth.esc(item ? (item.name || item.nama_rekening) : '') + '" /></div>' +
-            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Jenis Akun <span class="text-red-500">*</span></label><select id="afJenis" class="field">' +
-                '<option value="BANK"' + (currJenis === 'BANK' ? ' selected' : '') + '>Rekening Bank</option>' +
-                '<option value="KAS"' + (currJenis === 'KAS' ? ' selected' : '') + '>Kas Tunai / Brankas</option>' +
-              '</select></div>' +
-              '<div><label class="lbl">Nama Bank / Lembaga <span class="text-red-500">*</span></label>' +
-                '<input id="afVendor" type="text" required class="field" placeholder="cth: Bank Syariah Indonesia (BSI) / Bank Mandiri / Kas Tunai" value="' + Auth.esc(item ? (item.bank_name || item.bank_vendor) : '') + '" /></div>' +
-            '</div>' +
-            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Nomor Rekening <span class="text-red-500">*</span></label>' +
-                '<input id="afNomor" type="text" required class="field font-mono font-bold" placeholder="cth: 7218390881 (atau - untuk kas tunai)" value="' + Auth.esc(item ? (item.account_number || item.nomor_rekening) : '') + '" /></div>' +
-              '<div><label class="lbl">Atas Nama Pemilik Rekening <span class="text-red-500">*</span></label>' +
-                '<input id="afAtasNama" type="text" required class="field" placeholder="cth: YAYASAN APII DPW JABODETABEK" value="' + Auth.esc(item ? (item.holder_name || item.atas_nama) : 'YAYASAN APII DPW JABODETABEK') + '" /></div>' +
-            '</div>' +
-            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Kategori Peruntukan</label>' +
-                '<select id="afCategory" class="field">' +
-                  '<option value="Operasional DPW"' + (currKategori === 'Operasional DPW' ? ' selected' : '') + '>Operasional DPW</option>' +
-                  '<option value="Wakaf & Dakwah"' + (currKategori === 'Wakaf & Dakwah' ? ' selected' : '') + '>Wakaf & Dakwah</option>' +
-                  '<option value="Zakat & Infaq"' + (currKategori === 'Zakat & Infaq' ? ' selected' : '') + '>Zakat & Infaq</option>' +
-                  '<option value="Sosial Kemanusiaan"' + (currKategori === 'Sosial Kemanusiaan' ? ' selected' : '') + '>Sosial Kemanusiaan</option>' +
-                  '<option value="Kas Kecil Sekretariat"' + (currKategori === 'Kas Kecil Sekretariat' ? ' selected' : '') + '>Kas Kecil Sekretariat</option>' +
-                '</select></div>' +
-              '<div><label class="lbl">Kode Akun Internal (Opsional)</label>' +
-                '<input id="afCode" type="text" class="field font-mono text-xs uppercase" placeholder="cth: KAS_BSI (otomatis bila kosong)" value="' + Auth.esc(item ? item.code : '') + '" /></div>' +
-            '</div>' +
-            '<div class="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-2">' +
-              '<label class="flex items-center gap-2.5 text-xs font-bold text-emerald-950 cursor-pointer">' +
-                '<input id="afShowPublic" type="checkbox" class="h-4 w-4 accent-emerald rounded" ' + (isPublicChecked ? 'checked' : '') + ' />' +
-                '<span>🌐 Tampilkan Rekening Ini di Portal Publik (apii.sigitadi.id)</span>' +
-              '</label>' +
-              '<p class="text-[11px] text-emerald-800 leading-relaxed pl-6.5">' +
-                'Jika dicentang, nomor rekening akan langsung muncul di halaman publik yayasan untuk donasi, infaq, dan transaksi resmi.' +
-              '</p>' +
-            '</div>' +
-            '<label class="flex items-center gap-2.5 text-xs text-gray-700 cursor-pointer pt-1">' +
-              '<input id="afActive" type="checkbox" class="h-4 w-4 accent-emerald rounded" ' + (isActiveChecked ? 'checked' : '') + ' />' +
-              '<span class="font-semibold">Rekening Aktif (dapat digunakan untuk transaksi buku kas)</span>' +
-            '</label>' +
-            '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-3 border-t border-gray-100">' +
-              '<button type="submit" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm">' + (isEdit ? 'Simpan Perubahan' : 'Tambah Rekening') + '</button>' +
-              '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
-            '</div>' +
-          '</form>' +
+        '<div class="flex items-center justify-between gap-2 mb-5">' +
+        '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark break-words">' + (isEdit ? 'Ubah Master Rekening Kas' : 'Tambah Rekening Kas Baru') + '</h3>' +
+        '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+        '</div>' +
+        '<form id="accFormEl" class="space-y-4">' +
+        '<div><label class="lbl">Nama Akun Rekening <span class="text-red-500">*</span></label>' +
+        '<input id="afNama" type="text" required class="field" placeholder="cth: Kas BSI Operasional Yayasan / Bank Mandiri Wakaf" value="' + Auth.esc(item ? (item.name || item.nama_rekening) : '') + '" /></div>' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
+        '<div><label class="lbl">Jenis Akun <span class="text-red-500">*</span></label><select id="afJenis" class="field">' +
+        '<option value="BANK"' + (currJenis === 'BANK' ? ' selected' : '') + '>Rekening Bank</option>' +
+        '<option value="KAS"' + (currJenis === 'KAS' ? ' selected' : '') + '>Kas Tunai / Brankas</option>' +
+        '</select></div>' +
+        '<div><label class="lbl">Nama Bank / Lembaga <span class="text-red-500">*</span></label>' +
+        '<input id="afVendor" type="text" required class="field" placeholder="cth: Bank Syariah Indonesia (BSI) / Bank Mandiri / Kas Tunai" value="' + Auth.esc(item ? (item.bank_name || item.bank_vendor) : '') + '" /></div>' +
+        '</div>' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
+        '<div><label class="lbl">Nomor Rekening <span class="text-red-500">*</span></label>' +
+        '<input id="afNomor" type="text" required class="field font-mono font-bold" placeholder="cth: 7218390881 (atau - untuk kas tunai)" value="' + Auth.esc(item ? (item.account_number || item.nomor_rekening) : '') + '" /></div>' +
+        '<div><label class="lbl">Atas Nama Pemilik Rekening <span class="text-red-500">*</span></label>' +
+        '<input id="afAtasNama" type="text" required class="field" placeholder="cth: YAYASAN APII DPW JABODETABEK" value="' + Auth.esc(item ? (item.holder_name || item.atas_nama) : 'YAYASAN APII DPW JABODETABEK') + '" /></div>' +
+        '</div>' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
+        '<div><label class="lbl">Kategori Peruntukan</label>' +
+        '<select id="afCategory" class="field">' +
+        '<option value="Operasional DPW"' + (currKategori === 'Operasional DPW' ? ' selected' : '') + '>Operasional DPW</option>' +
+        '<option value="Wakaf & Dakwah"' + (currKategori === 'Wakaf & Dakwah' ? ' selected' : '') + '>Wakaf & Dakwah</option>' +
+        '<option value="Zakat & Infaq"' + (currKategori === 'Zakat & Infaq' ? ' selected' : '') + '>Zakat & Infaq</option>' +
+        '<option value="Sosial Kemanusiaan"' + (currKategori === 'Sosial Kemanusiaan' ? ' selected' : '') + '>Sosial Kemanusiaan</option>' +
+        '<option value="Kas Kecil Sekretariat"' + (currKategori === 'Kas Kecil Sekretariat' ? ' selected' : '') + '>Kas Kecil Sekretariat</option>' +
+        '</select></div>' +
+        '<div><label class="lbl">Kode Akun Internal (Opsional)</label>' +
+        '<input id="afCode" type="text" class="field font-mono text-xs uppercase" placeholder="cth: KAS_BSI (otomatis bila kosong)" value="' + Auth.esc(item ? item.code : '') + '" /></div>' +
+        '</div>' +
+        '<div class="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-2">' +
+        '<label class="flex items-center gap-2.5 text-xs font-bold text-emerald-950 cursor-pointer">' +
+        '<input id="afShowPublic" type="checkbox" class="h-4 w-4 accent-emerald rounded" ' + (isPublicChecked ? 'checked' : '') + ' />' +
+        '<span>🌐 Tampilkan Rekening Ini di Portal Publik (apii.sigitadi.id)</span>' +
+        '</label>' +
+        '<p class="text-[11px] text-emerald-800 leading-relaxed pl-6.5">' +
+        'Jika dicentang, nomor rekening akan langsung muncul di halaman publik yayasan untuk donasi, infaq, dan transaksi resmi.' +
+        '</p>' +
+        '</div>' +
+        '<label class="flex items-center gap-2.5 text-xs text-gray-700 cursor-pointer pt-1">' +
+        '<input id="afActive" type="checkbox" class="h-4 w-4 accent-emerald rounded" ' + (isActiveChecked ? 'checked' : '') + ' />' +
+        '<span class="font-semibold">Rekening Aktif (dapat digunakan untuk transaksi buku kas)</span>' +
+        '</label>' +
+        '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-3 border-t border-gray-100">' +
+        '<button type="submit" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm">' + (isEdit ? 'Simpan Perubahan' : 'Tambah Rekening') + '</button>' +
+        '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
+        '</div>' +
+        '</form>' +
         '</div>');
 
       Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
@@ -3365,7 +4778,7 @@
           self.closeModal();
           self.toast(isEdit ? 'Rekening berhasil diperbarui.' : 'Rekening baru berhasil ditambahkan dan disinkronkan.', 'success');
           self.loadAccountsList();
-        }).catch(function () {});
+        }).catch(function () { });
       });
     },
 
@@ -3399,176 +4812,176 @@
 
         box.innerHTML =
           '<div class="grid lg:grid-cols-12 gap-6 items-start">' +
-            // KOLOM KIRI (7/12): Form Pengaturan & Berkas
-            '<div class="lg:col-span-7 space-y-5">' +
-              // KARTU 1: Mode KOP & Berkas Banner
-              '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-5 space-y-4">' +
-                '<div class="flex items-center justify-between">' +
-                  '<h3 class="text-sm sm:text-base font-extrabold text-emerald-dark">1. Mode Format KOP &amp; Footer Naskah</h3>' +
-                  '<span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">⚡ Live Reactive</span>' +
-                '</div>' +
-                '<div>' +
-                  '<label class="lbl">Pilihan Format KOP Dokumen</label>' +
-                  '<div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-1.5">' +
-                    '<label class="flex items-center gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition">' +
-                      '<input type="radio" name="kopMode" value="image" ' + (kopMode === 'image' ? 'checked' : '') + ' class="accent-emerald" />' +
-                      '<span class="text-xs font-bold text-gray-800">🖼️ Banner Grafis</span>' +
-                    '</label>' +
-                    '<label class="flex items-center gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition">' +
-                      '<input type="radio" name="kopMode" value="pdf_master" ' + (kopMode === 'pdf_master' ? 'checked' : '') + ' class="accent-emerald" />' +
-                      '<span class="text-xs font-bold text-gray-800">📄 Master PDF</span>' +
-                    '</label>' +
-                    '<label class="flex items-center gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition">' +
-                      '<input type="radio" name="kopMode" value="text" ' + (kopMode !== 'image' && kopMode !== 'pdf_master' ? 'checked' : '') + ' class="accent-emerald" />' +
-                      '<span class="text-xs font-bold text-gray-800">📝 Teks Resmi</span>' +
-                    '</label>' +
-                  '</div>' +
-                '</div>' +
-                '<div class="grid sm:grid-cols-2 gap-4">' +
-                  '<div>' +
-                    '<label class="lbl">Unggah Header Banner KOP (PNG/JPG/PDF)</label>' +
-                    '<input id="kopFileInput" type="file" accept="image/*,application/pdf" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
-                    '<p class="text-[10px] text-gray-400 mt-1">Rekomendasi lebar 1200x260 px untuk dokumen A4 tajam.</p>' +
-                  '</div>' +
-                  '<div>' +
-                    '<label class="lbl">Unggah Footer Banner (Opsional PNG/JPG)</label>' +
-                    '<input id="footerFileInput" type="file" accept="image/*" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
-                    '<p class="text-[10px] text-gray-400 mt-1">Banner catatan kaki bagian bawah halaman kertas A4.</p>' +
-                  '</div>' +
-                '</div>' +
-              '</div>' +
+          // KOLOM KIRI (7/12): Form Pengaturan & Berkas
+          '<div class="lg:col-span-7 space-y-5">' +
+          // KARTU 1: Mode KOP & Berkas Banner
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-5 space-y-4">' +
+          '<div class="flex items-center justify-between">' +
+          '<h3 class="text-sm sm:text-base font-extrabold text-emerald-dark">1. Mode Format KOP &amp; Footer Naskah</h3>' +
+          '<span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">⚡ Live Reactive</span>' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Pilihan Format KOP Dokumen</label>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-1.5">' +
+          '<label class="flex items-center gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition">' +
+          '<input type="radio" name="kopMode" value="image" ' + (kopMode === 'image' ? 'checked' : '') + ' class="accent-emerald" />' +
+          '<span class="text-xs font-bold text-gray-800">🖼️ Banner Grafis</span>' +
+          '</label>' +
+          '<label class="flex items-center gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition">' +
+          '<input type="radio" name="kopMode" value="pdf_master" ' + (kopMode === 'pdf_master' ? 'checked' : '') + ' class="accent-emerald" />' +
+          '<span class="text-xs font-bold text-gray-800">📄 Master PDF</span>' +
+          '</label>' +
+          '<label class="flex items-center gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition">' +
+          '<input type="radio" name="kopMode" value="text" ' + (kopMode !== 'image' && kopMode !== 'pdf_master' ? 'checked' : '') + ' class="accent-emerald" />' +
+          '<span class="text-xs font-bold text-gray-800">📝 Teks Resmi</span>' +
+          '</label>' +
+          '</div>' +
+          '</div>' +
+          '<div class="grid sm:grid-cols-2 gap-4">' +
+          '<div>' +
+          '<label class="lbl">Unggah Header Banner KOP (PNG/JPG/PDF)</label>' +
+          '<input id="kopFileInput" type="file" accept="image/*,application/pdf" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
+          '<p class="text-[10px] text-gray-400 mt-1">Rekomendasi lebar 1200x260 px untuk dokumen A4 tajam.</p>' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Unggah Footer Banner (Opsional PNG/JPG)</label>' +
+          '<input id="footerFileInput" type="file" accept="image/*" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
+          '<p class="text-[10px] text-gray-400 mt-1">Banner catatan kaki bagian bawah halaman kertas A4.</p>' +
+          '</div>' +
+          '</div>' +
+          '</div>' +
 
-              // KARTU 2: Stempel Basah & Tanda Tangan Digital
-              '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-5 space-y-4">' +
-                '<h3 class="text-sm sm:text-base font-extrabold text-emerald-dark">2. Stempel Basah &amp; Tanda Tangan Digital</h3>' +
-                '<div class="grid sm:grid-cols-3 gap-3">' +
-                  '<div>' +
-                    '<label class="lbl">Stempel Resmi (PNG Transparan)</label>' +
-                    '<input id="stempelFileInput" type="file" accept="image/png" class="field text-xs file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
-                  '</div>' +
-                  '<div>' +
-                    '<label class="lbl">Tanda Tangan Ketua (PNG Transparan)</label>' +
-                    '<input id="ttdKetuaFileInput" type="file" accept="image/png" class="field text-xs file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
-                  '</div>' +
-                  '<div>' +
-                    '<label class="lbl">Tanda Tangan Sekretaris (PNG Transparan)</label>' +
-                    '<input id="ttdSekretarisFileInput" type="file" accept="image/png" class="field text-xs file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
-                  '</div>' +
-                '</div>' +
-                '<div class="grid sm:grid-cols-2 gap-4 p-3.5 bg-gray-50 rounded-xl border border-gray-200">' +
-                  '<div>' +
-                    '<div class="flex items-center justify-between mb-1">' +
-                      '<label class="text-xs font-bold text-gray-700">Ukuran Diameter Stempel</label>' +
-                      '<span id="lblStempelScale" class="text-xs font-mono font-bold text-emerald-dark">' + stempelScale + 'px</span>' +
-                    '</div>' +
-                    '<input id="sliderStempelScale" type="range" min="60" max="140" step="5" value="' + stempelScale + '" class="w-full accent-emerald" />' +
-                  '</div>' +
-                  '<div>' +
-                    '<div class="flex items-center justify-between mb-1">' +
-                      '<label class="text-xs font-bold text-gray-700">Posisi Overlap terhadap TTD Ketua</label>' +
-                      '<span id="lblStempelOverlap" class="text-xs font-mono font-bold text-emerald-dark">' + stempelOverlap + '%</span>' +
-                    '</div>' +
-                    '<input id="sliderStempelOverlap" type="range" min="0" max="60" step="5" value="' + stempelOverlap + '" class="w-full accent-emerald" />' +
-                  '</div>' +
-                '</div>' +
-                '<p class="text-[11px] text-gray-500">Sesuai kaidah naskah dinas resmi DPW, stempel basah akan menimpa tanda tangan Ketua DPW di sisi kanan secara autentik.</p>' +
-              '</div>' +
+          // KARTU 2: Stempel Basah & Tanda Tangan Digital
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-5 space-y-4">' +
+          '<h3 class="text-sm sm:text-base font-extrabold text-emerald-dark">2. Stempel Basah &amp; Tanda Tangan Digital</h3>' +
+          '<div class="grid sm:grid-cols-3 gap-3">' +
+          '<div>' +
+          '<label class="lbl">Stempel Resmi (PNG Transparan)</label>' +
+          '<input id="stempelFileInput" type="file" accept="image/png" class="field text-xs file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Tanda Tangan Ketua (PNG Transparan)</label>' +
+          '<input id="ttdKetuaFileInput" type="file" accept="image/png" class="field text-xs file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Tanda Tangan Sekretaris (PNG Transparan)</label>' +
+          '<input id="ttdSekretarisFileInput" type="file" accept="image/png" class="field text-xs file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
+          '</div>' +
+          '</div>' +
+          '<div class="grid sm:grid-cols-2 gap-4 p-3.5 bg-gray-50 rounded-xl border border-gray-200">' +
+          '<div>' +
+          '<div class="flex items-center justify-between mb-1">' +
+          '<label class="text-xs font-bold text-gray-700">Ukuran Diameter Stempel</label>' +
+          '<span id="lblStempelScale" class="text-xs font-mono font-bold text-emerald-dark">' + stempelScale + 'px</span>' +
+          '</div>' +
+          '<input id="sliderStempelScale" type="range" min="60" max="140" step="5" value="' + stempelScale + '" class="w-full accent-emerald" />' +
+          '</div>' +
+          '<div>' +
+          '<div class="flex items-center justify-between mb-1">' +
+          '<label class="text-xs font-bold text-gray-700">Posisi Overlap terhadap TTD Ketua</label>' +
+          '<span id="lblStempelOverlap" class="text-xs font-mono font-bold text-emerald-dark">' + stempelOverlap + '%</span>' +
+          '</div>' +
+          '<input id="sliderStempelOverlap" type="range" min="0" max="60" step="5" value="' + stempelOverlap + '" class="w-full accent-emerald" />' +
+          '</div>' +
+          '</div>' +
+          '<p class="text-[11px] text-gray-500">Sesuai kaidah naskah dinas resmi DPW, stempel basah akan menimpa tanda tangan Ketua DPW di sisi kanan secara autentik.</p>' +
+          '</div>' +
 
-              // KARTU 3: Penomoran & Teks Lembaga
-              '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-5 space-y-4">' +
-                '<h3 class="text-sm sm:text-base font-extrabold text-emerald-dark">3. Pola Penomoran &amp; Teks Identitas Lembaga</h3>' +
-                '<div>' +
-                  '<label class="lbl">Format Pola Penomoran Surat Otomatis</label>' +
-                  '<input id="patternInput" type="text" class="field font-mono text-xs font-bold" value="' + Auth.esc(pattern) + '" />' +
-                  '<p class="text-[11px] text-gray-400 mt-1">Tag: <code class="bg-gray-100 px-1 rounded">{urut}</code>, <code class="bg-gray-100 px-1 rounded">{kode}</code>, <code class="bg-gray-100 px-1 rounded">{org}</code>, <code class="bg-gray-100 px-1 rounded">{bulanRomawi}</code>, <code class="bg-gray-100 px-1 rounded">{tahun}</code></p>' +
-                '</div>' +
-                '<div class="space-y-3 pt-2 border-t border-gray-100">' +
-                  '<div><label class="lbl">Nama Lembaga (Baris Utama KOP)</label><input id="kopOrgName" type="text" class="field text-xs font-semibold" value="' + Auth.esc(orgName) + '" /></div>' +
-                  '<div><label class="lbl">Alamat Sekretariat Lengkap</label><input id="kopAddress" type="text" class="field text-xs" value="' + Auth.esc(address) + '" /></div>' +
-                  '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
-                    '<div><label class="lbl">Kontak Telepon</label><input id="kopPhone" type="text" class="field text-xs" value="' + Auth.esc(phone) + '" /></div>' +
-                    '<div><label class="lbl">Email Resmi</label><input id="kopEmail" type="email" class="field text-xs" value="' + Auth.esc(email) + '" /></div>' +
-                  '</div>' +
-                  '<div><label class="lbl">Teks Catatan Kaki (Footer)</label><input id="kopFooterText" type="text" class="field text-xs" value="' + Auth.esc(footerText) + '" /></div>' +
-                '</div>' +
-              '</div>' +
+          // KARTU 3: Penomoran & Teks Lembaga
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-5 space-y-4">' +
+          '<h3 class="text-sm sm:text-base font-extrabold text-emerald-dark">3. Pola Penomoran &amp; Teks Identitas Lembaga</h3>' +
+          '<div>' +
+          '<label class="lbl">Format Pola Penomoran Surat Otomatis</label>' +
+          '<input id="patternInput" type="text" class="field font-mono text-xs font-bold" value="' + Auth.esc(pattern) + '" />' +
+          '<p class="text-[11px] text-gray-400 mt-1">Tag: <code class="bg-gray-100 px-1 rounded">{urut}</code>, <code class="bg-gray-100 px-1 rounded">{kode}</code>, <code class="bg-gray-100 px-1 rounded">{org}</code>, <code class="bg-gray-100 px-1 rounded">{bulanRomawi}</code>, <code class="bg-gray-100 px-1 rounded">{tahun}</code></p>' +
+          '</div>' +
+          '<div class="space-y-3 pt-2 border-t border-gray-100">' +
+          '<div><label class="lbl">Nama Lembaga (Baris Utama KOP)</label><input id="kopOrgName" type="text" class="field text-xs font-semibold" value="' + Auth.esc(orgName) + '" /></div>' +
+          '<div><label class="lbl">Alamat Sekretariat Lengkap</label><input id="kopAddress" type="text" class="field text-xs" value="' + Auth.esc(address) + '" /></div>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
+          '<div><label class="lbl">Kontak Telepon</label><input id="kopPhone" type="text" class="field text-xs" value="' + Auth.esc(phone) + '" /></div>' +
+          '<div><label class="lbl">Email Resmi</label><input id="kopEmail" type="email" class="field text-xs" value="' + Auth.esc(email) + '" /></div>' +
+          '</div>' +
+          '<div><label class="lbl">Teks Catatan Kaki (Footer)</label><input id="kopFooterText" type="text" class="field text-xs" value="' + Auth.esc(footerText) + '" /></div>' +
+          '</div>' +
+          '</div>' +
 
-              // Kancing Aksi
-              '<div class="flex flex-col sm:flex-row gap-3 pt-2">' +
-                '<button type="button" id="btnSaveSuratSetting" class="btn btn-primary flex-1 py-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm inline-flex items-center justify-center gap-2">' +
-                  '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
-                  '<span>Simpan Format &amp; KOP Surat</span></button>' +
-                '<button type="button" id="btnPrintSampleA4" class="btn btn-ghost px-5 py-3 rounded-xl font-bold text-xs sm:text-sm border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 inline-flex items-center justify-center gap-2 shadow-sm">' +
-                  '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
-                  '<span>🖨️ Cetak / Pratinjau Sample A4</span></button>' +
-              '</div>' +
-            '</div>' +
+          // Kancing Aksi
+          '<div class="flex flex-col sm:flex-row gap-3 pt-2">' +
+          '<button type="button" id="btnSaveSuratSetting" class="btn btn-primary flex-1 py-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm inline-flex items-center justify-center gap-2">' +
+          '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
+          '<span>Simpan Format &amp; KOP Surat</span></button>' +
+          '<button type="button" id="btnPrintSampleA4" class="btn btn-ghost px-5 py-3 rounded-xl font-bold text-xs sm:text-sm border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 inline-flex items-center justify-center gap-2 shadow-sm">' +
+          '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
+          '<span>🖨️ Cetak / Pratinjau Sample A4</span></button>' +
+          '</div>' +
+          '</div>' +
 
-            // KOLOM KANAN (5/12): Live Reactive A4 Paper Replica Preview
-            '<div class="lg:col-span-5 sticky top-20">' +
-              '<div class="card bg-gray-100/90 rounded-2xl border border-gray-300 p-4 shadow-sm flex flex-col items-center">' +
-                '<div class="w-full flex items-center justify-between mb-2.5 px-1">' +
-                  '<span class="text-[11px] font-extrabold text-gray-600 uppercase tracking-wider">Pratinjau Kertas A4 (Live 0 ms)</span>' +
-                  '<span class="text-[10px] bg-white border border-gray-300 text-gray-500 font-mono px-2 py-0.5 rounded-md">Rasio A4 Standar</span>' +
-                '</div>' +
+          // KOLOM KANAN (5/12): Live Reactive A4 Paper Replica Preview
+          '<div class="lg:col-span-5 sticky top-20">' +
+          '<div class="card bg-gray-100/90 rounded-2xl border border-gray-300 p-4 shadow-sm flex flex-col items-center">' +
+          '<div class="w-full flex items-center justify-between mb-2.5 px-1">' +
+          '<span class="text-[11px] font-extrabold text-gray-600 uppercase tracking-wider">Pratinjau Kertas A4 (Live 0 ms)</span>' +
+          '<span class="text-[10px] bg-white border border-gray-300 text-gray-500 font-mono px-2 py-0.5 rounded-md">Rasio A4 Standar</span>' +
+          '</div>' +
 
-                // Virtual A4 Paper
-                '<div id="livePaperPreview" class="w-full bg-white rounded-lg shadow-md border border-gray-300 p-5 text-[10px] text-gray-800 leading-relaxed font-sans min-h-[520px] flex flex-col justify-between transition-all select-none">' +
-                  // KOP Header Container
-                  '<div id="previewKopBox" class="text-center pb-2 border-b-2 border-emerald-900 mb-3">' +
-                    // Dirender secara live oleh renderLivePreview()
-                  '</div>' +
+          // Virtual A4 Paper
+          '<div id="livePaperPreview" class="w-full bg-white rounded-lg shadow-md border border-gray-300 p-5 text-[10px] text-gray-800 leading-relaxed font-sans min-h-[520px] flex flex-col justify-between transition-all select-none">' +
+          // KOP Header Container
+          '<div id="previewKopBox" class="text-center pb-2 border-b-2 border-emerald-900 mb-3">' +
+          // Dirender secara live oleh renderLivePreview()
+          '</div>' +
 
-                  // Badan Naskah Sample
-                  '<div class="space-y-2 flex-1 my-2">' +
-                    '<div class="text-center font-bold text-emerald-950 uppercase tracking-wide">SURAT KEPUTUSAN DEWAN PIMPINAN WILAYAH</div>' +
-                    '<div id="previewSampleNumber" class="text-center font-mono text-[9px] text-gray-600">Nomor: 001/SK-DPW-APII/X/2026</div>' +
-                    '<div class="text-center text-[9px] font-semibold text-gray-700 italic">TENTANG PENGESAHAN STRUKTUR ORGANISASI</div>' +
-                    '<div class="pt-2 text-[9px] text-justify text-gray-700 leading-snug space-y-1">' +
-                      '<p><strong>Menimbang:</strong> Bahwa demi kelancaran dakwah dan penataan kelembagaan, dipandang perlu menerbitkan surat keputusan ini.</p>' +
-                      '<p><strong>Mengingat:</strong> Anggaran Dasar dan Anggaran Rumah Tangga Yayasan APII DPW Jabodetabek.</p>' +
-                      '<p><strong>Memutuskan:</strong> Menetapkan susunan pengurus dan program kerja tahun berjalan.</p>' +
-                    '</div>' +
-                  '</div>' +
+          // Badan Naskah Sample
+          '<div class="space-y-2 flex-1 my-2">' +
+          '<div class="text-center font-bold text-emerald-950 uppercase tracking-wide">SURAT KEPUTUSAN DEWAN PIMPINAN WILAYAH</div>' +
+          '<div id="previewSampleNumber" class="text-center font-mono text-[9px] text-gray-600">Nomor: 001/SK-DPW-APII/X/2026</div>' +
+          '<div class="text-center text-[9px] font-semibold text-gray-700 italic">TENTANG PENGESAHAN STRUKTUR ORGANISASI</div>' +
+          '<div class="pt-2 text-[9px] text-justify text-gray-700 leading-snug space-y-1">' +
+          '<p><strong>Menimbang:</strong> Bahwa demi kelancaran dakwah dan penataan kelembagaan, dipandang perlu menerbitkan surat keputusan ini.</p>' +
+          '<p><strong>Mengingat:</strong> Anggaran Dasar dan Anggaran Rumah Tangga Yayasan APII DPW Jabodetabek.</p>' +
+          '<p><strong>Memutuskan:</strong> Menetapkan susunan pengurus dan program kerja tahun berjalan.</p>' +
+          '</div>' +
+          '</div>' +
 
-                  // Tanda Tangan & Stempel Live Replica
-                  '<div class="pt-3 border-t border-gray-200 mt-2">' +
-                    '<div class="grid grid-cols-2 text-center text-[9px] gap-2 items-end">' +
-                      // Kolom Kiri: Sekretaris
-                      '<div class="space-y-1">' +
-                        '<div class="text-gray-600">Sekretaris DPW,</div>' +
-                        '<div id="previewTtdSekBox" class="h-12 flex items-center justify-center">' +
-                          (ttdSekretarisImg ? '<img src="' + ttdSekretarisImg + '" class="max-h-12 max-w-full object-contain" />' : '<span class="text-gray-300 italic text-[8px]">[Tanda Tangan]</span>') +
-                        '</div>' +
-                        '<div class="font-bold underline text-gray-900">( Ust. Ahmad Fauzi, S.Pd.I )</div>' +
-                      '</div>' +
+          // Tanda Tangan & Stempel Live Replica
+          '<div class="pt-3 border-t border-gray-200 mt-2">' +
+          '<div class="grid grid-cols-2 text-center text-[9px] gap-2 items-end">' +
+          // Kolom Kiri: Sekretaris
+          '<div class="space-y-1">' +
+          '<div class="text-gray-600">Sekretaris DPW,</div>' +
+          '<div id="previewTtdSekBox" class="h-12 flex items-center justify-center">' +
+          (ttdSekretarisImg ? '<img src="' + ttdSekretarisImg + '" class="max-h-12 max-w-full object-contain" />' : '<span class="text-gray-300 italic text-[8px]">[Tanda Tangan]</span>') +
+          '</div>' +
+          '<div class="font-bold underline text-gray-900">( Ust. Ahmad Fauzi, S.Pd.I )</div>' +
+          '</div>' +
 
-                      // Kolom Kanan: Ketua + Stempel Overlap
-                      '<div class="space-y-1 relative">' +
-                        '<div class="text-gray-600">Ketua DPW,</div>' +
-                        '<div class="h-12 flex items-center justify-center relative">' +
-                          '<div id="previewTtdKetBox" class="z-0">' +
-                            (ttdKetuaImg ? '<img src="' + ttdKetuaImg + '" class="max-h-12 max-w-full object-contain" />' : '<span class="text-gray-300 italic text-[8px]">[Tanda Tangan]</span>') +
-                          '</div>' +
-                          '<div id="previewStempelBox" class="absolute z-10 pointer-events-none transition-all">' +
-                            (stempelImg ? '<img src="' + stempelImg + '" style="width:' + (stempelScale * 0.45) + 'px; height:' + (stempelScale * 0.45) + 'px;" class="object-contain opacity-85" />' : '') +
-                          '</div>' +
-                        '</div>' +
-                        '<div class="font-bold underline text-gray-900">( Ust. Sigit Adi Santoso, M.Pd )</div>' +
-                      '</div>' +
-                    '</div>' +
-                  '</div>' +
+          // Kolom Kanan: Ketua + Stempel Overlap
+          '<div class="space-y-1 relative">' +
+          '<div class="text-gray-600">Ketua DPW,</div>' +
+          '<div class="h-12 flex items-center justify-center relative">' +
+          '<div id="previewTtdKetBox" class="z-0">' +
+          (ttdKetuaImg ? '<img src="' + ttdKetuaImg + '" class="max-h-12 max-w-full object-contain" />' : '<span class="text-gray-300 italic text-[8px]">[Tanda Tangan]</span>') +
+          '</div>' +
+          '<div id="previewStempelBox" class="absolute z-10 pointer-events-none transition-all">' +
+          (stempelImg ? '<img src="' + stempelImg + '" style="width:' + (stempelScale * 0.45) + 'px; height:' + (stempelScale * 0.45) + 'px;" class="object-contain opacity-85" />' : '') +
+          '</div>' +
+          '</div>' +
+          '<div class="font-bold underline text-gray-900">( Ustadz Muhammad Hanafi )</div>' +
+          '</div>' +
+          '</div>' +
+          '</div>' +
 
-                  // Footer Dokumen Live Replica
-                  '<div id="previewFooterBox" class="pt-2 mt-3 border-t border-gray-200 flex items-center justify-between text-[8px] text-gray-500">' +
-                    '<span id="previewFooterText" class="truncate">' + Auth.esc(footerText) + '</span>' +
-                    '<span class="font-mono bg-gray-100 px-1 py-0.5 rounded text-[7px] text-emerald-800 font-bold">QR VERIFIED</span>' +
-                  '</div>' +
-                '</div>' +
+          // Footer Dokumen Live Replica
+          '<div id="previewFooterBox" class="pt-2 mt-3 border-t border-gray-200 flex items-center justify-between text-[8px] text-gray-500">' +
+          '<span id="previewFooterText" class="truncate">' + Auth.esc(footerText) + '</span>' +
+          '<span class="font-mono bg-gray-100 px-1 py-0.5 rounded text-[7px] text-emerald-800 font-bold">QR VERIFIED</span>' +
+          '</div>' +
+          '</div>' +
 
-                '<p class="text-[11px] text-gray-500 mt-3 text-center leading-tight">Pratinjau ini merespons langsung setiap ketikan teks, pergeseran slider stempel, dan unggahan berkas.</p>' +
-              '</div>' +
-            '</div>' +
+          '<p class="text-[11px] text-gray-500 mt-3 text-center leading-tight">Pratinjau ini merespons langsung setiap ketikan teks, pergeseran slider stempel, dan unggahan berkas.</p>' +
+          '</div>' +
+          '</div>' +
           '</div>';
 
         // Fungsi Updater Pratinjau Interaktif Realtime
@@ -3719,7 +5132,7 @@
           Auth.fetch('saveSettings', payload).then(function () {
             Auth.cache.invalidate(['settings', 'surat', 'dashboard']);
             self.toast('Pengaturan format &amp; KOP surat resmi berhasil disimpan.', 'success');
-          }).catch(function () {});
+          }).catch(function () { });
         });
 
         // Handler Modal Sample Cetak A4
@@ -3735,75 +5148,75 @@
 
           self.openModal(
             '<div class="p-4 sm:p-6 max-w-4xl mx-auto">' +
-              '<div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-200">' +
-                '<div class="flex items-center gap-2">' +
-                  '<span class="text-xl">🖨️</span>' +
-                  '<div><h3 class="text-base font-extrabold text-emerald-dark">Pratinjau Sample Dokumen Cetak A4</h3><p class="text-xs text-gray-500">Uji coba format cetak fisik printer atau simpan sebagai PDF.</p></div>' +
-                '</div>' +
-                '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
-                  '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
-              '</div>' +
+            '<div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-200">' +
+            '<div class="flex items-center gap-2">' +
+            '<span class="text-xl">🖨️</span>' +
+            '<div><h3 class="text-base font-extrabold text-emerald-dark">Pratinjau Sample Dokumen Cetak A4</h3><p class="text-xs text-gray-500">Uji coba format cetak fisik printer atau simpan sebagai PDF.</p></div>' +
+            '</div>' +
+            '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+            '</div>' +
 
-              // Kertas A4 Ukuran Nyata
-              '<div id="samplePrintA4Doc" class="bg-white p-8 sm:p-12 rounded-xl shadow-lg border border-gray-300 max-w-2xl mx-auto text-gray-900 leading-relaxed font-serif text-xs space-y-4">' +
-                // KOP
-                (currMode === 'image' && kopImg
-                  ? '<img src="' + kopImg + '" class="w-full max-h-28 object-contain mb-4 mx-auto" />'
-                  : '<div class="text-center pb-3 border-b-4 border-double border-emerald-900 mb-4">' +
-                      '<div class="font-bold text-sm tracking-wide text-emerald-950 uppercase">' + Auth.esc(currOrg) + '</div>' +
-                      '<div class="text-[11px] text-gray-700 mt-0.5">' + Auth.esc(currAddr) + '</div>' +
-                      '<div class="text-[10px] text-emerald-800 font-sans font-semibold mt-0.5">' + Auth.esc(currPhone) + ' • ' + Auth.esc(currEmail) + '</div>' +
-                    '</div>') +
+            // Kertas A4 Ukuran Nyata
+            '<div id="samplePrintA4Doc" class="bg-white p-8 sm:p-12 rounded-xl shadow-lg border border-gray-300 max-w-2xl mx-auto text-gray-900 leading-relaxed font-serif text-xs space-y-4">' +
+            // KOP
+            (currMode === 'image' && kopImg
+              ? '<img src="' + kopImg + '" class="w-full max-h-28 object-contain mb-4 mx-auto" />'
+              : '<div class="text-center pb-3 border-b-4 border-double border-emerald-900 mb-4">' +
+              '<div class="font-bold text-sm tracking-wide text-emerald-950 uppercase">' + Auth.esc(currOrg) + '</div>' +
+              '<div class="text-[11px] text-gray-700 mt-0.5">' + Auth.esc(currAddr) + '</div>' +
+              '<div class="text-[10px] text-emerald-800 font-sans font-semibold mt-0.5">' + Auth.esc(currPhone) + ' • ' + Auth.esc(currEmail) + '</div>' +
+              '</div>') +
 
-                // Judul & Nomor
-                '<div class="text-center font-bold text-sm text-emerald-950 uppercase tracking-wider pt-2">SURAT KEPUTUSAN DEWAN PIMPINAN WILAYAH</div>' +
-                '<div class="text-center font-mono text-xs font-semibold text-gray-700">Nomor: 001/SK-DPW-APII/X/2026</div>' +
-                '<div class="text-center font-bold text-xs pt-1 uppercase">TENTANG<br>PENGESAHAN PROGRAM KERJA &amp; KEPENGURUSAN TAHUNAN</div>' +
+            // Judul & Nomor
+            '<div class="text-center font-bold text-sm text-emerald-950 uppercase tracking-wider pt-2">SURAT KEPUTUSAN DEWAN PIMPINAN WILAYAH</div>' +
+            '<div class="text-center font-mono text-xs font-semibold text-gray-700">Nomor: 001/SK-DPW-APII/X/2026</div>' +
+            '<div class="text-center font-bold text-xs pt-1 uppercase">TENTANG<br>PENGESAHAN PROGRAM KERJA &amp; KEPENGURUSAN TAHUNAN</div>' +
 
-                // Isi Surat
-                '<div class="pt-3 space-y-2 text-justify text-xs leading-normal">' +
-                  '<p><strong>Menimbang:</strong> Bahwa untuk menjaga ketertiban administrasi dan optimalisasi syiar dakwah keumatan, Dewan Pimpinan Wilayah Yayasan APII Jabodetabek memandang perlu menerbitkan naskah ketetapan resmi.</p>' +
-                  '<p><strong>Mengingat:</strong> 1. Anggaran Dasar &amp; Anggaran Rumah Tangga Yayasan APII.<br>2. Hasil Musyawarah Wilayah Pengurus DPW Jabodetabek Tahun 2026.</p>' +
-                  '<p><strong>Memutuskan:</strong> Mengesahkan agenda aksi dan tata kelola persuratan terpadu sebagaimana terlampir dalam keputusan ini.</p>' +
-                  '<p class="pt-2 text-right">Ditetapkan di: Jakarta<br>Pada tanggal: ' + new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) + '</p>' +
-                '</div>' +
+            // Isi Surat
+            '<div class="pt-3 space-y-2 text-justify text-xs leading-normal">' +
+            '<p><strong>Menimbang:</strong> Bahwa untuk menjaga ketertiban administrasi dan optimalisasi syiar dakwah keumatan, Dewan Pimpinan Wilayah Yayasan APII Jabodetabek memandang perlu menerbitkan naskah ketetapan resmi.</p>' +
+            '<p><strong>Mengingat:</strong> 1. Anggaran Dasar &amp; Anggaran Rumah Tangga Yayasan APII.<br>2. Hasil Musyawarah Wilayah Pengurus DPW Jabodetabek Tahun 2026.</p>' +
+            '<p><strong>Memutuskan:</strong> Mengesahkan agenda aksi dan tata kelola persuratan terpadu sebagaimana terlampir dalam keputusan ini.</p>' +
+            '<p class="pt-2 text-right">Ditetapkan di: Jakarta<br>Pada tanggal: ' + new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) + '</p>' +
+            '</div>' +
 
-                // Tanda Tangan & Stempel
-                '<div class="pt-6 grid grid-cols-2 text-center text-xs gap-4 items-end">' +
-                  '<div class="space-y-1">' +
-                    '<div>Sekretaris DPW,</div>' +
-                    '<div class="h-16 flex items-center justify-center">' +
-                      (ttdSekretarisImg ? '<img src="' + ttdSekretarisImg + '" class="max-h-16 object-contain" />' : '<span class="text-gray-300 italic text-xs">[Tanda Tangan Digital]</span>') +
-                    '</div>' +
-                    '<div class="font-bold underline text-gray-900">( Ust. Ahmad Fauzi, S.Pd.I )</div>' +
-                  '</div>' +
-                  '<div class="space-y-1 relative">' +
-                    '<div>Ketua DPW,</div>' +
-                    '<div class="h-16 flex items-center justify-center relative">' +
-                      '<div class="z-0">' +
-                        (ttdKetuaImg ? '<img src="' + ttdKetuaImg + '" class="max-h-16 object-contain" />' : '<span class="text-gray-300 italic text-xs">[Tanda Tangan Digital]</span>') +
-                      '</div>' +
-                      '<div class="absolute z-10 pointer-events-none" style="left:calc(50% - ' + (currScale / 2 + (currOverlap / 100) * currScale * 0.4) + 'px); top:calc(50% - ' + (currScale / 2) + 'px);">' +
-                        (stempelImg ? '<img src="' + stempelImg + '" style="width:' + currScale + 'px; height:' + currScale + 'px;" class="object-contain opacity-85" />' : '') +
-                      '</div>' +
-                    '</div>' +
-                    '<div class="font-bold underline text-gray-900">( Ust. Sigit Adi Santoso, M.Pd )</div>' +
-                  '</div>' +
-                '</div>' +
+            // Tanda Tangan & Stempel
+            '<div class="pt-6 grid grid-cols-2 text-center text-xs gap-4 items-end">' +
+            '<div class="space-y-1">' +
+            '<div>Sekretaris DPW,</div>' +
+            '<div class="h-16 flex items-center justify-center">' +
+            (ttdSekretarisImg ? '<img src="' + ttdSekretarisImg + '" class="max-h-16 object-contain" />' : '<span class="text-gray-300 italic text-xs">[Tanda Tangan Digital]</span>') +
+            '</div>' +
+            '<div class="font-bold underline text-gray-900">( Ust. Ahmad Fauzi, S.Pd.I )</div>' +
+            '</div>' +
+            '<div class="space-y-1 relative">' +
+            '<div>Ketua DPW,</div>' +
+            '<div class="h-16 flex items-center justify-center relative">' +
+            '<div class="z-0">' +
+            (ttdKetuaImg ? '<img src="' + ttdKetuaImg + '" class="max-h-16 object-contain" />' : '<span class="text-gray-300 italic text-xs">[Tanda Tangan Digital]</span>') +
+            '</div>' +
+            '<div class="absolute z-10 pointer-events-none" style="left:calc(50% - ' + (currScale / 2 + (currOverlap / 100) * currScale * 0.4) + 'px); top:calc(50% - ' + (currScale / 2) + 'px);">' +
+            (stempelImg ? '<img src="' + stempelImg + '" style="width:' + currScale + 'px; height:' + currScale + 'px;" class="object-contain opacity-85" />' : '') +
+            '</div>' +
+            '</div>' +
+            '<div class="font-bold underline text-gray-900">( Ustadz Muhammad Hanafi )</div>' +
+            '</div>' +
+            '</div>' +
 
-                // Footer
-                '<div class="pt-6 border-t border-gray-300 flex items-center justify-between text-[10px] text-gray-500 font-sans mt-4">' +
-                  '<span>' + Auth.esc(currFooter) + '</span>' +
-                  '<span class="font-mono bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-200">VERIFIKASI SHA-256</span>' +
-                '</div>' +
-              '</div>' +
+            // Footer
+            '<div class="pt-6 border-t border-gray-300 flex items-center justify-between text-[10px] text-gray-500 font-sans mt-4">' +
+            '<span>' + Auth.esc(currFooter) + '</span>' +
+            '<span class="font-mono bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-200">VERIFIKASI SHA-256</span>' +
+            '</div>' +
+            '</div>' +
 
-              '<div class="flex justify-end gap-3 pt-5">' +
-                '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold text-xs">Tutup</button>' +
-                '<button type="button" id="btnExecuteWindowPrint" class="btn btn-primary px-6 py-2.5 rounded-xl font-bold text-xs inline-flex items-center gap-2 shadow-sm">' +
-                  '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
-                  '<span>Cetak Naskah Sekarang (PDF / Printer)</span></button>' +
-              '</div>' +
+            '<div class="flex justify-end gap-3 pt-5">' +
+            '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold text-xs">Tutup</button>' +
+            '<button type="button" id="btnExecuteWindowPrint" class="btn btn-primary px-6 py-2.5 rounded-xl font-bold text-xs inline-flex items-center gap-2 shadow-sm">' +
+            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
+            '<span>Cetak Naskah Sekarang (PDF / Printer)</span></button>' +
+            '</div>' +
             '</div>'
           );
 
@@ -3864,177 +5277,190 @@
 
         box.innerHTML =
           '<div class="space-y-6">' +
-            // KARTU 1: STATUS PEMBUKAAN & KUOTA PENDAFTARAN
-            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-5">' +
-              '<div>' +
-                '<h3 class="text-base font-extrabold text-emerald-dark">Status &amp; Kebijakan Pembukaan Pendaftaran</h3>' +
-                '<p class="text-xs text-gray-500">Pilih status penerimaan calon anggota baru dan kuota pendaftar di portal publik (apii.sigitadi.id).</p>' +
-              '</div>' +
+          // BANNER PINTAS KE ANTREAN BERKAS PENDAFTAR (KTP)
+          '<div class="p-4 sm:p-5 rounded-2xl bg-emerald-50/80 border-2 border-emerald-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">' +
+          '<div class="flex items-center gap-3">' +
+          '<div class="h-10 w-10 rounded-xl bg-emerald-800 text-white flex items-center justify-center font-black text-lg flex-shrink-0">📥</div>' +
+          '<div>' +
+          '<h4 class="font-black text-sm text-emerald-950">Antrean Verifikasi Berkas Calon Anggota (KTP Masuk)</h4>' +
+          '<p class="text-xs text-emerald-800 font-semibold">Tinjau foto KTP ber-watermark otomatis dinamis, validasi NIK pemohon, dan terbitkan NIA resmi.</p>' +
+          '</div>' +
+          '</div>' +
+          '<button type="button" id="btnGoToPendaftarList" class="btn btn-primary px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shadow-xs cursor-pointer self-end sm:self-center">' +
+          'Buka Antrean Berkas Pendaftar →</button>' +
+          '</div>' +
 
-              // 4 PILIHAN STATUS
-              '<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">' +
-                '<label class="flex flex-col p-3.5 rounded-xl border-2 cursor-pointer transition ' + (regStatus === 'BUKA' ? 'border-emerald-600 bg-emerald-50/50' : 'border-gray-200 hover:bg-gray-50') + '">' +
-                  '<div class="flex items-center justify-between mb-1">' +
-                    '<span class="text-xs font-black text-emerald-900">🟢 BUKA</span>' +
-                    '<input type="radio" name="regStatusOption" value="BUKA" class="accent-emerald" ' + (regStatus === 'BUKA' ? 'checked' : '') + ' />' +
-                  '</div>' +
-                  '<span class="text-[11px] text-gray-500">Formulir aktif dibuka untuk pendaftaran publik.</span>' +
-                '</label>' +
-                '<label class="flex flex-col p-3.5 rounded-xl border-2 cursor-pointer transition ' + (regStatus === 'DITUTUP' ? 'border-amber-600 bg-amber-50/50' : 'border-gray-200 hover:bg-gray-50') + '">' +
-                  '<div class="flex items-center justify-between mb-1">' +
-                    '<span class="text-xs font-black text-amber-900">🔴 DITUTUP</span>' +
-                    '<input type="radio" name="regStatusOption" value="DITUTUP" class="accent-emerald" ' + (regStatus === 'DITUTUP' ? 'checked' : '') + ' />' +
-                  '</div>' +
-                  '<span class="text-[11px] text-gray-500">Pendaftaran ditutup sementara waktu.</span>' +
-                '</label>' +
-                '<label class="flex flex-col p-3.5 rounded-xl border-2 cursor-pointer transition ' + (regStatus === 'PENUH' ? 'border-red-600 bg-red-50/50' : 'border-gray-200 hover:bg-gray-50') + '">' +
-                  '<div class="flex items-center justify-between mb-1">' +
-                    '<span class="text-xs font-black text-red-900">⛔ KUOTA PENUH</span>' +
-                    '<input type="radio" name="regStatusOption" value="PENUH" class="accent-emerald" ' + (regStatus === 'PENUH' ? 'checked' : '') + ' />' +
-                  '</div>' +
-                  '<span class="text-[11px] text-gray-500">Target pendaftar telah terpenuhi.</span>' +
-                '</label>' +
-                '<label class="flex flex-col p-3.5 rounded-xl border-2 cursor-pointer transition ' + (regStatus === 'SELEKSI' ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200 hover:bg-gray-50') + '">' +
-                  '<div class="flex items-center justify-between mb-1">' +
-                    '<span class="text-xs font-black text-blue-900">🔍 TAHAP SELEKSI</span>' +
-                    '<input type="radio" name="regStatusOption" value="SELEKSI" class="accent-emerald" ' + (regStatus === 'SELEKSI' ? 'checked' : '') + ' />' +
-                  '</div>' +
-                  '<span class="text-[11px] text-gray-500">Sedang dalam proses verifikasi berkas.</span>' +
-                '</label>' +
-              '</div>' +
+          // KARTU 1: STATUS PEMBUKAAN & KUOTA PENDAFTARAN
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-5">' +
+          '<div>' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">Status &amp; Kebijakan Pembukaan Pendaftaran</h3>' +
+          '<p class="text-xs text-gray-500">Pilih status penerimaan calon anggota baru dan kuota pendaftar di portal publik (apii.sigitadi.id).</p>' +
+          '</div>' +
 
-              // PENGATURAN KUOTA
-              '<div class="grid sm:grid-cols-2 gap-4 pt-2">' +
-                '<div>' +
-                  '<label class="lbl">Target Batas Kuota Pendaftar</label>' +
-                  '<input id="regQuotaInput" type="number" min="0" class="field font-mono text-xs" placeholder="0 = Tanpa batas kuota" value="' + quotaLimit + '" />' +
-                  '<p class="text-[11px] text-gray-400 mt-1">Isi 0 jika pendaftaran tidak dibatasi kuota maksimum.</p>' +
-                '</div>' +
-                '<div class="flex items-center pt-5">' +
-                  '<label class="flex items-center gap-2.5 text-xs text-gray-800 cursor-pointer font-semibold">' +
-                    '<input type="checkbox" id="regNotifyPendaftarEmail" class="h-4 w-4 accent-emerald rounded" ' + (notifyPendaftarEmail ? 'checked' : '') + ' />' +
-                    '<span>Kirim tanda terima pendaftaran otomatis ke email calon anggota</span>' +
-                  '</label>' +
-                '</div>' +
-              '</div>' +
+          // 4 PILIHAN STATUS
+          '<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">' +
+          '<label class="flex flex-col p-3.5 rounded-xl border-2 cursor-pointer transition ' + (regStatus === 'BUKA' ? 'border-emerald-600 bg-emerald-50/50' : 'border-gray-200 hover:bg-gray-50') + '">' +
+          '<div class="flex items-center justify-between mb-1">' +
+          '<span class="text-xs font-black text-emerald-900">🟢 BUKA</span>' +
+          '<input type="radio" name="regStatusOption" value="BUKA" class="accent-emerald" ' + (regStatus === 'BUKA' ? 'checked' : '') + ' />' +
+          '</div>' +
+          '<span class="text-[11px] text-gray-500">Formulir aktif dibuka untuk pendaftaran publik.</span>' +
+          '</label>' +
+          '<label class="flex flex-col p-3.5 rounded-xl border-2 cursor-pointer transition ' + (regStatus === 'DITUTUP' ? 'border-amber-600 bg-amber-50/50' : 'border-gray-200 hover:bg-gray-50') + '">' +
+          '<div class="flex items-center justify-between mb-1">' +
+          '<span class="text-xs font-black text-amber-900">🔴 DITUTUP</span>' +
+          '<input type="radio" name="regStatusOption" value="DITUTUP" class="accent-emerald" ' + (regStatus === 'DITUTUP' ? 'checked' : '') + ' />' +
+          '</div>' +
+          '<span class="text-[11px] text-gray-500">Pendaftaran ditutup sementara waktu.</span>' +
+          '</label>' +
+          '<label class="flex flex-col p-3.5 rounded-xl border-2 cursor-pointer transition ' + (regStatus === 'PENUH' ? 'border-red-600 bg-red-50/50' : 'border-gray-200 hover:bg-gray-50') + '">' +
+          '<div class="flex items-center justify-between mb-1">' +
+          '<span class="text-xs font-black text-red-900">⛔ KUOTA PENUH</span>' +
+          '<input type="radio" name="regStatusOption" value="PENUH" class="accent-emerald" ' + (regStatus === 'PENUH' ? 'checked' : '') + ' />' +
+          '</div>' +
+          '<span class="text-[11px] text-gray-500">Target pendaftar telah terpenuhi.</span>' +
+          '</label>' +
+          '<label class="flex flex-col p-3.5 rounded-xl border-2 cursor-pointer transition ' + (regStatus === 'SELEKSI' ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200 hover:bg-gray-50') + '">' +
+          '<div class="flex items-center justify-between mb-1">' +
+          '<span class="text-xs font-black text-blue-900">🔍 TAHAP SELEKSI</span>' +
+          '<input type="radio" name="regStatusOption" value="SELEKSI" class="accent-emerald" ' + (regStatus === 'SELEKSI' ? 'checked' : '') + ' />' +
+          '</div>' +
+          '<span class="text-[11px] text-gray-500">Sedang dalam proses verifikasi berkas.</span>' +
+          '</label>' +
+          '</div>' +
 
-              // KONDISI SAAT PENDAFTARAN BUKAN BUKA
-              '<div id="closedSettingsGroup" class="' + (regStatus === 'BUKA' ? 'hidden' : '') + ' p-4 bg-amber-50/80 rounded-xl border border-amber-200/80 space-y-3">' +
-                '<h4 class="text-xs font-extrabold text-amber-950 flex items-center gap-1.5">' +
-                  '<span>⚠️ Pengumuman Resmi Saat Pendaftaran Tidak Menerima Isian</span></h4>' +
-                '<div>' +
-                  '<label class="lbl text-amber-900">Judul Pengumuman Penutupan / Status</label>' +
-                  '<input id="regClosedTitle" type="text" class="field text-xs bg-white" value="' + Auth.esc(closedTitle) + '" />' +
-                '</div>' +
-                '<div>' +
-                  '<label class="lbl text-amber-900">Pesan / Alasan Status (Tampil di Layar Pengunjung)</label>' +
-                  '<textarea id="regClosedMsg" rows="2" class="field text-xs bg-white">' + Auth.esc(closedMsg) + '</textarea>' +
-                '</div>' +
-              '</div>' +
+          // PENGATURAN KUOTA
+          '<div class="grid sm:grid-cols-2 gap-4 pt-2">' +
+          '<div>' +
+          '<label class="lbl">Target Batas Kuota Pendaftar</label>' +
+          '<input id="regQuotaInput" type="number" min="0" class="field font-mono text-xs" placeholder="0 = Tanpa batas kuota" value="' + quotaLimit + '" />' +
+          '<p class="text-[11px] text-gray-400 mt-1">Isi 0 jika pendaftaran tidak dibatasi kuota maksimum.</p>' +
+          '</div>' +
+          '<div class="flex items-center pt-5">' +
+          '<label class="flex items-center gap-2.5 text-xs text-gray-800 cursor-pointer font-semibold">' +
+          '<input type="checkbox" id="regNotifyPendaftarEmail" class="h-4 w-4 accent-emerald rounded" ' + (notifyPendaftarEmail ? 'checked' : '') + ' />' +
+          '<span>Kirim tanda terima pendaftaran otomatis ke email calon anggota</span>' +
+          '</label>' +
+          '</div>' +
+          '</div>' +
 
-              // INSTRUKSI PENDAFTARAN
-              '<div>' +
-                '<label class="lbl">Teks Petunjuk / Pengantar Pendaftaran</label>' +
-                '<textarea id="regInstructions" rows="2" class="field text-xs">' + Auth.esc(instructions) + '</textarea>' +
-                '<p class="text-[11px] text-gray-400 mt-1">Teks ini tampil di atas formulir pendaftaran anggota di portal publik.</p>' +
-              '</div>' +
-            '</div>' +
+          // KONDISI SAAT PENDAFTARAN BUKAN BUKA
+          '<div id="closedSettingsGroup" class="' + (regStatus === 'BUKA' ? 'hidden' : '') + ' p-4 bg-amber-50/80 rounded-xl border border-amber-200/80 space-y-3">' +
+          '<h4 class="text-xs font-extrabold text-amber-950 flex items-center gap-1.5">' +
+          '<span>⚠️ Pengumuman Resmi Saat Pendaftaran Tidak Menerima Isian</span></h4>' +
+          '<div>' +
+          '<label class="lbl text-amber-900">Judul Pengumuman Penutupan / Status</label>' +
+          '<input id="regClosedTitle" type="text" class="field text-xs bg-white" value="' + Auth.esc(closedTitle) + '" />' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl text-amber-900">Pesan / Alasan Status (Tampil di Layar Pengunjung)</label>' +
+          '<textarea id="regClosedMsg" rows="2" class="field text-xs bg-white">' + Auth.esc(closedMsg) + '</textarea>' +
+          '</div>' +
+          '</div>' +
 
-            // KARTU 2 & 3: BERKAS & PENOMORAN
-            '<div class="grid lg:grid-cols-2 gap-6">' +
-              '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-                '<h3 class="text-base font-extrabold text-emerald-dark">Ketentuan Berkas Identitas</h3>' +
-                '<div class="space-y-3">' +
-                  '<label class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
-                    '<input type="checkbox" id="regReqKtp" class="h-4 w-4 accent-emerald" ' + (requireKtp ? 'checked' : '') + ' />' +
-                    '<div><strong class="text-xs text-gray-900 block">Wajib Unggah Foto KTP Asli</strong><span class="text-[11px] text-gray-500">Diperlukan untuk validasi NIK dan domisili calon anggota.</span></div>' +
-                  '</label>' +
-                  '<label class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
-                    '<input type="checkbox" id="regReqSelfie" class="h-4 w-4 accent-emerald" ' + (requireSelfie ? 'checked' : '') + ' />' +
-                    '<div><strong class="text-xs text-gray-900 block">Wajib Unggah Pas Foto / Selfie</strong><span class="text-[11px] text-gray-500">Diperlukan untuk penerbitan Kartu Tanda Anggota (KTA).</span></div>' +
-                  '</label>' +
-                '</div>' +
-                '<div>' +
-                  '<label class="lbl">Batas Maksimal Ukuran Unggahan Foto (MB)</label>' +
-                  '<select id="regMaxFile" class="field text-xs">' +
-                    '<option value="1"' + (maxFileSize === 1 ? ' selected' : '') + '>1 MB (Hemat penyimpanan Drive)</option>' +
-                    '<option value="2"' + (maxFileSize === 2 ? ' selected' : '') + '>2 MB (Standar foto HP)</option>' +
-                    '<option value="3"' + (maxFileSize === 3 ? ' selected' : '') + '>3 MB (Rekomendasi optimal)</option>' +
-                    '<option value="5"' + (maxFileSize === 5 ? ' selected' : '') + '>5 MB (Kualitas tinggi)</option>' +
-                  '</select>' +
-                '</div>' +
-              '</div>' +
+          // INSTRUKSI PENDAFTARAN
+          '<div>' +
+          '<label class="lbl">Teks Petunjuk / Pengantar Pendaftaran</label>' +
+          '<textarea id="regInstructions" rows="2" class="field text-xs">' + Auth.esc(instructions) + '</textarea>' +
+          '<p class="text-[11px] text-gray-400 mt-1">Teks ini tampil di atas formulir pendaftaran anggota di portal publik.</p>' +
+          '</div>' +
+          '</div>' +
 
-              '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-                '<h3 class="text-base font-extrabold text-emerald-dark">Format Penomoran &amp; Notifikasi</h3>' +
-                '<div class="grid grid-cols-2 gap-3">' +
-                  '<div>' +
-                    '<label class="lbl">Prefix Kode Registrasi</label>' +
-                    '<input id="regPrefixInput" type="text" class="field font-mono text-xs uppercase font-bold" value="' + Auth.esc(regPrefix) + '" />' +
-                  '</div>' +
-                  '<div>' +
-                    '<label class="lbl">Jumlah Digit Urut</label>' +
-                    '<select id="regDigitsInput" class="field text-xs font-mono">' +
-                      '<option value="3"' + (regDigits === 3 ? ' selected' : '') + '>3 Digit (cth: 001)</option>' +
-                      '<option value="4"' + (regDigits === 4 ? ' selected' : '') + '>4 Digit (cth: 0001)</option>' +
-                      '<option value="5"' + (regDigits === 5 ? ' selected' : '') + '>5 Digit (cth: 00001)</option>' +
-                    '</select>' +
-                  '</div>' +
-                '</div>' +
-                '<div class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs">' +
-                  '<span class="text-gray-500">Contoh Hasil Nomor Registrasi:</span> ' +
-                  '<span id="regPreviewBadge" class="font-mono font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg">' +
-                    regPrefix + '-' + new Date().getFullYear() + '-' + ('0'.repeat(regDigits - 1) + '1') + '</span>' +
-                '</div>' +
-                '<div>' +
-                  '<label class="lbl">Hotline WhatsApp Pendaftaran (Sekretariat)</label>' +
-                  '<input id="regContactWa" type="text" class="field font-mono text-xs" placeholder="cth: 081288882026 atau 6281288882026" value="' + Auth.esc(contactWa) + '" />' +
-                '</div>' +
-                '<div>' +
-                  '<label class="lbl">Email Notifikasi Pendaftar Baru Masuk (Sekretariat)</label>' +
-                  '<input id="regNotifyEmail" type="email" class="field text-xs" placeholder="sekretariat@apii.sigitadi.id" value="' + Auth.esc(notifyEmail) + '" />' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
+          // KARTU 2 & 3: BERKAS & PENOMORAN
+          '<div class="grid lg:grid-cols-2 gap-6">' +
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">Ketentuan Berkas Identitas</h3>' +
+          '<div class="space-y-3">' +
+          '<label class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+          '<input type="checkbox" id="regReqKtp" class="h-4 w-4 accent-emerald" ' + (requireKtp ? 'checked' : '') + ' />' +
+          '<div><strong class="text-xs text-gray-900 block">Wajib Unggah Foto KTP Asli</strong><span class="text-[11px] text-gray-500">Diperlukan untuk validasi NIK dan domisili calon anggota.</span></div>' +
+          '</label>' +
+          '<label class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+          '<input type="checkbox" id="regReqSelfie" class="h-4 w-4 accent-emerald" ' + (requireSelfie ? 'checked' : '') + ' />' +
+          '<div><strong class="text-xs text-gray-900 block">Wajib Unggah Pas Foto / Selfie</strong><span class="text-[11px] text-gray-500">Diperlukan untuk penerbitan Kartu Tanda Anggota (KTA).</span></div>' +
+          '</label>' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Batas Maksimal Ukuran Unggahan Foto (MB)</label>' +
+          '<select id="regMaxFile" class="field text-xs">' +
+          '<option value="1"' + (maxFileSize === 1 ? ' selected' : '') + '>1 MB (Hemat penyimpanan Drive)</option>' +
+          '<option value="2"' + (maxFileSize === 2 ? ' selected' : '') + '>2 MB (Standar foto HP)</option>' +
+          '<option value="3"' + (maxFileSize === 3 ? ' selected' : '') + '>3 MB (Rekomendasi optimal)</option>' +
+          '<option value="5"' + (maxFileSize === 5 ? ' selected' : '') + '>5 MB (Kualitas tinggi)</option>' +
+          '</select>' +
+          '</div>' +
+          '</div>' +
 
-            // KARTU 4: PILIHAN DIVISI YANG MEMBUKA REKRUTMEN
-            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-              '<div>' +
-                '<h3 class="text-base font-extrabold text-emerald-dark">Divisi Kerja yang Membuka Rekrutmen</h3>' +
-                '<p class="text-xs text-gray-500">Centang divisi yang saat ini menerima pendaftaran anggota. Divisi yang tidak dicentang tidak akan muncul pada pilihan minat di formulir publik.</p>' +
-              '</div>' +
-              '<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2" id="divChecklistContainer">' +
-                divisionsList.map(function (d) {
-                  var isChecked = openDivs.indexOf(d.id) !== -1;
-                  return '<label class="flex items-start gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition">' +
-                    '<input type="checkbox" name="openDiv" value="' + d.id + '" class="h-4 w-4 mt-0.5 accent-emerald" ' + (isChecked ? 'checked' : '') + ' />' +
-                    '<div class="min-w-0 flex-1">' +
-                      '<strong class="text-xs font-bold text-gray-900 block">' + Auth.esc(d.name) + '</strong>' +
-                      '<span class="text-[11px] text-gray-500 block leading-tight mt-0.5">' + Auth.esc(d.desc) + '</span>' +
-                    '</div>' +
-                  '</label>';
-                }).join('') +
-              '</div>' +
-            '</div>' +
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">Format Penomoran &amp; Notifikasi</h3>' +
+          '<div class="grid grid-cols-2 gap-3">' +
+          '<div>' +
+          '<label class="lbl">Prefix Kode Registrasi</label>' +
+          '<input id="regPrefixInput" type="text" class="field font-mono text-xs uppercase font-bold" value="' + Auth.esc(regPrefix) + '" />' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Jumlah Digit Urut</label>' +
+          '<select id="regDigitsInput" class="field text-xs font-mono">' +
+          '<option value="3"' + (regDigits === 3 ? ' selected' : '') + '>3 Digit (cth: 001)</option>' +
+          '<option value="4"' + (regDigits === 4 ? ' selected' : '') + '>4 Digit (cth: 0001)</option>' +
+          '<option value="5"' + (regDigits === 5 ? ' selected' : '') + '>5 Digit (cth: 00001)</option>' +
+          '</select>' +
+          '</div>' +
+          '</div>' +
+          '<div class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs">' +
+          '<span class="text-gray-500">Contoh Hasil Nomor Registrasi:</span> ' +
+          '<span id="regPreviewBadge" class="font-mono font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg">' +
+          regPrefix + '-' + new Date().getFullYear() + '-' + ('0'.repeat(regDigits - 1) + '1') + '</span>' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Hotline WhatsApp Pendaftaran (Sekretariat)</label>' +
+          '<input id="regContactWa" type="text" class="field font-mono text-xs" placeholder="cth: 081288882026 atau 6281288882026" value="' + Auth.esc(contactWa) + '" />' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Email Notifikasi Pendaftar Baru Masuk (Sekretariat)</label>' +
+          '<input id="regNotifyEmail" type="email" class="field text-xs" placeholder="sekretariat@apii.sigitadi.id" value="' + Auth.esc(notifyEmail) + '" />' +
+          '</div>' +
+          '</div>' +
+          '</div>' +
 
-            // KARTU 5: PAKTA INTEGRITAS & TEMPLATE PESAN WA
-            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-              '<h3 class="text-base font-extrabold text-emerald-dark">Pakta Integritas &amp; Konfirmasi Pesan WhatsApp</h3>' +
-              '<div>' +
-                '<label class="lbl">Teks Pernyataan Persetujuan AD/ART (Pakta Integritas)</label>' +
-                '<textarea id="regAgreementText" rows="2" class="field text-xs">' + Auth.esc(agreementText) + '</textarea>' +
+          // KARTU 4: PILIHAN DIVISI YANG MEMBUKA REKRUTMEN
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+          '<div>' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">Divisi Kerja yang Membuka Rekrutmen</h3>' +
+          '<p class="text-xs text-gray-500">Centang divisi yang saat ini menerima pendaftaran anggota. Divisi yang tidak dicentang tidak akan muncul pada pilihan minat di formulir publik.</p>' +
+          '</div>' +
+          '<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2" id="divChecklistContainer">' +
+          divisionsList.map(function (d) {
+            var isChecked = openDivs.indexOf(d.id) !== -1;
+            return '<label class="flex items-start gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition">' +
+              '<input type="checkbox" name="openDiv" value="' + d.id + '" class="h-4 w-4 mt-0.5 accent-emerald" ' + (isChecked ? 'checked' : '') + ' />' +
+              '<div class="min-w-0 flex-1">' +
+              '<strong class="text-xs font-bold text-gray-900 block">' + Auth.esc(d.name) + '</strong>' +
+              '<span class="text-[11px] text-gray-500 block leading-tight mt-0.5">' + Auth.esc(d.desc) + '</span>' +
               '</div>' +
-              '<div>' +
-                '<label class="lbl">Template Pesan Konfirmasi WhatsApp Calon Anggota</label>' +
-                '<textarea id="regWaTemplate" rows="2" class="field text-xs font-mono">' + Auth.esc(waTemplate) + '</textarea>' +
-                '<p class="text-[11px] text-gray-400 mt-1">Tag dinamis: <code class="bg-gray-100 px-1 rounded">{reg_number}</code>, <code class="bg-gray-100 px-1 rounded">{full_name}</code></p>' +
-              '</div>' +
-              '<div class="pt-3 border-t border-gray-100">' +
-                '<button type="button" id="btnSaveRegSettings" class="btn btn-primary px-6 py-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm inline-flex items-center gap-2">' +
-                  '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
-                  '<span>Simpan Pengaturan Pendaftaran</span></button>' +
-              '</div>' +
-            '</div>' +
+              '</label>';
+          }).join('') +
+          '</div>' +
+          '</div>' +
+
+          // KARTU 5: PAKTA INTEGRITAS & TEMPLATE PESAN WA
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">Pakta Integritas &amp; Konfirmasi Pesan WhatsApp</h3>' +
+          '<div>' +
+          '<label class="lbl">Teks Pernyataan Persetujuan AD/ART (Pakta Integritas)</label>' +
+          '<textarea id="regAgreementText" rows="2" class="field text-xs">' + Auth.esc(agreementText) + '</textarea>' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Template Pesan Konfirmasi WhatsApp Calon Anggota</label>' +
+          '<textarea id="regWaTemplate" rows="2" class="field text-xs font-mono">' + Auth.esc(waTemplate) + '</textarea>' +
+          '<p class="text-[11px] text-gray-400 mt-1">Tag dinamis: <code class="bg-gray-100 px-1 rounded">{reg_number}</code>, <code class="bg-gray-100 px-1 rounded">{full_name}</code></p>' +
+          '</div>' +
+          '<div class="pt-3 border-t border-gray-100">' +
+          '<button type="button" id="btnSaveRegSettings" class="btn btn-primary px-6 py-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm inline-flex items-center gap-2">' +
+          '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
+          '<span>Simpan Pengaturan Pendaftaran</span></button>' +
+          '</div>' +
+          '</div>' +
           '</div>';
 
         // Interaksi Pilihan Status
@@ -4061,6 +5487,13 @@
         };
         if (prefixIn) prefixIn.addEventListener('input', updateBadge);
         if (digitsIn) digitsIn.addEventListener('change', updateBadge);
+
+        var btnGoPendaftar = document.getElementById('btnGoToPendaftarList');
+        if (btnGoPendaftar) {
+          btnGoPendaftar.addEventListener('click', function () {
+            self.navigate('pengguna', 'verifikasi_pendaftar');
+          });
+        }
 
         // Handler Simpan
         document.getElementById('btnSaveRegSettings').addEventListener('click', function () {
@@ -4122,7 +5555,7 @@
           Auth.fetch('saveSettings', payload).then(function () {
             Auth.cache.invalidate(['settings', 'pendaftar', 'dashboard']);
             self.toast('Pengaturan pendaftaran anggota berhasil disimpan.', 'success');
-          }).catch(function () {});
+          }).catch(function () { });
         });
       }).catch(function (err) {
         box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat pengaturan pendaftaran: ' + Auth.esc(err.message) + '</div>';
@@ -4160,7 +5593,7 @@
             return '<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-900 border border-emerald-200">' +
               '<span>' + Auth.esc(c) + '</span>' +
               '<button type="button" data-del-idx="' + idx + '" class="text-emerald-600 hover:text-red-600 font-bold ml-1 text-sm leading-none">&times;</button>' +
-            '</span>';
+              '</span>';
           }).join('') || '<span class="text-xs text-gray-400 italic">Belum ada kategori kustom.</span>';
 
           Array.prototype.forEach.call(el.querySelectorAll('[data-del-idx]'), function (btn) {
@@ -4174,91 +5607,91 @@
 
         box.innerHTML =
           '<div class="space-y-6">' +
-            // KARTU 1: FORMAT PENOMORAN VOUCHER KAS
-            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-              '<div class="flex items-center justify-between flex-wrap gap-2">' +
-                '<div>' +
-                  '<h3 class="text-base font-extrabold text-emerald-dark">Format Penomoran Voucher Kas</h3>' +
-                  '<p class="text-xs text-gray-500">Pola otomatis untuk penomoran voucher transaksi kas masuk dan keluar.</p>' +
-                '</div>' +
-                '<span class="text-xs font-bold text-emerald-800 bg-emerald-100/60 px-3 py-1 rounded-full border border-emerald-200">DPW JABODETABEK</span>' +
-              '</div>' +
-              '<div>' +
-                '<label class="lbl">Pola Penomoran Voucher</label>' +
-                '<input id="finVoucherPattern" type="text" class="field font-mono text-xs" value="' + Auth.esc(vPat) + '" />' +
-                '<p class="text-[11px] text-gray-400 mt-1">Variabel tersedia: <code class="bg-gray-100 px-1 rounded">{urut}</code>, <code class="bg-gray-100 px-1 rounded">{bulanRomawi}</code>, <code class="bg-gray-100 px-1 rounded">{tahun}</code>, <code class="bg-gray-100 px-1 rounded">{bulan}</code></p>' +
-              '</div>' +
-              '<div class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs flex items-center justify-between">' +
-                '<span class="text-gray-500">Contoh Hasil Nomor Voucher:</span> ' +
-                '<span id="finVoucherPreview" class="font-mono font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg"></span>' +
-              '</div>' +
-            '</div>' +
+          // KARTU 1: FORMAT PENOMORAN VOUCHER KAS
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+          '<div class="flex items-center justify-between flex-wrap gap-2">' +
+          '<div>' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">Format Penomoran Voucher Kas</h3>' +
+          '<p class="text-xs text-gray-500">Pola otomatis untuk penomoran voucher transaksi kas masuk dan keluar.</p>' +
+          '</div>' +
+          '<span class="text-xs font-bold text-emerald-800 bg-emerald-100/60 px-3 py-1 rounded-full border border-emerald-200">DPW JABODETABEK</span>' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Pola Penomoran Voucher</label>' +
+          '<input id="finVoucherPattern" type="text" class="field font-mono text-xs" value="' + Auth.esc(vPat) + '" />' +
+          '<p class="text-[11px] text-gray-400 mt-1">Variabel tersedia: <code class="bg-gray-100 px-1 rounded">{urut}</code>, <code class="bg-gray-100 px-1 rounded">{bulanRomawi}</code>, <code class="bg-gray-100 px-1 rounded">{tahun}</code>, <code class="bg-gray-100 px-1 rounded">{bulan}</code></p>' +
+          '</div>' +
+          '<div class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs flex items-center justify-between">' +
+          '<span class="text-gray-500">Contoh Hasil Nomor Voucher:</span> ' +
+          '<span id="finVoucherPreview" class="font-mono font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg"></span>' +
+          '</div>' +
+          '</div>' +
 
-            // KARTU 2: KATEGORI KAS MASUK & KAS KELUAR
-            '<div class="grid lg:grid-cols-2 gap-6">' +
-              // KAS MASUK
-              '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-                '<div class="flex items-center justify-between">' +
-                  '<h3 class="text-sm sm:text-base font-extrabold text-emerald-dark">Kategori Kas Masuk</h3>' +
-                  '<span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">Penerimaan</span>' +
-                '</div>' +
-                '<div id="chipsMasukBox" class="flex flex-wrap gap-2 min-h-[60px] p-3 bg-gray-50/70 rounded-xl border border-gray-200"></div>' +
-                '<div class="flex gap-2">' +
-                  '<input id="inNewCatMasuk" type="text" placeholder="Tambah kategori kas masuk baru..." class="field text-xs flex-1" />' +
-                  '<button type="button" id="btnAddCatMasuk" class="btn btn-secondary px-3 py-2 rounded-xl text-xs font-bold">+ Tambah</button>' +
-                '</div>' +
-              '</div>' +
+          // KARTU 2: KATEGORI KAS MASUK & KAS KELUAR
+          '<div class="grid lg:grid-cols-2 gap-6">' +
+          // KAS MASUK
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+          '<div class="flex items-center justify-between">' +
+          '<h3 class="text-sm sm:text-base font-extrabold text-emerald-dark">Kategori Kas Masuk</h3>' +
+          '<span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">Penerimaan</span>' +
+          '</div>' +
+          '<div id="chipsMasukBox" class="flex flex-wrap gap-2 min-h-[60px] p-3 bg-gray-50/70 rounded-xl border border-gray-200"></div>' +
+          '<div class="flex gap-2">' +
+          '<input id="inNewCatMasuk" type="text" placeholder="Tambah kategori kas masuk baru..." class="field text-xs flex-1" />' +
+          '<button type="button" id="btnAddCatMasuk" class="btn btn-secondary px-3 py-2 rounded-xl text-xs font-bold">+ Tambah</button>' +
+          '</div>' +
+          '</div>' +
 
-              // KAS KELUAR
-              '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-                '<div class="flex items-center justify-between">' +
-                  '<h3 class="text-sm sm:text-base font-extrabold text-emerald-dark">Kategori Kas Keluar</h3>' +
-                  '<span class="text-xs font-bold text-red-700 bg-red-50 px-2.5 py-0.5 rounded-full">Pengeluaran</span>' +
-                '</div>' +
-                '<div id="chipsKeluarBox" class="flex flex-wrap gap-2 min-h-[60px] p-3 bg-gray-50/70 rounded-xl border border-gray-200"></div>' +
-                '<div class="flex gap-2">' +
-                  '<input id="inNewCatKeluar" type="text" placeholder="Tambah kategori kas keluar baru..." class="field text-xs flex-1" />' +
-                  '<button type="button" id="btnAddCatKeluar" class="btn btn-secondary px-3 py-2 rounded-xl text-xs font-bold">+ Tambah</button>' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
+          // KAS KELUAR
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+          '<div class="flex items-center justify-between">' +
+          '<h3 class="text-sm sm:text-base font-extrabold text-emerald-dark">Kategori Kas Keluar</h3>' +
+          '<span class="text-xs font-bold text-red-700 bg-red-50 px-2.5 py-0.5 rounded-full">Pengeluaran</span>' +
+          '</div>' +
+          '<div id="chipsKeluarBox" class="flex flex-wrap gap-2 min-h-[60px] p-3 bg-gray-50/70 rounded-xl border border-gray-200"></div>' +
+          '<div class="flex gap-2">' +
+          '<input id="inNewCatKeluar" type="text" placeholder="Tambah kategori kas keluar baru..." class="field text-xs flex-1" />' +
+          '<button type="button" id="btnAddCatKeluar" class="btn btn-secondary px-3 py-2 rounded-xl text-xs font-bold">+ Tambah</button>' +
+          '</div>' +
+          '</div>' +
+          '</div>' +
 
-            // KARTU 3: ATURAN OTORISASI DUAL CONTROL
-            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-              '<h3 class="text-base font-extrabold text-emerald-dark">Tata Kelola &amp; Otorisasi Dual-Control</h3>' +
-              '<div class="p-4 bg-emerald-50/60 rounded-xl border border-emerald-200/80 space-y-3 text-xs text-emerald-950">' +
-                '<div class="flex items-start gap-2.5">' +
-                  '<span class="text-base">📥</span>' +
-                  '<div>' +
-                    '<strong class="block text-emerald-900 font-extrabold">Transaksi Kas Masuk (Penerimaan)</strong>' +
-                    '<p class="text-emerald-800/90 leading-relaxed">Disahkan dan dibukukan langsung oleh <b>Bendahara DPW</b> berstatus <code>APPROVED</code> seketika bukti transfer/infaq diverifikasi.</p>' +
-                  '</div>' +
-                '</div>' +
-                '<div class="flex items-start gap-2.5 pt-2 border-t border-emerald-200/60">' +
-                  '<span class="text-base">📤</span>' +
-                  '<div>' +
-                    '<strong class="block text-emerald-900 font-extrabold">Transaksi Kas Keluar (Pengeluaran Dua Tahap)</strong>' +
-                    '<p class="text-emerald-800/90 leading-relaxed">Draf diinput ➔ Diverifikasi oleh <b>Bendahara</b> (<code>VERIFIED_BY_BENDAHARA</code>) ➔ Disetujui final oleh <b>Ketua DPW</b> (<code>APPROVED</code>) sebelum dana dicairkan.</p>' +
-                  '</div>' +
-                '</div>' +
-              '</div>' +
-              '<div class="grid sm:grid-cols-2 gap-4 pt-2">' +
-                '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
-                  '<input type="checkbox" id="finDualControl" class="h-4 w-4 accent-emerald" ' + (dualCtrl ? 'checked' : '') + ' />' +
-                  '<div><strong class="text-xs text-gray-900 block">Wajib Otorisasi Dual-Control Kas Keluar</strong><span class="text-[11px] text-gray-500">Mencegah pencairan dana sepihak tanpa verifikasi Ketua DPW.</span></div>' +
-                '</label>' +
-                '<div>' +
-                  '<label class="lbl">Ambang Batas Wajib Otorisasi Ketua (Rp)</label>' +
-                  '<input id="finThreshold" type="number" min="0" step="50000" class="field font-mono text-xs" value="' + threshold + '" />' +
-                  '<p class="text-[11px] text-gray-400 mt-1">Isi 0 jika seluruh nominal pengeluaran wajib persetujuan Ketua.</p>' +
-                '</div>' +
-              '</div>' +
-              '<div class="pt-3 border-t border-gray-100">' +
-                '<button type="button" id="btnSaveFinanceSettings" class="btn btn-primary px-6 py-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm inline-flex items-center gap-2">' +
-                  '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
-                  '<span>Simpan Tata Kelola Keuangan</span></button>' +
-              '</div>' +
-            '</div>' +
+          // KARTU 3: ATURAN OTORISASI DUAL CONTROL
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">Tata Kelola &amp; Otorisasi Dual-Control</h3>' +
+          '<div class="p-4 bg-emerald-50/60 rounded-xl border border-emerald-200/80 space-y-3 text-xs text-emerald-950">' +
+          '<div class="flex items-start gap-2.5">' +
+          '<span class="text-base">📥</span>' +
+          '<div>' +
+          '<strong class="block text-emerald-900 font-extrabold">Transaksi Kas Masuk (Penerimaan)</strong>' +
+          '<p class="text-emerald-800/90 leading-relaxed">Disahkan dan dibukukan langsung oleh <b>Bendahara DPW</b> berstatus <code>APPROVED</code> seketika bukti transfer/infaq diverifikasi.</p>' +
+          '</div>' +
+          '</div>' +
+          '<div class="flex items-start gap-2.5 pt-2 border-t border-emerald-200/60">' +
+          '<span class="text-base">📤</span>' +
+          '<div>' +
+          '<strong class="block text-emerald-900 font-extrabold">Transaksi Kas Keluar (Pengeluaran Dua Tahap)</strong>' +
+          '<p class="text-emerald-800/90 leading-relaxed">Draf diinput ➔ Diverifikasi oleh <b>Bendahara</b> (<code>VERIFIED_BY_BENDAHARA</code>) ➔ Disetujui final oleh <b>Ketua DPW</b> (<code>APPROVED</code>) sebelum dana dicairkan.</p>' +
+          '</div>' +
+          '</div>' +
+          '</div>' +
+          '<div class="grid sm:grid-cols-2 gap-4 pt-2">' +
+          '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+          '<input type="checkbox" id="finDualControl" class="h-4 w-4 accent-emerald" ' + (dualCtrl ? 'checked' : '') + ' />' +
+          '<div><strong class="text-xs text-gray-900 block">Wajib Otorisasi Dual-Control Kas Keluar</strong><span class="text-[11px] text-gray-500">Mencegah pencairan dana sepihak tanpa verifikasi Ketua DPW.</span></div>' +
+          '</label>' +
+          '<div>' +
+          '<label class="lbl">Ambang Batas Wajib Otorisasi Ketua (Rp)</label>' +
+          '<input id="finThreshold" type="number" min="0" step="50000" class="field font-mono text-xs" value="' + threshold + '" />' +
+          '<p class="text-[11px] text-gray-400 mt-1">Isi 0 jika seluruh nominal pengeluaran wajib persetujuan Ketua.</p>' +
+          '</div>' +
+          '</div>' +
+          '<div class="pt-3 border-t border-gray-100">' +
+          '<button type="button" id="btnSaveFinanceSettings" class="btn btn-primary px-6 py-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm inline-flex items-center gap-2">' +
+          '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
+          '<span>Simpan Tata Kelola Keuangan</span></button>' +
+          '</div>' +
+          '</div>' +
           '</div>';
 
         // Update preview voucher
@@ -4321,7 +5754,7 @@
           Auth.fetch('saveSettings', payload).then(function () {
             Auth.cache.invalidate(['settings', 'keuangan', 'dashboard']);
             self.toast('Pengaturan tata kelola keuangan berhasil disimpan.', 'success');
-          }).catch(function () {});
+          }).catch(function () { });
         });
       }).catch(function (err) {
         box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat pengaturan keuangan: ' + Auth.esc(err.message) + '</div>';
@@ -4351,17 +5784,17 @@
       }
       return '<div class="ed-row ed-bulletin-row border border-gray-200 rounded-xl p-3.5 space-y-2.5 bg-gray-50/60" data-id="' + Auth.esc(b.id || '') + '">' +
         '<div class="flex items-center justify-between gap-2">' +
-          '<span class="text-[11px] font-extrabold text-emerald-dark uppercase tracking-wider">📌 Maklumat / Siaran Pers</span>' +
-          '<button type="button" class="ed-del text-red-500 hover:text-red-700 text-[11px] font-bold">✕ Hapus</button>' +
+        '<span class="text-[11px] font-extrabold text-emerald-dark uppercase tracking-wider">📌 Maklumat / Siaran Pers</span>' +
+        '<button type="button" class="ed-del text-red-500 hover:text-red-700 text-[11px] font-bold">✕ Hapus</button>' +
         '</div>' +
         '<input type="text" class="f-title field text-xs" placeholder="Judul maklumat / siaran resmi..." value="' + Auth.esc(b.title || '') + '" />' +
         '<div class="grid grid-cols-2 gap-2.5">' +
-          '<select class="f-category field text-xs">' + opts + '</select>' +
-          '<input type="date" class="f-date field text-xs" value="' + Auth.esc(b.date || '') + '" title="Tanggal terbit" />' +
+        '<select class="f-category field text-xs">' + opts + '</select>' +
+        '<input type="date" class="f-date field text-xs" value="' + Auth.esc(b.date || '') + '" title="Tanggal terbit" />' +
         '</div>' +
         '<textarea rows="2" class="f-summary field text-xs" placeholder="Ringkasan / kutipan isi (paragraf aman, satu per baris)...">' + Auth.esc(b.summary || '') + '</textarea>' +
         '<input type="url" class="f-link field text-xs" placeholder="Tautan dokumen lengkap (opsional)..." value="' + Auth.esc(b.link || '') + '" />' +
-      '</div>';
+        '</div>';
     },
 
     /** Bangun baris editor untuk satu agenda / acara. */
@@ -4379,20 +5812,20 @@
       }).join('');
       return '<div class="ed-row ed-event-row border border-gray-200 rounded-xl p-3.5 space-y-2.5 bg-gray-50/60" data-id="' + Auth.esc(e.id || '') + '">' +
         '<div class="flex items-center justify-between gap-2">' +
-          '<span class="text-[11px] font-extrabold text-emerald-dark uppercase tracking-wider">📅 Agenda / Acara</span>' +
-          '<button type="button" class="ed-del text-red-500 hover:text-red-700 text-[11px] font-bold">✕ Hapus</button>' +
+        '<span class="text-[11px] font-extrabold text-emerald-dark uppercase tracking-wider">📅 Agenda / Acara</span>' +
+        '<button type="button" class="ed-del text-red-500 hover:text-red-700 text-[11px] font-bold">✕ Hapus</button>' +
         '</div>' +
         '<input type="text" class="f-title field text-xs" placeholder="Judul acara / agenda..." value="' + Auth.esc(e.title || '') + '" />' +
         '<div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">' +
-          '<select class="f-category field text-xs">' + catOpts + '</select>' +
-          '<input type="text" class="f-date_str field text-xs" placeholder="Tanggal (mis. Sabtu, 25 Apr 2026)" value="' + Auth.esc(e.date_str || '') + '" />' +
-          '<input type="text" class="f-time_str field text-xs" placeholder="Waktu (mis. 09.00 – 12.00 WIB)" value="' + Auth.esc(e.time_str || '') + '" />' +
-          '<input type="text" class="f-location field text-xs" placeholder="Lokasi / tempat..." value="' + Auth.esc(e.location || '') + '" />' +
-          '<input type="text" class="f-speaker field text-xs" placeholder="Pembicara / PIC (opsional)..." value="' + Auth.esc(e.speaker || '') + '" />' +
-          '<select class="f-status field text-xs">' + stOpts + '</select>' +
+        '<select class="f-category field text-xs">' + catOpts + '</select>' +
+        '<input type="text" class="f-date_str field text-xs" placeholder="Tanggal (mis. Sabtu, 25 Apr 2026)" value="' + Auth.esc(e.date_str || '') + '" />' +
+        '<input type="text" class="f-time_str field text-xs" placeholder="Waktu (mis. 09.00 – 12.00 WIB)" value="' + Auth.esc(e.time_str || '') + '" />' +
+        '<input type="text" class="f-location field text-xs" placeholder="Lokasi / tempat..." value="' + Auth.esc(e.location || '') + '" />' +
+        '<input type="text" class="f-speaker field text-xs" placeholder="Pembicara / PIC (opsional)..." value="' + Auth.esc(e.speaker || '') + '" />' +
+        '<select class="f-status field text-xs">' + stOpts + '</select>' +
         '</div>' +
         '<input type="url" class="f-link field text-xs" placeholder="Tautan pendaftaran / detail (opsional)..." value="' + Auth.esc(e.link || '') + '" />' +
-      '</div>';
+        '</div>';
     },
 
     /** Bangun baris editor untuk satu FAQ. */
@@ -4400,12 +5833,12 @@
       f = f || {};
       return '<div class="ed-row ed-faq-row border border-gray-200 rounded-xl p-3.5 space-y-2.5 bg-gray-50/60">' +
         '<div class="flex items-center justify-between gap-2">' +
-          '<span class="text-[11px] font-extrabold text-emerald-dark uppercase tracking-wider">❓ Pertanyaan #' + (Number(i) + 1) + '</span>' +
-          '<button type="button" class="ed-del text-red-500 hover:text-red-700 text-[11px] font-bold">✕ Hapus</button>' +
+        '<span class="text-[11px] font-extrabold text-emerald-dark uppercase tracking-wider">❓ Pertanyaan #' + (Number(i) + 1) + '</span>' +
+        '<button type="button" class="ed-del text-red-500 hover:text-red-700 text-[11px] font-bold">✕ Hapus</button>' +
         '</div>' +
         '<input type="text" class="f-q field text-xs" placeholder="Pertanyaan publik..." value="' + Auth.esc(f.q || '') + '" />' +
         '<textarea rows="2" class="f-a field text-xs" placeholder="Jawaban lengkap (paragraf aman, satu per baris)...">' + Auth.esc(f.a || '') + '</textarea>' +
-      '</div>';
+        '</div>';
     },
 
 
@@ -4433,102 +5866,102 @@
 
         var ro = canEdit ? '' : ' disabled';
         var roNote = canEdit ? '' :
-          '<div class="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold mb-4">👁️ Akun Anda bersifat read-only untuk redaksi konten. Silakan hubungi SUPERADMIN/KETUA/SEKRETARIS untuk perubahan.</div>';
+          '<div class="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold mb-4">👁️ Akun Anda bersifat read-only untuk redaksi konten. Silakan hubungi ' + (Auth.isDemoMode() ? 'Ketua Umum atau Sekretaris Umum' : 'SUPERADMIN/KETUA/SEKRETARIS') + ' untuk perubahan.</div>';
 
         box.innerHTML = roNote +
-        '<div class="space-y-6">' +
+          '<div class="space-y-6">' +
           // ============ KARTU 1: HERO ============
           '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-            '<div class="flex items-center justify-between">' +
-              '<h3 class="text-base font-extrabold text-emerald-dark">🖼️ Hero / Halaman Muka</h3>' +
-              '<span class="text-xs font-bold text-emerald-800 bg-emerald-100/60 px-3 py-1 rounded-full border border-emerald-200">apii.sigitadi.id</span>' +
-            '</div>' +
-            '<div class="grid sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Teks Badge Hero</label><input type="text" id="edHeroBadge" class="field text-xs"' + ro + ' value="' + Auth.esc(h.badge || '') + '" placeholder="Penerimaan Anggota Baru 2026" /></div>' +
-              '<div><label class="lbl">Teks Tombol Utama (CTA)</label><input type="text" id="edHeroCtaText" class="field text-xs"' + ro + ' value="' + Auth.esc(h.cta_text || '') + '" placeholder="Info Dokumen &amp; Keuangan Kas →" /></div>' +
-            '</div>' +
-            '<div><label class="lbl">Judul Utama (Headline)</label><input type="text" id="edHeroHeadline" class="field text-xs"' + ro + ' value="' + Auth.esc(h.headline || '') + '" placeholder="Keanggotaan & Kolaborasi Yayasan APII DPW Jabodetabek" /></div>' +
-            '<div><label class="lbl">Sub-judul / Deskripsi Singkat</label><textarea id="edHeroSubheadline" rows="2" class="field text-xs"' + ro + '>' + Auth.esc(h.subheadline || '') + '</textarea></div>' +
-            '<div><label class="lbl">Tujuan Tombol Utama (link)</label><input type="text" id="edHeroCtaLink" class="field text-xs"' + ro + ' value="' + Auth.esc(h.cta_link || '') + '" placeholder="#informasi atau URL lengkap" /></div>' +
+          '<div class="flex items-center justify-between">' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">🖼️ Hero / Halaman Muka</h3>' +
+          '<span class="text-xs font-bold text-emerald-800 bg-emerald-100/60 px-3 py-1 rounded-full border border-emerald-200">apii.sigitadi.id</span>' +
+          '</div>' +
+          '<div class="grid sm:grid-cols-2 gap-4">' +
+          '<div><label class="lbl">Teks Badge Hero</label><input type="text" id="edHeroBadge" class="field text-xs"' + ro + ' value="' + Auth.esc(h.badge || '') + '" placeholder="Penerimaan Anggota Baru 2026" /></div>' +
+          '<div><label class="lbl">Teks Tombol Utama (CTA)</label><input type="text" id="edHeroCtaText" class="field text-xs"' + ro + ' value="' + Auth.esc(h.cta_text || '') + '" placeholder="Info Dokumen &amp; Keuangan Kas →" /></div>' +
+          '</div>' +
+          '<div><label class="lbl">Judul Utama (Headline)</label><input type="text" id="edHeroHeadline" class="field text-xs"' + ro + ' value="' + Auth.esc(h.headline || '') + '" placeholder="Keanggotaan & Kolaborasi Yayasan APII DPW Jabodetabek" /></div>' +
+          '<div><label class="lbl">Sub-judul / Deskripsi Singkat</label><textarea id="edHeroSubheadline" rows="2" class="field text-xs"' + ro + '>' + Auth.esc(h.subheadline || '') + '</textarea></div>' +
+          '<div><label class="lbl">Tujuan Tombol Utama (link)</label><input type="text" id="edHeroCtaLink" class="field text-xs"' + ro + ' value="' + Auth.esc(h.cta_link || '') + '" placeholder="#informasi atau URL lengkap" /></div>' +
           '</div>' +
           // ============ KARTU 2: PROFIL & SAMBUTAN ============
           '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-            '<div class="flex items-center justify-between">' +
-              '<h3 class="text-base font-extrabold text-emerald-dark">🤝 Profil Lembaga &amp; Sambutan Pimpinan</h3>' +
-              '<label class="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">' +
-                '<input type="checkbox" id="edProfileShow" class="h-4 w-4 accent-emerald"' + ro + (p.show_section !== false ? ' checked' : '') + ' /> Tampilkan seksi' +
-              '</label>' +
-            '</div>' +
-            '<div class="grid sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Nama Pimpinan (Ketua)</label><input type="text" id="edKetuaName" class="field text-xs"' + ro + ' value="' + Auth.esc(p.ketua_name || '') + '" placeholder="Ust. Nama Lengkap, S.T., M.Kom." /></div>' +
-              '<div><label class="lbl">Jabatan Pimpinan</label><input type="text" id="edKetuaTitle" class="field text-xs"' + ro + ' value="' + Auth.esc(p.ketua_title || '') + '" placeholder="Ketua DPW APII Jabodetabek" /></div>' +
-            '</div>' +
-            '<div><label class="lbl">Teks Sambutan Pimpinan (paragraf aman)</label><textarea id="edGreeting" rows="4" class="field text-xs"' + ro + '>' + Auth.esc(p.greeting || '') + '</textarea></div>' +
-            '<div><label class="lbl">Visi Lembaga</label><textarea id="edVision" rows="2" class="field text-xs"' + ro + '>' + Auth.esc(p.vision || '') + '</textarea></div>' +
-            '<div><label class="lbl">Misi Lembaga (satu per baris, maks. 12)</label><textarea id="edMissions" rows="4" class="field text-xs"' + ro + '>' + Auth.esc((Array.isArray(p.missions) ? p.missions : []).join('\n')) + '</textarea></div>' +
+          '<div class="flex items-center justify-between">' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">🤝 Profil Lembaga &amp; Sambutan Pimpinan</h3>' +
+          '<label class="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">' +
+          '<input type="checkbox" id="edProfileShow" class="h-4 w-4 accent-emerald"' + ro + (p.show_section !== false ? ' checked' : '') + ' /> Tampilkan seksi' +
+          '</label>' +
+          '</div>' +
+          '<div class="grid sm:grid-cols-2 gap-4">' +
+          '<div><label class="lbl">Nama Pimpinan (Ketua)</label><input type="text" id="edKetuaName" class="field text-xs"' + ro + ' value="' + Auth.esc(p.ketua_name || '') + '" placeholder="Ust. Nama Lengkap, S.T., M.Kom." /></div>' +
+          '<div><label class="lbl">Jabatan Pimpinan</label><input type="text" id="edKetuaTitle" class="field text-xs"' + ro + ' value="' + Auth.esc(p.ketua_title || '') + '" placeholder="Ketua DPW APII Jabodetabek" /></div>' +
+          '</div>' +
+          '<div><label class="lbl">Teks Sambutan Pimpinan (paragraf aman)</label><textarea id="edGreeting" rows="4" class="field text-xs"' + ro + '>' + Auth.esc(p.greeting || '') + '</textarea></div>' +
+          '<div><label class="lbl">Visi Lembaga</label><textarea id="edVision" rows="2" class="field text-xs"' + ro + '>' + Auth.esc(p.vision || '') + '</textarea></div>' +
+          '<div><label class="lbl">Misi Lembaga (satu per baris, maks. 12)</label><textarea id="edMissions" rows="4" class="field text-xs"' + ro + '>' + Auth.esc((Array.isArray(p.missions) ? p.missions : []).join('\n')) + '</textarea></div>' +
           '</div>' +
           // ============ KARTU 3: WARTA MAKLUMAT & AGENDA ACARA ============
           '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-            '<div class="flex items-center justify-between">' +
-              '<h3 class="text-base font-extrabold text-emerald-dark">📰 Warta Maklumat &amp; Agenda Acara</h3>' +
-              '<label class="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">' +
-                '<input type="checkbox" id="edWartaShow" class="h-4 w-4 accent-emerald"' + ro + (be.show_section !== false ? ' checked' : '') + ' /> Tampilkan seksi' +
-              '</label>' +
-            '</div>' +
-            '<div class="grid sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Judul Seksi</label><input type="text" id="edWartaTitle" class="field text-xs"' + ro + ' value="' + Auth.esc(be.section_title || '') + '" placeholder="Warta Kelembagaan & Agenda Kegiatan" /></div>' +
-              '<div><label class="lbl">Sub-judul Seksi</label><input type="text" id="edWartaSubtitle" class="field text-xs"' + ro + ' value="' + Auth.esc(be.section_subtitle || '') + '" placeholder="Maklumat resmi & jadwal acara DPW APII Jabodetabek" /></div>' +
-            '</div>' +
-            '<div class="pt-2 border-t border-gray-100">' +
-              '<div class="flex items-center justify-between mb-3">' +
-                '<span class="text-sm font-extrabold text-gray-800">📌 Daftar Maklumat / Siaran Pers</span>' +
-                '<button type="button" id="edAddBulletin" class="text-xs font-bold text-emerald hover:text-emerald-dark"' + ro + '>＋ Tambah Maklumat</button>' +
-              '</div>' +
-              '<div id="edBulletinRows" class="space-y-3">' + bulletinRows + '</div>' +
-            '</div>' +
-            '<div class="pt-2 border-t border-gray-100">' +
-              '<div class="flex items-center justify-between mb-3">' +
-                '<span class="text-sm font-extrabold text-gray-800">📅 Daftar Agenda / Acara</span>' +
-                '<button type="button" id="edAddEvent" class="text-xs font-bold text-emerald hover:text-emerald-dark"' + ro + '>＋ Tambah Acara</button>' +
-              '</div>' +
-              '<div id="edEventRows" class="space-y-3">' + eventRows + '</div>' +
-            '</div>' +
+          '<div class="flex items-center justify-between">' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">📰 Warta Maklumat &amp; Agenda Acara</h3>' +
+          '<label class="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">' +
+          '<input type="checkbox" id="edWartaShow" class="h-4 w-4 accent-emerald"' + ro + (be.show_section !== false ? ' checked' : '') + ' /> Tampilkan seksi' +
+          '</label>' +
+          '</div>' +
+          '<div class="grid sm:grid-cols-2 gap-4">' +
+          '<div><label class="lbl">Judul Seksi</label><input type="text" id="edWartaTitle" class="field text-xs"' + ro + ' value="' + Auth.esc(be.section_title || '') + '" placeholder="Warta Kelembagaan & Agenda Kegiatan" /></div>' +
+          '<div><label class="lbl">Sub-judul Seksi</label><input type="text" id="edWartaSubtitle" class="field text-xs"' + ro + ' value="' + Auth.esc(be.section_subtitle || '') + '" placeholder="Maklumat resmi & jadwal acara DPW APII Jabodetabek" /></div>' +
+          '</div>' +
+          '<div class="pt-2 border-t border-gray-100">' +
+          '<div class="flex items-center justify-between mb-3">' +
+          '<span class="text-sm font-extrabold text-gray-800">📌 Daftar Maklumat / Siaran Pers</span>' +
+          '<button type="button" id="edAddBulletin" class="text-xs font-bold text-emerald hover:text-emerald-dark"' + ro + '>＋ Tambah Maklumat</button>' +
+          '</div>' +
+          '<div id="edBulletinRows" class="space-y-3">' + bulletinRows + '</div>' +
+          '</div>' +
+          '<div class="pt-2 border-t border-gray-100">' +
+          '<div class="flex items-center justify-between mb-3">' +
+          '<span class="text-sm font-extrabold text-gray-800">📅 Daftar Agenda / Acara</span>' +
+          '<button type="button" id="edAddEvent" class="text-xs font-bold text-emerald hover:text-emerald-dark"' + ro + '>＋ Tambah Acara</button>' +
+          '</div>' +
+          '<div id="edEventRows" class="space-y-3">' + eventRows + '</div>' +
+          '</div>' +
           '</div>' +
           // __REDAKSI_PART3__
           // ============ KARTU 4: KONTAK & MEDIA SOSIAL ============
           '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-            '<h3 class="text-base font-extrabold text-emerald-dark">📞 Kontak &amp; Media Sosial</h3>' +
-            '<div class="grid sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">Alamat Sekretariat</label><textarea id="edContactAddress" rows="2" class="field text-xs"' + ro + '>' + Auth.esc(c.address || '') + '</textarea></div>' +
-              '<div><label class="lbl">Jam Layanan</label><input type="text" id="edContactHours" class="field text-xs"' + ro + ' value="' + Auth.esc(c.service_hours || '') + '" placeholder="Senin – Sabtu, 08.30 – 16.30 WIB" /></div>' +
-              '<div><label class="lbl">Email Resmi</label><input type="email" id="edContactEmail" class="field text-xs"' + ro + ' value="' + Auth.esc(c.email || '') + '" placeholder="sekretariat@apii.sigitadi.id" /></div>' +
-              '<div><label class="lbl">No. WhatsApp Helpdesk</label><input type="text" id="edContactWa" class="field text-xs"' + ro + ' value="' + Auth.esc(c.whatsapp_helpdesk || '') + '" placeholder="0812xxxxxxxx" /></div>' +
-            '</div>' +
-            '<div class="pt-2 border-t border-gray-100 grid sm:grid-cols-2 gap-4">' +
-              '<div><label class="lbl">URL YouTube</label><input type="url" id="edSocYoutube" class="field text-xs"' + ro + ' value="' + Auth.esc(s.youtube || '') + '" placeholder="https://youtube.com/@..." /></div>' +
-              '<div><label class="lbl">URL Instagram</label><input type="url" id="edSocInstagram" class="field text-xs"' + ro + ' value="' + Auth.esc(s.instagram || '') + '" placeholder="https://instagram.com/..." /></div>' +
-              '<div><label class="lbl">URL WhatsApp Channel</label><input type="url" id="edSocWaChannel" class="field text-xs"' + ro + ' value="' + Auth.esc(s.whatsapp_channel || '') + '" placeholder="https://whatsapp.com/channel/..." /></div>' +
-              '<div><label class="lbl">URL Facebook</label><input type="url" id="edSocFacebook" class="field text-xs"' + ro + ' value="' + Auth.esc(s.facebook || '') + '" placeholder="https://facebook.com/..." /></div>' +
-              '<div><label class="lbl">URL TikTok</label><input type="url" id="edSocTiktok" class="field text-xs"' + ro + ' value="' + Auth.esc(s.tiktok || '') + '" placeholder="https://tiktok.com/@..." /></div>' +
-            '</div>' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">📞 Kontak &amp; Media Sosial</h3>' +
+          '<div class="grid sm:grid-cols-2 gap-4">' +
+          '<div><label class="lbl">Alamat Sekretariat</label><textarea id="edContactAddress" rows="2" class="field text-xs"' + ro + '>' + Auth.esc(c.address || '') + '</textarea></div>' +
+          '<div><label class="lbl">Jam Layanan</label><input type="text" id="edContactHours" class="field text-xs"' + ro + ' value="' + Auth.esc(c.service_hours || '') + '" placeholder="Senin – Sabtu, 08.30 – 16.30 WIB" /></div>' +
+          '<div><label class="lbl">Email Resmi</label><input type="email" id="edContactEmail" class="field text-xs"' + ro + ' value="' + Auth.esc(c.email || '') + '" placeholder="sekretariat@apii.sigitadi.id" /></div>' +
+          '<div><label class="lbl">No. WhatsApp Helpdesk</label><input type="text" id="edContactWa" class="field text-xs"' + ro + ' value="' + Auth.esc(c.whatsapp_helpdesk || '') + '" placeholder="0812xxxxxxxx" /></div>' +
+          '</div>' +
+          '<div class="pt-2 border-t border-gray-100 grid sm:grid-cols-2 gap-4">' +
+          '<div><label class="lbl">URL YouTube</label><input type="url" id="edSocYoutube" class="field text-xs"' + ro + ' value="' + Auth.esc(s.youtube || '') + '" placeholder="https://youtube.com/@..." /></div>' +
+          '<div><label class="lbl">URL Instagram</label><input type="url" id="edSocInstagram" class="field text-xs"' + ro + ' value="' + Auth.esc(s.instagram || '') + '" placeholder="https://instagram.com/..." /></div>' +
+          '<div><label class="lbl">URL WhatsApp Channel</label><input type="url" id="edSocWaChannel" class="field text-xs"' + ro + ' value="' + Auth.esc(s.whatsapp_channel || '') + '" placeholder="https://whatsapp.com/channel/..." /></div>' +
+          '<div><label class="lbl">URL Facebook</label><input type="url" id="edSocFacebook" class="field text-xs"' + ro + ' value="' + Auth.esc(s.facebook || '') + '" placeholder="https://facebook.com/..." /></div>' +
+          '<div><label class="lbl">URL TikTok</label><input type="url" id="edSocTiktok" class="field text-xs"' + ro + ' value="' + Auth.esc(s.tiktok || '') + '" placeholder="https://tiktok.com/@..." /></div>' +
+          '</div>' +
           '</div>' +
           // __REDAKSI_PART4__
           // ============ KARTU 5: FAQ ============
           '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-            '<div class="flex items-center justify-between">' +
-              '<h3 class="text-base font-extrabold text-emerald-dark">❓ Tanya Jawab Publik (FAQ)</h3>' +
-              '<button type="button" id="edAddFaq" class="text-xs font-bold text-emerald hover:text-emerald-dark"' + ro + '>＋ Tambah FAQ</button>' +
-            '</div>' +
-            '<div id="edFaqRows" class="space-y-3">' + faqRows + '</div>' +
+          '<div class="flex items-center justify-between">' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">❓ Tanya Jawab Publik (FAQ)</h3>' +
+          '<button type="button" id="edAddFaq" class="text-xs font-bold text-emerald hover:text-emerald-dark"' + ro + '>＋ Tambah FAQ</button>' +
+          '</div>' +
+          '<div id="edFaqRows" class="space-y-3">' + faqRows + '</div>' +
           '</div>' +
           // ============ TOMBOL SIMPAN ============
           (canEdit ?
             '<div class="flex items-center justify-between gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex-wrap">' +
-              '<p class="text-xs text-emerald-800 font-semibold">Perubahan langsung tampil di portal publik (apii.sigitadi.id) setelah disimpan.</p>' +
-              '<button type="button" id="edSaveBtn" class="btn btn-primary px-5 py-2.5 rounded-xl text-sm font-bold inline-flex items-center gap-2 shadow-sm">💾 Simpan Redaksi Konten</button>' +
+            '<p class="text-xs text-emerald-800 font-semibold">Perubahan langsung tampil di portal publik (apii.sigitadi.id) setelah disimpan.</p>' +
+            '<button type="button" id="edSaveBtn" class="btn btn-primary px-5 py-2.5 rounded-xl text-sm font-bold inline-flex items-center gap-2 shadow-sm">💾 Simpan Redaksi Konten</button>' +
             '</div>'
-          : '') +
-        '</div>';
+            : '') +
+          '</div>';
 
         // ---- Wiring: tombol tambah & hapus baris (event delegation) ----
         var bindRepeater = function (addBtnId, containerId, rowFn) {
@@ -4628,7 +6061,7 @@
             Auth.fetch('saveEditorialContent', { editorial: payload }).then(function () {
               Auth.cache.invalidate(['settings', 'dashboard']);
               self.toast('Redaksi konten portal publik berhasil disimpan.', 'success');
-            }).catch(function () {}).then(function () {
+            }).catch(function () { }).then(function () {
               saveBtn.disabled = false;
               saveBtn.innerHTML = '💾 Simpan Redaksi Konten';
             });
@@ -4658,72 +6091,72 @@
 
         box.innerHTML =
           '<div class="space-y-6">' +
-            // KARTU 1: BANNER PENGUMUMAN RESMI PORTAL PUBLIK
-            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-              '<div class="flex items-center justify-between">' +
-                '<h3 class="text-base font-extrabold text-emerald-dark">Banner Pengumuman Resmi Portal Publik</h3>' +
-                '<span class="text-xs font-bold text-emerald-800 bg-emerald-100/60 px-3 py-1 rounded-full border border-emerald-200">apii.sigitadi.id</span>' +
-              '</div>' +
-              '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
-                '<input type="checkbox" id="pubBannerActive" class="h-4 w-4 accent-emerald" ' + (bannerActive ? 'checked' : '') + ' />' +
-                '<div><strong class="text-xs text-gray-900 block">Aktifkan Banner Pengumuman di Atas Portal Publik</strong><span class="text-[11px] text-gray-500">Menampilkan pita siaran informasi penting di bagian atas halaman muka.</span></div>' +
-              '</label>' +
-              '<div>' +
-                '<label class="lbl">Teks Pengumuman Resmi</label>' +
-                '<textarea id="pubBannerText" rows="2" class="field text-xs">' + Auth.esc(bannerText) + '</textarea>' +
-              '</div>' +
-              '<div>' +
-                '<label class="lbl">Gaya Tampilan Banner</label>' +
-                '<select id="pubBannerType" class="field text-xs">' +
-                  '<option value="info"' + (bannerType === 'info' ? ' selected' : '') + '>🔵 Info Resmi (Biru Tenang)</option>' +
-                  '<option value="warning"' + (bannerType === 'warning' ? ' selected' : '') + '>🟠 Perhatian / Penting (Kuning Emas)</option>' +
-                  '<option value="success"' + (bannerType === 'success' ? ' selected' : '') + '>🟢 Sukacita / Pengumuman (Hijau APII)</option>' +
-                '</select>' +
-              '</div>' +
-            '</div>' +
+          // KARTU 1: BANNER PENGUMUMAN RESMI PORTAL PUBLIK
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+          '<div class="flex items-center justify-between">' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">Banner Pengumuman Resmi Portal Publik</h3>' +
+          '<span class="text-xs font-bold text-emerald-800 bg-emerald-100/60 px-3 py-1 rounded-full border border-emerald-200">apii.sigitadi.id</span>' +
+          '</div>' +
+          '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+          '<input type="checkbox" id="pubBannerActive" class="h-4 w-4 accent-emerald" ' + (bannerActive ? 'checked' : '') + ' />' +
+          '<div><strong class="text-xs text-gray-900 block">Aktifkan Banner Pengumuman di Atas Portal Publik</strong><span class="text-[11px] text-gray-500">Menampilkan pita siaran informasi penting di bagian atas halaman muka.</span></div>' +
+          '</label>' +
+          '<div>' +
+          '<label class="lbl">Teks Pengumuman Resmi</label>' +
+          '<textarea id="pubBannerText" rows="2" class="field text-xs">' + Auth.esc(bannerText) + '</textarea>' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Gaya Tampilan Banner</label>' +
+          '<select id="pubBannerType" class="field text-xs">' +
+          '<option value="info"' + (bannerType === 'info' ? ' selected' : '') + '>🔵 Info Resmi (Biru Tenang)</option>' +
+          '<option value="warning"' + (bannerType === 'warning' ? ' selected' : '') + '>🟠 Perhatian / Penting (Kuning Emas)</option>' +
+          '<option value="success"' + (bannerType === 'success' ? ' selected' : '') + '>🟢 Sukacita / Pengumuman (Hijau APII)</option>' +
+          '</select>' +
+          '</div>' +
+          '</div>' +
 
-            // KARTU 2: Visibilitas Seksi Portal Publik
-            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-              '<h3 class="text-base font-extrabold text-emerald-dark">Visibilitas Seksi Portal Publik</h3>' +
-              '<div class="grid sm:grid-cols-2 gap-4 text-xs">' +
-                '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
-                  '<input type="checkbox" id="setPubReg" class="h-4 w-4 accent-emerald" ' + (allowReg ? 'checked' : '') + ' />' +
-                  '<div><strong class="text-gray-900 block">Pendaftaran Anggota Terbuka</strong><span class="text-gray-500">Masyarakat dapat mendaftar mandiri dengan foto KTP & selfie.</span></div>' +
-                '</label>' +
-                '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
-                  '<input type="checkbox" id="setPubVerif" class="h-4 w-4 accent-emerald" ' + (allowVerif ? 'checked' : '') + ' />' +
-                  '<div><strong class="text-gray-900 block">Verifikasi Dokumen Publik</strong><span class="text-gray-500">Pencarian nomor surat & validasi sidik digital SHA-256.</span></div>' +
-                '</label>' +
-                '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
-                  '<input type="checkbox" id="setPubKeu" class="h-4 w-4 accent-emerald" ' + (showKeu ? 'checked' : '') + ' />' +
-                  '<div><strong class="text-gray-900 block">Transparansi Kas & Rekening Publik</strong><span class="text-gray-500">Tampilkan rekening donasi dan ringkasan kas yayasan di publik.</span></div>' +
-                '</label>' +
-                '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
-                  '<input type="checkbox" id="setPubProg" class="h-4 w-4 accent-emerald" ' + (showProg ? 'checked' : '') + ' />' +
-                  '<div><strong class="text-gray-900 block">Tampilkan Program Kerja Divisi</strong><span class="text-gray-500">Publik dapat melihat kiprah dan program divisi kerja.</span></div>' +
-                '</label>' +
-              '</div>' +
-              '<div class="pt-2">' +
-                '<button type="button" id="btnSaveRbacPublic" class="btn btn-primary px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm">Simpan Visibilitas &amp; Siaran Publik</button>' +
-              '</div>' +
-            '</div>' +
+          // KARTU 2: Visibilitas Seksi Portal Publik
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+          '<h3 class="text-base font-extrabold text-emerald-dark">Visibilitas Seksi Portal Publik</h3>' +
+          '<div class="grid sm:grid-cols-2 gap-4 text-xs">' +
+          '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+          '<input type="checkbox" id="setPubReg" class="h-4 w-4 accent-emerald" ' + (allowReg ? 'checked' : '') + ' />' +
+          '<div><strong class="text-gray-900 block">Pendaftaran Anggota Terbuka</strong><span class="text-gray-500">Masyarakat dapat mendaftar mandiri dengan foto KTP & selfie.</span></div>' +
+          '</label>' +
+          '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+          '<input type="checkbox" id="setPubVerif" class="h-4 w-4 accent-emerald" ' + (allowVerif ? 'checked' : '') + ' />' +
+          '<div><strong class="text-gray-900 block">Verifikasi Dokumen Publik</strong><span class="text-gray-500">Pencarian nomor surat & validasi sidik digital SHA-256.</span></div>' +
+          '</label>' +
+          '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+          '<input type="checkbox" id="setPubKeu" class="h-4 w-4 accent-emerald" ' + (showKeu ? 'checked' : '') + ' />' +
+          '<div><strong class="text-gray-900 block">Transparansi Kas & Rekening Publik</strong><span class="text-gray-500">Tampilkan rekening donasi dan ringkasan kas yayasan di publik.</span></div>' +
+          '</label>' +
+          '<label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">' +
+          '<input type="checkbox" id="setPubProg" class="h-4 w-4 accent-emerald" ' + (showProg ? 'checked' : '') + ' />' +
+          '<div><strong class="text-gray-900 block">Tampilkan Program Kerja Divisi</strong><span class="text-gray-500">Publik dapat melihat kiprah dan program divisi kerja.</span></div>' +
+          '</label>' +
+          '</div>' +
+          '<div class="pt-2">' +
+          '<button type="button" id="btnSaveRbacPublic" class="btn btn-primary px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm">Simpan Visibilitas &amp; Siaran Publik</button>' +
+          '</div>' +
+          '</div>' +
 
-            // Matriks RBAC Readonly Reference
-            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6">' +
-              '<h3 class="text-base font-extrabold text-emerald-dark mb-3">Matriks Hak Akses (8 Peran Pengurus)</h3>' +
-              '<div class="overflow-x-auto"><table class="tbl tbl-responsive text-xs"><thead><tr>' +
-              '<th>Peran</th><th>Persuratan</th><th>Keuangan</th><th>Divisi Kerja</th><th>Pengguna</th><th>Audit Log</th><th>Pengaturan</th>' +
-              '</tr></thead><tbody>' +
-                '<tr><td class="font-bold text-emerald-950">SUPERADMIN</td><td>Full Akses</td><td>Full Akses</td><td>Full Akses</td><td>Full Akses</td><td>Baca Log</td><td>Full Akses</td></tr>' +
-                '<tr><td class="font-bold text-emerald-950">KETUA DPW</td><td>Setujui/Tolak</td><td>Verifikasi Final</td><td>Setujui Program</td><td>Lihat Pengurus</td><td>Baca Log</td><td>Full Akses</td></tr>' +
-                '<tr><td class="font-bold text-emerald-950">SEKRETARIS</td><td>Draf/Ajukan</td><td>—</td><td>Lihat Program</td><td>Verif Pendaftar</td><td>—</td><td>—</td></tr>' +
-                '<tr><td class="font-bold text-emerald-950">BENDAHARA</td><td>—</td><td>Draf/Verifikasi</td><td>Lihat Program</td><td>Lihat Pengurus</td><td>—</td><td>Master Rekening</td></tr>' +
-                '<tr><td class="font-bold text-emerald-950">PEMBINA</td><td>Lihat Surat</td><td>Lihat Kas</td><td>Lihat Program</td><td>—</td><td>Baca Log</td><td>—</td></tr>' +
-                '<tr><td class="font-bold text-emerald-950">PENGAWAS</td><td>Lihat Surat</td><td>Lihat Kas</td><td>Lihat Program</td><td>—</td><td>Baca Log</td><td>—</td></tr>' +
-                '<tr><td class="font-bold text-emerald-950">KETUA_DIVISI</td><td>—</td><td>—</td><td>Usul/LPJ Divisi</td><td>—</td><td>—</td><td>—</td></tr>' +
-                '<tr><td class="font-bold text-emerald-950">ANGGOTA_DIVISI</td><td>—</td><td>—</td><td>Usul/LPJ Divisi</td><td>—</td><td>—</td><td>—</td></tr>' +
-              '</tbody></table></div>' +
-            '</div>' +
+          // Matriks RBAC Readonly Reference
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6">' +
+          '<h3 class="text-base font-extrabold text-emerald-dark mb-3">' + (Auth.isDemoMode() ? 'Matriks Hak Akses Peran Pengurus' : 'Matriks Hak Akses (8 Peran Pengurus)') + '</h3>' +
+          '<div class="overflow-x-auto"><table class="tbl tbl-responsive text-xs"><thead><tr>' +
+          '<th>Peran</th><th>Persuratan</th><th>Keuangan</th><th>Divisi Kerja</th><th>Pengguna</th><th>Audit Log</th><th>Pengaturan</th>' +
+          '</tr></thead><tbody>' +
+          (Auth.isDemoMode() ? '' : '<tr><td class="font-bold text-emerald-950">SUPERADMIN</td><td>Full Akses</td><td>Full Akses</td><td>Full Akses</td><td>Full Akses</td><td>Baca Log</td><td>Full Akses</td></tr>') +
+          '<tr><td class="font-bold text-emerald-950">KETUA DPW</td><td>Setujui/Tolak</td><td>Verifikasi Final</td><td>Setujui Program</td><td>Lihat Pengurus</td><td>Baca Log</td><td>Full Akses</td></tr>' +
+          '<tr><td class="font-bold text-emerald-950">SEKRETARIS</td><td>Draf/Ajukan</td><td>—</td><td>Lihat Program</td><td>Verif Pendaftar</td><td>—</td><td>—</td></tr>' +
+          '<tr><td class="font-bold text-emerald-950">BENDAHARA</td><td>—</td><td>Draf/Verifikasi</td><td>Lihat Program</td><td>Lihat Pengurus</td><td>—</td><td>Master Rekening</td></tr>' +
+          '<tr><td class="font-bold text-emerald-950">PEMBINA</td><td>Lihat Surat</td><td>Lihat Kas</td><td>Lihat Program</td><td>—</td><td>Baca Log</td><td>—</td></tr>' +
+          '<tr><td class="font-bold text-emerald-950">PENGAWAS</td><td>Lihat Surat</td><td>Lihat Kas</td><td>Lihat Program</td><td>—</td><td>Baca Log</td><td>—</td></tr>' +
+          '<tr><td class="font-bold text-emerald-950">KETUA_DIVISI</td><td>—</td><td>—</td><td>Usul/LPJ Divisi</td><td>—</td><td>—</td><td>—</td></tr>' +
+          '<tr><td class="font-bold text-emerald-950">ANGGOTA_DIVISI</td><td>—</td><td>—</td><td>Usul/LPJ Divisi</td><td>—</td><td>—</td><td>—</td></tr>' +
+          '</tbody></table></div>' +
+          '</div>' +
           '</div>';
 
         document.getElementById('btnSaveRbacPublic').addEventListener('click', function () {
@@ -4758,7 +6191,7 @@
           Auth.fetch('saveSettings', payload).then(function () {
             Auth.cache.invalidate(['settings', 'dashboard']);
             self.toast('Pengaturan visibilitas & pengumuman publik berhasil disimpan.', 'success');
-          }).catch(function () {});
+          }).catch(function () { });
         });
       }).catch(function (err) {
         box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat pengaturan RBAC: ' + Auth.esc(err.message) + '</div>';
@@ -4783,132 +6216,132 @@
 
         box.innerHTML =
           '<div class="space-y-6 max-w-3xl">' +
-            // KARTU STATUS FOLDER AKTIF
-            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
-              '<div class="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-gray-100">' +
-                '<div class="flex items-center gap-3">' +
-                  '<div class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 shadow-inner">' +
-                    '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"/></svg>' +
-                  '</div>' +
-                  '<div>' +
-                    '<div class="flex items-center gap-2">' +
-                      '<h3 class="text-base font-extrabold text-gray-900">Folder Penyimpanan Google Drive</h3>' +
-                      '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ' + (isCustom ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800') + '">' +
-                        (isCustom ? 'Folder Kustom' : 'Folder Bawaan APII') +
-                      '</span>' +
-                    '</div>' +
-                    '<p class="text-xs text-gray-500 mt-0.5">Seluruh PDF surat resmi, bukti kas, berkas pendaftar KTP/selfie, dan lampiran tersimpan di sini.</p>' +
-                  '</div>' +
-                '</div>' +
-                '<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">' +
-                  '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Terhubung & Siap' +
-                '</span>' +
-              '</div>' +
+          // KARTU STATUS FOLDER AKTIF
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+          '<div class="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-gray-100">' +
+          '<div class="flex items-center gap-3">' +
+          '<div class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 shadow-inner">' +
+          '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"/></svg>' +
+          '</div>' +
+          '<div>' +
+          '<div class="flex items-center gap-2">' +
+          '<h3 class="text-base font-extrabold text-gray-900">Folder Penyimpanan Google Drive</h3>' +
+          '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ' + (isCustom ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800') + '">' +
+          (isCustom ? 'Folder Kustom' : 'Folder Bawaan APII') +
+          '</span>' +
+          '</div>' +
+          '<p class="text-xs text-gray-500 mt-0.5">Seluruh PDF surat resmi, bukti kas, berkas pendaftar KTP/selfie, dan lampiran tersimpan di sini.</p>' +
+          '</div>' +
+          '</div>' +
+          '<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">' +
+          '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Terhubung & Siap' +
+          '</span>' +
+          '</div>' +
 
-              '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/70 p-4 rounded-xl border border-gray-100 text-xs">' +
-                '<div>' +
-                  '<span class="text-gray-400 block font-medium">Nama Folder Aktif:</span>' +
-                  '<span class="font-bold text-gray-900 text-sm mt-0.5 block truncate" title="' + Auth.esc(currentFolderName) + '">' + Auth.esc(currentFolderName) + '</span>' +
-                '</div>' +
-                '<div>' +
-                  '<span class="text-gray-400 block font-medium">ID Folder Aktif:</span>' +
-                  '<div class="flex items-center gap-2 mt-0.5">' +
-                    '<code class="font-mono text-gray-800 bg-white px-2 py-0.5 rounded border border-gray-200 text-[11px] truncate flex-1">' + Auth.esc(currentFolderId || 'Dibuat otomatis') + '</code>' +
-                    (currentFolderId ? '<button type="button" id="btnCopyFolderId" class="text-gray-500 hover:text-emerald-dark font-bold text-[11px] px-2 py-0.5 bg-white border border-gray-200 rounded" title="Salin ID">Salin</button>' : '') +
-                  '</div>' +
-                '</div>' +
-              '</div>' +
+          '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/70 p-4 rounded-xl border border-gray-100 text-xs">' +
+          '<div>' +
+          '<span class="text-gray-400 block font-medium">Nama Folder Aktif:</span>' +
+          '<span class="font-bold text-gray-900 text-sm mt-0.5 block truncate" title="' + Auth.esc(currentFolderName) + '">' + Auth.esc(currentFolderName) + '</span>' +
+          '</div>' +
+          '<div>' +
+          '<span class="text-gray-400 block font-medium">ID Folder Aktif:</span>' +
+          '<div class="flex items-center gap-2 mt-0.5">' +
+          '<code class="font-mono text-gray-800 bg-white px-2 py-0.5 rounded border border-gray-200 text-[11px] truncate flex-1">' + Auth.esc(currentFolderId || 'Dibuat otomatis') + '</code>' +
+          (currentFolderId ? '<button type="button" id="btnCopyFolderId" class="text-gray-500 hover:text-emerald-dark font-bold text-[11px] px-2 py-0.5 bg-white border border-gray-200 rounded" title="Salin ID">Salin</button>' : '') +
+          '</div>' +
+          '</div>' +
+          '</div>' +
 
-              '<div class="flex items-center justify-between flex-wrap gap-2 pt-1">' +
-                '<div class="flex items-center gap-2 text-xs text-gray-500">' +
-                  '<span class="text-emerald-600 font-bold">Subfolder Standar:</span>' +
-                  '<span class="bg-gray-100 px-2 py-0.5 rounded font-mono text-[11px]">/Surat_Resmi</span>' +
-                  '<span class="bg-gray-100 px-2 py-0.5 rounded font-mono text-[11px]">/Pendaftaran_KTP</span>' +
-                  '<span class="bg-gray-100 px-2 py-0.5 rounded font-mono text-[11px]">/Keuangan_Bukti_Nota</span>' +
-                '</div>' +
-                (currentFolderUrl ? '<a href="' + Auth.esc(currentFolderUrl) + '" target="_blank" rel="noopener noreferrer" class="btn text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3.5 py-1.5 rounded-xl inline-flex items-center gap-1.5 transition">📂 Buka Folder di Drive ↗</a>' : '') +
-              '</div>' +
-            '</div>' +
+          '<div class="flex items-center justify-between flex-wrap gap-2 pt-1">' +
+          '<div class="flex items-center gap-2 text-xs text-gray-500">' +
+          '<span class="text-emerald-600 font-bold">Subfolder Standar:</span>' +
+          '<span class="bg-gray-100 px-2 py-0.5 rounded font-mono text-[11px]">/Surat_Resmi</span>' +
+          '<span class="bg-gray-100 px-2 py-0.5 rounded font-mono text-[11px]">/Pendaftaran_KTP</span>' +
+          '<span class="bg-gray-100 px-2 py-0.5 rounded font-mono text-[11px]">/Keuangan_Bukti_Nota</span>' +
+          '</div>' +
+          (currentFolderUrl ? '<a href="' + Auth.esc(currentFolderUrl) + '" target="_blank" rel="noopener noreferrer" class="btn text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3.5 py-1.5 rounded-xl inline-flex items-center gap-1.5 transition">📂 Buka Folder di Drive ↗</a>' : '') +
+          '</div>' +
+          '</div>' +
 
-            // KARTU OPERASI FOLDER
-            '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-6">' +
-              '<div>' +
-                '<h4 class="text-sm font-extrabold text-gray-900">Kelola Lokasi & Buat Folder Penyimpanan</h4>' +
-                '<p class="text-xs text-gray-500 mt-0.5">Pilih salah satu metode berikut untuk membuat folder baru atau memindahkan lokasi penyimpanan.</p>' +
-              '</div>' +
+          // KARTU OPERASI FOLDER
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-6">' +
+          '<div>' +
+          '<h4 class="text-sm font-extrabold text-gray-900">Kelola Lokasi & Buat Folder Penyimpanan</h4>' +
+          '<p class="text-xs text-gray-500 mt-0.5">Pilih salah satu metode berikut untuk membuat folder baru atau memindahkan lokasi penyimpanan.</p>' +
+          '</div>' +
 
-              // KOTAK AKSI 1: BUAT FOLDER BARU
-              '<div class="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-3">' +
-                '<div class="flex items-center gap-2">' +
-                  '<span class="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">1</span>' +
-                  '<h5 class="text-xs font-extrabold text-emerald-950 uppercase tracking-wide">Buat Folder Baru Langsung di Google Drive</h5>' +
-                '</div>' +
-                '<p class="text-xs text-gray-600">Sistem akan membuat folder baru di Google Drive, otomatis menginisialisasi seluruh subfolder resmi, dan langsung menjadikannya folder penyimpanan aktif.</p>' +
-                '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
-                  '<div>' +
-                    '<label class="lbl text-[11px]">Nama Folder Baru</label>' +
-                    '<input id="newDriveFolderName" type="text" class="field text-xs bg-white" placeholder="Contoh: APII Jabo - Arsip 2026" value="APII Jabo - Arsip ' + new Date().getFullYear() + '" />' +
-                  '</div>' +
-                  '<div>' +
-                    '<label class="lbl text-[11px]">ID Folder Induk / Parent (Opsional)</label>' +
-                    '<input id="newDriveParentId" type="text" class="field font-mono text-xs bg-white" placeholder="Kosongkan untuk root Drive" />' +
-                  '</div>' +
-                '</div>' +
-                '<button type="button" id="btnCreateDriveFolder" class="btn btn-primary px-4 py-2 rounded-xl font-bold text-xs shadow-sm inline-flex items-center gap-1.5">' +
-                  '<span>➕ Buat & Jadikan Folder Aktif</span>' +
-                '</button>' +
-              '</div>' +
+          // KOTAK AKSI 1: BUAT FOLDER BARU
+          '<div class="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-3">' +
+          '<div class="flex items-center gap-2">' +
+          '<span class="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">1</span>' +
+          '<h5 class="text-xs font-extrabold text-emerald-950 uppercase tracking-wide">Buat Folder Baru Langsung di Google Drive</h5>' +
+          '</div>' +
+          '<p class="text-xs text-gray-600">Sistem akan membuat folder baru di Google Drive, otomatis menginisialisasi seluruh subfolder resmi, dan langsung menjadikannya folder penyimpanan aktif.</p>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
+          '<div>' +
+          '<label class="lbl text-[11px]">Nama Folder Baru</label>' +
+          '<input id="newDriveFolderName" type="text" class="field text-xs bg-white" placeholder="Contoh: APII Jabo - Arsip 2026" value="APII Jabo - Arsip ' + new Date().getFullYear() + '" />' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl text-[11px]">ID Folder Induk / Parent (Opsional)</label>' +
+          '<input id="newDriveParentId" type="text" class="field font-mono text-xs bg-white" placeholder="Kosongkan untuk root Drive" />' +
+          '</div>' +
+          '</div>' +
+          '<button type="button" id="btnCreateDriveFolder" class="btn btn-primary px-4 py-2 rounded-xl font-bold text-xs shadow-sm inline-flex items-center gap-1.5">' +
+          '<span>➕ Buat & Jadikan Folder Aktif</span>' +
+          '</button>' +
+          '</div>' +
 
-              // KOTAK AKSI 2: PINDAH KE FOLDER YANG SUDAH ADA
-              '<div class="p-4 bg-blue-50/40 rounded-xl border border-blue-100 space-y-3">' +
-                '<div class="flex items-center gap-2">' +
-                  '<span class="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs font-bold">2</span>' +
-                  '<h5 class="text-xs font-extrabold text-blue-950 uppercase tracking-wide">Gunakan / Pindahkan ke Folder yang Sudah Ada (Custom Folder ID)</h5>' +
-                '</div>' +
-                '<p class="text-xs text-gray-600">Jika Anda telah menyiapkan folder di Google Drive (misal: Shared Drive yayasan), masukkan ID foldernya di sini.</p>' +
-                '<div>' +
-                  '<label class="lbl text-[11px]">Google Drive Folder ID</label>' +
-                  '<input id="driveFolderInput" type="text" class="field font-mono text-xs bg-white" placeholder="ID folder dari URL drive.google.com/drive/folders/{ID}" value="' + Auth.esc(folderId) + '" />' +
-                  '<p class="text-[11px] text-gray-400 mt-1">Dapatkan ID dari URL folder: <code class="bg-gray-100 px-1 rounded">drive.google.com/drive/folders/<strong>{ID_FOLDER}</strong></code></p>' +
-                '</div>' +
-                '<div id="driveTestBox" class="hidden p-3 rounded-lg text-xs font-semibold"></div>' +
-                '<div class="flex items-center gap-2.5 flex-wrap">' +
-                  '<button type="button" id="btnTestDrive" class="btn btn-ghost px-4 py-2 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 border border-gray-200 bg-white">' +
-                    '<span>⚡ Uji Koneksi & Izin Tulis</span>' +
-                  '</button>' +
-                  '<button type="button" id="btnSaveDrive" class="btn btn-primary px-4 py-2 rounded-xl font-bold text-xs shadow-sm inline-flex items-center gap-1.5">' +
-                    '<span>💾 Terapkan Sebagai Folder Aktif</span>' +
-                  '</button>' +
-                '</div>' +
-              '</div>' +
+          // KOTAK AKSI 2: PINDAH KE FOLDER YANG SUDAH ADA
+          '<div class="p-4 bg-blue-50/40 rounded-xl border border-blue-100 space-y-3">' +
+          '<div class="flex items-center gap-2">' +
+          '<span class="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs font-bold">2</span>' +
+          '<h5 class="text-xs font-extrabold text-blue-950 uppercase tracking-wide">Gunakan / Pindahkan ke Folder yang Sudah Ada (Custom Folder ID)</h5>' +
+          '</div>' +
+          '<p class="text-xs text-gray-600">Jika Anda telah menyiapkan folder di Google Drive (misal: Shared Drive yayasan), masukkan ID foldernya di sini.</p>' +
+          '<div>' +
+          '<label class="lbl text-[11px]">Google Drive Folder ID</label>' +
+          '<input id="driveFolderInput" type="text" class="field font-mono text-xs bg-white" placeholder="ID folder dari URL drive.google.com/drive/folders/{ID}" value="' + Auth.esc(folderId) + '" />' +
+          '<p class="text-[11px] text-gray-400 mt-1">Dapatkan ID dari URL folder: <code class="bg-gray-100 px-1 rounded">drive.google.com/drive/folders/<strong>{ID_FOLDER}</strong></code></p>' +
+          '</div>' +
+          '<div id="driveTestBox" class="hidden p-3 rounded-lg text-xs font-semibold"></div>' +
+          '<div class="flex items-center gap-2.5 flex-wrap">' +
+          '<button type="button" id="btnTestDrive" class="btn btn-ghost px-4 py-2 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 border border-gray-200 bg-white">' +
+          '<span>⚡ Uji Koneksi & Izin Tulis</span>' +
+          '</button>' +
+          '<button type="button" id="btnSaveDrive" class="btn btn-primary px-4 py-2 rounded-xl font-bold text-xs shadow-sm inline-flex items-center gap-1.5">' +
+          '<span>💾 Terapkan Sebagai Folder Aktif</span>' +
+          '</button>' +
+          '</div>' +
+          '</div>' +
 
-              // KOTAK AKSI 3: PINDAHKAN FOLDER AKTIF KE INDUK (PARENT)
-              '<div class="p-4 bg-purple-50/40 rounded-xl border border-purple-100 space-y-3">' +
-                '<div class="flex items-center gap-2">' +
-                  '<span class="w-6 h-6 rounded-lg bg-purple-600 text-white flex items-center justify-center text-xs font-bold">3</span>' +
-                  '<h5 class="text-xs font-extrabold text-purple-950 uppercase tracking-wide">Pindahkan Folder Aktif ke Dalam Folder Induk (Parent)</h5>' +
-                '</div>' +
-                '<p class="text-xs text-gray-600">Pindahkan folder penyimpanan saat ini ke dalam folder lain (misalnya dimasukkan ke dalam folder Yayasan Pusat).</p>' +
-                '<div>' +
-                  '<label class="lbl text-[11px]">ID Folder Induk Tujuan (Target Parent ID)</label>' +
-                  '<input id="moveParentId" type="text" class="field font-mono text-xs bg-white" placeholder="Masukkan ID folder induk tujuan" />' +
-                '</div>' +
-                '<button type="button" id="btnMoveDriveFolder" class="btn bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-sm inline-flex items-center gap-1.5 transition">' +
-                  '<span>🚀 Pindahkan ke Folder Induk</span>' +
-                '</button>' +
-              '</div>' +
+          // KOTAK AKSI 3: PINDAHKAN FOLDER AKTIF KE INDUK (PARENT)
+          '<div class="p-4 bg-purple-50/40 rounded-xl border border-purple-100 space-y-3">' +
+          '<div class="flex items-center gap-2">' +
+          '<span class="w-6 h-6 rounded-lg bg-purple-600 text-white flex items-center justify-center text-xs font-bold">3</span>' +
+          '<h5 class="text-xs font-extrabold text-purple-950 uppercase tracking-wide">Pindahkan Folder Aktif ke Dalam Folder Induk (Parent)</h5>' +
+          '</div>' +
+          '<p class="text-xs text-gray-600">Pindahkan folder penyimpanan saat ini ke dalam folder lain (misalnya dimasukkan ke dalam folder Yayasan Pusat).</p>' +
+          '<div>' +
+          '<label class="lbl text-[11px]">ID Folder Induk Tujuan (Target Parent ID)</label>' +
+          '<input id="moveParentId" type="text" class="field font-mono text-xs bg-white" placeholder="Masukkan ID folder induk tujuan" />' +
+          '</div>' +
+          '<button type="button" id="btnMoveDriveFolder" class="btn bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-sm inline-flex items-center gap-1.5 transition">' +
+          '<span>🚀 Pindahkan ke Folder Induk</span>' +
+          '</button>' +
+          '</div>' +
 
-              // OPSI TAMBAHAN & RESET
-              '<div class="pt-2 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">' +
-                '<label class="flex items-center gap-2.5 text-xs font-semibold text-gray-800 cursor-pointer">' +
-                  '<input id="driveAutoSub" type="checkbox" class="h-4 w-4 accent-emerald" ' + (autoSub ? 'checked' : '') + ' />' +
-                  'Buat subfolder arsip otomatis per tahun (contoh: /2026/Surat, /2026/Voucher)' +
-                '</label>' +
-                '<button type="button" id="btnResetDrive" class="text-xs font-bold text-red-600 hover:text-red-700 hover:underline inline-flex items-center gap-1">' +
-                  '<span>🔁 Reset ke Folder Default APII</span>' +
-                '</button>' +
-              '</div>' +
-            '</div>' +
+          // OPSI TAMBAHAN & RESET
+          '<div class="pt-2 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">' +
+          '<label class="flex items-center gap-2.5 text-xs font-semibold text-gray-800 cursor-pointer">' +
+          '<input id="driveAutoSub" type="checkbox" class="h-4 w-4 accent-emerald" ' + (autoSub ? 'checked' : '') + ' />' +
+          'Buat subfolder arsip otomatis per tahun (contoh: /2026/Surat, /2026/Voucher)' +
+          '</label>' +
+          '<button type="button" id="btnResetDrive" class="text-xs font-bold text-red-600 hover:text-red-700 hover:underline inline-flex items-center gap-1">' +
+          '<span>🔁 Reset ke Folder Default APII</span>' +
+          '</button>' +
+          '</div>' +
+          '</div>' +
           '</div>';
 
         // EVENT: SALIN ID FOLDER
@@ -5059,29 +6492,31 @@
 
       main.innerHTML = this.pageHead('Profil Saya', 'Informasi akun & peran Anda di sistem.', '') +
         '<div class="grid lg:grid-cols-3 gap-6">' +
-          '<div class="card bg-gradient-to-br from-emerald-dark to-emerald rounded-2xl p-8 text-white text-center">' +
-            '<div class="h-24 w-24 bg-white/15 rounded-3xl flex items-center justify-center mx-auto mb-5 text-4xl font-extrabold text-gold-light">' +
-              Auth.initials() + '</div>' +
-            '<h3 class="text-xl font-extrabold">' + Auth.esc(u.full_name || u.username) + '</h3>' +
-            '<p class="text-emerald-light/80 text-sm mt-1 font-mono">@' + Auth.esc(u.username) + '</p>' +
-            '<div class="mt-4 inline-block bg-gold text-emerald-dark text-xs font-bold px-4 py-1.5 rounded-full">' +
-              Auth.esc(u.role_label || u.role) + '</div>' +
-          '</div>' +
-          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-8 lg:col-span-2">' +
-            '<h3 class="font-bold text-emerald-dark mb-4">Informasi Akun</h3>' +
-            '<div class="space-y-1">' +
-              this.profileRow('Username', u.username, true) +
-              this.profileRow('Nama Lengkap', u.full_name || '—') +
-              this.profileRow('Email', u.email || '—') +
-              this.profileRow('Peran', u.role_label || u.role) +
-              this.profileRow('Divisi', u.division_label || 'Tidak terikat divisi') +
-              this.profileRow('Status', u.is_active === 'TRUE' ? 'Aktif' : 'Nonaktif') +
-            '</div>' +
-            '<div class="mt-6 pt-6 border-t border-gray-100 text-xs text-gray-400">' +
-              'Perubahan data akun dilakukan oleh Administrator Sistem melalui menu Manajemen Pengguna. ' +
-              'Sesi login berlaku 7 hari &amp; akan otomatis berakhir setelahnya.' +
-            '</div>' +
-          '</div>' +
+        '<div class="card bg-gradient-to-br from-emerald-dark to-emerald rounded-2xl p-8 text-white text-center">' +
+        '<div class="h-24 w-24 bg-white/15 rounded-3xl flex items-center justify-center mx-auto mb-5 text-4xl font-extrabold text-gold-light">' +
+        Auth.initials() + '</div>' +
+        '<h3 class="text-xl font-extrabold">' + Auth.esc(u.full_name || u.username) + '</h3>' +
+        '<p class="text-emerald-light/80 text-sm mt-1 font-mono">@' + Auth.esc(u.username) + '</p>' +
+        '<div class="mt-4 inline-block bg-gold text-emerald-dark text-xs font-bold px-4 py-1.5 rounded-full">' +
+        Auth.esc(u.role_label || u.role) + '</div>' +
+        '</div>' +
+        '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-8 lg:col-span-2">' +
+        '<h3 class="font-bold text-emerald-dark mb-4">Informasi Akun</h3>' +
+        '<div class="space-y-1">' +
+        this.profileRow('Username', u.username, true) +
+        this.profileRow('Nama Lengkap', u.full_name || '—') +
+        this.profileRow('Email', u.email || '—') +
+        this.profileRow('Peran', u.role_label || u.role) +
+        this.profileRow('Divisi', u.division_label || 'Tidak terikat divisi') +
+        this.profileRow('Status', u.is_active === 'TRUE' ? 'Aktif' : 'Nonaktif') +
+        '</div>' +
+        '<div class="mt-6 pt-6 border-t border-gray-100 text-xs text-gray-400">' +
+        (Auth.isDemoMode()
+          ? 'Perubahan data akun dilakukan melalui menu Manajemen Pengguna. '
+          : 'Perubahan data akun dilakukan oleh Administrator Sistem melalui menu Manajemen Pengguna. ') +
+        'Sesi login berlaku 7 hari &amp; akan otomatis berakhir setelahnya.' +
+        '</div>' +
+        '</div>' +
         '</div>';
     },
 

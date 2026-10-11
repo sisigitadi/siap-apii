@@ -1,11 +1,15 @@
 {
   "name": "siap-apii",
-  "version": "2.0.0",
+  "version": "2.6.0",
   "description": "Sistem Informasi & Administrasi Terpadu Yayasan APII DPW Jabodetabek",
   "private": true,
   "scripts": {
+    "test": "node scripts/test-editorial.mjs && node scripts/test-public-render.mjs",
     "build": "echo Static site ready",
     "build:gas": "powershell -ExecutionPolicy Bypass -File scripts/build-apps-script.ps1",
+    "dev": "npx -y serve portal -p 3000",
+    "dev:portal": "npx -y serve portal -p 3000",
+    "dev:public": "npx -y serve public -p 3001",
     "serve:portal": "npx -y serve portal -p 3000",
     "serve:public": "npx -y serve public -p 3001"
   }

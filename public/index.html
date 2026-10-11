@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Yayasan APII DPW Jabodetabek — Portal Resmi &amp; Pendaftaran Anggota</title>
+  <title>Yayasan APII DPW Jabodetabek: Portal Resmi &amp; Pendaftaran Anggota</title>
   <meta name="description" content="Portal Resmi Yayasan APII DPW Jabodetabek. Layanan pendaftaran calon anggota baru, publikasi dokumen resmi, dan transparansi keuangan yayasan berstandar UU PDP No. 27/2022." />
   <link rel="canonical" href="https://apii.sigitadi.id" />
 
@@ -18,7 +18,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://apii.sigitadi.id" />
   <meta property="og:site_name" content="Yayasan APII DPW Jabodetabek" />
-  <meta property="og:title" content="Yayasan APII DPW Jabodetabek — Portal Resmi &amp; Pendaftaran Anggota" />
+  <meta property="og:title" content="Yayasan APII DPW Jabodetabek: Portal Resmi &amp; Pendaftaran Anggota" />
   <meta property="og:description" content="Sistem Informasi &amp; Administrasi Terpadu Yayasan APII DPW Jabodetabek. Layanan pendaftaran anggota, publikasi dokumen resmi, dan transparansi yayasan." />
   <meta property="og:image" content="https://apii.sigitadi.id/og-image.jpg" />
   <meta property="og:image:secure_url" content="https://apii.sigitadi.id/og-image.jpg" />
@@ -31,17 +31,34 @@
   <!-- Twitter Card Meta Tags -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:url" content="https://apii.sigitadi.id" />
-  <meta name="twitter:title" content="Yayasan APII DPW Jabodetabek — Portal Resmi &amp; Pendaftaran Anggota" />
+  <meta name="twitter:title" content="Yayasan APII DPW Jabodetabek: Portal Resmi &amp; Pendaftaran Anggota" />
   <meta name="twitter:description" content="Sistem Informasi &amp; Administrasi Terpadu Yayasan APII DPW Jabodetabek. Layanan pendaftaran anggota, publikasi dokumen resmi, dan transparansi yayasan." />
   <meta name="twitter:image" content="https://apii.sigitadi.id/og-image.jpg" />
   <meta name="twitter:image:alt" content="Identitas Resmi Yayasan APII DPW Jabodetabek" />
+
+  <!-- Pencegah FOUC Tema Terang/Gelap -->
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('apii_theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (saved === 'dark' || (!saved && prefersDark)) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2.6.0" />
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: { sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'] },
@@ -75,15 +92,30 @@
         <li><a href="#faq" class="nav-link hover:text-emerald transition">FAQ</a></li>
         <li><a href="#kontak" class="nav-link hover:text-emerald transition">Kontak</a></li>
       </ul>
-      <!-- Desktop Header Registration Control (Titik Kontrol Tunggal) -->
-      <div id="headerRegDesktop" class="hidden sm:flex items-center"></div>
-
-      <!-- Mobile Header Controls (Tombol Ringkas & Hamburger Menu) -->
-      <div class="flex items-center gap-2 lg:hidden">
-        <div id="headerRegMobile" class="flex sm:hidden items-center"></div>
-        <button id="mobileToggle" aria-label="Buka menu" class="p-2 rounded-lg text-emerald-dark hover:bg-emerald-light">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+      <!-- Desktop & Mobile Header Actions (Tema & Registrasi) -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Tombol Pengalih Tema Terang/Gelap -->
+        <button id="themeToggleBtn" type="button" aria-label="Ubah tema tampilan" title="Ubah tema tampilan"
+          class="p-2 sm:px-3 sm:py-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-100 hover:bg-emerald-100 dark:hover:bg-emerald-900 transition flex items-center gap-1.5 cursor-pointer text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs">
+          <svg id="themeIconSun" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <svg id="themeIconMoon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-800 dark:text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+          <span class="hidden md:inline text-[11px] font-bold">Tema</span>
         </button>
+
+        <!-- Desktop Header Registration Control (Titik Kontrol Tunggal) -->
+        <div id="headerRegDesktop" class="hidden sm:flex items-center"></div>
+
+        <!-- Mobile Header Controls (Tombol Ringkas & Hamburger Menu) -->
+        <div class="flex items-center gap-2 lg:hidden">
+          <div id="headerRegMobile" class="flex sm:hidden items-center"></div>
+          <button id="mobileToggle" aria-label="Buka menu" class="p-2 rounded-lg text-emerald-dark dark:text-emerald-200 hover:bg-emerald-light dark:hover:bg-emerald-900/60">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
+        </div>
       </div>
     </nav>
     <div id="mobileMenu" class="hidden lg:hidden bg-white border-t border-emerald-100 px-4 py-4 space-y-3 font-medium text-gray-700 shadow-xl">
@@ -172,7 +204,7 @@
     </div>
   </section>
   <!-- ====================== PROFIL & SAMBUTAN PIMPINAN ====================== -->
-  <section id="profil" class="py-24 bg-white">
+  <section id="profil" class="py-24 bg-white dark:bg-[#0C1A14] pattern-islamic-subtle">
     <div id="profileSection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center max-w-3xl mx-auto mb-14">
         <span class="inline-flex items-center gap-2 bg-emerald-light text-emerald text-xs font-bold px-4 py-2 rounded-full mb-4">Profil Lembaga</span>
@@ -180,26 +212,52 @@
         <p class="text-gray-500 text-base sm:text-lg">Mengenal lebih dekat Yayasan Apologet Islam Indonesia DPW Jabodetabek.</p>
       </div>
       <div id="profileContent" class="grid lg:grid-cols-5 gap-8 items-stretch">
-        <!-- Skeleton (fallback statis sebelum data redaksi dimuat) -->
-        <div class="lg:col-span-3 bg-gradient-to-br from-emerald-50 to-white rounded-3xl p-8 border border-emerald-100">
-          <div class="flex items-center gap-4 mb-5">
-            <div class="h-14 w-14 bg-emerald-light rounded-2xl flex items-center justify-center flex-shrink-0">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+        <!-- Fallback statis resmi pimpinan & visi-misi Yayasan APII -->
+        <div class="lg:col-span-3 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-emerald-900/20 rounded-3xl p-8 border border-emerald-100 dark:border-emerald-900/60 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center gap-4 mb-5">
+              <div class="h-14 w-14 bg-emerald-light dark:bg-emerald-900/60 rounded-2xl flex items-center justify-center flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-emerald dark:text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+              </div>
+              <div>
+                <div class="font-extrabold text-emerald-dark dark:text-emerald-100 text-lg">Ustadz Muhammad Hanafi</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 font-medium">Ketua DPW APII Jabodetabek</div>
+              </div>
             </div>
-            <div><div class="font-extrabold text-emerald-dark text-lg">Pimpinan DPW APII Jabodetabek</div><div class="text-xs text-gray-500">Sambutan resmi pimpinan wilayah</div></div>
+            <div class="space-y-3 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              <p>Assalamu'alaikum Warahmatullahi Wabarakatuh. Selamat datang di portal resmi Dewan Pimpinan Wilayah Yayasan Apologet Islam Indonesia (APII) Jabodetabek.</p>
+              <p>Sebagai organisasi yang bergerak di bidang sosial, kemasyarakatan, dan keagamaan, kami berkomitmen mengimplementasikan nilai Islam yang moderat, mentransfer ilmu pengetahuan, serta mempererat ukhuwah islamiah demi kemaslahatan bersama.</p>
+            </div>
           </div>
-          <div class="space-y-3 text-sm text-gray-600 leading-relaxed"><p>Memuat sambutan pimpinan&hellip;</p></div>
+          <div class="mt-6 pt-5 border-t border-emerald-100 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-2">
+            <svg class="w-4 h-4 text-emerald" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 10h18M5 10v11M19 10v11M9 10v11M15 10v11M12 3l9 7H3z"/></svg>
+            <span>Dewan Pimpinan Wilayah Jabodetabek</span>
+          </div>
         </div>
-        <div class="lg:col-span-2 bg-emerald-dark rounded-3xl p-8 text-white flex flex-col">
-          <div class="font-extrabold text-gold-light text-lg mb-3">Visi &amp; Misi Lembaga</div>
-          <div class="space-y-3 text-sm text-emerald-light/90"><p>Memuat visi-misi&hellip;</p></div>
+        <div class="lg:col-span-2 bg-emerald-dark rounded-3xl p-8 text-white flex flex-col justify-between">
+          <div>
+            <div class="font-extrabold text-gold-light text-xl mb-2">Visi Lembaga</div>
+            <p class="text-sm text-emerald-light/90 leading-relaxed mb-6 font-medium">
+              &ldquo;Mengimplementasikan Islam sebagai Agama Rahmatan Lil Alamin&rdquo;
+            </p>
+            <div class="font-extrabold text-gold-light text-base mb-3">Misi Utama</div>
+            <ol class="space-y-2.5 text-xs text-emerald-light/90 leading-relaxed list-decimal list-inside">
+              <li>Transfer Ilmu Pengetahuan bagi sesama umat.</li>
+              <li>Mengoptimalkan digital dan internet sebagai sarana Dakwah.</li>
+              <li>Dialog perbandingan agama secara online maupun offline.</li>
+              <li>Bersinergi dengan Individu, Organisasi Islam, dan Instansi Pemerintah/Swasta guna mengukuhkan Ukhuwah Islamiah.</li>
+            </ol>
+          </div>
+          <div class="mt-6 pt-5 border-t border-white/20 text-xs text-emerald-200">
+            Nilai dasar: Moderat, Ilmiah, Santun, dan Rahmatan Lil Alamin.
+          </div>
         </div>
       </div>
     </div>
   </section>
 
   <!-- ====================== WARTA MAKLUMAT & AGENDA ACARA ====================== -->
-  <section id="warta" class="py-24 bg-gradient-to-b from-emerald-50/40 to-white border-t border-emerald-100">
+  <section id="warta" class="py-24 bg-gradient-to-b from-emerald-50/40 to-white dark:from-[#08140F] dark:to-[#0C1A14] border-t border-emerald-100 dark:border-[#1E3D30] pattern-islamic-subtle">
     <div id="wartaSection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center max-w-3xl mx-auto mb-10">
         <span class="inline-flex items-center gap-2 bg-gold/15 text-amber-700 text-xs font-bold px-4 py-2 rounded-full mb-4">Warta Kelembagaan</span>
@@ -207,9 +265,15 @@
         <p id="wartaSubtitle" class="text-gray-500 text-base sm:text-lg">Maklumat resmi, siaran pers pimpinan, serta jadwal acara dan kajian DPW APII Jabodetabek.</p>
       </div>
       <div class="flex justify-center mb-10">
-        <div class="inline-flex p-1.5 bg-gray-100 rounded-2xl gap-1.5" role="tablist" aria-label="Warta &amp; Agenda">
-          <button type="button" id="wartaTabBulletins" class="warta-tab py-2.5 px-5 rounded-xl text-sm font-bold transition bg-white text-emerald-dark shadow-sm" role="tab" aria-selected="true">📌 Maklumat &amp; Siaran</button>
-          <button type="button" id="wartaTabEvents" class="warta-tab py-2.5 px-5 rounded-xl text-sm font-bold transition text-gray-500 hover:text-gray-900" role="tab" aria-selected="false">📅 Agenda &amp; Acara</button>
+        <div class="inline-flex p-1.5 bg-gray-100 dark:bg-emerald-950/60 rounded-2xl gap-1.5 border border-transparent dark:border-emerald-800" role="tablist" aria-label="Warta &amp; Agenda">
+          <button type="button" id="wartaTabBulletins" class="warta-tab py-2.5 px-5 rounded-xl text-sm font-bold transition bg-white text-emerald-dark shadow-sm inline-flex items-center gap-1.5" role="tab" aria-selected="true">
+            <svg class="w-4 h-4 text-emerald" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>Maklumat &amp; Siaran</span>
+          </button>
+          <button type="button" id="wartaTabEvents" class="warta-tab py-2.5 px-5 rounded-xl text-sm font-bold transition text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 inline-flex items-center gap-1.5" role="tab" aria-selected="false">
+            <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span>Agenda &amp; Acara</span>
+          </button>
         </div>
       </div>
       <div id="wartaBulletinsPane" role="tabpanel">
@@ -479,11 +543,11 @@
 
           <!-- Notice Status Saat Pendaftaran Bukan BUKA -->
           <div id="regClosedInlineNotice" class="hidden pt-4 border-t border-gray-100">
-            <div class="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-start gap-3.5 shadow-xs">
-              <span class="text-2xl flex-shrink-0">🔒</span>
+            <div class="p-4 sm:p-5 rounded-2xl bg-amber-50 dark:bg-[#231B0D] border border-amber-200 dark:border-amber-800 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-3.5 shadow-xs">
+              <svg class="w-6 h-6 text-amber-600 dark:text-amber-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               <div class="leading-relaxed">
-                <strong class="block font-black text-amber-900 text-sm mb-1 inline-notice-title">Pengiriman Formulir Pendaftaran Dinonaktifkan</strong>
-                <p class="inline-notice-desc text-amber-800 text-xs">
+                <strong class="block font-black text-amber-900 dark:text-amber-300 text-sm mb-1 inline-notice-title">Pengiriman Formulir Pendaftaran Dinonaktifkan</strong>
+                <p class="inline-notice-desc text-amber-800 dark:text-amber-400 text-xs">
                   Tombol pengiriman formulir dan persetujuan keanggotaan dinonaktifkan karena pendaftaran saat ini sedang tidak dibuka.
                 </p>
               </div>
@@ -528,7 +592,7 @@
   </div>
 
   <!-- ====================== INFORMASI SURAT & KEUANGAN YAYASAN ====================== -->
-  <section id="informasi" class="py-24 bg-gradient-to-b from-white via-emerald-50/30 to-white border-t border-emerald-100">
+  <section id="informasi" class="py-24 bg-gradient-to-b from-white via-emerald-50/30 to-white dark:from-[#0C1A14] dark:via-[#08140F] dark:to-[#0C1A14] border-t border-emerald-100 dark:border-[#1E3D30] pattern-islamic-subtle">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center max-w-3xl mx-auto mb-16">
         <span class="inline-flex items-center gap-2 bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-widest">
@@ -643,7 +707,7 @@
   </section>
 
   <!-- ====================== FAQ (TANYA JAWAB PUBLIK) ====================== -->
-  <section id="faq" class="py-24 bg-white border-t border-emerald-100">
+  <section id="faq" class="py-24 bg-white dark:bg-[#08140F] border-t border-emerald-100 dark:border-[#1E3D30] pattern-islamic-subtle">
     <div id="faqSection" class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-12">
         <span class="inline-flex items-center gap-2 bg-emerald-light text-emerald text-xs font-bold px-4 py-2 rounded-full mb-4">Tanya Jawab</span>
@@ -659,7 +723,7 @@
   </section>
 
   <!-- ====================== KONTAK ====================== -->
-  <section id="kontak" class="py-24 bg-emerald-dark text-white">
+  <section id="kontak" class="py-24 bg-emerald-dark dark:bg-[#060D0A] text-white pattern-islamic-hero">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
       <h2 class="text-3xl sm:text-4xl font-extrabold mb-4">Hubungi Yayasan APII DPW Jabodetabek</h2>
       <p class="text-emerald-light/80 text-lg mb-10">Untuk pertanyaan terkait pendaftaran anggota atau kerja sama.</p>
@@ -690,7 +754,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-emerald-dark" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.978-1.207zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" /></svg>
           </div>
           <div class="font-bold text-gold-light mb-1">WhatsApp Helpdesk</div>
-          <div id="contactWaVal" class="text-sm text-emerald-light/80">—</div>
+          <div id="contactWaVal" class="text-sm text-emerald-light/80">-</div>
         </div>
       </div>
       <div id="socialLinksRow" class="flex flex-wrap items-center justify-center gap-3 mt-10 hidden"></div>
@@ -707,14 +771,14 @@
           <div class="text-xs">Sistem Informasi &amp; Administrasi Terpadu</div>
         </div>
       </div>
-      <div class="text-xs text-center sm:text-right">
-        <div>&copy; 2026 Yayasan APII DPW Jabodetabek. Semua hak dilindungi.</div>
-        <div class="text-gray-500 mt-1">Wilayah Kerja: Jakarta, Bogor, Depok, Tangerang, Bekasi</div>
+      <div class="text-xs text-center sm:text-right space-y-1">
+        <div>Yayasan APII DPW Jabodetabek &copy; 2026 &bull; Dikembangkan oleh <a href="https://sigitadi.id" target="_blank" rel="noopener" class="font-semibold text-emerald-400 hover:underline">sigitadi.id</a></div>
+        <div class="text-gray-500">Wilayah Kerja: Jakarta, Bogor, Depok, Tangerang, Bekasi</div>
       </div>
     </div>
   </footer>
 
-  <script src="config.js"></script>
-  <script src="app.js"></script>
+  <script src="config.js?v=2.6.0"></script>
+  <script src="app.js?v=2.6.0"></script>
 </body>
 </html>
