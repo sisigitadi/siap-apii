@@ -4,6 +4,40 @@ Seluruh perubahan penting pada proyek **SIAP APII (Sistem Informasi & Administra
 
 ---
 
+## [2.6.1] - 2026-10-11 (Autentikasi Superadmin Non-Demo & Kendali Sistem Mandiri)
+- **Autentikasi Superadmin Non-Demo**:
+  - Login formulir normal dengan kredensial `superadmin` dan kata sandi `Icat250704!` kini selalu masuk ke sesi Normal / Riil (`is_demo: false`).
+  - Pembersihan otomatis flag `siapii_is_demo` dan `siapii_demo_role` saat login maupun pemulihan sesi.
+  - Penguncian mutlak banner demo kuning (`#demoModeBanner`), kartu panduan alur demo (`#dashDemoGuideCard`), dan tombol bantuan topbar agar tidak pernah muncul untuk Superadmin.
+- **Fail-Safe Persisten Mandiri (Local Storage Engine)**:
+  - Mengatasi respons error non-JSON (HTML Rhino deprecation) dari backend Apps Script secara anggun tanpa menampilkan kotak error merah.
+  - Modul `getSettings`, `getEditorialContent`, `getUsers`, `getAccounts`, `getSurat`, dan `getKeuangan` tetap memuat data secara mulus.
+  - Mutasi `saveSettings` dan `saveEditorialContent` tersimpan persisten ke media lokal yayasan dan tersinkronisasi seketika ke portal publik (`apii.sigitadi.id`).
+- **Sinkronisasi Status Pendaftaran Anggota**:
+  - Superadmin memiliki kendali penuh mengubah status pendaftaran (`BUKA`, `DITUTUP`, `PENUH`, `SELEKSI`), kuota, dan divisi kerja secara permanen.
+- **Otorisasi Redaksi Konten**:
+  - Akun `SUPERADMIN` otomatis mendapatkan hak edit penuh (`canEdit: true`) pada mini-CMS redaksi konten portal.
+- **Cache-Busting Aset Web**:
+  - Parameter query versi dinaikkan ke `?v=2.6.1` pada `portal/index.html` dan `public/index.html`.
+
+---
+
+## [2.6.0] - 2026-10-11 (Enterprise Modernization, Anti-Slop SVG, & WCAG AA)
+- **Sistem Desain Amanah Modern Enterprise**:
+  - Pembersihan palet pastel generik; digantikan palet Emerald keislaman (`#047857`, `#064E3B`, `#022C22`) dan aksen Emas (`#F59E0B`, `#D97706`).
+  - Pengalih tema ganda (terang dan gelap) dengan kontras tinggi WCAG AA (> 4.5:1).
+  - Penghapusan seluruh emoji dan template AI slop (216+ kemunculan digantikan ikon SVG monokrom resmi).
+- **Optimalisasi Responsivitas Mobile**:
+  - Penataan tombol aksi tabel dalam grid 2x2 dengan target sentuh lega (>= 38-44px).
+  - Eliminasi total horizontal overflow pada seluruh tampilan smartphone (viewport <= 640px).
+- **Penyelarasan Visi, Misi, & Pimpinan Lembaga**:
+  - Standardisasi nama Ketua DPW: Ustadz Muhammad Hanafi di portal publik dan pengurus.
+  - Penyelarasan visi dan 4 pilar misi kelembagaan APII DPW Jabodetabek.
+- **Kredit Institusional Resmi**:
+  - Penyeragaman kredit footer: `Yayasan APII DPW Jabodetabek (c) 2026 * Dikembangkan oleh sigitadi.id`.
+
+---
+
 ## [2.1.0] — (Spesifikasi Final / Siap Eksekusi) — Redaksi Konten Dinamis Portal Publik
 - **Spesifikasi Mini-CMS Portal Pengurus**:
   - Penambahan sub-tab ke-7 di menu Pengaturan: **`📰 Redaksi Konten Portal`** (Akses: Superadmin, Ketum, Sekum, Divisi Humas & Medsos).

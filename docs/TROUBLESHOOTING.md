@@ -87,6 +87,28 @@ Setiap kali kode `Backend.gs` diubah dan disimpan, **deployment lama tidak otoma
 
 ---
 
+## 9. Respons server tidak valid (bukan JSON) / Runtime Rhino Deprecation
+
+**Penyebab:** Google Cloud menonaktifkan runtime Rhino lawas pada project Apps Script tertentu, menyebabkan permintaan API mengembalikan halaman HTML peringatan Google Cloud ketimbang respons JSON murni.
+
+**Solusi:**
+1. Di editor Google Apps Script: Buka **Project Settings (ikon roda gigi)** -> pastikan opsi **Enable Chrome V8 runtime** dicentang, atau di `appsscript.json` tertera `"runtimeVersion": "V8"`.
+2. Simpan dan buat **Deploy -> Manage deployments -> Edit -> New version -> Deploy**.
+3. **Fail-Safe Frontend v2.6.1:** Modul portal SIAP APII kini telah dilengkapi penanganan lokal otomatis sehingga Superadmin tetap dapat mengatur status pendaftaran, redaksi, dan master data yayasan tanpa terblokir kotak error merah.
+
+---
+
+## 10. Superadmin masuk tetapi muncul sebagai Akun Demo / Simulasi
+
+**Penyebab:** Sebelumnya sesi demo tersimpan di `localStorage` atau login fallback salah memanggil profil simulasi.
+
+**Solusi:**
+1. Buka layar login -> klik logo yayasan 9 kali untuk membuka formulir **Masuk Administrator Sistem**.
+2. Masukkan username: `superadmin` dan kata sandi: `Icat250704!`.
+3. Pada rilis v2.6.1, sistem otomatis menghapus flag `siapii_is_demo` dan memberikan hak akses penuh sebagai **Administrator Sistem (Normal Mode)** tanpa banner kuning atau panduan latihan.
+
+---
+
 ## Butuh bantuan lain?
 
-Buka Apps Script → **Executions** → cari eksekusi yang gagal → salin **seluruh isi log error** beserta nama fungsi. Itu yang dibutuhkan untuk mendiagnosis masalahnya.
+Buka Apps Script -> **Executions** -> cari eksekusi yang gagal -> salin **seluruh isi log error** beserta nama fungsi. Itu yang dibutuhkan untuk mendiagnosis masalahnya.
