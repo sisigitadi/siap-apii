@@ -523,7 +523,13 @@
           };
           try {
             var saved = localStorage.getItem('siapii_settings');
-            if (saved) return Object.assign(base, JSON.parse(saved));
+            if (saved) base = Object.assign(base, JSON.parse(saved));
+            var savedReg = localStorage.getItem('siapii_registration_config') || localStorage.getItem('apii_registration_config');
+            if (savedReg) {
+              base.registration_config = Object.assign(base.registration_config || {}, JSON.parse(savedReg));
+              base.registration_status = base.registration_config.status || base.registration_status;
+              base.registration_is_open = (base.registration_config.status === 'BUKA' || base.registration_config.is_open === true);
+            }
           } catch (_) {}
           return base;
         })(),
@@ -1167,11 +1173,25 @@
         case 'saveSettings':
           if (payload) {
             this.data.settings = Object.assign(this.data.settings, payload);
+            if (payload.registration_status !== undefined || payload.registration_is_open !== undefined || payload.registration_quota_limit !== undefined) {
+              if (!this.data.settings.registration_config) this.data.settings.registration_config = {};
+              var rCfg = this.data.settings.registration_config;
+              if (payload.registration_status) rCfg.status = payload.registration_status;
+              if (payload.registration_is_open !== undefined) rCfg.is_open = payload.registration_is_open;
+              if (payload.registration_quota_limit !== undefined) rCfg.quota_limit = payload.registration_quota_limit;
+              if (payload.registration_closed_title) rCfg.closed_title = payload.registration_closed_title;
+              if (payload.registration_closed_message) rCfg.closed_message = payload.registration_closed_message;
+              if (payload.registration_instructions) rCfg.instructions = payload.registration_instructions;
+              if (payload.registration_open_divisions) rCfg.open_divisions = payload.registration_open_divisions;
+              if (payload.registration_contact_wa) rCfg.contact_wa = payload.registration_contact_wa;
+              if (payload.registration_notify_email) rCfg.notify_email = payload.registration_notify_email;
+            }
             try {
               localStorage.setItem('siapii_settings', JSON.stringify(this.data.settings));
-              if (payload.registration_config) {
-                localStorage.setItem('siapii_registration_config', JSON.stringify(payload.registration_config));
-                localStorage.setItem('apii_registration_config', JSON.stringify(payload.registration_config));
+              var regToSave = payload.registration_config || this.data.settings.registration_config;
+              if (regToSave) {
+                localStorage.setItem('siapii_registration_config', JSON.stringify(regToSave));
+                localStorage.setItem('apii_registration_config', JSON.stringify(regToSave));
               }
             } catch (_) {}
           }

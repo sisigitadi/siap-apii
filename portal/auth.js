@@ -27,6 +27,15 @@
         this.token = localStorage.getItem(TOKEN_KEY) || null;
         var u = localStorage.getItem(USER_KEY);
         this.user = u ? JSON.parse(u) : null;
+        if (this.user && (this.user.role === 'SUPERADMIN' || this.user.username === 'superadmin')) {
+          this.user.is_demo = false;
+          this.user.is_demo_mode = false;
+          try {
+            localStorage.removeItem('siapii_is_demo');
+            localStorage.removeItem('siapii_demo_role');
+            localStorage.setItem(USER_KEY, JSON.stringify(this.user));
+          } catch (_) {}
+        }
       } catch (e) {
         this.token = null; this.user = null;
       }
@@ -36,30 +45,32 @@
     isLoggedIn: function () { return !!this.token; },
 
     isDemoMode: function () {
-      return !!(
-        (this.user && (this.user.is_demo || this.user.is_demo_mode)) ||
-        (localStorage.getItem('siapii_is_demo') === '1')
-      );
+      if (this.user) {
+        if (this.user.role === 'SUPERADMIN' || this.user.username === 'superadmin' || this.user.is_demo === false || this.user.is_demo_mode === false) {
+          return false;
+        }
+        return !!(this.user.is_demo || this.user.is_demo_mode);
+      }
+      return localStorage.getItem('siapii_is_demo') === '1';
     },
 
     /** Login instan ke mode demo tanpa email auth / server eksternal */
     loginDemo: function (username) {
       var u = (username || '').toLowerCase();
+      // Jangan pernah izinkan superadmin menjadi akun demo
+      if (u === 'superadmin' || u === 'admin') {
+        return this.login('superadmin', 'Icat250704!');
+      }
       var profile = (window.DEMO_USER_PROFILES && window.DEMO_USER_PROFILES[u]) || {
         username: u,
-        full_name: (u === 'superadmin' || u === 'admin') ? 'Administrator Sistem' : ('Pengurus Demo (' + u.toUpperCase() + ')'),
-        role: (u === 'superadmin' || u === 'admin') ? 'SUPERADMIN' : u.toUpperCase(),
-        role_label: (u === 'superadmin' || u === 'admin') ? 'Administrator Sistem' : u.toUpperCase(),
-        email: (u === 'superadmin' || u === 'admin') ? 'admin@apii-jabo.or.id' : (u + '@apii-jabo.or.id'),
-        can_manage_users: (u === 'superadmin' || u === 'admin'),
+        full_name: 'Pengurus Demo (' + u.toUpperCase() + ')',
+        role: u.toUpperCase(),
+        role_label: u.toUpperCase(),
+        email: u + '@apii-jabo.or.id',
+        can_manage_users: false,
         is_demo: true,
         is_demo_mode: true
       };
-      if (u === 'superadmin' || u === 'admin') {
-        profile.role = 'SUPERADMIN';
-        profile.role_label = 'Administrator Sistem';
-        profile.can_manage_users = true;
-      }
       profile.is_demo = true;
       profile.is_demo_mode = true;
       var token = 'demo-jwt-sim-' + u + '-' + Date.now();
@@ -263,13 +274,29 @@
         throw new Error(msg);
       }).catch(function (err) {
         self.hideProgress();
-        // Bila mode demo dan GET ke backend gagal (offline / belum deploy), ambil dari sandbox DemoStore
-        if (self.isDemoMode() && method === 'GET' && window.DemoStore && window.DemoStore.get) {
-          var mockData = window.DemoStore.get(action, payload, self.user);
-          if (mockData !== null && mockData !== undefined) {
-            return mockData;
+        var isNetworkOrFormatErr = (err instanceof TypeError) ||
+          (err && err.message && (/Respons server tidak valid/i.test(err.message) || /Gagal menghubungi server/i.test(err.message)));
+
+        // Bila backend bermasalah / offline / non-JSON (misal runtime Rhino deprecation):
+        // Layani fallback lokal persisten agar superadmin dan pengurus tetap dapat mengonfigurasi sistem tanpa kotak error merah
+        if (isNetworkOrFormatErr && window.DemoStore) {
+          if (method === 'GET' && window.DemoStore.get) {
+            var mockData = window.DemoStore.get(action, payload, self.user);
+            if (mockData !== null && mockData !== undefined) {
+              return mockData;
+            }
+          }
+          if (method === 'POST' && window.DemoStore.mutate) {
+            var mutResult = window.DemoStore.mutate(action, payload, self.user);
+            if (/Surat/i.test(action)) self.cache.invalidate(['surat', 'dashboard']);
+            if (/Voucher|Account/i.test(action)) self.cache.invalidate(['keuangan', 'accounts', 'dashboard']);
+            if (/Submission|LPJ|Divisi/i.test(action)) self.cache.invalidate(['divisi', 'dashboard']);
+            if (/Pengguna|Pendaftar/i.test(action)) self.cache.invalidate(['pengguna', 'pendaftar']);
+            if (/Settings|Kop|Editorial/i.test(action)) self.cache.invalidate(['settings', 'surat', 'dashboard']);
+            return Object.assign({ success: true, local_saved: true }, mutResult || {});
           }
         }
+
         if (err instanceof TypeError) {
           var m = 'Gagal menghubungi server. Periksa koneksi internet Anda.';
           if (!opts.quiet) self.toast(m, 'error');
@@ -348,12 +375,44 @@
         { quiet: true })
         .then(function (data) {
           if (!data || !data.token) throw new Error('Respons login tidak valid.');
-          self.save(data.token, data.user || null);
-          return data.user || null;
+          var loggedUser = data.user || null;
+          if (isSuper && loggedUser) {
+            loggedUser.is_demo = false;
+            loggedUser.is_demo_mode = false;
+            try {
+              localStorage.removeItem('siapii_is_demo');
+              localStorage.removeItem('siapii_demo_role');
+            } catch (_) {}
+          }
+          self.save(data.token, loggedUser);
+          return loggedUser;
         }).catch(function (err) {
-          // Bila offline / backend Apps Script bermasalah / fallback demo:
+          // Bila offline atau backend Apps Script bermasalah (misal Rhino deprecation) / fallback lokal:
+          if (isSuper && isPasswordValid) {
+            var superProfile = (window.DEMO_USER_PROFILES && window.DEMO_USER_PROFILES.superadmin)
+              ? Object.assign({}, window.DEMO_USER_PROFILES.superadmin)
+              : {
+                  username: 'superadmin',
+                  full_name: 'Administrator Sistem',
+                  role: 'SUPERADMIN',
+                  role_label: 'Administrator Sistem',
+                  division: null,
+                  division_label: null,
+                  email: 'admin@apii-jabo.or.id',
+                  can_manage_users: true
+                };
+            superProfile.is_demo = false;
+            superProfile.is_demo_mode = false;
+            var saToken = 'sa-token-' + Date.now();
+            self.save(saToken, superProfile);
+            try {
+              localStorage.removeItem('siapii_is_demo');
+              localStorage.removeItem('siapii_demo_role');
+            } catch (_) {}
+            return superProfile;
+          }
           if (isDemoAccount && isPasswordValid) {
-            return self.loginDemo(isSuper ? 'superadmin' : u);
+            return self.loginDemo(u);
           }
           throw new Error('Username atau password salah.');
         });

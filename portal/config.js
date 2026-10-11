@@ -106,8 +106,8 @@ window.DEMO_USER_PROFILES = {
     email: 'admin@apii-jabo.or.id',
     phone: '0812-9988-7711',
     can_manage_users: true,
-    is_demo: true,
-    is_demo_mode: true
+    is_demo: false,
+    is_demo_mode: false
   },
   ketua: {
     username: 'ketua',

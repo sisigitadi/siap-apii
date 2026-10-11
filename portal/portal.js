@@ -843,7 +843,7 @@
 
     /** Render kartu panduan alur kerja interaktif di halaman Dashboard untuk user demo */
     renderDashboardDemoGuide: function (user) {
-      if (!Auth.isDemoMode()) return '';
+      if (!Auth.isDemoMode() || (user && (user.role === 'SUPERADMIN' || user.is_demo === false))) return '';
       var role = (user && user.role) || 'KETUA';
       var wf = this.DEMO_WORKFLOWS[role] || this.DEMO_WORKFLOWS.KETUA;
 
@@ -983,7 +983,7 @@
       if (rl) rl.textContent = role;
 
       // Render banner mode demo jika sesi saat ini adalah mode simulasi
-      var isDemo = Auth.isDemoMode() || (localStorage.getItem('siapii_is_demo') === '1');
+      var isDemo = Auth.isDemoMode() && (u.role !== 'SUPERADMIN') && (u.is_demo !== false);
       var guideTrigger = document.getElementById('btnTopbarDemoGuide');
       var demoBanner = document.getElementById('demoModeBanner');
       var demoRoleEl = document.getElementById('demoBannerRoleName');
@@ -5866,7 +5866,7 @@
         var be = ed.bulletins_events || {};
         var c = ed.contact || {};
         var s = ed.social || {};
-        var canEdit = !!(res && res.can_edit);
+        var canEdit = !!(res && res.can_edit) || (Auth.user && Auth.user.role === 'SUPERADMIN');
 
         var bulletinRows = (Array.isArray(be.bulletins) ? be.bulletins : [])
           .map(function (b) { return self.redaksiBulletinRow(b); }).join('');
