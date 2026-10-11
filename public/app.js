@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * app.js — Logika Frontend Portal Publik (apii.sigitadi.id)
+ * app.js - Logika Frontend Portal Publik (apii.sigitadi.id)
  * ============================================================================
  * Pola Module (IIFE). Semua logika publik di sini: mobile nav, verifikasi
  * surat, daftar dokumen resmi, daftar divisi. Tidak ada autentikasi.
@@ -537,7 +537,7 @@
       function showAlert(msg, isErr) {
         if (!alertBox) return;
         alertBox.className = 'mt-4 p-4 rounded-xl text-sm font-semibold ' +
-          (isErr ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200');
+          (isErr ? 'bg-red-50 dark:bg-[#2D0F0F] text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800' : 'bg-emerald-50 dark:bg-[#062818] text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800');
         alertBox.innerHTML = msg;
         alertBox.classList.remove('hidden');
       }
@@ -624,22 +624,22 @@
       var dateStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
       content.innerHTML = '' +
-        '<div class="text-center pb-4 border-b border-gray-100">' +
-          '<div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Nomor Registrasi Anda</div>' +
-          '<div class="text-xl sm:text-2xl font-black text-emerald font-mono bg-emerald-light/40 py-2 px-3 sm:px-4 rounded-xl inline-block border border-emerald/20 break-all max-w-full">' + this.esc(regNum) + '</div>' +
-          '<div class="mt-2 inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full text-center flex-wrap justify-center">' +
+        '<div class="text-center pb-4 border-b border-gray-100 dark:border-[#1E3D30]">' +
+          '<div class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Nomor Registrasi Anda</div>' +
+          '<div class="text-xl sm:text-2xl font-black text-emerald dark:text-emerald-400 font-mono bg-emerald-light/40 dark:bg-[#10241B] py-2 px-3 sm:px-4 rounded-xl inline-block border border-emerald/20 dark:border-[#1E3D30] break-all max-w-full">' + this.esc(regNum) + '</div>' +
+          '<div class="mt-2 inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 px-3 py-1 rounded-full text-center flex-wrap justify-center">' +
             '<span class="h-2 w-2 rounded-full bg-amber-500 animate-ping"></span>' +
             'MENUNGGU VERIFIKASI SEKRETARIAT' +
           '</div>' +
         '</div>' +
         '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">' +
-          '<div><div class="text-gray-400 font-bold uppercase">Nama Pendaftar</div><div class="font-extrabold text-gray-800 text-sm mt-0.5 break-words">' + this.esc(data.full_name) + '</div></div>' +
-          '<div><div class="text-gray-400 font-bold uppercase">NIK Terlindungi</div><div class="font-bold text-gray-700 text-sm font-mono mt-0.5 break-all">' + this.esc(maskedNik) + '</div></div>' +
-          '<div><div class="text-gray-400 font-bold uppercase">Minat Divisi</div><div class="font-bold text-gray-700 mt-0.5 break-words">' + this.esc(data.division_interest || 'Umum') + '</div></div>' +
-          '<div><div class="text-gray-400 font-bold uppercase">Waktu Pengajuan</div><div class="font-medium text-gray-600 mt-0.5">' + this.esc(dateStr) + ' WIB</div></div>' +
+          '<div><div class="text-gray-400 dark:text-gray-400 font-bold uppercase">Nama Pendaftar</div><div class="font-extrabold text-gray-800 dark:text-white text-sm mt-0.5 break-words">' + this.esc(data.full_name) + '</div></div>' +
+          '<div><div class="text-gray-400 dark:text-gray-400 font-bold uppercase">NIK Terlindungi</div><div class="font-bold text-gray-700 dark:text-gray-200 text-sm font-mono mt-0.5 break-all">' + this.esc(maskedNik) + '</div></div>' +
+          '<div><div class="text-gray-400 dark:text-gray-400 font-bold uppercase">Minat Divisi</div><div class="font-bold text-gray-700 dark:text-gray-200 mt-0.5 break-words">' + this.esc(data.division_interest || 'Umum') + '</div></div>' +
+          '<div><div class="text-gray-400 dark:text-gray-400 font-bold uppercase">Waktu Pengajuan</div><div class="font-medium text-gray-600 dark:text-gray-300 mt-0.5">' + this.esc(dateStr) + ' WIB</div></div>' +
         '</div>' +
-        '<div class="bg-gray-50 rounded-2xl p-4 text-xs text-gray-600 border border-gray-200 leading-relaxed">' +
-          '<strong>Langkah Selanjutnya:</strong><br>' +
+        '<div class="bg-gray-50 dark:bg-[#10241B] rounded-2xl p-4 text-xs text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#1E3D30] leading-relaxed">' +
+          '<strong class="text-gray-800 dark:text-white">Langkah Selanjutnya:</strong><br>' +
           '1. Berkas KTP ber-watermark Anda sedang ditinjau oleh Sekretariat DPW.<br>' +
           '2. Klik tombol di bawah untuk konfirmasi ke WhatsApp Pengurus agar proses verifikasi lebih cepat.' +
         '</div>';
@@ -659,6 +659,43 @@
       }
 
       modal.classList.remove('hidden');
+    },
+
+    /**
+     * Sinkronisasi konfigurasi bersama lintas port (localhost:3000 <-> localhost:3001)
+     * dan lintas subdomain (*.sigitadi.id) menggunakan RFC 6265 cookie + localStorage.
+     */
+    setSharedConfig: function (key, value) {
+      var valStr = typeof value === 'string' ? value : JSON.stringify(value);
+      try { localStorage.setItem(key, valStr); } catch (_) {}
+      try {
+        var enc = encodeURIComponent(valStr);
+        var host = (window.location && window.location.hostname) || '';
+        var isSigit = host.indexOf('sigitadi.id') !== -1;
+        var domainPart = isSigit ? '; domain=.sigitadi.id' : '';
+        document.cookie = key + '=' + enc + '; path=/' + domainPart + '; max-age=31536000; SameSite=Lax';
+      } catch (_) {}
+    },
+
+    getSharedConfig: function (key) {
+      try {
+        var nameEQ = key + '=';
+        var ca = document.cookie.split(';');
+        for (var i = 0; i < ca.length; i++) {
+          var c = ca[i].trim();
+          if (c.indexOf(nameEQ) === 0) {
+            var raw = decodeURIComponent(c.substring(nameEQ.length));
+            try { return JSON.parse(raw); } catch (_) { return raw; }
+          }
+        }
+      } catch (_) {}
+      try {
+        var ls = localStorage.getItem(key);
+        if (ls) {
+          try { return JSON.parse(ls); } catch (_) { return ls; }
+        }
+      } catch (_) {}
+      return null;
     },
 
     // ---------------------------------------------------------------
@@ -713,18 +750,26 @@
 
         // 2. Visibilitas Menu Pendaftaran Publik (RBAC) & Status Header Tunggal
         var rawStatus = reg.status || (reg.is_open === false ? 'DITUTUP' : 'BUKA');
+        var deskBox = document.getElementById('headerRegDesktop');
+        var mobBox = document.getElementById('headerRegMobile');
+        var drawerBox = document.getElementById('mobileMenuRegContainer');
+        var heroBtn = document.getElementById('heroRegBtnMain');
+        var heroCardBtn = document.getElementById('heroCardRegBtn');
+        var heroBadge = document.getElementById('heroRegBadge');
+
         if (d.config && d.config.show_registration === false) {
-          var deskBox = document.getElementById('headerRegDesktop');
           if (deskBox) deskBox.classList.add('hidden');
-          var mobBox = document.getElementById('headerRegMobile');
           if (mobBox) mobBox.classList.add('hidden');
-          var drawerBox = document.getElementById('mobileMenuRegContainer');
           if (drawerBox) drawerBox.classList.add('hidden');
-          var heroBtn = document.getElementById('heroRegBtnMain');
           if (heroBtn) heroBtn.classList.add('hidden');
-          var heroCardBtn = document.getElementById('heroCardRegBtn');
           if (heroCardBtn) heroCardBtn.classList.add('hidden');
+          if (heroBadge) heroBadge.classList.add('hidden');
           return;
+        } else {
+          if (deskBox) deskBox.classList.remove('hidden');
+          if (mobBox) mobBox.classList.remove('hidden');
+          if (drawerBox) drawerBox.classList.remove('hidden');
+          if (heroBadge) heroBadge.classList.remove('hidden');
         }
 
         // Render Status Header Tunggal & Tombol Hero
@@ -861,24 +906,90 @@
         editorial: self.getDefaultEditorial()
       };
 
-      try {
-        var savedReg = localStorage.getItem('apii_registration_config') || localStorage.getItem('siapii_registration_config');
-        if (savedReg) defaultSettings.registration = Object.assign(defaultSettings.registration, JSON.parse(savedReg));
-        var savedEdit = localStorage.getItem('apii_editorial') || localStorage.getItem('siapii_editorial');
-        if (savedEdit) defaultSettings.editorial = Object.assign(defaultSettings.editorial, JSON.parse(savedEdit));
-      } catch (_) {}
+      // Periksa sinkronisasi bersama lintas port & domain (RFC 6265 Cookie + LocalStorage)
+      var sharedReg = self.getSharedConfig('apii_registration_config') || self.getSharedConfig('siapii_registration_config');
+      if (sharedReg && typeof sharedReg === 'object') {
+        defaultSettings.registration = Object.assign(defaultSettings.registration, sharedReg);
+      }
+      var sharedStatus = self.getSharedConfig('apii_reg_status');
+      if (sharedStatus && typeof sharedStatus === 'string') {
+        defaultSettings.registration.status = sharedStatus;
+        defaultSettings.registration.is_open = (sharedStatus === 'BUKA');
+      }
+      var sharedIsOpen = self.getSharedConfig('apii_reg_is_open');
+      if (sharedIsOpen !== null && sharedIsOpen !== undefined) {
+        defaultSettings.registration.is_open = (sharedIsOpen === '1' || sharedIsOpen === 1 || sharedIsOpen === true);
+        if (!defaultSettings.registration.is_open && defaultSettings.registration.status === 'BUKA') {
+          defaultSettings.registration.status = 'DITUTUP';
+        }
+      }
+      var sharedPubConfig = self.getSharedConfig('apii_public_config');
+      if (sharedPubConfig && typeof sharedPubConfig === 'object') {
+        defaultSettings.config = Object.assign(defaultSettings.config, sharedPubConfig);
+      }
+      var sharedShowReg = self.getSharedConfig('apii_show_registration');
+      if (sharedShowReg !== null && sharedShowReg !== undefined) {
+        defaultSettings.config.show_registration = (sharedShowReg === '1' || sharedShowReg === 1 || sharedShowReg === true);
+      }
+      var sharedEdit = self.getSharedConfig('apii_editorial') || self.getSharedConfig('siapii_editorial');
+      if (sharedEdit && typeof sharedEdit === 'object') {
+        defaultSettings.editorial = Object.assign(defaultSettings.editorial, sharedEdit);
+      }
 
-      // Terapkan default/cached terlebih dahulu secara instan (0 delay)
+      // Terapkan konfigurasi tersinkronisasi terlebih dahulu secara instan (0 delay)
       applyConfig(defaultSettings);
 
-      // Kemudian coba update dengan data live dari server
+      // Kemudian coba update dengan data live dari server jika tersedia
       this.get('getPublicSettings').then(function (res) {
         if (res && res.success && res.data) {
+          var liveReg = res.data.registration || {};
+          var liveConf = res.data.config || {};
+          var curSt = self.getSharedConfig('apii_reg_status');
+          if (curSt) {
+            liveReg.status = curSt;
+            liveReg.is_open = (curSt === 'BUKA');
+          }
+          var curShow = self.getSharedConfig('apii_show_registration');
+          if (curShow !== null && curShow !== undefined) {
+            liveConf.show_registration = (curShow === '1' || curShow === 1 || curShow === true);
+          }
+          res.data.registration = liveReg;
+          res.data.config = liveConf;
           applyConfig(res.data);
         }
       }).catch(function (err) {
-        console.warn('Gagal memuat konfigurasi publik dari live backend (menggunakan konfigurasi lokal):', err);
+        console.warn('Gagal memuat konfigurasi publik dari live backend (menggunakan konfigurasi tersinkronisasi):', err);
       });
+
+      // Auto-sinkronisasi saat pengguna berpindah tab atau jendela mendapatkan fokus
+      if (!this._syncListenersAttached) {
+        this._syncListenersAttached = true;
+        window.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'visible') {
+            self.loadPublicConfig();
+          }
+        });
+        window.addEventListener('focus', function () {
+          self.loadPublicConfig();
+        });
+        window.addEventListener('storage', function (e) {
+          if (e && e.key && (e.key.indexOf('registration') !== -1 || e.key.indexOf('apii_') !== -1)) {
+            self.loadPublicConfig();
+          }
+        });
+        // Polling ringan lintas port (1.5 detik) memastikan pembaruan langsung terdeteksi
+        setInterval(function () {
+          var curSt = self.getSharedConfig('apii_reg_status') || 'BUKA';
+          var curShow = self.getSharedConfig('apii_show_registration');
+          var sig = curSt + ':' + curShow;
+          if (self._lastSyncedSig !== undefined && self._lastSyncedSig !== sig) {
+            self._lastSyncedSig = sig;
+            self.loadPublicConfig();
+          } else {
+            self._lastSyncedSig = sig;
+          }
+        }, 1500);
+      }
     },
 
     // ---------------------------------------------------------------

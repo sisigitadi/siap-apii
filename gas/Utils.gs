@@ -736,6 +736,22 @@ function getPublicSettings(ctx) {
     wa_template: 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
     agreement_text: 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
   });
+
+  var sepStatus = getSettingValue_('registration_status', null);
+  var sepIsOpen = getSettingValue_('registration_is_open', null);
+  if (sepStatus && reg) {
+    reg.status = sepStatus;
+    reg.is_open = (sepStatus === 'BUKA');
+  }
+  if (sepIsOpen !== null && sepIsOpen !== undefined && reg) {
+    reg.is_open = (sepIsOpen === true || sepIsOpen === 'true' || sepIsOpen === '1' || sepIsOpen === 1);
+    if (!reg.is_open && reg.status === 'BUKA') reg.status = 'DITUTUP';
+  }
+  var sepAllowReg = getSettingValue_('allow_public_registration', null);
+  if (sepAllowReg !== null && sepAllowReg !== undefined && pubConfig) {
+    pubConfig.show_registration = (sepAllowReg === true || sepAllowReg === 'true' || sepAllowReg === '1' || sepAllowReg === 1);
+  }
+
   return {
     ok: true,
     data: {

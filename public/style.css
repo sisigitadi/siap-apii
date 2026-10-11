@@ -562,7 +562,7 @@ html.dark .faq-answer {
   color: #CBD5E1 !important;
 }
 
-/* Formulir & Modal di Mode Gelap */
+/* Formulir & Modal di Mode Gelap (WCAG AA Contrast > 4.5:1) */
 html.dark #regModalDialog,
 html.dark #regReceiptModal > div,
 html.dark #docPreviewModal > div {
@@ -571,20 +571,174 @@ html.dark #docPreviewModal > div {
   color: #E2E8F0 !important;
 }
 
+/* Judul Section & Heading di Modal Gelap */
+html.dark #regModalDialog h4,
+html.dark #regModalDialog .closed-title,
+html.dark #regModalDialog .font-extrabold {
+  color: #FFFFFF !important;
+  border-color: #1E3D30 !important;
+}
+
+/* Label & Teks Form di Modal Gelap */
+html.dark #regModalDialog label,
+html.dark #regModalDialog .text-gray-800,
+html.dark #regModalDialog .text-gray-700 {
+  color: #E2E8F0 !important;
+}
+
+/* Paragraf & Keterangan di Modal Gelap */
+html.dark #regModalDialog p,
+html.dark #regModalDialog #regAgreementText,
+html.dark #regModalDialog .closed-msg,
+html.dark #regModalDialog .text-gray-600,
+html.dark #regModalDialog .text-gray-500 {
+  color: #CBD5E1 !important;
+}
+
+/* Kartu Perlindungan Data Pribadi (UU PDP) di Modal Gelap */
+html.dark #regModalDialog .bg-gradient-to-r.from-emerald-50 {
+  background: #10241B !important;
+  border-color: #1E3D30 !important;
+}
+html.dark #regModalDialog .bg-gradient-to-r.from-emerald-50 .text-emerald-dark {
+  color: #6EE7B7 !important;
+}
+
+/* Kotak Upload KTP & Pas Foto di Modal Gelap */
+html.dark #regModalDialog .border-dashed {
+  background-color: #10241B !important;
+  border-color: #2A4D40 !important;
+}
+html.dark #regModalDialog .border-dashed .text-gray-800 {
+  color: #FFFFFF !important;
+}
+html.dark #regModalDialog .border-dashed .text-gray-500 {
+  color: #94A3B8 !important;
+}
+html.dark #regModalDialog .border-dashed label.cursor-pointer {
+  background-color: #060D0A !important;
+  border-color: #2A4D40 !important;
+  color: #34D399 !important;
+}
+html.dark #regModalDialog .border-dashed label.cursor-pointer:hover {
+  background-color: #162E22 !important;
+  border-color: #10B981 !important;
+}
+
+/* Input Fields & Controls di Modal Gelap */
 html.dark input[type="text"],
 html.dark input[type="email"],
 html.dark input[type="tel"],
 html.dark input[type="number"],
+html.dark input[type="date"],
 html.dark select,
 html.dark textarea {
   background-color: #060D0A !important;
   border-color: #2A4D40 !important;
   color: #FFFFFF !important;
+  color-scheme: dark;
+}
+html.dark select option {
+  background-color: #060D0A !important;
+  color: #FFFFFF !important;
+}
+
+/* Tombol Batal & Border Garis di Modal Gelap */
+html.dark #regModalDialog #cancelRegModalBtn {
+  color: #CBD5E1 !important;
+  background-color: transparent !important;
+}
+html.dark #regModalDialog #cancelRegModalBtn:hover {
+  background-color: #10241B !important;
+  color: #FFFFFF !important;
+}
+html.dark #regModalDialog .border-gray-100 {
+  border-color: #1E3D30 !important;
+}
+html.dark #regModalDialog .bg-emerald-light {
+  background-color: #10241B !important;
+  color: #34D399 !important;
+}
+
+/* Modal Tanda Terima Pendaftaran (Receipt) di Mode Gelap */
+html.dark #regReceiptModal #receiptContent {
+  color: #E2E8F0 !important;
+}
+html.dark #regReceiptModal #receiptContent .border-gray-100 {
+  border-color: #1E3D30 !important;
+}
+html.dark #regReceiptModal #receiptContent .text-gray-500,
+html.dark #regReceiptModal #receiptContent .text-gray-400 {
+  color: #94A3B8 !important;
+}
+html.dark #regReceiptModal #receiptContent .text-gray-800,
+html.dark #regReceiptModal #receiptContent .text-gray-700 {
+  color: #FFFFFF !important;
+}
+html.dark #regReceiptModal #receiptContent .text-gray-600 {
+  color: #CBD5E1 !important;
+}
+html.dark #regReceiptModal #receiptContent .bg-gray-50 {
+  background-color: #10241B !important;
+  border-color: #1E3D30 !important;
+  color: #CBD5E1 !important;
+}
+html.dark #regReceiptModal .bg-gray-50 {
+  background-color: #060D0A !important;
+  border-color: #1E3D30 !important;
+}
+html.dark #regReceiptModal #closeReceiptBtn {
+  background-color: #10241B !important;
+  border: 1px solid #2A4D40 !important;
+  color: #CBD5E1 !important;
+}
+html.dark #regReceiptModal #closeReceiptBtn:hover {
+  background-color: #162E22 !important;
+  color: #FFFFFF !important;
+}
+
+/* Kotak Peringatan & Status Ditutup di Modal Gelap */
+html.dark #regAlertBox.bg-red-50 {
+  background-color: #2D0F0F !important;
+  color: #FCA5A5 !important;
+  border-color: #7F1D1D !important;
+}
+html.dark #regAlertBox.bg-emerald-50 {
+  background-color: #062818 !important;
+  color: #6EE7B7 !important;
+  border-color: #047857 !important;
+}
+
+html.dark #regClosedInlineNotice > div {
+  background-color: #231B0D !important;
+  border-color: #78350F !important;
+  color: #FDE68A !important;
+}
+html.dark #regClosedInlineNotice .inline-notice-title {
+  color: #FCD34D !important;
+}
+html.dark #regClosedInlineNotice .inline-notice-desc {
+  color: #FDE68A !important;
+}
+
+html.dark #regClosedStateBox > div:first-child {
+  background-color: #331E05 !important;
+  border-color: #78350F !important;
+  color: #FCD34D !important;
+}
+
+html.dark #btnHapusKtp,
+html.dark #btnHapusSelfie {
+  color: #F87171 !important;
+}
+html.dark #btnHapusKtp:hover,
+html.dark #btnHapusSelfie:hover {
+  color: #FCA5A5 !important;
 }
 
 html.dark input::placeholder,
 html.dark textarea::placeholder {
-  color: #64748B !important;
+  color: #94A3B8 !important;
 }
 
 html.dark input:focus,

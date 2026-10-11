@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * portal.js — Aplikasi Portal Pengurus (siapii.sigitadi.id)
+ * portal.js - Aplikasi Portal Pengurus (siapii.sigitadi.id)
  * ============================================================================
  * Arsitektur: satu file, hash router (#/dashboard, #/surat, ...).
  *   App.init()   → restore sesi → tampilkan login atau boot aplikasi
@@ -1504,6 +1504,43 @@
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') self.closeModal(); });
     },
 
+    /**
+     * Sinkronisasi konfigurasi bersama lintas port (localhost:3000 <-> localhost:3001)
+     * dan lintas subdomain (*.sigitadi.id) menggunakan RFC 6265 cookie + localStorage.
+     */
+    setSharedConfig: function (key, value) {
+      var valStr = typeof value === 'string' ? value : JSON.stringify(value);
+      try { localStorage.setItem(key, valStr); } catch (_) {}
+      try {
+        var enc = encodeURIComponent(valStr);
+        var host = (window.location && window.location.hostname) || '';
+        var isSigit = host.indexOf('sigitadi.id') !== -1;
+        var domainPart = isSigit ? '; domain=.sigitadi.id' : '';
+        document.cookie = key + '=' + enc + '; path=/' + domainPart + '; max-age=31536000; SameSite=Lax';
+      } catch (_) {}
+    },
+
+    getSharedConfig: function (key) {
+      try {
+        var nameEQ = key + '=';
+        var ca = document.cookie.split(';');
+        for (var i = 0; i < ca.length; i++) {
+          var c = ca[i].trim();
+          if (c.indexOf(nameEQ) === 0) {
+            var raw = decodeURIComponent(c.substring(nameEQ.length));
+            try { return JSON.parse(raw); } catch (_) { return raw; }
+          }
+        }
+      } catch (_) {}
+      try {
+        var ls = localStorage.getItem(key);
+        if (ls) {
+          try { return JSON.parse(ls); } catch (_) { return ls; }
+        }
+      } catch (_) {}
+      return null;
+    },
+
     closeSidebar: function () {
       document.getElementById('sidebar').classList.add('-translate-x-full');
       document.getElementById('sidebarOverlay').classList.add('hidden');
@@ -1639,7 +1676,7 @@
       var stat = s.status_label || s.status || 'DRAF';
       var pembuat = s.created_by_name || s.created_by || 'Sekretariat';
       var portalUrl = window.PORTAL_URL || 'https://siapii.sigitadi.id';
-      var text = '🏛️ *SIAP APII — SURAT RESMI*\n' +
+      var text = '🏛️ *SIAP APII - SURAT RESMI*\n' +
         '━━━━━━━━━━━━━━━━━━━\n' +
         '📄 *Nomor:* ' + (s.letter_number || '(Draf)') + '\n' +
         '📌 *Perihal:* ' + (s.title || '-') + '\n' +
@@ -1666,7 +1703,7 @@
       var stat = k.status_label || k.status || 'PENDING';
       var jenis = k.type === 'MASUK' ? 'Kas Masuk (+)' : 'Kas Keluar (−)';
       var portalUrl = window.PORTAL_URL || 'https://siapii.sigitadi.id';
-      var text = '💵 *SIAP APII — BUKU KAS & VOUCHER*\n' +
+      var text = '💵 *SIAP APII - BUKU KAS & VOUCHER*\n' +
         '━━━━━━━━━━━━━━━━━━━\n' +
         '🔖 *No. Voucher:* ' + (k.voucher_number || '-') + '\n' +
         '📂 *Jenis:* ' + jenis + '\n' +
@@ -1697,7 +1734,7 @@
     buildDivisiWaText: function (d) {
       var stat = d.status_label || d.status || 'DRAFT';
       var portalUrl = window.PORTAL_URL || 'https://siapii.sigitadi.id';
-      var text = '🎯 *SIAP APII — USULAN PROGRAM DIVISI*\n' +
+      var text = '🎯 *SIAP APII - USULAN PROGRAM DIVISI*\n' +
         '━━━━━━━━━━━━━━━━━━━\n' +
         '🔖 *Tracking ID:* ' + (d.tracking_id || '-') + '\n' +
         '💡 *Program:* ' + (d.program_title || '-') + '\n' +
@@ -1891,7 +1928,7 @@
                 var idx = parseInt(this.getAttribute('data-inbox-wa'), 10);
                 var it = items[idx];
                 if (!it) return;
-                var text = '⚡ *TINDAKAN DIPERLUKAN — SIAP APII*\n' +
+                var text = '⚡ *TINDAKAN DIPERLUKAN - SIAP APII*\n' +
                   '━━━━━━━━━━━━━━━━━━━\n' +
                   '📌 *' + it.badge + ':* ' + it.title + '\n' +
                   '🔖 *Keterangan:* ' + it.subtitle + '\n' +
@@ -2328,7 +2365,7 @@
         ['Status Dokumen', null, 'badge'],
         ['Tanggal Surat', s.tanggal_label || s.tanggal_surat, ''],
         ['Dibuat Oleh', s.created_by_name || s.created_by, ''],
-        ['Disahkan Oleh', s.approved_by || '—', '']
+        ['Disahkan Oleh', s.approved_by || '-', '']
       ];
       if (s.rejection_notes) metaRows.push(['Catatan Penolakan', s.rejection_notes, 'warn']);
       if (s.pdf_url) metaRows.push(['URL Dokumen PDF', s.pdf_url, 'link']);
@@ -2778,7 +2815,7 @@
           if (canApprove && (k.status === 'PENDING' || k.status === 'VERIFIED_BY_BENDAHARA')) {
             acts += self.aBtn('danger reject', 'Tolak', 'Tolak voucher');
           }
-          if (!acts) acts = '<span class="text-xs text-gray-300">—</span>';
+          if (!acts) acts = '<span class="text-xs text-gray-300">-</span>';
 
           var receiptLink = k.receipt_url ?
             '<div class="mt-1"><a href="' + Auth.esc(k.receipt_url) + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200 transition" title="Buka Bukti Transaksi di Google Drive">' +
@@ -2863,9 +2900,9 @@
         ['Nomor Voucher', k.voucher_number, 'mono'],
         ['Jenis Transaksi', isMasuk ? 'Kas Masuk (+)' : 'Kas Keluar (−)', ''],
         ['Akun Kas', k.account_label || k.account, ''],
-        ['Kategori Transaksi', k.category || '—', ''],
-        ['Tanggal Transaksi', k.transaction_date || '—', ''],
-        ['Dibuat Oleh', k.created_by || '—', ''],
+        ['Kategori Transaksi', k.category || '-', ''],
+        ['Tanggal Transaksi', k.transaction_date || '-', ''],
+        ['Dibuat Oleh', k.created_by || '-', ''],
         ['Verifikasi Bendahara', k.verified_by_bendahara || 'Belum diverifikasi', ''],
         ['Verifikasi Ketua', k.approved_by_ketum || 'Belum disetujui', '']
       ];
@@ -3402,7 +3439,7 @@
           if (d.can_lpj) {
             acts += self.aBtn('lpj', 'Kirim LPJ', 'Serahkan Laporan Pertanggungjawaban (LPJ)');
           }
-          if (!acts) acts = '<span class="text-xs text-gray-300">—</span>';
+          if (!acts) acts = '<span class="text-xs text-gray-300">-</span>';
 
           return '<tr data-id="' + d.id + '">' +
             '<td><div class="font-mono text-xs text-gray-500 font-bold">' + Auth.esc(d.tracking_id || ('#REQ-' + d.id)) + '</div>' +
@@ -3511,9 +3548,9 @@
         ['Tracking ID', d.tracking_id, 'mono'],
         ['Divisi Pengusul', d.division_label || d.division, ''],
         ['Estimasi Anggaran', d.budget_label, 'bold'],
-        ['Target Peserta', d.target_audience || '—', ''],
-        ['Rencana Pelaksanaan', d.execution_date || '—', ''],
-        ['Dibuat Oleh', d.created_by || '—', ''],
+        ['Target Peserta', d.target_audience || '-', ''],
+        ['Rencana Pelaksanaan', d.execution_date || '-', ''],
+        ['Dibuat Oleh', d.created_by || '-', ''],
         ['Status Persetujuan', null, 'badge']
       ];
       if (d.rejection_notes) metaRows.push(['Alasan Penolakan', d.rejection_notes, 'warn']);
@@ -3674,7 +3711,7 @@
         divField +
         '<div><label class="lbl">Tanggal Pelaksanaan</label>' +
         '<input id="dfTanggal" type="date" class="field" value="' + (item ? item.execution_date : '') + '" /></div>' +
-        '<p class="text-xs text-gray-400">Usulan disimpan sebagai Draf. Ajukan ke Ketua setelah siap — divisi tidak dapat mempublikasi sendiri.</p>' +
+        '<p class="text-xs text-gray-400">Usulan disimpan sebagai Draf. Ajukan ke Ketua setelah siap - divisi tidak dapat mempublikasi sendiri.</p>' +
         '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
         '<button type="submit" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">' + (isEdit ? 'Simpan Perubahan' : 'Simpan Draf') + '</button>' +
         '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
@@ -3722,7 +3759,7 @@
 
     submissionAjukan: function (item) {
       var self = this;
-      this.confirm('Ajukan Program', 'Usulan <b>' + Auth.esc(item.tracking_id) + '</b> — ' +
+      this.confirm('Ajukan Program', 'Usulan <b>' + Auth.esc(item.tracking_id) + '</b> - ' +
         '<b>' + Auth.esc(item.program_title) + '</b> akan dikirim ke Approval Board Ketua. Lanjutkan?', function () {
           Auth.fetch('ajukanSubmission', { id: item.id }).then(function () {
             self.toast('Usulan diajukan ke Ketua.', 'success', '📲 Kabari via WA', function () {
@@ -3781,7 +3818,7 @@
         '<div class="flex items-center justify-between gap-2 mb-4">' +
         '<div class="min-w-0">' +
         '<h3 class="text-base sm:text-lg font-extrabold text-teal-900 break-words">Serahkan LPJ Program Kerja</h3>' +
-        '<p class="text-xs text-gray-500 font-mono break-all">' + Auth.esc(item.tracking_id) + ' — ' + Auth.esc(item.program_title) + '</p>' +
+        '<p class="text-xs text-gray-500 font-mono break-all">' + Auth.esc(item.tracking_id) + ' - ' + Auth.esc(item.program_title) + '</p>' +
         '</div>' +
         '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0">' +
         '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
@@ -3942,10 +3979,10 @@
         tb.innerHTML = users.length ? users.map(function (u) {
           return '<tr data-id="' + u.id + '">' +
             '<td><div class="font-mono text-xs font-semibold text-emerald-dark">' + Auth.esc(u.username) + '</div>' +
-            '<div class="font-semibold text-gray-900 leading-snug">' + Auth.esc(u.full_name || '—') + '</div>' +
+            '<div class="font-semibold text-gray-900 leading-snug">' + Auth.esc(u.full_name || '-') + '</div>' +
             '<div class="text-xs text-gray-400 font-normal">' + Auth.esc(u.email || '') + '</div></td>' +
             '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Peran: </span><span class="badge badge-PUBLISHED">' + Auth.esc(u.role_label || u.role) + '</span></td>' +
-            '<td class="text-gray-600 whitespace-nowrap text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Divisi: </span>' + Auth.esc(u.division_label || '—') + '</td>' +
+            '<td class="text-gray-600 whitespace-nowrap text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Divisi: </span>' + Auth.esc(u.division_label || '-') + '</td>' +
             '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + ((u.is_active === 'TRUE' || u.is_active === true || u.status === 'ACTIVE')
               ? '<span class="badge badge-PUBLISHED">Aktif</span>'
               : '<span class="badge badge-REJECTED">Nonaktif</span>') + '</td>' +
@@ -3954,7 +3991,7 @@
               ? self.aBtn('edit', 'Ubah', 'Ubah akun') +
               self.aBtn(u.is_active === 'TRUE' ? 'danger toggle' : 'toggle',
                 u.is_active === 'TRUE' ? 'Nonaktifkan' : 'Aktifkan', 'Ubah status akun')
-              : '<span class="text-xs text-gray-300">—</span>') +
+              : '<span class="text-xs text-gray-300">-</span>') +
             '</div></td>' +
             '</tr>';
         }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada pengurus yang ditemukan.</td></tr>';
@@ -4064,7 +4101,7 @@
             '<td><div class="font-mono text-xs text-gray-600">' + Auth.esc(p.nik) + '</div>' +
             '<div class="text-xs text-emerald-800 font-semibold">WA: ' + Auth.esc(p.whatsapp) + '</div>' +
             '<div class="text-xs text-gray-400">' + Auth.esc(p.email || '') + '</div></td>' +
-            '<td class="text-gray-700 text-xs sm:text-sm">' + Auth.esc(p.kota || '—') + '</td>' +
+            '<td class="text-gray-700 text-xs sm:text-sm">' + Auth.esc(p.kota || '-') + '</td>' +
             '<td class="text-gray-500 text-xs whitespace-nowrap">' + Auth.esc((p.created_at || '').slice(0, 10)) + '</td>' +
             '<td>' + statusBadge + '</td>' +
             '<td class="tbl-actions"><div class="flex gap-1.5">' +
@@ -4247,7 +4284,7 @@
         '<div class="flex justify-between"><span class="text-gray-500">Nama Lengkap:</span><strong class="text-gray-900">' + Auth.esc(p.nama_lengkap) + '</strong></div>' +
         '<div class="flex justify-between"><span class="text-gray-500">NIK:</span><span class="font-mono font-bold text-gray-800">' + Auth.esc(p.nik) + '</span></div>' +
         '<div class="flex justify-between"><span class="text-gray-500">WhatsApp / Telp:</span><span class="font-mono text-gray-800">' + Auth.esc(p.whatsapp) + '</span></div>' +
-        '<div class="flex justify-between"><span class="text-gray-500">Domisili:</span><span class="text-gray-800">' + Auth.esc(p.kota || '—') + '</span></div>' +
+        '<div class="flex justify-between"><span class="text-gray-500">Domisili:</span><span class="text-gray-800">' + Auth.esc(p.kota || '-') + '</span></div>' +
         '<div class="flex justify-between"><span class="text-gray-500">Status Pendaftaran:</span>' + self.badge(p.status, p.status_label || p.status) + '</div>' +
         '</div>' +
         '<div class="p-3 bg-gray-50 rounded-xl text-[10px] text-gray-500 leading-relaxed mb-4">' +
@@ -4287,7 +4324,7 @@
       }).map(function (k) {
         return '<option value="' + k + '"' + (item && item.role === k ? ' selected' : '') + '>' + R[k] + '</option>';
       }).join('');
-      var divOpts = '<option value="">— Tidak ada —</option>' + Object.keys(D).map(function (k) {
+      var divOpts = '<option value="">- Tidak ada -</option>' + Object.keys(D).map(function (k) {
         return '<option value="' + k + '"' + (item && item.division === k ? ' selected' : '') + '>' + D[k] + '</option>';
       }).join('');
 
@@ -4622,10 +4659,10 @@
         if (!Array.isArray(accounts)) accounts = [];
 
         tb.innerHTML = accounts.length ? accounts.map(function (a) {
-          var nama = a.name || a.nama_rekening || '—';
-          var bank = a.bank_name || a.bank_vendor || '—';
-          var noRek = a.account_number || a.nomor_rekening || '—';
-          var atasNama = a.holder_name || a.atas_nama || '—';
+          var nama = a.name || a.nama_rekening || '-';
+          var bank = a.bank_name || a.bank_vendor || '-';
+          var noRek = a.account_number || a.nomor_rekening || '-';
+          var atasNama = a.holder_name || a.atas_nama || '-';
           var kategori = a.category || 'Operasional DPW';
           var jenis = a.jenis || ((noRek && noRek !== '-') ? 'BANK' : 'KAS');
           var isPub = (a.show_on_public === 'TRUE' || a.show_on_public === true || a.show_on_public === 'true' || a.show_on_public === 1);
@@ -5244,7 +5281,11 @@
       Auth.getCached('getSettings', null).then(function (sData) {
         var s = (sData && (sData.settings || sData.data)) || sData || {};
         var reg = s.registration_config || {};
-        var rawStatus = s.registration_status || reg.status || (s.registration_is_open === false ? 'DITUTUP' : 'BUKA');
+        var cachedReg = self.getSharedConfig('apii_registration_config') || self.getSharedConfig('siapii_registration_config');
+        if (cachedReg && typeof cachedReg === 'object') {
+          reg = Object.assign({}, reg, cachedReg);
+        }
+        var rawStatus = self.getSharedConfig('apii_reg_status') || s.registration_status || reg.status || (s.registration_is_open === false ? 'DITUTUP' : 'BUKA');
         var regStatus = ['BUKA', 'DITUTUP', 'PENUH', 'SELEKSI'].indexOf(rawStatus) !== -1 ? rawStatus : 'BUKA';
         var quotaLimit = Number(s.registration_quota_limit !== undefined ? s.registration_quota_limit : (reg.quota_limit !== undefined ? reg.quota_limit : 0)) || 0;
         var notifyPendaftarEmail = s.registration_notify_pendaftar_email !== undefined ? s.registration_notify_pendaftar_email : (reg.notify_pendaftar_email !== false);
@@ -5495,6 +5536,39 @@
           });
         }
 
+        // Handler Perubahan Radio Status Pendaftaran (Sinkronisasi Langsung)
+        var updateRadioCards = function (val) {
+          var radios = document.querySelectorAll('input[name="regStatusOption"]');
+          Array.prototype.forEach.call(radios, function (r) {
+            var card = r.closest('label');
+            if (!card) return;
+            if (r.value === val) {
+              var borderCls = val === 'BUKA' ? 'border-emerald-600 bg-emerald-50/50' : (val === 'DITUTUP' ? 'border-amber-600 bg-amber-50/50' : (val === 'PENUH' ? 'border-red-600 bg-red-50/50' : 'border-blue-600 bg-blue-50/50'));
+              card.className = 'flex flex-col p-3.5 rounded-xl border-2 cursor-pointer transition ' + borderCls;
+              r.checked = true;
+            } else {
+              card.className = 'flex flex-col p-3.5 rounded-xl border-2 cursor-pointer transition border-gray-200 hover:bg-gray-50';
+            }
+          });
+        };
+
+        var radioOptions = document.querySelectorAll('input[name="regStatusOption"]');
+        Array.prototype.forEach.call(radioOptions, function (radio) {
+          radio.addEventListener('change', function () {
+            var val = this.value;
+            updateRadioCards(val);
+            self.setSharedConfig('apii_reg_status', val);
+            self.setSharedConfig('apii_reg_is_open', val === 'BUKA' ? '1' : '0');
+            var curReg = self.getSharedConfig('apii_registration_config') || {};
+            if (typeof curReg !== 'object') curReg = {};
+            curReg.status = val;
+            curReg.is_open = (val === 'BUKA');
+            self.setSharedConfig('apii_registration_config', curReg);
+            self.setSharedConfig('siapii_registration_config', curReg);
+            self.toast('Status pendaftaran diubah ke ' + val + ' (tersinkronkan ke portal publik).', 'info');
+          });
+        });
+
         // Handler Simpan
         document.getElementById('btnSaveRegSettings').addEventListener('click', function () {
           var openDivSelected = [];
@@ -5553,12 +5627,14 @@
           };
 
           try {
-            localStorage.setItem('siapii_registration_config', JSON.stringify(regConfigPayload));
-            localStorage.setItem('apii_registration_config', JSON.stringify(regConfigPayload));
+            self.setSharedConfig('siapii_registration_config', regConfigPayload);
+            self.setSharedConfig('apii_registration_config', regConfigPayload);
+            self.setSharedConfig('apii_reg_status', selectedStatus);
+            self.setSharedConfig('apii_reg_is_open', selectedStatus === 'BUKA' ? '1' : '0');
             var curSet = {};
             try { curSet = JSON.parse(localStorage.getItem('siapii_settings') || '{}'); } catch (_) {}
             Object.assign(curSet, payload);
-            localStorage.setItem('siapii_settings', JSON.stringify(curSet));
+            self.setSharedConfig('siapii_settings', curSet);
           } catch (_) {}
 
           Auth.fetch('saveSettings', payload).then(function () {
@@ -5773,7 +5849,7 @@
     },
 
     // ==================================================================
-    // REDAKSI KONTEN PORTAL PUBLIK (MINI-CMS) — sub-tab ke-7 Pengaturan.
+    // REDAKSI KONTEN PORTAL PUBLIK (MINI-CMS) - sub-tab ke-7 Pengaturan.
     // Lihat docs/REDAKSI_KONTEN.md untuk struktur data & alur kerja.
     // ==================================================================
 
@@ -6170,6 +6246,18 @@
           '</div>' +
           '</div>';
 
+        var pubRegCheckbox = document.getElementById('setPubReg');
+        if (pubRegCheckbox) {
+          pubRegCheckbox.addEventListener('change', function () {
+            self.setSharedConfig('apii_show_registration', this.checked ? '1' : '0');
+            var curPub = self.getSharedConfig('apii_public_config') || {};
+            if (typeof curPub !== 'object') curPub = {};
+            curPub.show_registration = this.checked;
+            self.setSharedConfig('apii_public_config', curPub);
+            self.toast('Visibilitas pendaftaran publik diubah ke: ' + (this.checked ? 'Terbuka' : 'Disembunyikan'), 'info');
+          });
+        }
+
         document.getElementById('btnSaveRbacPublic').addEventListener('click', function () {
           var regVal = document.getElementById('setPubReg').checked;
           var verifVal = document.getElementById('setPubVerif').checked;
@@ -6203,7 +6291,9 @@
             var curSet = {};
             try { curSet = JSON.parse(localStorage.getItem('siapii_settings') || '{}'); } catch (_) {}
             Object.assign(curSet, payload);
-            localStorage.setItem('siapii_settings', JSON.stringify(curSet));
+            self.setSharedConfig('siapii_settings', curSet);
+            self.setSharedConfig('apii_public_config', payload.public_config);
+            self.setSharedConfig('apii_show_registration', regVal ? '1' : '0');
           } catch (_) {}
 
           Auth.fetch('saveSettings', payload).then(function () {
@@ -6524,8 +6614,8 @@
         '<h3 class="font-bold text-emerald-dark mb-4">Informasi Akun</h3>' +
         '<div class="space-y-1">' +
         this.profileRow('Username', u.username, true) +
-        this.profileRow('Nama Lengkap', u.full_name || '—') +
-        this.profileRow('Email', u.email || '—') +
+        this.profileRow('Nama Lengkap', u.full_name || '-') +
+        this.profileRow('Email', u.email || '-') +
         this.profileRow('Peran', u.role_label || u.role) +
         this.profileRow('Divisi', u.division_label || 'Tidak terikat divisi') +
         this.profileRow('Status', u.is_active === 'TRUE' ? 'Aktif' : 'Nonaktif') +
