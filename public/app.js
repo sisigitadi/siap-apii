@@ -117,7 +117,8 @@
           url.searchParams.set(k, params[k]);
         });
       }
-      return fetch(url.toString(), { redirect: 'follow' })
+      url.searchParams.set('_t', Date.now().toString());
+      return fetch(url.toString(), { redirect: 'follow', cache: 'no-store' })
         .then(function (r) { return r.json(); });
     },
 
@@ -939,20 +940,24 @@
       // Terapkan konfigurasi tersinkronisasi terlebih dahulu secara instan (0 delay)
       applyConfig(defaultSettings);
 
-      // Kemudian coba update dengan data live dari server jika tersedia
+      // Kemudian update dengan data otentik live dari server
       this.get('getPublicSettings').then(function (res) {
         if (res && res.success && res.data) {
           var liveReg = res.data.registration || {};
           var liveConf = res.data.config || {};
-          var curSt = self.getSharedConfig('apii_reg_status');
-          if (curSt) {
-            liveReg.status = curSt;
-            liveReg.is_open = (curSt === 'BUKA');
+
+          // Sinkronkan cache lokal perangkat dengan data otentik live backend
+          if (liveReg.status) {
+            self.setSharedConfig('apii_reg_status', liveReg.status);
+            self.setSharedConfig('apii_reg_is_open', liveReg.status === 'BUKA' ? '1' : '0');
           }
-          var curShow = self.getSharedConfig('apii_show_registration');
-          if (curShow !== null && curShow !== undefined) {
-            liveConf.show_registration = (curShow === '1' || curShow === 1 || curShow === true);
+          if (liveConf.show_registration !== undefined) {
+            self.setSharedConfig('apii_show_registration', liveConf.show_registration ? '1' : '0');
           }
+          self.setSharedConfig('apii_registration_config', liveReg);
+          self.setSharedConfig('apii_public_config', liveConf);
+
+          // Terapkan data live server langsung ke tampilan publik tanpa ditimpa cookie lokal
           res.data.registration = liveReg;
           res.data.config = liveConf;
           applyConfig(res.data);
@@ -989,6 +994,26 @@
             self._lastSyncedSig = sig;
           }
         }, 1500);
+
+        // Polling live server berkala (setiap 20 detik) untuk sinkronisasi otomatis lintas perangkat
+        setInterval(function () {
+          self.get('getPublicSettings').then(function (res) {
+            if (res && res.success && res.data) {
+              var liveReg = res.data.registration || {};
+              var liveConf = res.data.config || {};
+              if (liveReg.status) {
+                self.setSharedConfig('apii_reg_status', liveReg.status);
+                self.setSharedConfig('apii_reg_is_open', liveReg.status === 'BUKA' ? '1' : '0');
+              }
+              if (liveConf.show_registration !== undefined) {
+                self.setSharedConfig('apii_show_registration', liveConf.show_registration ? '1' : '0');
+              }
+              self.setSharedConfig('apii_registration_config', liveReg);
+              self.setSharedConfig('apii_public_config', liveConf);
+              applyConfig(res.data);
+            }
+          }).catch(function () {});
+        }, 20000);
       }
     },
 

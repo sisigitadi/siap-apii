@@ -4,6 +4,22 @@ Seluruh perubahan penting pada proyek **SIAP APII (Sistem Informasi & Administra
 
 ---
 
+## [2.6.3] - 2026-10-28 (Resolusi Sinkronisasi Lintas Perangkat & Perbaikan Sesi Login Superadmin)
+- **Otoritas Tunggal Backend Live (Anti Cookie Override)**:
+  - Mengeliminasi bug penimpaan status pendaftaran oleh cookie lokal perangkat (`liveReg.status = curSt`).
+  - Respons live server dari Google Apps Script (`res.data.registration`) kini 100% otoritatif sebagai Single Source of Truth (SSOT).
+  - Data live server otomatis memperbarui `sharedConfig` dan cookie lokal pada seluruh perangkat pengguna.
+- **Anti-Cache HTTP Lintas Perangkat**:
+  - Penambahan parameter query anti-cache `_t=<timestamp>` dan header `cache: no-store` pada `Public.get` dan `Auth.fetch` (GET).
+  - Menghilangkan latensi cache HTTP peramban mobile/desktop pada device kedua.
+- **Polling Lintas Perangkat Otomatis**:
+  - Penambahan polling latar belakang 20 detik pada portal publik untuk menyinkronkan status pendaftaran secara otomatis antar-device tanpa perlu reload manual.
+- **Perbaikan Sesi Login Superadmin (Anti Auto-Logout)**:
+  - Menghapus pembuatan token lokal palsu (`sa-token-...`) saat login gagal/salah password.
+  - Sesi login kini diverifikasi otentik oleh Google Apps Script (`Sheet_Sessions`), mencegah penolakan HTTP 401 yang memicu pengusiran pengguna ke halaman login dengan pesan "Sesi Anda telah berakhir".
+
+---
+
 ## [2.6.1] - 2026-10-11 (Autentikasi Superadmin Non-Demo & Kendali Sistem Mandiri)
 - **Autentikasi Superadmin Non-Demo**:
   - Login formulir normal dengan kredensial `superadmin` dan kata sandi `Icat250704!` kini selalu masuk ke sesi Normal / Riil (`is_demo: false`).

@@ -177,7 +177,7 @@
 
       self.showProgress();
 
-      // GET: token & payload sebagai query string.
+      // GET: token & payload sebagai query string + anti-cache query param.
       if (method === 'GET') {
         if (this.token) url += '&token=' + encodeURIComponent(this.token);
         if (payload) {
@@ -187,6 +187,7 @@
             url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(String(v));
           });
         }
+        url += '&_t=' + Date.now();
       }
 
       // Intercept simulasi aman mode demo (pengguna merasakan UI/UX instan tanpa ketergantungan backend luar)
@@ -224,7 +225,7 @@
         return Promise.resolve(resolvedData);
       }
 
-      var req = { method: method, redirect: 'follow' };
+      var req = { method: method, redirect: 'follow', cache: 'no-store' };
       if (method === 'POST') {
         req.headers = { 'Content-Type': 'text/plain;charset=utf-8' };
         req.body = JSON.stringify({
@@ -252,13 +253,9 @@
         }
 
         if (b && b.success === true) {
-          // Mutasi berhasil: bersihkan cache namespace terkait secara otomatis
+          // Mutasi berhasil: bersihkan seluruh cache frontend agar seluruh modul & device membaca data termutakhir
           if (method === 'POST') {
-            if (/Surat/i.test(action)) self.cache.invalidate(['surat', 'dashboard']);
-            if (/Voucher|Account/i.test(action)) self.cache.invalidate(['keuangan', 'accounts', 'dashboard']);
-            if (/Submission|LPJ/i.test(action)) self.cache.invalidate(['divisi', 'dashboard']);
-            if (/Pengguna|Pendaftar/i.test(action)) self.cache.invalidate(['pengguna', 'pendaftar']);
-            if (/Settings|Kop/i.test(action)) self.cache.invalidate(['settings', 'surat', 'dashboard']);
+            self.cache.clear();
           }
           return b.data;
         }
@@ -332,7 +329,7 @@
           setTimeout(function () {
             self.get(action, payload, { quiet: true }).then(function (fresh) {
               if (fresh) {
-                self.cache.set(cacheKey, fresh, opts.ttl || 60000);
+                self.cache.set(cacheKey, fresh, opts.ttl || 15000);
                 if (cb) {
                   try { cb(fresh); } catch (e) {}
                 }
@@ -344,7 +341,7 @@
       }
 
       return this.get(action, payload, opts).then(function (data) {
-        if (data) self.cache.set(cacheKey, data, opts.ttl || 60000);
+        if (data) self.cache.set(cacheKey, data, opts.ttl || 15000);
         if (cb) {
           try { cb(data); } catch (e) { console.error('Error in getCached callback:', e); }
         }
@@ -387,34 +384,10 @@
           self.save(data.token, loggedUser);
           return loggedUser;
         }).catch(function (err) {
-          // Bila offline atau backend Apps Script bermasalah (misal Rhino deprecation) / fallback lokal:
-          if (isSuper && isPasswordValid) {
-            var superProfile = (window.DEMO_USER_PROFILES && window.DEMO_USER_PROFILES.superadmin)
-              ? Object.assign({}, window.DEMO_USER_PROFILES.superadmin)
-              : {
-                  username: 'superadmin',
-                  full_name: 'Administrator Sistem',
-                  role: 'SUPERADMIN',
-                  role_label: 'Administrator Sistem',
-                  division: null,
-                  division_label: null,
-                  email: 'admin@apii-jabo.or.id',
-                  can_manage_users: true
-                };
-            superProfile.is_demo = false;
-            superProfile.is_demo_mode = false;
-            var saToken = 'sa-token-' + Date.now();
-            self.save(saToken, superProfile);
-            try {
-              localStorage.removeItem('siapii_is_demo');
-              localStorage.removeItem('siapii_demo_role');
-            } catch (_) {}
-            return superProfile;
-          }
           if (isDemoAccount && isPasswordValid) {
             return self.loginDemo(u);
           }
-          throw new Error('Username atau password salah.');
+          throw (err && err.message) ? err : new Error('Username atau password salah.');
         });
     },
 

@@ -5281,11 +5281,9 @@
       Auth.getCached('getSettings', null).then(function (sData) {
         var s = (sData && (sData.settings || sData.data)) || sData || {};
         var reg = s.registration_config || {};
-        var cachedReg = self.getSharedConfig('apii_registration_config') || self.getSharedConfig('siapii_registration_config');
-        if (cachedReg && typeof cachedReg === 'object') {
-          reg = Object.assign({}, reg, cachedReg);
-        }
-        var rawStatus = self.getSharedConfig('apii_reg_status') || s.registration_status || reg.status || (s.registration_is_open === false ? 'DITUTUP' : 'BUKA');
+        var rawStatus = s.registration_status || reg.status || self.getSharedConfig('apii_reg_status') || (s.registration_is_open === false ? 'DITUTUP' : 'BUKA');
+        self.setSharedConfig('apii_reg_status', rawStatus);
+        self.setSharedConfig('apii_reg_is_open', rawStatus === 'BUKA' ? '1' : '0');
         var regStatus = ['BUKA', 'DITUTUP', 'PENUH', 'SELEKSI'].indexOf(rawStatus) !== -1 ? rawStatus : 'BUKA';
         var quotaLimit = Number(s.registration_quota_limit !== undefined ? s.registration_quota_limit : (reg.quota_limit !== undefined ? reg.quota_limit : 0)) || 0;
         var notifyPendaftarEmail = s.registration_notify_pendaftar_email !== undefined ? s.registration_notify_pendaftar_email : (reg.notify_pendaftar_email !== false);
@@ -5565,7 +5563,7 @@
             curReg.is_open = (val === 'BUKA');
             self.setSharedConfig('apii_registration_config', curReg);
             self.setSharedConfig('siapii_registration_config', curReg);
-            self.toast('Status pendaftaran diubah ke ' + val + ' (tersinkronkan ke portal publik).', 'info');
+            self.toast('Status pendaftaran dipilih: ' + val + '. Klik "Simpan Pengaturan Pendaftaran" di bawah untuk menerapkan ke database server.', 'info');
           });
         });
 
@@ -5638,10 +5636,10 @@
           } catch (_) {}
 
           Auth.fetch('saveSettings', payload).then(function () {
-            Auth.cache.invalidate(['settings', 'pendaftar', 'dashboard']);
-            self.toast('Pengaturan pendaftaran anggota berhasil disimpan.', 'success');
-          }).catch(function () {
-            self.toast('Pengaturan pendaftaran tersimpan lokal.', 'info');
+            Auth.cache.clear();
+            self.toast('Pengaturan pendaftaran anggota berhasil disimpan & diterapkan ke seluruh portal.', 'success');
+          }).catch(function (err) {
+            self.toast('Gagal menyimpan pengaturan ke server: ' + (err && err.message ? err.message : 'Silakan coba lagi.'), 'error');
           });
         });
       }).catch(function (err) {
