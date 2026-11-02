@@ -1,0 +1,652 @@
+﻿/****************************************************************************
+ * Database.gs - dibangkitkan otomatis; JANGAN diedit manual.
+ * Sumber: gas/Database.gs (scripts/build-apps-script.ps1)
+ *****************************************************************************/
+/**
+ * ============================================================================
+ * Database.gs — Wrapper Tunggal Akses Google Sheets
+ * ============================================================================
+ * Satu-satunya file yang menyentuh SpreadsheetApp. Modul domain (Surat/
+ * Keuangan/Divisi/Auth) HANYA memanggil API di sini, tidak pernah Sheet
+ * langsung. Inilah yang membuat backend data bisa diganti tanpa sentuh domain.
+ *
+ * Konvensi: baris 1 = header (nama kolom). Baris 2+ = data.
+ * ==========================================================================*/
+
+// Nama tab (sheet) di spreadsheet database.
+var TABS = {
+  USERS: 'Sheet_Users',
+  SESSIONS: 'Sheet_Sessions',
+  SURAT: 'Sheet_Surat',
+  KEUANGAN: 'Sheet_Keuangan',
+  DIVISI: 'Sheet_Divisi',
+  AUDIT: 'Sheet_AuditLogs',
+  SEQUENCES: 'Sheet_Sequences',
+  PENDAFTAR: 'Sheet_Pendaftar',
+  ACCOUNTS: 'Sheet_Accounts',
+  SETTINGS: 'Sheet_Settings',
+  EDITORIAL_HISTORY: 'Sheet_EditorialHistory',
+  // Pelacakan pengunjung portal publik (device/OS/lokasi/waktu).
+  VISITORS: 'Sheet_Visitors',
+  // Master template surat hasil unggah PDF (overlay PDF asli, multi-template).
+  TEMPLATES: 'Sheet_Templates'
+};
+
+// Definisi header tiap tab (dipakai initSchema & insert).
+var SCHEMA = {};
+// permissions: daftar aksi yang diizinkan untuk user ini (JSON array / '*' / '' = warisi peran).
+// Lihat PERMISSIONS & roleDefaultPermissions_ di Code.gs (RBAC per-aksi).
+// is_demo: 'TRUE' untuk akun demo read-only (lihat DEMO_ALLOWED_ACTIONS di Code.gs).
+SCHEMA[TABS.USERS] = ['id', 'username', 'password_hash', 'full_name', 'email', 'role',
+  'division', 'is_active', 'can_manage_users', 'is_demo', 'permissions', 'created_at', 'updated_at'];
+SCHEMA[TABS.SESSIONS] = ['token', 'user_id', 'username', 'role', 'division',
+  'created_at', 'expired_at'];  SCHEMA[TABS.SURAT] = ['id', 'letter_number', 'title', 'letter_type', 'content', 'status', 'tanggal_surat', 'created_by', 'created_by_name', 'created_at', 'submitted_at', 'published_at', 'approved_by', 'rejection_notes', 'sha256_hash', 'pdf_url', 'qr_verify_url', 'attachment_url', 'template_id', 'image_url', 'show_image_on_public'];
+SCHEMA[TABS.KEUANGAN] = ['id', 'voucher_number', 'type', 'account', 'amount', 'category',
+  'description', 'transaction_date', 'status', 'verified_by_bendahara',
+  'verified_by_bendahara_at', 'verified_by_ketum', 'verified_by_ketum_at',
+  'rejection_notes', 'created_by', 'created_at', 'receipt_url'];
+SCHEMA[TABS.DIVISI] = ['id', 'tracking_id', 'division', 'program_title', 'description',
+  'budget_estimate', 'target_audience', 'execution_date', 'status', 'submitted_by',
+  'submitted_by_name', 'submitted_at', 'reviewed_by', 'reviewed_at', 'approval_notes',
+  'created_at', 'started_at', 'lpj_url', 'lpj_notes', 'realisasi_anggaran', 'lpj_submitted_at'];
+SCHEMA[TABS.AUDIT] = ['id', 'timestamp', 'actor', 'action', 'module', 'detail', 'ip_client', 'status'];
+SCHEMA[TABS.SEQUENCES] = ['key', 'value'];
+SCHEMA[TABS.PENDAFTAR] = ['id', 'reg_number', 'full_name', 'nik', 'birth_place', 'birth_date',
+  'gender', 'job', 'phone', 'email', 'address', 'division_interest', 'ktp_drive_url',
+  'selfie_drive_url', 'status', 'verified_by_sekretaris', 'verified_by_sekretaris_at',
+  'approved_by_ketum', 'approved_by_ketum_at', 'rejection_notes', 'created_at'];  SCHEMA[TABS.ACCOUNTS] = ['id', 'code', 'name', 'bank_name', 'account_number', 'holder_name', 'category', 'is_active', 'show_on_public', 'qris_image_url', 'show_qris_on_public', 'created_at', 'updated_at'];
+SCHEMA[TABS.SETTINGS] = ['key', 'value', 'description', 'updated_by', 'updated_at'];
+// Arsip versi konten redaksi (tabel BARU, terpisah dari Sheet_Settings agar
+// payload getSettings tetap ringan). Satu baris = satu versi konten.
+SCHEMA[TABS.EDITORIAL_HISTORY] = ['id', 'saved_at', 'saved_by', 'action', 'label', 'content'];
+
+// Kunjungan pengunjung portal publik. visitor_id dibuat di sisi klien
+// (localStorage) lalu dikirim ulang setiap kunjungan -> baris di-update.
+SCHEMA[TABS.VISITORS] = ['id', 'visitor_id', 'ip', 'user_agent', 'device', 'os', 'browser',
+  'country', 'city', 'region', 'latitude', 'longitude', 'timezone', 'referrer',
+  'first_page', 'last_page', 'first_seen', 'last_seen', 'visit_count', 'is_unique'];
+
+// Master template surat: PDF asli (kop lembaga) disimpan di Drive subfolder
+// 'Template_Surat'; 'fields' = JSON array posisi overlay tiap placeholder.
+SCHEMA[TABS.TEMPLATES] = ['id', 'name', 'description', 'drive_file_id', 'pdf_url',
+  'fields', 'is_default', 'is_active', 'page_count', 'created_by', 'created_at', 'updated_at'];
+
+/**
+ * Inisialisasi semua tab + header. Idempoten.
+ * Dipanggil oleh setup(). Bisa juga dijalankan manual untuk membuat tab baru.
+ */
+function initSchema() {
+  var ss = getSpreadsheet_();
+  for (var tab in SCHEMA) {
+    var sheet = ss.getSheetByName(tab);
+    if (!sheet) {
+      sheet = ss.insertSheet(tab);
+    }
+    // Tulis header hanya bila baris 1 kosong (jangan timpa data existing).
+    if (sheet.getLastRow() === 0) {
+      sheet.getRange(1, 1, 1, SCHEMA[tab].length).setValues([SCHEMA[tab]]);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, SCHEMA[tab].length)
+        .setFontWeight('bold')
+        .setBackground('#E6F4EC');
+    } else {
+      // Auto-migrate: tambahkan kolom baru jika belum ada di header baris 1
+      var lastCol = sheet.getLastColumn();
+      var currentHeaders = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+      SCHEMA[tab].forEach(function(col) {
+        if (currentHeaders.indexOf(col) === -1) {
+          lastCol++;
+          sheet.getRange(1, lastCol).setValue(col).setFontWeight('bold').setBackground('#E6F4EC');
+        }
+      });
+    }
+  }
+
+  // Sheet_Users: luruskan letak kolom + pulihkan data salah letak akibat
+  // migrasi header versi lama (lihat luruskanKolomPengguna_). Idempoten.
+  luruskanKolomPengguna_();
+
+  // Seed default master rekening jika kosong
+  seedDefaultAccounts_();
+
+  // Seed default pengaturan sistem jika kosong
+  seedDefaultSettings_();
+
+  return true;
+}
+
+/**
+ * luruskanKolomPengguna_: migrasi SEKALI untuk Sheet_Users produksi lama.
+ *
+ * Penyebab: komit 39eae63 menyisipkan kolom `is_demo` & `permissions` di
+ * TENGAH SCHEMA USERS, padahal initSchema() menambahkan kolom baru di AKHIR
+ * (bukan menyisip di tengah). insert()/updateRow() versi lalu memetakan nama
+ * kolom lewat INDEKS SCHEMA, bukan header fisik. Di sheet produksi yang
+ * header fisiknya (...created_at, updated_at, is_demo, permissions) nilai
+ * tulisannya bergeser:
+ *   - update baris lama: JSON `permissions` -> kolom fisik `updated_at`,
+ *     stempel `updated_at` -> kolom fisik `permissions`;
+ *   - insert baris baru: keempat kolom belakang saling bertukar tempat.
+ * Saat dibaca kembali, `permissions` terlihat berisi stempel waktu sehingga
+ * JSON.parse gagal dan izin per-aksi jatuh ke bawaan peran. Itulah sebabnya
+ * menyimpan Izin Aksi di portal selalu kembali seperti semula setelah
+ * halaman direfresh (bug 2026-10-10).
+ *
+ * Fungsi ini (a) menulis ulang sheet dengan urutan SCHEMA yang benar, dan
+ * (b) memulihkan data salah letak berdasarkan tipe nilai (lihat
+ * pulihkanBarisPengguna_). Idempoten: bila urutan sudah sama tidak ada
+ * yang disentuh.
+ * @return {boolean} true bila sheet diubah
+ */
+function luruskanKolomPengguna_() {
+  var sheet = getSheetSafe_(TABS.USERS);
+  if (!sheet) return false;
+  var fisik = readSheetHeaders_(sheet);
+  var schema = SCHEMA[TABS.USERS];
+  var perlu = fisik.length !== schema.length ||
+    schema.some(function (h, i) { return fisik[i] !== h; });
+  if (!perlu) return false;
+
+  var lastRow = sheet.getLastRow();
+  var baris = [];
+  if (lastRow >= 2) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, fisik.length).getValues();
+    baris = rows.map(function (r) {
+      var olehHeader = {};
+      fisik.forEach(function (h, i) { olehHeader[h] = r[i]; });
+      return schema.map(function (h) {
+        var v = pulihkanBarisPengguna_(olehHeader, h);
+        return (v === undefined || v === null) ? '' : v;
+      });
+    });
+  }
+  // Lebar dulu, baru blok: menulis satu-satu ke kolom baru di header pasti
+  // melebar (sel tunggal), sedangkan getRange multi-sel melebihi lebar sheet
+  // bisa ditolak. Setelah header komplet, lebar sheet = schema.length.
+  for (var ci = fisik.length; ci < schema.length; ci++) {
+    sheet.getRange(1, ci + 1).setValue(schema[ci]);
+  }
+
+  // Tulis ulang header + data dengan lebar & urutan SCHEMA.
+  var blok = [schema].concat(baris);
+  sheet.getRange(1, 1, blok.length, schema.length).setValues(blok);
+  sheet.getRange(1, 1, 1, schema.length)
+    .setFontWeight('bold').setBackground('#E6F4EC');
+  Logger.log('Sheet_Users diluruskan: ' + fisik.length + ' -> ' + schema.length +
+    ' kolom, ' + baris.length + ' baris diperbaiki.');
+  return true;
+}
+
+/**
+ * Ambil nilai SCHEMA-kolom `kolom` untuk satu baris, dengan pemulihan data
+ * yang salah letak akibat bug urutan header (lihat luruskanKolomPengguna_).
+ *
+ * Keempat kolom yang tertukar (is_demo, permissions, created_at, updated_at)
+ * dibedakan berdasarkan TIPE nilainya — ini membedakan dua kerusakan berbeda:
+ *   (a) baris lama yang di-UPDATE: physical updated_at ← JSON izin,
+ *       physical permissions ← stempel waktu;
+ *   (b) baris baru di-INSERT: physical created_at ← token boolean,
+ *       physical updated_at ← JSON izin, physical is_demo ← created_at,
+ *       physical permissions ← updated_at.
+ * @param {object} olehHeader nilai baris dengan key = header fisik sheet
+ * @param {string} kolom nama kolom SCHEMA
+ * @return {*} nilai yang benar untuk kolom ini
+ */
+function pulihkanBarisPengguna_(olehHeader, kolom) {
+  if (kolom !== 'is_demo' && kolom !== 'permissions' &&
+      kolom !== 'created_at' && kolom !== 'updated_at') {
+    return olehHeader[kolom]; // kolom 1-9 tidak pernah berpindah letak
+  }
+
+  var fisik = {};
+  ['is_demo', 'permissions', 'created_at', 'updated_at'].forEach(function (k) {
+    fisik[k] = String(olehHeader[k] === undefined || olehHeader[k] === null ? '' : olehHeader[k]).trim();
+  });
+
+  // Prioritas slot fisik yang diperiksa tiap kolom target: slot sendiri dulu,
+  // lalu slot tempat nilai ini berakhir jika baris tertukar letak.
+  var urut = {
+    is_demo: ['is_demo', 'created_at', 'updated_at', 'permissions'],
+    permissions: ['permissions', 'updated_at', 'created_at', 'is_demo'],
+    created_at: ['created_at', 'is_demo', 'permissions', 'updated_at'],
+    updated_at: ['updated_at', 'permissions', 'is_demo', 'created_at']
+  };
+  var cocok = {
+    is_demo: apaTokenBoolean_,
+    permissions: apaDaftarIzin_,
+    created_at: apaStempelWaktu_,
+    updated_at: apaStempelWaktu_
+  };
+
+  for (var i = 0; i < urut[kolom].length; i++) {
+    var nilai = fisik[urut[kolom][i]];
+    if (cocok[kolom](nilai)) {
+      // updated_at tak boleh diambil dari created_at kecuali tidak ada alternatif:
+      // diakhiri di sini karena loop berhenti saat ketemu.
+      return nilai;
+    }
+  }
+
+  // updated_at hilang semua: pakai created_at (bisa '') lalu stempel sekarang.
+  if (kolom === 'updated_at') {
+    return fisik.created_at || new Date().toISOString();
+  }
+  return '';
+}
+
+/** Apakah string ini token boolean (is_demo)? */
+function apaTokenBoolean_(s) {
+  return /^(TRUE|FALSE|true|false)$/.test(s);
+}
+
+/** Apakah string ini stempel waktu ISO 8601 (created_at / updated_at)? */
+function apaStempelWaktu_(s) {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s);
+}
+
+/**
+ * Apakah string ini daftar izin yang sah: '*', kosong BUKAN (korban
+ * pemulihan), atau JSON array berisi string aksi?
+ * @param {string} s
+ * @return {boolean}
+ */
+function apaDaftarIzin_(s) {
+  if (s === '*') return true;
+  if (s.charAt(0) !== '[') return false;
+  try {
+    var uji = JSON.parse(s);
+    return Array.isArray(uji) &&
+      uji.every(function (a) { return typeof a === 'string'; });
+  } catch (e) {
+    return false; // JSON rusak -> bukan daftar izin, mungkin stempel waktu salah letak
+  }
+}
+
+/** Seed rekening kas bawaan jika Sheet_Accounts kosong (dikosongkan agar pengurus menginput rekening riil via portal). */
+function seedDefaultAccounts_() {
+  // Tidak mengisi dummy rekening secara otomatis. Rekening dikelola penuh oleh pengurus via portal master rekening.
+}
+
+/** Seed pengaturan bawaan jika Sheet_Settings kosong. */
+function seedDefaultSettings_() {
+  try {
+    var settings = readAll(TABS.SETTINGS);
+    var now = new Date().toISOString();
+    var setIfMissing = function (key, val, desc) {
+      var exist = settings.some(function (s) { return s.key === key; });
+      if (!exist) {
+        insert(TABS.SETTINGS, {
+          key: key, value: typeof val === 'object' ? JSON.stringify(val) : String(val),
+          description: desc, updated_by: 'system', updated_at: now
+        });
+      }
+    };
+
+    setIfMissing('letter_numbering', {
+      pattern: '{urut}/{kode}/{org}/{bulanRomawi}/{tahun}',
+      org_code: 'DPW-APII',
+      digits: 3,
+      reset_cycle: 'yearly'
+    }, 'Format penomoran surat resmi');
+
+    setIfMissing('letter_types', [
+      { code: 'SK', label: 'Surat Keputusan', prefix: 'SK', active: true },
+      { code: 'UNDANGAN', label: 'Surat Undangan', prefix: 'UND', active: true },
+      { code: 'PENGANTAR', label: 'Surat Pengantar', prefix: 'PENG', active: true },
+      { code: 'KETERANGAN', label: 'Surat Keterangan', prefix: 'KET', active: true },
+      { code: 'TUGAS', label: 'Surat Tugas', prefix: 'TUG', active: true },
+      { code: 'REKOMENDASI', label: 'Surat Rekomendasi', prefix: 'REK', active: true },
+      { code: 'EDARAN', label: 'Surat Edaran', prefix: 'EDR', active: true },
+      { code: 'NOTULEN', label: 'Notulen Rapat', prefix: 'NOT', active: true },
+      { code: 'RAPAT', label: 'Hasil Rapat / Risalah Rapat', prefix: 'RAPAT', active: true },
+      { code: 'BA', label: 'Berita Acara', prefix: 'BA', active: true }
+    ], 'Daftar jenis naskah dan surat resmi');
+
+    setIfMissing('letter_kop', {
+      mode: 'text',
+      custom_kop_image: '',
+      custom_footer_image: '',
+      footer_mode: 'text',
+      footer_text: 'Yayasan Apologet Islam Indonesia (APII) • Dewan Pimpinan Wilayah Jabodetabek',
+      stempel_image: '',
+      ttd_ketua_image: '',
+      ttd_sekretaris_image: '',
+      stempel_scale: 95,
+      stempel_overlap: 30,
+      org_name: 'DEWAN PIMPINAN WILAYAH APOLOGET ISLAM INDONESIA (APII) JABODETABEK',
+      address: 'DKI Jakarta & Sekitarnya, Indonesia',
+      phone: '0812-8888-2026',
+      email: 'sekretariat@apii.sigitadi.id',
+      website: 'https://apii.sigitadi.id'
+    }, 'Pengaturan KOP surat, stempel, dan tanda tangan digital');
+
+    setIfMissing('finance_config', {
+      voucher_pattern: '{urut}/KEU-APII/JABO/{bulanRomawi}/{tahun}',
+      income_categories: ['Infaq & Sedekah', 'Zakat Maal', 'Wakaf Tunai', 'Donasi Dakwah Operasional', 'Usaha Mandiri', 'Lain-lain'],
+      expense_categories: ['Program Dakwah & Kajian', 'Bantuan Sosial & Santunan', 'Kesekretariatan & ATK', 'Advokasi Hukum & Keumatan', 'Media IT & Publikasi', 'Operasional & Utilitas Kantor', 'Lain-lain']
+    }, 'Pengaturan operasional dan kategori kas keuangan');
+
+    setIfMissing('public_config', {
+      show_verification: true,
+      show_finance: true,
+      show_programs: true,
+      show_accounts: true,
+      show_registration: true,
+      announcement_banner_active: true,
+      announcement_banner: 'Selamat datang di Portal Resmi Yayasan APII DPW Jabodetabek.'
+    }, 'Pengaturan visibilitas portal publik');
+
+    setIfMissing('drive_storage', {
+      custom_folder_id: '',
+      folder_name: 'APII Jabo - PDF Surat Resmi'
+    }, 'Pengaturan penyimpanan Google Drive');
+
+    setIfMissing('registration_config', {
+      status: 'BUKA',
+      is_open: true,
+      quota_limit: 0,
+      closed_title: 'Pendaftaran Anggota Sementara Ditutup',
+      closed_message: 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses seleksi berkas. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
+      instructions: 'Silakan isi formulir pendaftaran anggota Yayasan APII DPW Jabodetabek dengan data yang valid sesuai identitas KTP resmi.',
+      require_ktp: true,
+      require_selfie: true,
+      max_file_size_mb: 3,
+      reg_prefix: 'REG',
+      reg_digits: 4,
+      // 7 divisi sesuai AD/ART Pasal 16 (harus sama dengan DIVISIONS di Code.gs).
+      open_divisions: Object.keys(DIVISIONS),
+      contact_wa: '081288882026',
+      wa_template: 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
+      notify_email: 'sekretariat@apii.sigitadi.id',
+      notify_pendaftar_email: true,
+      agreement_text: 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
+    }, 'Pengaturan pendaftaran anggota dan rekrutmen');
+
+    setIfMissing('editorial_content', defaultEditorialContent_(),
+      'Konten redaksi dinamis portal publik (hero, profil, maklumat, agenda, kontak, FAQ)');
+  } catch (e) {
+    Logger.log('Gagal seed settings: ' + e);
+  }
+}
+
+/** Buka spreadsheet database (ID dari KONFIG; bisa juga via Script Properties). */
+function getSpreadsheet_() {
+  var id = PropertiesService.getScriptProperties().getProperty('DB_SPREADSHEET_ID') ||
+           KONFIG.DB_SPREADSHEET_ID;
+  if (!id) throw new Error('DB_SPREADSHEET_ID belum diset (isi di 00-Konfig.gs).');
+  return SpreadsheetApp.openById(id);
+}
+
+/**
+ * Ambil tab sheet secara aman. Jika tab belum ada di spreadsheet dan terdaftar di SCHEMA,
+ * sheet akan dibuat secara otomatis beserta header lengkapnya.
+ * @param {string} tab nama tab
+ * @return {GoogleAppsScript.Spreadsheet.Sheet|null}
+ */
+function getSheetSafe_(tab) {
+  var ss = getSpreadsheet_();
+  var sheet = ss.getSheetByName(tab);
+  if (!sheet && SCHEMA && SCHEMA[tab]) {
+    try {
+      sheet = ss.insertSheet(tab);
+      sheet.getRange(1, 1, 1, SCHEMA[tab].length).setValues([SCHEMA[tab]]);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, SCHEMA[tab].length)
+        .setFontWeight('bold')
+        .setBackground('#E6F4EC');
+    } catch (e) {
+      Logger.log('Gagal auto-create sheet ' + tab + ': ' + e);
+      sheet = ss.getSheetByName(tab);
+    }
+  }
+  return sheet;
+}
+
+/**
+ * Baca seluruh baris tab sebagai array objek (dengan field header).
+ * @param {string} tab nama tab
+ * @return {Array<object>} [{ field: value, _row: <nomor baris> }]
+ */
+function readAll(tab) {
+  var sheet = getSheetSafe_(tab);
+  if (!sheet) return [];
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return []; // hanya header / kosong
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    var obj = { _row: i + 2 }; // baris 2 adalah data pertama
+    for (var c = 0; c < headers.length; c++) {
+      var key = headers[c];
+      if (!key) continue;
+      var val = rows[i][c];
+      if (val === null || val === undefined) {
+        val = '';
+      } else if (typeof val === 'boolean') {
+        val = val ? 'TRUE' : 'FALSE';
+      }
+      obj[key] = val;
+    }
+    out.push(obj);
+  }
+  return out;
+}
+
+/**
+ * Cari baris pertama yang cocok semua filter.
+ * Menggunakan TextFinder jalur cepat jika filter berupa single-field lookup,
+ * dengan fallback aman ke pemindaian array rows.
+ * @param {string} tab
+ * @param {object} filter { field: value } (string compare case-sensitive)
+ * @return {object|null} objek baris atau null
+ */
+function findOne(tab, filter) {
+  if (!filter || typeof filter !== 'object') return null;
+
+  // Jalur Cepat (Fast Path): Jika filter tepat 1 key dan TextFinder didukung
+  var keys = Object.keys(filter);
+  if (keys.length === 1) {
+    var k = keys[0];
+    var val = filter[k];
+    if (val !== undefined && val !== null) {
+      try {
+        var sheet = getSheetSafe_(tab);
+        if (sheet && sheet.getLastRow() >= 2) {
+          var headers = readSheetHeaders_(sheet);
+          var colIdx = headers.indexOf(k);
+          if (colIdx !== -1) {
+            var lastRow = sheet.getLastRow();
+            var colRange = sheet.getRange(2, colIdx + 1, lastRow - 1, 1);
+            if (typeof colRange.createTextFinder === 'function') {
+              var match = colRange.createTextFinder(String(val)).matchEntireCell(true).findNext();
+              if (match) {
+                var rowNum = match.getRow();
+                var rowValues = sheet.getRange(rowNum, 1, 1, headers.length).getValues()[0];
+                var obj = { _row: rowNum };
+                for (var c = 0; c < headers.length; c++) {
+                  var hk = headers[c];
+                  if (!hk) continue;
+                  var v = rowValues[c];
+                  if (v === null || v === undefined) v = '';
+                  else if (typeof v === 'boolean') v = v ? 'TRUE' : 'FALSE';
+                  obj[hk] = v;
+                }
+                if (matchFilter_(obj, filter)) return obj;
+              }
+              // Catatan: Jika TextFinder tidak menemukan kecocokan (mis. delay indeks sel,
+              // perbedaan format angka/string, atau sel baru), JANGAN 'return null'.
+              // Biarkan eksekusi mengalir ke pemindaian standar readAll() sebagai fallback aman.
+            }
+          }
+        }
+      } catch (eFast) {
+        // Fallback ke pemindaian standar
+      }
+    }
+  }
+
+  var rows = readAll(tab);
+  for (var i = 0; i < rows.length; i++) {
+    if (matchFilter_(rows[i], filter)) return rows[i];
+  }
+  return null;
+}
+
+/** Cari semua baris yang cocok filter. */
+function findMany(tab, filter) {
+  return readAll(tab).filter(function (r) { return matchFilter_(r, filter); });
+}
+
+function matchFilter_(row, filter) {
+  for (var k in filter) {
+    var want = filter[k];
+    var have = row[k];
+    if (typeof want === 'boolean' || typeof have === 'boolean') {
+      var bWant = want === true || String(want).toUpperCase() === 'TRUE';
+      var bHave = have === true || String(have).toUpperCase() === 'TRUE';
+      if (bWant !== bHave) return false;
+    } else if (typeof want === 'string' || typeof have === 'string' || typeof want === 'number' || typeof have === 'number') {
+      if (String(have === null || have === undefined ? '' : have).trim() !== String(want === null || want === undefined ? '' : want).trim()) return false;
+    } else if (have !== want) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Baca header fisik baris 1 (sumber kebenaran LETAK kolom di sheet sungguhan).
+ *
+ * SCHEMA adalah daftar kolom yang *diharapkan*, tetapi sheet produksi bisa
+ * berbeda urutan/jumlahnya: initSchema() menambahkan kolom baru di AKHIR
+ * (bukan menyisip di tengah). Itu sebabnya pemetaan nama->posisi kolom wajib
+ * membaca header fisik; memakai indeks SCHEMA menulis ke kolom yang salah
+ * (lihat bug izin aksi yang tak bertahan, 2026-10-10).
+ * @param {object} sheet
+ * @return {Array<string>}
+ */
+function readSheetHeaders_(sheet) {
+  var lastCol = sheet.getLastColumn();
+  if (lastCol < 1) return [];
+  return sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) {
+    return String(h === null || h === undefined ? '' : h).trim();
+  });
+}
+
+/**
+ * Pastikan setiap field yang akan ditulis punya kolom fisik. initSchema()
+ * hanya menambahkan kolom SCHEMA yang belum ada, jadi kolom baru yang
+ * dikenal SCHEMA tapi belum ada di sheet dibuatkan di sini juga (sekali
+ * saja) agar insert/updateRow tidak pernah memutuskan field.
+ * @param {object} sheet
+ * @param {string} tab
+ * @param {Array<string>} headers header fisik saat ini (berubah jika diperluas)
+ * @param {object} values field yang akan ditulis
+ * @return {Array<string>} header setelah kolom baru ditambahkan
+ */
+function pastikanKolom_(sheet, tab, headers, values) {
+  for (var k in values) {
+    if (SCHEMA[tab].indexOf(k) !== -1 && headers.indexOf(k) === -1) {
+      headers.push(k);
+      sheet.getRange(1, headers.length).setValue(k)
+        .setFontWeight('bold').setBackground('#E6F4EC');
+    }
+  }
+  return headers;
+}
+
+/**
+ * Tambahkan satu baris. Hanya field yang ada di SCHEMA[tab] yang ditulis
+ * (field tidak dikenal diabaikan agar header tetap rapi).
+ * @param {string} tab
+ * @param {object} values { field: value }
+ * @return {object} nilai yang ditulis + _row
+ */
+function insert(tab, values) {
+  var sheet = getSheetSafe_(tab);
+  if (!sheet) throw new Error('Tab tidak ditemukan: ' + tab);
+  // Pemetaan nama->posisi memakai header FISIK sheet, bukan indeks SCHEMA:
+  // urutan fisik bisa beda (lihat catatan readSheetHeaders_ di atas).
+  var headers = pastikanKolom_(sheet, tab, readSheetHeaders_(sheet), values);
+  var row = headers.map(function (h) {
+    var v = values[h];
+    return (v === undefined || v === null) ? '' : v;
+  });
+  sheet.appendRow(row);
+  try { SpreadsheetApp.flush(); } catch (_) {}
+  var obj = { _row: sheet.getLastRow() };
+  headers.forEach(function (h, i) { obj[h] = row[i]; });
+  return obj;
+}
+
+/**
+ * Perbarui satu baris berdasarkan _row (dari hasil readAll/findOne/findMany).
+ * Hanya field di SCHEMA[tab] yang diperbarui.
+ * @param {string} tab
+ * @param {number} rowNum nomor baris (obj._row)
+ * @param {object} values { field: value } field yang ingin diubah
+ */
+function updateRow(tab, rowNum, values) {
+  var sheet = getSheetSafe_(tab);
+  if (!sheet) throw new Error('Tab tidak ditemukan: ' + tab);
+  var headers = pastikanKolom_(sheet, tab, readSheetHeaders_(sheet), values);
+  var range = sheet.getRange(rowNum, 1, 1, headers.length);
+  var currentValues = range.getValues()[0];
+  // header fisik bisa lebih pendek dari jumlah kolom yang akan ditulis.
+  while (currentValues.length < headers.length) currentValues.push('');
+  var hasChange = false;
+  headers.forEach(function (h, idx) {
+    if (values[h] !== undefined && values[h] !== null) {
+      currentValues[idx] = values[h];
+      hasChange = true;
+    }
+  });
+  if (!hasChange) return false;
+  range.setValues([currentValues]);
+  try { SpreadsheetApp.flush(); } catch (_) {}
+  return true;
+}
+
+/**
+ * Hapus satu baris (berdasarkan _row).
+ * PERINGATAN: TABS.AUDIT bersifat WORM (Write Once, Read Many) permanen dan dilarang dihapus.
+ */
+function deleteRow(tab, rowNum) {
+  if (tab === TABS.AUDIT) {
+    throw new Error('AKSES DITOLAK: Jejak audit sistem bersifat permanen dan tidak dapat dihapus.');
+  }
+  var sheet = getSheetSafe_(tab);
+  if (!sheet) return false;
+  sheet.deleteRow(rowNum);
+  try { SpreadsheetApp.flush(); } catch (_) {}
+  return true;
+}
+
+/**
+ * Ambil & increment nomor urut berikutnya (aman konkuren via LockService).
+ * @param {string} key mis. 'SURAT:SK:2026' atau 'KEU:2026'
+ * @return {number} nilai counter setelah increment
+ */
+function nextSequence(key) {
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000); // tunggu maks 10 detik
+  } catch (e) {
+    throw new Error('Sistem sibuk, coba beberapa saat lagi.');
+  }
+  try {
+    var row = findOne(TABS.SEQUENCES, { key: key });
+    var next = 1;
+    if (row) {
+      next = (parseInt(row.value, 10) || 0) + 1;
+      updateRow(TABS.SEQUENCES, row._row, { value: next });
+    } else {
+      insert(TABS.SEQUENCES, { key: key, value: 1 });
+    }
+    return next;
+  } finally {
+    lock.releaseLock();
+  }
+}
+

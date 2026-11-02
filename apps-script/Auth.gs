@@ -1,0 +1,1185 @@
+﻿/****************************************************************************
+ * Auth.gs - dibangkitkan otomatis; JANGAN diedit manual.
+ * Sumber: gas/Auth.gs (scripts/build-apps-script.ps1)
+ *****************************************************************************/
+/**
+ * ============================================================================
+ * Auth.gs — Autentikasi, Sesi & Manajemen Pengguna
+ * ============================================================================
+ * Tanggung jawab:
+ *   - hashPassword: SHA-256(salt + password) menggunakan PASSWORD_SALT
+ *   - login/logout/me: siklus sesi UUID di Sheet_Sessions (masa berlaku 7 hari)
+ *   - verifySession: dipanggil router untuk SETIAP aksi yang butuh autentikasi
+ *   - getListPengguna/createPengguna/updatePengguna: hanya SUPERADMIN
+ *   - getAuditLogs: jejak audit
+ *   - diagnosaKredensial/pemulihanSandiPengguna: jalur keluar ketika kredensial
+ *     admin DITOLAK. Keduanya sengaja TANPA route (hanya dari editor Apps
+ *     Script), lihat blok "PEMULIHAN SANDI" di bawah dan
+ *     docs/TROUBLESHOOTING.md §14.
+ *
+ * Keamanan: role/divisi SELALU dari token (Sheet_Sessions), tidak pernah payload.
+ * ==========================================================================*/
+
+// Masa berlaku sesi: 7 hari (dalam milidetik).
+var SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// Sesi akun demo lebih singkat (1 hari) karena sifatnya presentasi read-only.
+var DEMO_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Hash password: SHA-256(SALT + password) -> hex 64 char.
+ */
+function hashPassword(plain) {
+  var salt = PropertiesService.getScriptProperties().getProperty('PASSWORD_SALT') ||
+             KONFIG.PASSWORD_SALT;
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + plain);
+  return digest.map(function (b) {
+    var h = (b < 0 ? b + 256 : b).toString(16);
+    return h.length === 1 ? '0' + h : h;
+  }).join('');
+}
+
+/**
+ * login: validasi kredensial, buat sesi, kembalikan token + data user.
+ * Route publik (auth: false).
+ * @param {object} ctx.payload { username, password }
+ */
+function login(ctx) {
+  var p = ctx.payload || {};
+  var username = String(p.username || '').trim();
+  var password = String(p.password || '');
+
+  if (!username || !password) {
+    return { ok: false, data: null, message: 'Username dan password wajib diisi.' };
+  }
+
+  var user = findOne(TABS.USERS, { username: username });
+  if (!user) {
+    audit(username, 'LOGIN_FAILED', 'Username tidak ditemukan');
+    return { ok: false, data: null, message: 'Username atau password salah.' };
+  }
+  if (user.is_active !== 'TRUE' && user.is_active !== true) {
+    audit(username, 'LOGIN_FAILED', 'Akun nonaktif');
+    return { ok: false, data: null, message: 'Akun Anda dinonaktifkan. Hubungi administrator.' };
+  }
+  if (user.password_hash !== hashPassword(password)) {
+    audit(username, 'LOGIN_FAILED', 'Password salah');
+    return { ok: false, data: null, message: 'Username atau password salah.' };
+  }
+
+  // Buat sesi baru.
+  var token = uuid();
+  var now = Date.now();
+  insert(TABS.SESSIONS, {
+    token: token, user_id: user.id, username: user.username,
+    role: user.role, division: user.division,
+    created_at: new Date(now).toISOString(), expired_at: now + SESSION_TTL_MS
+  });
+
+  // Bersihkan sesi kedaluwarsa (lazy cleanup, aman tanpa lock).
+  purgeExpiredSessions_();
+
+  audit(user.username, 'LOGIN_SUCCESS', 'Login berhasil');
+
+  return {
+    ok: true,
+    data: { token: token, expired_at: now + SESSION_TTL_MS, user: sanitizeUser(user) },
+    message: 'Login berhasil. Selamat datang, ' + (user.full_name || user.username) + '.'
+  };
+}
+
+/**
+ * loginDemo: masuk ke akun demo TANPA username & password.
+ * Dipakai calon pengurus untuk mencoba alur kerja, logika, dan UI/UX saat
+ * presentasi. Akun demo bersifat READ-ONLY mutlak:
+ *   - Penjaga mutlak: DEMO_ALLOWED_ACTIONS di Code.gs menolak semua aksi tulis.
+ *   - Tidak bisa melihat Manajemen Pengguna, Jejak Audit, maupun Pengaturan &
+ *     Master (data sensitif) — baik di frontend maupun di backend.
+ * Route publik (auth: false). Membuat akun demo secara idempoten bila belum ada.
+ */
+function loginDemo(ctx) {
+  var user = ensureDemoUser_();
+  if (!user) {
+    return { ok: false, data: null,
+      message: 'Akun demo belum tersedia. Jalankan setup() sekali lagi.' };
+  }
+
+  var token = uuid();
+  var now = Date.now();
+  insert(TABS.SESSIONS, {
+    token: token, user_id: user.id, username: user.username,
+    role: user.role, division: user.division,
+    created_at: new Date(now).toISOString(),
+    expired_at: now + DEMO_SESSION_TTL_MS
+  });
+
+  purgeExpiredSessions_();
+
+  audit(user.username, 'LOGIN_SUCCESS', 'Login akun demo (read-only)');
+
+  return {
+    ok: true,
+    data: {
+      token: token,
+      expired_at: now + DEMO_SESSION_TTL_MS,
+      user: sanitizeUser(user)
+    },
+    message: 'Selamat datang di akun demo. Anda bisa melihat semua fitur & alur kerja, namun tidak dapat mengubah data apapun.'
+  };
+}
+
+/**
+ * ensureDemoUser_: buat akun demo bila belum ada (idempoten).
+ * Akun demo tidak punya password (tidak bisa login manual) dan ditandai is_demo.
+ * @return {object} baris Sheet_Users akun demo
+ */
+function ensureDemoUser_() {
+  var existing = findOne(TABS.USERS, { username: 'demo' });
+  if (existing) {
+    // Pastikan flag is_demo & peran tetap konsisten bila akun lama tanpa flag.
+    if (String(existing.is_demo) !== 'TRUE' || existing.role !== ROLES.DEMO) {
+      updateRow(TABS.USERS, existing._row, {
+        role: ROLES.DEMO, is_demo: 'TRUE', is_active: 'TRUE'
+      });
+      existing.role = ROLES.DEMO;
+      existing.is_demo = 'TRUE';
+    }
+    return existing;
+  }
+  var now = new Date().toISOString();
+  return insert(TABS.USERS, {
+    id: uuid(),
+    username: 'demo',
+    password_hash: hashPassword(uuid()),  // password acak: tidak bisa login manual
+    full_name: 'Akun Demo',
+    email: '',
+    role: ROLES.DEMO,
+    division: '',
+    is_active: 'TRUE',
+    can_manage_users: 'FALSE',
+    is_demo: 'TRUE',
+    permissions: '',
+    created_at: now,
+    updated_at: now
+  });
+}
+
+/**
+ * logout: hapus sesi token dari Sheet_Sessions.
+ */
+function logout(ctx) {
+  var token = ctx.token || null;
+  if (!token) return { ok: false, data: null, message: 'Token tidak ditemukan.' };
+  var row = findOne(TABS.SESSIONS, { token: token });
+  if (row) {
+    deleteRow(TABS.SESSIONS, row._row);
+    audit(row.username, 'LOGOUT', 'Logout berhasil');
+  }
+  return { ok: true, data: null, message: 'Anda telah keluar dari sistem.' };
+}
+
+/**
+ * verifySession: validasi token -> hapus jika kedaluwarsa -> kembalikan user.
+ * @param {string} token
+ * @return {object|null} data user (role/divisi terpercaya) atau null
+ */
+function verifySession(token) {
+  if (!token) return null;
+  var row = findOne(TABS.SESSIONS, { token: token });
+  if (!row) return null;
+
+  // Validasi waktu kedaluwarsa sesi (mendukung number timestamp atau string ISO warisan)
+  var exp = Number(row.expired_at);
+  if (!exp && row.expired_at) {
+    exp = new Date(row.expired_at).getTime();
+  }
+  if (exp && exp < Date.now()) {
+    try {
+      deleteRow(TABS.SESSIONS, row._row);
+    } catch (_) {}
+    return null;
+  }
+
+  var user = findOne(TABS.USERS, { id: row.user_id });
+  if (!user && row.username) {
+    user = findOne(TABS.USERS, { username: row.username });
+  }
+  if (!user || (user.is_active !== 'TRUE' && user.is_active !== true)) return null;
+  // Peran/divisi selalu dari snapshot sesi (dibuat saat login dari data user).
+  user.role = row.role;
+  user.division = row.division;
+  return user;
+}
+
+/** Hapus semua sesi yang sudah kedaluwarsa (menghapus dari baris terbawah ke atas agar tidak bergeser). */
+function purgeExpiredSessions_() {
+  var now = Date.now();
+  var expired = readAll(TABS.SESSIONS).filter(function (s) {
+    var exp = Number(s.expired_at);
+    if (!exp && s.expired_at) {
+      exp = new Date(s.expired_at).getTime();
+    }
+    return exp && exp < now;
+  });
+  if (expired.length === 0) return;
+  // Urutkan menurun berdasarkan _row agar penghapusan baris tidak menggeser indeks baris lainnya
+  expired.sort(function (a, b) { return b._row - a._row; });
+  expired.forEach(function (s) {
+    deleteRow(TABS.SESSIONS, s._row);
+  });
+}
+
+/**
+ * me: kembalikan data user dari token (frontend pakai ini saat reload).
+ */
+function me(ctx) {
+  return { ok: true, data: { user: sanitizeUser(ctx.user) }, message: 'Data pengguna berhasil dimuat.' };
+}
+
+/**
+ * getListPengguna: daftar seluruh akun. Hanya SUPERADMIN.
+ */
+function getListPengguna(ctx) {
+  var users = readAll(TABS.USERS).map(function (u) {
+    var s = sanitizeUser(u);
+    s.created_at = u.created_at;
+    return s;
+  });
+  return { ok: true, data: { users: users }, message: 'Daftar pengguna berhasil dimuat.' };
+}
+
+/**
+ * createPengguna: buat akun baru. Hanya SUPERADMIN.
+ * @param {object} ctx.payload { username, password, full_name, email, role, division }
+ */
+function createPengguna(ctx) {
+  var p = ctx.payload || {};
+  var username = String(p.username || '').trim();
+  var password = String(p.password || '');
+
+  if (!username || !password || !p.full_name || !p.role) {
+    return { ok: false, data: null,
+      message: 'Username, password, nama lengkap, dan peran wajib diisi.' };
+  }
+  if (findOne(TABS.USERS, { username: username })) {
+    return { ok: false, data: null, message: 'Username sudah digunakan.' };
+  }
+  if (!ROLE_LABELS[p.role]) {
+    return { ok: false, data: null, message: 'Peran tidak valid.' };
+  }
+  // Divisi wajib untuk peran divisi.
+  if ((p.role === ROLES.KETUA_DIVISI || p.role === ROLES.ANGGOTA_DIVISI) && !p.division) {
+    return { ok: false, data: null, message: 'Peran divisi wajib memilih divisi.' };
+  }
+  if (p.division && !DIVISION_LABELS[p.division]) {
+    return { ok: false, data: null, message: 'Divisi tidak valid.' };
+  }
+
+  var now = new Date().toISOString();
+  var created = insert(TABS.USERS, {
+    id: uuid(), username: username,
+    password_hash: hashPassword(password),
+    full_name: p.full_name, email: p.email || '',
+    role: p.role, division: p.division || '',
+    is_active: 'TRUE',
+    can_manage_users: p.can_manage_users === true || p.can_manage_users === 'TRUE' ? 'TRUE' : 'FALSE',
+    permissions: Array.isArray(p.permissions)
+      ? JSON.stringify(p.permissions.filter(function (a) {
+          return typeof a === 'string' && roleDefaultPermissions_(p.role).indexOf(a) !== -1;
+        }))
+      : '',
+    created_at: now, updated_at: now
+  });
+
+  audit(ctx.user.username, 'USER_CREATE', 'Membuat akun ' + username + ' (' + p.role + ')');
+  return { ok: true, data: { user: sanitizeUser(created) },
+    message: 'Pengguna ' + username + ' berhasil dibuat.' };
+}
+
+/**
+ * updatePengguna: ubah akun. Hanya SUPERADMIN.
+ * @param {object} ctx.payload { id, full_name, email, role, division, is_active,
+ *                                password (opsional), can_manage_users }
+ */
+function updatePengguna(ctx) {
+  var p = ctx.payload || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID pengguna wajib diisi.' };
+  var user = findOne(TABS.USERS, { id: p.id });
+  if (!user) return { ok: false, data: null, message: 'Pengguna tidak ditemukan.' };
+
+  if (p.role && !ROLE_LABELS[p.role]) return { ok: false, data: null, message: 'Peran tidak valid.' };
+  if (p.division && !DIVISION_LABELS[p.division]) return { ok: false, data: null, message: 'Divisi tidak valid.' };
+  if ((p.role === ROLES.KETUA_DIVISI || p.role === ROLES.ANGGOTA_DIVISI) &&
+      !(p.division || user.division)) {
+    return { ok: false, data: null, message: 'Peran divisi wajib memilih divisi.' };
+  }
+
+  var values = { updated_at: new Date().toISOString() };
+  if (p.full_name !== undefined) values.full_name = p.full_name;
+  if (p.email !== undefined) values.email = p.email;
+  if (p.role) values.role = p.role;
+  if (p.division !== undefined) values.division = p.division;
+  if (p.is_active !== undefined) {
+    values.is_active = (p.is_active === true || p.is_active === 'TRUE') ? 'TRUE' : 'FALSE';
+  }
+  if (p.can_manage_users !== undefined) {
+    values.can_manage_users = (p.can_manage_users === true || p.can_manage_users === 'TRUE') ? 'TRUE' : 'FALSE';
+  }
+  // RBAC per-aksi: simpan daftar izin eksplisit (JSON array) atau reset ('').
+  // Hanya aksi dalam jangkauan peran user yang disimpan (lihat effectivePermissions_).
+  if (p.permissions !== undefined && p.permissions !== null) {
+    var perms = p.permissions;
+    if (Array.isArray(perms)) {
+      var allowed = roleDefaultPermissions_(p.role || user.role);
+      var cleaned = perms.filter(function (a) {
+        return typeof a === 'string' && allowed.indexOf(a) !== -1;
+      });
+      values.permissions = JSON.stringify(cleaned);
+    } else {
+      values.permissions = '';
+    }
+  }
+  if (p.password) values.password_hash = hashPassword(p.password);
+
+  updateRow(TABS.USERS, user._row, values);
+  audit(ctx.user.username, 'USER_UPDATE', 'Mengubah akun ' + user.username);
+  return { ok: true, data: null, message: 'Data pengguna berhasil diperbarui.' };
+}
+
+// ============================================================================
+// PEMULIHAN SANDI — JALUR KELUAR DARURAT (dijalankan dari editor Apps Script)
+// ============================================================================
+// Mengapa ada: `login` sengaja menjawab pesan yang SAMA untuk "username tidak
+// ditemukan" dan "password salah" (mencegah orang luar menebak daftar akun).
+// Akibatnya, bila kredensial admin ditolak, operator tidak bisa mengetahui
+// sebabnya dari layar — dan tidak punya jalan keluar selain menebak. Tiga fungsi
+// di bawah ini adalah jalur keluarnya.
+//
+// Ketiganya SENGAJA TIDAK didaftarkan di ROUTES (Code.gs), jadi tidak mungkin
+// dipanggil lewat HTTP/`doPost` — hanya pemilik project Apps Script yang bisa
+// menjalankannya dari editor. Itu bukan sekadar niat baik: uji `smoke:auth`
+// memeriksa ROUTES dan gagal bila salah satu nama ini muncul di sana.
+//
+// Operator menjalankan `pemulihanSandiEditor()` (tanpa argumen); dua fungsi
+// lainnya menerima argumen dan dipakai dari sana / untuk uji otomatis.
+//
+// Aturan keamanan yang dipegang fungsi-fungsi ini:
+//   - sandi TIDAK pernah dicatat, dikembalikan, atau ditulis ke audit;
+//   - setiap penyetelan ulang menulis jejak audit PASSWORD_RESET beserta pelakunya;
+//   - sesi lama akun tersebut dicabut supaya token yang terlanjur bocor ikut mati;
+//   - penolakan terjadi SEBELUM data disentuh (sandi terlalu pendek, ulangan
+//     tidak sama, akun tidak ada);
+//   - sandi yang diketik operator ke Script Properties dihapus lagi setelah
+//     pemanggilan (blok `finally` di pemulihanSandiEditor).
+//
+// Cara pakai (langkah demi langkah + cara memverifikasi) ada di
+// docs/TROUBLESHOOTING.md §14.
+var SANDI_MIN_PANJANG = 10;
+
+/**
+ * pemulihanSandiEditor: PINTU MASUK TANPA ARGUMEN untuk editor Apps Script.
+ *
+ * Tombol **Run** di editor tidak bisa mengirim argumen, jadi fungsi inilah yang
+ * dijalankan operator (bukan diagnosaKredensial / pemulihanSandiPengguna secara
+ * langsung). Seluruh masukannya dibaca dari Script Properties:
+ *   - PEMULIHAN_USERNAME   (WAJIB) akun yang ditangani, mis. `superadmin`
+ *   - PEMULIHAN_SANDI_UJI  (opsional) sandi yang dicoba → mengisi kecocokanSandi
+ *   - PEMULIHAN_SANDI_BARU (opsional) sandi baru → melakukan PENYETELAN ULANG
+ *   - PEMULIHAN_AKTIFKAN   (opsional) `TRUE` → aktifkan kembali akun nonaktif
+ *
+ * Tanpa PEMULIHAN_SANDI_BARU fungsi ini HANYA mendiagnosa — tidak ada data yang
+ * disentuh, jadi operator bisa memeriksa sebabnya lebih dahulu. Properti sandi
+ * (uji & baru) SELALU dihapus lagi di blok `finally`, apa pun hasilnya, supaya
+ * tidak ada sandi yang tertinggal di Script Properties.
+ *
+ * @return {object} ringkasan { ok, pesan, ... } — TANPA sandi
+ */
+function pemulihanSandiEditor() {
+  var props = PropertiesService.getScriptProperties();
+  var username = String(props.getProperty('PEMULIHAN_USERNAME') || '').trim();
+  var sandiUji = props.getProperty('PEMULIHAN_SANDI_UJI');
+  var sandiBaru = props.getProperty('PEMULIHAN_SANDI_BARU');
+  var aktifkan = String(props.getProperty('PEMULIHAN_AKTIFKAN') || '').toUpperCase() === 'TRUE';
+
+  try {
+    if (!username) {
+      Logger.log('=== PEMULIHAN SANDI ===\n' +
+        'PEMULIHAN_USERNAME belum diisi. Buka Project Settings → Script Properties, ' +
+        'isi PEMULIHAN_USERNAME (mis. superadmin) — PEMULIHAN_SANDI_BARU hanya bila ' +
+        'sandi memang ingin disetel ulang — lalu jalankan fungsi ini lagi.');
+      return { ok: false, pesan: 'PEMULIHAN_USERNAME belum diisi di Script Properties.',
+        username: null, role: null, panjangSandiBaru: 0, sesiDicabut: 0, diaktifkanKembali: false };
+    }
+
+    if (!sandiBaru || !String(sandiBaru).length) {
+      var laporan = diagnosaKredensial(username, sandiUji);
+      return { ok: true, diagnosaSaja: true, username: username, sebab: laporan.sebab,
+        role: laporan.role, pesan: laporan.pesan, panjangSandiBaru: 0 };
+    }
+
+    return pemulihanSandiPengguna(username, String(sandiBaru), String(sandiBaru),
+      { aktifkanKembali: aktifkan });
+  } finally {
+    // Sandi TIDAK boleh tertinggal di Script Properties setelah dijalankan.
+    try {
+      props.deleteProperty('PEMULIHAN_SANDI_BARU');
+      props.deleteProperty('PEMULIHAN_SANDI_UJI');
+    } catch (e) {
+      Logger.log('Peringatan: gagal menghapus properti sandi pemulihan — hapus manual di Script Properties. ' + e);
+    }
+  }
+}
+
+/**
+ * diagnosaKredensial: periksa MENGAPA sebuah username/sandi ditolak login.
+ * Hanya untuk dijalankan dari editor Apps Script (tidak ada route-nya).
+ * @param {string} username   akun yang diperiksa (mis. 'superadmin')
+ * @param {string} sandiUji   opsional: sandi yang dicoba, untuk diuji kecocokannya
+ * @return {object} laporan (tanpa sandi) yang juga dicetak ke Logger.log
+ */
+function diagnosaKredensial(username, sandiUji) {
+  var target = String(username || '').trim();
+  var laporan = {
+    username: target,
+    adaAkun: false,
+    sebab: '',
+    pesan: '',
+    kecocokanSandi: null,
+    is_active: null,
+    role: null,
+    jumlahSesi: 0,
+    sumberSalt: '',
+    panjangSalt: 0,
+    daftarSuperadmin: [],
+    namaMirip: [],
+    tindakanDisarankan: ''
+  };
+
+  // Dari mana salt diambil? Script Property diutamakan; KONFIG hanya cadangan
+  // (dan nilai cadangan itu ikut ter-commit ke repositori, jadi lemah).
+  var saltProp = null;
+  try {
+    saltProp = PropertiesService.getScriptProperties().getProperty('PASSWORD_SALT');
+  } catch (e) { saltProp = null; }
+  var salt = saltProp || KONFIG.PASSWORD_SALT;
+  laporan.sumberSalt = saltProp
+    ? 'Script Property PASSWORD_SALT'
+    : 'KONFIG.PASSWORD_SALT (cadangan baku: nilainya ikut ter-commit ke repositori — sebaiknya diisi Script Property)';
+  laporan.panjangSalt = String(salt || '').length;
+
+  var users = readAll(TABS.USERS);
+  laporan.daftarSuperadmin = users
+    .filter(function (u) { return u.role === ROLES.SUPERADMIN; })
+    .map(function (u) { return u.username; });
+
+  var user = null;
+  for (var i = 0; i < users.length; i++) {
+    if (String(users[i].username) === target) { user = users[i]; break; }
+  }
+
+  if (!user) {
+    // Bantu operator menemukan ejaan yang benar sebelum menuduh sandi salah:
+    // salah ketik satu-dua huruf (superadminn) maupun beda pemisah
+    // (super admin, super.admin) sama-sama perlu disarankan.
+    laporan.namaMirip = target
+      ? users.map(function (u) { return String(u.username); })
+          .filter(function (n) { return miripUsername_(n, target); })
+          .slice(0, 5)
+      : [];
+    laporan.sebab = 'AKUN_TIDAK_DITEMUKAN';
+    laporan.pesan = 'Tidak ada baris dengan username "' + target + '" di Sheet users. ' +
+      'Login dijawab "Username atau password salah" untuk keadaan ini juga, jadi tampilan tidak bisa membedakannya.';
+    laporan.tindakanDisarankan = laporan.namaMirip.length
+      ? 'Nama yang mirip ejaannya ada: ' + laporan.namaMirip.join(', ') + ' — jalankan diagnosaKredensial dengan ejaan itu.'
+      : 'Akun ini belum ada. Buat lewat createPengguna() atau seedDemoUsers(), atau periksa daftar akun superadmin di laporan ini.';
+  } else {
+    laporan.adaAkun = true;
+    laporan.role = user.role;
+    laporan.is_active = user.is_active;
+    laporan.jumlahSesi = readAll(TABS.SESSIONS)
+      .filter(function (s) { return s.username === target; }).length;
+
+    var adaUji = !(sandiUji === undefined || sandiUji === null || sandiUji === '');
+    var cocok = adaUji && user.password_hash === hashPassword(String(sandiUji));
+    laporan.kecocokanSandi = adaUji ? cocok : null;
+
+    var nonaktif = !(user.is_active === 'TRUE' || user.is_active === true);
+    if (nonaktif) {
+      laporan.sebab = 'AKUN_NONAKTIF';
+      laporan.pesan = 'Akun ditemukan tetapi is_active = "' + user.is_active + '" — login menolaknya walau sandinya benar.';
+      laporan.tindakanDisarankan = 'Jalankan pemulihanSandiPengguna("' + target + '", sandiBaru, sandiBaru, { aktifkanKembali: true }).';
+    } else if (adaUji && !cocok) {
+      laporan.sebab = 'SANDI_SALAH';
+      laporan.pesan = 'Akun aktif dan ada, tetapi hash sandi uji tidak cocok dengan yang tersimpan. ' +
+        'Kalau YAKIN sandinya benar, curigai salt: ' + (saltProp
+          ? 'PASSWORD_SALT sudah diisi sebagai Script Property — pastikan nilainya tidak pernah diganti; sekali diganti, SEMUA hash sandi lama tidak berlaku lagi.'
+          : 'PASSWORD_SALT masih memakai nilai KONFIG baku — kode membaca Script Property lebih dulu, jadi mengisi Script Property SETELAH akun dibuat akan membuat semua hash lama tidak berlaku karena salt-nya berubah.');
+      laporan.tindakanDisarankan = 'Setel ulang sandi akun ini: pemulihanSandiPengguna("' + target + '", sandiBaru, sandiBaru).';
+    } else if (adaUji && cocok) {
+      laporan.sebab = 'KREDENSIAL_COCOK';
+      laporan.pesan = 'Hash sandi cocok dan akun aktif — keluhan login kemungkinan bukan dari backend (periksa ejaan username, spasi tak sengaja, atau token lama di peramban).';
+      laporan.tindakanDisarankan = 'Coba login dari jendela penyamaran (private) agar identitas lama di localStorage tidak mengganggu.';
+    } else {
+      laporan.sebab = 'PERLU_SANDI_UJI';
+      laporan.pesan = 'Akun ada dan aktif. Jalankan ulang dengan argumen kedua berisi sandi yang dicoba untuk menguji kecocokannya: diagnosaKredensial("' + target + '", "sandi yang dicoba").';
+      laporan.tindakanDisarankan = 'Ulangi pemanggilan dengan sandi uji, atau langsung setel ulang sandinya.';
+    }
+  }
+
+  Logger.log(laporanKredensialTeks_(laporan));
+  return laporan;
+}
+
+/**
+ * Dua username dianggap mirip bila sama setelah spasi/titik/dash dibuang, atau
+ * berbeda paling banyak 2 huruf (salah ketik yang lazim). Dipakai HANYA untuk
+ * saran ejaan di laporan diagnosa — tidak pernah untuk menerima login.
+ */
+function miripUsername_(nama, target) {
+  var a = String(nama || '').toLowerCase().replace(/[\s._-]/g, '');
+  var b = String(target || '').toLowerCase().replace(/[\s._-]/g, '');
+  if (!a || !b) return false;
+  return a === b || jarakEdit_(a, b) <= 2;
+}
+
+/** Jarak edit (Levenshtein) sederhana; 99 = terlalu jauh untuk dihitung penuh. */
+function jarakEdit_(a, b) {
+  if (Math.abs(a.length - b.length) > 3) return 99;
+  var prev = [];
+  for (var j = 0; j <= b.length; j++) prev[j] = j;
+  for (var i = 1; i <= a.length; i++) {
+    var cur = [i];
+    for (var k = 1; k <= b.length; k++) {
+      var biaya = a.charAt(i - 1) === b.charAt(k - 1) ? 0 : 1;
+      cur[k] = Math.min(prev[k] + 1, cur[k - 1] + 1, prev[k - 1] + biaya);
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+/** Susun laporan diagnosa jadi teks yang enak dibaca di panel Executions/Log. */
+function laporanKredensialTeks_(l) {
+  var baris = [
+    '=== DIAGNOSA KREDENSIAL ===',
+    'Akun            : ' + (l.username || '(kosong)'),
+    'Ada di database : ' + (l.adaAkun ? 'ya' : 'TIDAK'),
+    'Peran           : ' + (l.role || '-'),
+    'Aktif           : ' + (l.is_active === null ? '-' : String(l.is_active)),
+    'Sesi tersimpan  : ' + l.jumlahSesi,
+    'Kecocokan sandi : ' + (l.kecocokanSandi === null ? '(tidak diuji)' : (l.kecocokanSandi ? 'COCOK' : 'TIDAK COCOK')),
+    'Sumber salt     : ' + l.sumberSalt + ' (panjang ' + l.panjangSalt + ')',
+    'Sebab           : ' + l.sebab,
+    'Keterangan      : ' + l.pesan,
+    'Disarankan      : ' + l.tindakanDisarankan
+  ];
+  if (l.daftarSuperadmin && l.daftarSuperadmin.length) {
+    baris.push('Akun SUPERADMIN : ' + l.daftarSuperadmin.join(', '));
+  }
+  if (l.namaMirip && l.namaMirip.length) {
+    baris.push('Nama mirip      : ' + l.namaMirip.join(', '));
+  }
+  return baris.join('\n');
+}
+
+/**
+ * pemulihanSandiPengguna: setel ulang sandi satu akun + cabut sesi lamanya.
+ * Hanya untuk dijalankan dari editor Apps Script (tidak ada route-nya).
+ * @param {string} username        akun yang disetel ulang (mis. 'superadmin')
+ * @param {string} sandiBaru       sandi baru (minimal SANDI_MIN_PANJANG karakter)
+ * @param {string} ulangiSandiBaru pengulangan sandi baru (harus sama)
+ * @param {object} opsi            { cabutSesi: true|false, aktifkanKembali: true|false }
+ * @return {object} ringkasan { ok, pesan, ... } — TANPA sandi
+ */
+function pemulihanSandiPengguna(username, sandiBaru, ulangiSandiBaru, opsi) {
+  var target = String(username || '').trim();
+  var baru = String(sandiBaru === undefined || sandiBaru === null ? '' : sandiBaru);
+  var ulangi = String(ulangiSandiBaru === undefined || ulangiSandiBaru === null ? '' : ulangiSandiBaru);
+  var o = opsi || {};
+  var cabutSesi = o.cabutSesi === undefined ? true : !!o.cabutSesi;
+  var aktifkanKembali = !!o.aktifkanKembali;
+
+  // Semua penolakan terjadi SEBELUM ada data yang diubah.
+  if (!target) return pemulihanGagal_('Username wajib diisi.');
+  if (baru.length < SANDI_MIN_PANJANG) {
+    return pemulihanGagal_('Sandi baru minimal ' + SANDI_MIN_PANJANG + ' karakter (yang diberikan ' + baru.length + ').');
+  }
+  if (baru !== ulangi) return pemulihanGagal_('Ulangi sandi tidak sama dengan sandi baru — tidak ada yang diubah.');
+
+  var user = findOne(TABS.USERS, { username: target });
+  if (!user) {
+    return pemulihanGagal_('Akun "' + target + '" tidak ditemukan — tidak ada yang diubah. ' +
+      'Jalankan diagnosaKredensial("' + target + '") untuk melihat daftar akun SUPERADMIN, ' +
+      'atau buat akunnya lewat createPengguna() / seedDemoUsers().');
+  }
+
+  var nilai = { password_hash: hashPassword(baru), updated_at: new Date().toISOString() };
+  var diaktifkan = false;
+  if (aktifkanKembali && !(user.is_active === 'TRUE' || user.is_active === true)) {
+    nilai.is_active = 'TRUE';
+    diaktifkan = true;
+  }
+  updateRow(TABS.USERS, user._row, nilai);
+
+  var dicabut = cabutSesi ? cabutSesiPengguna_(target) : 0;
+  audit(aktorEditor_(), 'PASSWORD_RESET',
+    'Sandi akun ' + target + ' (' + user.role + ') disetel ulang dari editor Apps Script; ' +
+    (cabutSesi ? dicabut + ' sesi dicabut' : 'sesi lama dibiarkan (cabutSesi: false)') +
+    (diaktifkan ? '; akun diaktifkan kembali' : ''));
+
+  var ringkas = {
+    ok: true,
+    pesan: 'Sandi akun ' + target + ' berhasil disetel ulang. Login dari jendela penyamaran dengan sandi baru untuk memverifikasi.',
+    username: target,
+    role: user.role,
+    panjangSandiBaru: baru.length,
+    sesiDicabut: dicabut,
+    diaktifkanKembali: diaktifkan,
+    waktu: nilai.updated_at
+  };
+  Logger.log('=== PEMULIHAN SANDI ===\n' + ringkas.pesan + '\n' + laporanKredensialTeks_(diagnosaKredensial(target, baru)));
+  return ringkas;
+}
+
+/** Bentuk balasan penolakan pemulihan (tanpa menyentuh data). */
+function pemulihanGagal_(pesan) {
+  Logger.log('=== PEMULIHAN SANDI DITOLAK ===\n' + pesan);
+  return { ok: false, pesan: pesan, username: null, role: null, panjangSandiBaru: 0, sesiDicabut: 0, diaktifkanKembali: false, waktu: null };
+}
+
+/** Pelaku untuk jejak audit: email pemilik project saat dijalankan dari editor. */
+function aktorEditor_() {
+  try {
+    var email = Session.getActiveUser().getEmail();
+    return email ? email : 'operator-editor';
+  } catch (e) {
+    return 'operator-editor';
+  }
+}
+
+/** Hapus seluruh sesi satu akun. Menghapus dari baris terbawah agar tidak bergeser. */
+function cabutSesiPengguna_(username) {
+  var baris = readAll(TABS.SESSIONS).filter(function (s) { return s.username === username; });
+  baris.sort(function (a, b) { return b._row - a._row; });
+  baris.forEach(function (s) { deleteRow(TABS.SESSIONS, s._row); });
+  return baris.length;
+}
+
+/**
+ * getAuditLogs: jejak audit WORM anti-hapus (terbaru di atas).
+ * SUPERADMIN, KETUA, PEMBINA, PENGAWAS.
+ * @param {object} ctx.payload { limit (default 100), module?, q? }
+ */
+function getAuditLogs(ctx) {
+  var p = ctx.payload || {};
+  var limit = Math.min(Number(p.limit) || 150, 1000);
+  var logs = readAll(TABS.AUDIT);
+  if (p.module) {
+    logs = logs.filter(function (l) { return l.module === p.module; });
+  }
+  if (p.q) {
+    var q = String(p.q).toLowerCase();
+    logs = logs.filter(function (l) {
+      return (l.detail || '').toLowerCase().indexOf(q) !== -1 ||
+             (l.actor || '').toLowerCase().indexOf(q) !== -1 ||
+             (l.action || '').toLowerCase().indexOf(q) !== -1;
+    });
+  }
+  logs.sort(function (a, b) { return (b.timestamp || '').localeCompare(a.timestamp || ''); });
+  var items = logs.slice(0, limit).map(function (l) {
+    return {
+      id: l.id || '',
+      timestamp: l.timestamp,
+      actor: l.actor,
+      action: l.action,
+      module: l.module || 'SYSTEM',
+      detail: l.detail,
+      ip_client: l.ip_client || '',
+      status: l.status || 'SUCCESS'
+    };
+  });
+  return { ok: true, data: { logs: items, total: logs.length }, message: 'Jejak audit berhasil dimuat.' };
+}
+
+/** Helper: simpan file base64 ke Google Drive subfolder resmi. */
+function saveUploadToDrive_(base64Data, filename, subfolderName) {
+  if (!base64Data) return '';
+  try {
+    var raw = base64Data;
+    var mime = 'image/jpeg';
+    if (raw.indexOf(';base64,') !== -1) {
+      var parts = raw.split(';base64,');
+      var mimePart = parts[0].replace('data:', '');
+      if (mimePart) mime = mimePart;
+      raw = parts[1];
+    }
+    var decoded = Utilities.base64Decode(raw);
+    var blob = Utilities.newBlob(decoded, mime, filename);
+
+    var parentFolderId = siapkanFolderPdf_();
+    var parentFolder = DriveApp.getFolderById(parentFolderId);
+
+    var targetFolder = parentFolder;
+    if (subfolderName) {
+      var it = parentFolder.getFoldersByName(subfolderName);
+      var subfoldersByBase = {
+        'Surat_Publikasi': 'Surat_Publikasi',
+        'Keuangan_QRIS': 'Keuangan_QRIS',
+        'Konten_Hero': 'Konten_Hero',
+        'Konten_Agenda': 'Konten_Agenda'
+      };
+      if (it.hasNext()) {
+        targetFolder = it.next();
+      } else {
+        targetFolder = parentFolder.createFolder(subfoldersByBase[subfolderName] || subfolderName);
+      }
+    }
+    var file = targetFolder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return file.getUrl();
+  } catch (err) {
+    Logger.log('Gagal simpan file ke Drive: ' + err);
+    return '';
+  }
+}
+
+/**
+ * registerAnggota: pendaftaran calon anggota baru dari portal publik.
+ * Route publik (tanpa token).
+ */
+function registerAnggota(ctx) {
+  var p = ctx.payload || {};
+
+  // Validasi konfigurasi pendaftaran
+  var regCfg = getSettingValue_('registration_config', {
+    status: 'BUKA',
+    is_open: true,
+    quota_limit: 0,
+    closed_title: 'Pendaftaran Anggota Sementara Ditutup',
+    closed_message: 'Pendaftaran anggota saat ini sedang ditutup oleh sekretariat yayasan.',
+    require_ktp: true,
+    require_selfie: true,
+    reg_prefix: 'REG',
+    reg_digits: 4,
+    notify_pendaftar_email: true
+  });
+
+  var regStatus = String(regCfg.status || (regCfg.is_open === false ? 'DITUTUP' : 'BUKA')).toUpperCase();
+  if (regStatus === 'DITUTUP' || regCfg.is_open === false) {
+    return {
+      ok: false,
+      data: null,
+      message: regCfg.closed_message || 'Pendaftaran anggota saat ini sedang ditutup oleh sekretariat yayasan.'
+    };
+  }
+  if (regStatus === 'PENUH') {
+    return {
+      ok: false,
+      data: null,
+      message: 'Kuota pendaftaran anggota gelombang ini telah terpenuhi.'
+    };
+  }
+  if (regStatus === 'SELEKSI') {
+    return {
+      ok: false,
+      data: null,
+      message: 'Pendaftaran anggota telah ditutup, saat ini sedang dalam proses verifikasi dan seleksi berkas oleh sekretariat.'
+    };
+  }
+
+  // Cek batas kuota jika diaktifkan (quota_limit > 0)
+  var quotaLimit = Number(regCfg.quota_limit) || 0;
+  if (quotaLimit > 0) {
+    var allExisting = readAll(TABS.PENDAFTAR);
+    var countActive = allExisting.filter(function (x) {
+      return x.status !== 'REJECTED' && x.status !== 'DITOLAK';
+    }).length;
+    if (countActive >= quotaLimit) {
+      return {
+        ok: false,
+        data: null,
+        message: 'Mohon maaf, kuota target pendaftaran sebanyak ' + quotaLimit + ' orang telah terpenuhi.'
+      };
+    }
+  }
+
+  if (!p.full_name || !String(p.full_name).trim()) {
+    return { ok: false, data: null, message: 'Nama lengkap wajib diisi.' };
+  }
+  var nikStr = String(p.nik || '').trim();
+  if (!nikStr) {
+    return { ok: false, data: null, message: 'Nomor NIK KTP wajib diisi.' };
+  }
+  if (!/^\d{16}$/.test(nikStr)) {
+    return { ok: false, data: null, message: 'Nomor NIK KTP harus tepat 16 digit angka.' };
+  }
+  var existingReg = findOne(TABS.PENDAFTAR, { nik: nikStr });
+  if (existingReg && existingReg.status !== 'DITOLAK') {
+    return { ok: false, data: null,
+      message: 'NIK ' + nikStr + ' sudah terdaftar dalam sistem (Nomor: ' + existingReg.reg_number + ', Status: ' + (STATUS_LABELS[existingReg.status] || existingReg.status) + '). Silakan hubungi Sekretariat jika membutuhkan bantuan.' };
+  }
+  if (!p.phone || !String(p.phone).trim()) {
+    return { ok: false, data: null, message: 'Nomor WhatsApp / HP aktif wajib diisi.' };
+  }
+  if (regCfg.require_ktp !== false && !p.ktp_base64) {
+    return { ok: false, data: null, message: 'Foto KTP wajib diunggah untuk verifikasi identitas resmi.' };
+  }
+  if (regCfg.require_selfie !== false && !p.selfie_base64) {
+    return { ok: false, data: null, message: 'Pas Foto / Selfie wajib diunggah untuk pencocokan identitas.' };
+  }
+
+  var now = new Date().toISOString();
+  var tahun = new Date().getFullYear();
+  var urut = nextSequence('PENDAFTAR:' + tahun);
+  var digits = Number(regCfg.reg_digits) || 4;
+  var urutStr = String(urut);
+  while (urutStr.length < digits) urutStr = '0' + urutStr;
+  var prefix = String(regCfg.reg_prefix || 'REG').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || 'REG';
+  var regNumber = prefix + '-' + tahun + '-' + urutStr;
+
+  // Simpan foto KTP dan selfie ke Drive
+  var ktpUrl = '';
+  if (p.ktp_base64) {
+    ktpUrl = saveUploadToDrive_(p.ktp_base64, 'KTP_' + regNumber + '.jpg', 'Pendaftaran_KTP');
+  }
+  var selfieUrl = '';
+  if (p.selfie_base64) {
+    selfieUrl = saveUploadToDrive_(p.selfie_base64, 'SELFIE_' + regNumber + '.jpg', 'Pendaftaran_Selfie');
+  }
+
+  var created = insert(TABS.PENDAFTAR, {
+    id: uuid(),
+    reg_number: regNumber,
+    full_name: String(p.full_name).trim(),
+    nik: String(p.nik).trim(),
+    birth_place: p.birth_place || '',
+    birth_date: p.birth_date || '',
+    gender: p.gender || 'L',
+    job: p.job || '',
+    phone: String(p.phone).trim(),
+    email: p.email || '',
+    address: p.address || '',
+    division_interest: p.division_interest || '',
+    ktp_drive_url: ktpUrl,
+    selfie_drive_url: selfieUrl,
+    status: 'PENDING',
+    verified_by_sekretaris: '',
+    verified_by_sekretaris_at: '',
+    approved_by_ketum: '',
+    approved_by_ketum_at: '',
+    rejection_notes: '',
+    created_at: now
+  });
+
+  // Kirim email tanda terima ke pendaftar jika alamat email diisi
+  if (p.email && regCfg.notify_pendaftar_email !== false) {
+    try {
+      kirimNotifikasiKeUser_(p.email,
+        'Bukti Pendaftaran Anggota APII: ' + regNumber,
+        'Tanda Terima Pendaftaran Calon Anggota',
+        'Assalamu’alaikum wr. wb., <strong>' + p.full_name + '</strong>.<br><br>' +
+        'Pendaftaran Anda sebagai calon anggota Yayasan APII DPW Jabodetabek telah berhasil diterima.<br><br>' +
+        '• <strong>Nomor Registrasi:</strong> ' + regNumber + '<br>' +
+        '• <strong>Minat Divisi:</strong> ' + (p.division_interest || 'Umum') + '<br>' +
+        '• <strong>Waktu Pengajuan:</strong> ' + formatTanggal(now) + '<br><br>' +
+        'Berkas foto identitas Anda saat ini sedang dalam proses verifikasi administratif oleh Sekretariat DPW. Silakan konfirmasi berkas melalui nomor hotline WhatsApp pengurus.',
+        'Kunjungi Portal Resmi',
+        (KONFIG.PUBLIC_URL || 'https://apii.sigitadi.id'));
+    } catch (eMailErr) {
+      Logger.log('Gagal kirim email pendaftar: ' + eMailErr);
+    }
+  }
+
+  // Notifikasi email ke Sekretaris DPW bahwa ada berkas pendaftaran baru masuk
+  try {
+    kirimNotifikasiKeRole_(ROLES.SEKRETARIS,
+      'Pendaftaran Anggota Baru: ' + regNumber,
+      'Berkas Pendaftaran Baru Menunggu Verifikasi',
+      'Calon anggota baru <strong>' + p.full_name + '</strong> (Nomor: <code>' + regNumber + '</code>, Minat: ' + (p.division_interest || 'Umum') + ') telah mendaftar melalui portal publik dan menunggu verifikasi administratif.',
+      'Verifikasi Berkas Calon Anggota',
+      (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/pengguna');
+  } catch (eNotifErr) {
+    Logger.log('Gagal notifikasi sekretaris: ' + eNotifErr);
+  }
+
+  audit('public', 'MEMBER_REGISTERED', 'Pendaftaran baru ' + regNumber + ' a.n ' + p.full_name, 'PENDAFTARAN');
+
+  return {
+    ok: true,
+    data: {
+      reg_number: regNumber,
+      full_name: p.full_name,
+      status: 'PENDING',
+      message: 'Pendaftaran Anda telah berhasil dikirim dengan Nomor Registrasi: ' + regNumber
+    },
+    message: 'Pendaftaran berhasil dikirim. Tim sekretariat akan memverifikasi berkas Anda.'
+  };
+}
+
+/**
+ * exportPendaftar: Ekspor seluruh data pendaftar dalam format CSV UTF-8 BOM.
+ * SUPERADMIN, KETUA, SEKRETARIS.
+ */
+function exportPendaftar(ctx) {
+  var rows = readAll(TABS.PENDAFTAR);
+  rows.sort(function (a, b) { return (b.created_at || '').localeCompare(a.created_at || ''); });
+
+  var headers = [
+    'No. Registrasi', 'Nama Lengkap', 'NIK', 'Tempat Lahir', 'Tanggal Lahir',
+    'Jenis Kelamin', 'Pekerjaan', 'No. WhatsApp', 'Email', 'Alamat Domisili',
+    'Minat Divisi', 'Link KTP Drive', 'Link Selfie Drive', 'Status Registrasi',
+    'Verifikasi Sekretaris', 'Persetujuan Ketua', 'Catatan', 'Tanggal Daftar'
+  ];
+
+  var csvLines = [];
+  csvLines.push(headers.map(function (h) { return '"' + h.replace(/"/g, '""') + '"'; }).join(','));
+
+  rows.forEach(function (r) {
+    var line = [
+      r.reg_number || '',
+      r.full_name || '',
+      "'" + (r.nik || ''), // kutip satu agar NIK 16 digit tidak terpotong atau diubah format saintifik oleh Excel
+      r.birth_place || '',
+      r.birth_date || '',
+      r.gender === 'P' ? 'Perempuan' : 'Laki-laki',
+      r.job || '',
+      "'" + (r.phone || ''),
+      r.email || '',
+      r.address || '',
+      r.division_interest || '',
+      r.ktp_drive_url || '',
+      r.selfie_drive_url || '',
+      r.status || 'PENDING',
+      r.verified_by_sekretaris || '—',
+      r.approved_by_ketum || '—',
+      r.rejection_notes || '',
+      formatTanggal(r.created_at)
+    ];
+    csvLines.push(line.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','));
+  });
+
+  // UTF-8 BOM agar Excel membacanya dengan encoding karakter yang benar
+  var csvString = '\uFEFF' + csvLines.join('\r\n');
+  var filename = 'Data_Pendaftar_APII_' + new Date().toISOString().slice(0, 10) + '.csv';
+
+  return {
+    ok: true,
+    data: {
+      csv: csvString,
+      filename: filename,
+      total: rows.length
+    },
+    message: 'Data pendaftar berhasil diekspor (' + rows.length + ' baris).'
+  };
+}
+
+/**
+ * getListPendaftar: daftar calon anggota baru untuk ditinjau pengurus.
+ * SUPERADMIN, KETUA, SEKRETARIS.
+ */
+function getListPendaftar(ctx) {
+  var p = ctx.payload || {};
+  var rows = readAll(TABS.PENDAFTAR);
+  var q = String(p.q || '').toLowerCase();
+  if (q) {
+    rows = rows.filter(function (r) {
+      return (r.full_name || '').toLowerCase().indexOf(q) !== -1 ||
+             (r.reg_number || '').toLowerCase().indexOf(q) !== -1 ||
+             (r.nik || '').indexOf(q) !== -1 ||
+             (r.phone || '').indexOf(q) !== -1;
+    });
+  }
+  if (p.status) {
+    var filterSt = String(p.status).toUpperCase();
+    rows = rows.filter(function (r) {
+      var s = String(r.status || '').toUpperCase();
+      if (filterSt === 'PENDING') return s === 'PENDING';
+      if (filterSt === 'VERIFIED_SEKRETARIS' || filterSt === 'DIVERIFIKASI_SEKRETARIS') {
+        return s === 'VERIFIED_SEKRETARIS' || s === 'DIVERIFIKASI_SEKRETARIS';
+      }
+      if (filterSt === 'APPROVED' || filterSt === 'DISETUJUI') {
+        return s === 'APPROVED' || s === 'DISETUJUI';
+      }
+      if (filterSt === 'REJECTED' || filterSt === 'DITOLAK') {
+        return s === 'REJECTED' || s === 'DITOLAK';
+      }
+      return s === filterSt;
+    });
+  }
+  rows.sort(function (a, b) { return (b.created_at || '').localeCompare(a.created_at || ''); });
+
+  var mapped = rows.map(function (r) {
+    var s = String(r.status || 'PENDING').toUpperCase();
+    var stdStatus = s;
+    if (s === 'DIVERIFIKASI_SEKRETARIS') stdStatus = 'VERIFIED_SEKRETARIS';
+    else if (s === 'DISETUJUI') stdStatus = 'APPROVED';
+    else if (s === 'DITOLAK') stdStatus = 'REJECTED';
+
+    var statusLabel = 'Menunggu Sekretariat';
+    if (stdStatus === 'VERIFIED_SEKRETARIS') statusLabel = 'Terverifikasi Sekretaris';
+    else if (stdStatus === 'APPROVED') statusLabel = 'Disetujui Ketua DPW';
+    else if (stdStatus === 'REJECTED') statusLabel = 'Ditolak';
+
+    var kota = r.address ? (String(r.address).split(',')[0].trim() || r.address) : (r.division_interest || 'Jabodetabek');
+
+    return {
+      id: r.id,
+      reg_number: r.reg_number,
+      registration_no: r.reg_number,
+      full_name: r.full_name,
+      nama_lengkap: r.full_name,
+      nik: r.nik,
+      birth_place: r.birth_place,
+      tempat_lahir: r.birth_place,
+      birth_date: r.birth_date,
+      tanggal_lahir: r.birth_date,
+      gender: r.gender,
+      jenis_kelamin: r.gender === 'P' ? 'Perempuan' : 'Laki-Laki',
+      job: r.job,
+      profesi: r.job,
+      phone: r.phone,
+      whatsapp: r.phone,
+      email: r.email,
+      address: r.address,
+      alamat: r.address,
+      kota: kota,
+      division_interest: r.division_interest,
+      alasan_bergabung: r.division_interest ? ('Minat divisi: ' + r.division_interest) : '',
+      ktp_drive_url: r.ktp_drive_url,
+      ktp_image_url: r.ktp_drive_url,
+      selfie_drive_url: r.selfie_drive_url,
+      selfie_image_url: r.selfie_drive_url,
+      status: stdStatus,
+      raw_status: r.status,
+      status_label: statusLabel,
+      verified_by_sekretaris: r.verified_by_sekretaris,
+      verified_by_sekretaris_at: r.verified_by_sekretaris_at,
+      approved_by_ketum: r.approved_by_ketum,
+      approved_by_ketum_at: r.approved_by_ketum_at,
+      rejection_notes: r.rejection_notes,
+      created_at: r.created_at
+    };
+  });
+
+  return { ok: true, data: { items: mapped, total: mapped.length }, message: 'Daftar pendaftar berhasil dimuat.' };
+}
+
+/**
+ * verifyPendaftarSekretaris: verifikasi tahap 1 oleh Sekretaris.
+ * PENDING -> DIVERIFIKASI_SEKRETARIS.
+ * SUPERADMIN, SEKRETARIS.
+ */
+function verifyPendaftarSekretaris(ctx) {
+  var p = ctx.payload || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID pendaftar wajib diisi.' };
+  var reg = findOne(TABS.PENDAFTAR, { id: p.id });
+  if (!reg) return { ok: false, data: null, message: 'Data pendaftar tidak ditemukan.' };
+  if (reg.status !== 'PENDING') {
+    return { ok: false, data: null, message: 'Hanya pendaftar berstatus PENDING yang dapat diverifikasi Sekretaris.' };
+  }
+  var now = new Date().toISOString();
+  updateRow(TABS.PENDAFTAR, reg._row, {
+    status: 'DIVERIFIKASI_SEKRETARIS',
+    verified_by_sekretaris: ctx.user.username,
+    verified_by_sekretaris_at: now
+  });
+  audit(ctx.user.username, 'MEMBER_VERIFIED_SEKRETARIS', 'Verifikasi berkas pendaftar ' + reg.reg_number, 'PENDAFTARAN');
+
+  // Notifikasi email ke Ketua DPW untuk pengesahan final
+  try {
+    kirimNotifikasiKeRole_(ROLES.KETUA,
+      'Pengesahan Anggota: ' + reg.reg_number,
+      'Calon Anggota Menunggu Pengesahan Final',
+      'Berkas calon anggota <strong>' + reg.full_name + '</strong> (Nomor: <code>' + reg.reg_number + '</code>) telah diverifikasi oleh Sekretaris (' + (ctx.user.full_name || ctx.user.username) + ') dan menunggu pengesahan Anda.',
+      'Sahkan Anggota',
+      (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/pengguna');
+  } catch (eNotifKetua) {
+    Logger.log('Gagal notifikasi ketua: ' + eNotifKetua);
+  }
+
+  return { ok: true, data: { id: reg.id, status: 'DIVERIFIKASI_SEKRETARIS' },
+    message: 'Berkas pendaftar ' + reg.reg_number + ' berhasil diverifikasi Sekretaris. Menunggu pengesahan Ketua DPW.' };
+}
+
+/**
+ * approvePendaftarKetum: pengesahan tahap 2 (final) oleh Ketua DPW.
+ * DIVERIFIKASI_SEKRETARIS -> DISETUJUI.
+ * SUPERADMIN, KETUA.
+ */
+function approvePendaftarKetum(ctx) {
+  var p = ctx.payload || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID pendaftar wajib diisi.' };
+  var reg = findOne(TABS.PENDAFTAR, { id: p.id });
+  if (!reg) return { ok: false, data: null, message: 'Data pendaftar tidak ditemukan.' };
+  var currentStatus = String(reg.status || '').toUpperCase();
+  if (currentStatus !== 'DIVERIFIKASI_SEKRETARIS' && currentStatus !== 'VERIFIED_SEKRETARIS' && ctx.user.role !== ROLES.SUPERADMIN) {
+    return { ok: false, data: null, message: 'Pendaftar harus diverifikasi Sekretaris terlebih dahulu sebelum disahkan Ketua.' };
+  }
+  var now = new Date().toISOString();
+  updateRow(TABS.PENDAFTAR, reg._row, {
+    status: 'DISETUJUI',
+    approved_by_ketum: ctx.user.username,
+    approved_by_ketum_at: now
+  });
+  audit(ctx.user.username, 'MEMBER_APPROVED_KETUM', 'Pengesahan keanggotaan ' + reg.reg_number + ' a.n ' + reg.full_name, 'PENDAFTARAN');
+
+  // Notifikasi tanda terima pengesahan ke calon anggota
+  if (reg.email) {
+    try {
+      kirimNotifikasiEmail_(reg.email,
+        'Selamat! Pendaftaran Keanggotaan Anda Telah Disahkan: ' + reg.reg_number,
+        'Pendaftaran Anggota Disahkan',
+        'Assalamu’alaikum wr. wb., <strong>' + reg.full_name + '</strong>.<br><br>' +
+        'Selamat! Pendaftaran keanggotaan Yayasan APII DPW Jabodetabek dengan nomor <code>' + reg.reg_number + '</code> telah resmi diverifikasi dan <strong>disahkan oleh Ketua DPW</strong>.<br><br>' +
+        'Kartu Tanda Anggota (KTA) digital dan akses portal anggota Anda telah aktif.',
+        'Kunjungi Portal Resmi',
+        (KONFIG.PUBLIC_URL || 'https://apii.sigitadi.id'));
+    } catch (eMailApprove) {
+      Logger.log('Gagal kirim email pendaftar disahkan: ' + eMailApprove);
+    }
+  }
+
+  return { ok: true, data: { id: reg.id, status: 'DISETUJUI' },
+    message: 'Calon anggota ' + reg.full_name + ' berhasil disahkan oleh Ketua DPW.' };
+}
+
+/**
+ * rejectPendaftar: tolak pendaftar dengan catatan alasan.
+ * SUPERADMIN, KETUA, SEKRETARIS.
+ */
+function rejectPendaftar(ctx) {
+  var p = ctx.payload || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID pendaftar wajib diisi.' };
+  if (!p.notes || !String(p.notes).trim()) {
+    return { ok: false, data: null, message: 'Alasan penolakan wajib diisi.' };
+  }
+  var reg = findOne(TABS.PENDAFTAR, { id: p.id });
+  if (!reg) return { ok: false, data: null, message: 'Data pendaftar tidak ditemukan.' };
+  var now = new Date().toISOString();
+  updateRow(TABS.PENDAFTAR, reg._row, {
+    status: 'DITOLAK',
+    rejection_notes: String(p.notes).trim()
+  });
+  audit(ctx.user.username, 'MEMBER_REJECTED', 'Menolak pendaftar ' + reg.reg_number + ': ' + p.notes, 'PENDAFTARAN');
+
+  // Notifikasi alasan penolakan ke calon anggota
+  if (reg.email) {
+    try {
+      kirimNotifikasiEmail_(reg.email,
+        'Status Pendaftaran Anggota APII: ' + reg.reg_number,
+        'Pemberitahuan Status Pendaftaran',
+        'Assalamu’alaikum wr. wb., <strong>' + reg.full_name + '</strong>.<br><br>' +
+        'Terima kasih atas minat Anda bergabung dengan Yayasan APII DPW Jabodetabek.<br>' +
+        'Berdasarkan hasil verifikasi berkas pendaftaran (Nomor: <code>' + reg.reg_number + '</code>), pendaftaran Anda belum dapat kami setujui saat ini.<br><br>' +
+        '• <strong>Alasan/Catatan:</strong> ' + p.notes + '<br><br>' +
+        'Silakan hubungi Sekretariat jika Anda ingin mengajukan klarifikasi atau mendaftar kembali dengan berkas yang lengkap.',
+        'Hubungi Sekretariat',
+        (KONFIG.PUBLIC_URL || 'https://apii.sigitadi.id'));
+    } catch (eMailReject) {
+      Logger.log('Gagal kirim email pendaftar ditolak: ' + eMailReject);
+    }
+  }
+
+  return { ok: true, data: { id: reg.id, status: 'DITOLAK' },
+    message: 'Pendaftaran ' + reg.reg_number + ' telah ditolak.' };
+}
+
