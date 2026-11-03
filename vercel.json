@@ -16,22 +16,118 @@
         {
           "key": "X-XSS-Protection",
           "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
         }
       ]
     }
   ],
   "rewrites": [
     {
-      "source": "/portal",
-      "destination": "/portal/index.html"
-    },
-    {
       "source": "/portal/(.*)",
       "destination": "/portal/$1"
     },
     {
-      "source": "/verifikasi(.*)",
-      "destination": "/index.html"
+      "source": "/portal",
+      "destination": "/portal/index.html"
+    },
+    {
+      "source": "/public/(.*)",
+      "destination": "/public/$1"
+    },
+    {
+      "source": "/public",
+      "destination": "/public/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "siapii.sigitadi.id"
+        }
+      ],
+      "destination": "/portal/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.siapii.sigitadi.id"
+        }
+      ],
+      "destination": "/portal/index.html"
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "siapii.sigitadi.id"
+        }
+      ],
+      "destination": "/portal/:path*"
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.siapii.sigitadi.id"
+        }
+      ],
+      "destination": "/portal/:path*"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "apii.sigitadi.id"
+        }
+      ],
+      "destination": "/public/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.apii.sigitadi.id"
+        }
+      ],
+      "destination": "/public/index.html"
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "apii.sigitadi.id"
+        }
+      ],
+      "destination": "/public/:path*"
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.apii.sigitadi.id"
+        }
+      ],
+      "destination": "/public/:path*"
+    },
+    {
+      "source": "/",
+      "destination": "/public/index.html"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/public/:path*"
     }
   ]
 }

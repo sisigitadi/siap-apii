@@ -31,8 +31,6 @@ jobs:
           node -c portal/config.js
           node -c public/app.js
           node -c public/config.js
-          node -c app.js
-          node -c config.js
 
       - name: Build Apps Script Backend
         run: node scripts/build-apps-script.mjs
