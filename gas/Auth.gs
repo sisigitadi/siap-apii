@@ -676,15 +676,70 @@ function approvePendaftarKetum(ctx) {
   if (currentStatus !== 'DIVERIFIKASI_SEKRETARIS' && currentStatus !== 'VERIFIED_SEKRETARIS' && ctx.user.role !== ROLES.SUPERADMIN) {
     return { ok: false, data: null, message: 'Pendaftar harus diverifikasi Sekretaris terlebih dahulu sebelum disahkan Ketua.' };
   }
-  var now = new Date().toISOString();
+  var d = new Date();
+  var now = d.toISOString();
+  var tahun = d.getFullYear();
+
+  // Generator Nomor KTA Sekuensial Nasional (Tunggal se-Indonesia - Benteng A-01 Exception)
+  var urut = Database.nextSequence('KTA:NASIONAL:' + tahun);
+  var urutStr = String(urut);
+  while (urutStr.length < 5) urutStr = '0' + urutStr;
+
+  var defWilayah = (KONFIG && KONFIG.DEFAULT_WILAYAH_ID) || 'DPW_JABODETABEK';
+  var wId = reg.wilayah_id || defWilayah;
+  var wCode = (wId === 'DPP_PUSAT') ? 'DPP' : (wId === 'DPW_JABODETABEK' ? 'JABO' : String(wId).replace(/^DPW_|^DPD_/, '').slice(0, 4).toUpperCase());
+  var noKta = tahun + '-' + wCode + '-' + urutStr;
+
+  // Masa berlaku 5 tahun terkunci mutlak sesuai ART APII Bab II Pasal 4 & 5
+  var tglTerbit = now.slice(0, 10);
+  var expYear = tahun + 5;
+  var masaBerlaku = expYear + now.slice(4, 10);
+  var qrToken = uuid().replace(/-/g, '').slice(0, 16);
+
+  // Simpan / update ke Sheet_KTA_Nasional
+  Database.insert(TABS.KTA_NASIONAL, {
+    no_kta: noKta,
+    nik: reg.nik || '',
+    full_name: reg.full_name,
+    wilayah_id: wId,
+    status: 'AKTIF',
+    masa_berlaku: masaBerlaku,
+    tgl_terbit: tglTerbit,
+    qr_token: qrToken,
+    created_at: now
+  });
+
   Database.updateRow(TABS.PENDAFTAR, reg._row, {
     status: 'DISETUJUI',
     approved_by_ketum: ctx.user.username,
-    approved_by_ketum_at: now
+    approved_by_ketum_at: now,
+    no_kta: noKta,
+    kta_masa_berlaku: masaBerlaku
   });
-  audit(ctx.user.username, 'MEMBER_APPROVED_KETUM', 'Pengesahan keanggotaan ' + reg.reg_number + ' a.n ' + reg.full_name, 'PENDAFTARAN');
-  return { ok: true, data: { id: reg.id, status: 'DISETUJUI' },
-    message: 'Calon anggota ' + reg.full_name + ' berhasil disahkan oleh Ketua DPW.' };
+
+  audit(ctx.user.username, 'MEMBER_APPROVED_KETUM', 'Pengesahan KTA Nasional 5 Th ' + noKta + ' a.n ' + reg.full_name, 'PENDAFTARAN');
+
+  // Notifikasi email
+  if (reg.email) {
+    kirimNotifikasiEmail_(reg.email,
+      'KTA Nasional APII Disahkan: ' + noKta,
+      'Selamat! KTA Nasional APII Anda Telah Terbit',
+      'Permohonan keanggotaan Anda di Yayasan Apologet Islam Indonesia telah disahkan resmi oleh Dewan Pengurus. Nomor KTA Nasional: <strong>' + noKta + '</strong> berlaku 5 tahun hingga <strong>' + formatTanggal(masaBerlaku) + '</strong>.',
+      'Unduh KTA Digital',
+      (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/pendaftar');
+  }
+
+  return {
+    ok: true,
+    data: {
+      id: reg.id,
+      status: 'DISETUJUI',
+      no_kta: noKta,
+      masa_berlaku: masaBerlaku,
+      qr_token: qrToken
+    },
+    message: 'Calon anggota ' + reg.full_name + ' berhasil disahkan. KTA Nasional No: ' + noKta + ' resmi terbit (Berlaku 5 Tahun).'
+  };
 }
 
 /**
@@ -707,5 +762,171 @@ function rejectPendaftar(ctx) {
   audit(ctx.user.username, 'MEMBER_REJECTED', 'Menolak pendaftar ' + reg.reg_number + ': ' + p.notes, 'PENDAFTARAN');
   return { ok: true, data: { id: reg.id, status: 'DITOLAK' },
     message: 'Pendaftaran ' + reg.reg_number + ' telah ditolak.' };
+}
+
+/**
+ * getKtaNasionalList: daftar KTA Nasional aktif (Direktori Anggota Tetap).
+ * Scoped by wilayah_id (kecuali DPP / Superadmin).
+ */
+function getKtaNasionalList(ctx) {
+  var p = ctx.payload || {};
+  var limit = Math.min(Number(p.limit) || 30, 100);
+  var page = Math.max(Number(p.page) || 1, 1);
+  var q = String(p.q || '').toLowerCase();
+
+  var isNationalAudit = ctx.user && (ctx.user.role === ROLES.SUPERADMIN || ctx.user.role === ROLES.KETUA_DPP) && (p.scope === 'NASIONAL');
+  var userWilayah = (ctx.user && ctx.user.wilayah_id) || (KONFIG && KONFIG.DEFAULT_WILAYAH_ID) || 'DPW_JABODETABEK';
+
+  var rows = Database.readAll(TABS.KTA_NASIONAL);
+  if (!isNationalAudit) {
+    rows = rows.filter(function (k) {
+      var wId = k.wilayah_id || (KONFIG && KONFIG.DEFAULT_WILAYAH_ID) || 'DPW_JABODETABEK';
+      return wId === userWilayah;
+    });
+  }
+
+  if (q) {
+    rows = rows.filter(function (k) {
+      return (k.no_kta || '').toLowerCase().indexOf(q) !== -1 ||
+             (k.full_name || '').toLowerCase().indexOf(q) !== -1 ||
+             (k.nik || '').indexOf(q) !== -1;
+    });
+  }
+  if (p.status) {
+    rows = rows.filter(function (k) { return k.status === p.status; });
+  }
+
+  rows.sort(function (a, b) {
+    return (b.tgl_terbit || '').localeCompare(a.tgl_terbit || '');
+  });
+
+  var total = rows.length;
+  var start = (page - 1) * limit;
+  var items = rows.slice(start, start + limit).map(function (k) {
+    return {
+      no_kta: k.no_kta,
+      full_name: k.full_name,
+      nik_masked: (k.nik && k.nik.length >= 10) ? (k.nik.slice(0, 4) + '********' + k.nik.slice(-4)) : '************',
+      wilayah_id: k.wilayah_id,
+      status: k.status,
+      tgl_terbit: k.tgl_terbit,
+      tgl_terbit_label: formatTanggal(k.tgl_terbit),
+      masa_berlaku: k.masa_berlaku,
+      masa_berlaku_label: formatTanggal(k.masa_berlaku),
+      qr_token: k.qr_token,
+      qr_verify_url: (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/verifikasi-kta?token=' + encodeURIComponent(k.qr_token || k.no_kta)
+    };
+  });
+
+  return { ok: true, data: { items: items, total: total, page: page, limit: limit }, message: 'Direktori KTA Nasional berhasil dimuat.' };
+}
+
+/**
+ * verifyKtaPublic: verifikasi publik keabsahan KTA tanpa membocorkan NIK/alamat (UU PDP No. 27/2022).
+ * Publik (tanpa auth token).
+ */
+function verifyKtaPublic(ctx) {
+  var p = ctx.payload || {};
+  var tokenOrNo = String(p.token || p.no_kta || '').trim();
+  if (!tokenOrNo) return { ok: false, data: null, message: 'Nomor KTA atau token validasi wajib diisi.' };
+
+  var row = Database.findOne(TABS.KTA_NASIONAL, { qr_token: tokenOrNo }) ||
+            Database.findOne(TABS.KTA_NASIONAL, { no_kta: tokenOrNo });
+
+  if (!row) {
+    return { ok: false, data: null, message: 'Nomor KTA atau token validasi tidak terdaftar dalam pangkalan data resmi APII.' };
+  }
+
+  var now = new Date().toISOString().slice(0, 10);
+  var isExpired = row.masa_berlaku && (now > row.masa_berlaku);
+
+  return {
+    ok: true,
+    data: {
+      no_kta: row.no_kta,
+      full_name: row.full_name,
+      wilayah_id: row.wilayah_id,
+      wilayah_nama: (row.wilayah_id === 'DPP_PUSAT') ? 'DPP PUSAT' : 'DPW JABODETABEK',
+      status: isExpired ? 'KADALUARSA' : (row.status || 'AKTIF'),
+      tgl_terbit: row.tgl_terbit,
+      masa_berlaku: row.masa_berlaku,
+      is_valid: !isExpired && row.status === 'AKTIF'
+    },
+    message: 'Data keanggotaan terverifikasi resmi oleh Dewan Pimpinan Pusat Yayasan APII.'
+  };
+}
+
+/**
+ * generateLegacyClaimToken: bangkitkan token klaim mandiri 15 menit untuk anggota lama.
+ * SUPERADMIN, SEKRETARIS.
+ */
+function generateLegacyClaimToken(ctx) {
+  var p = ctx.payload || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID anggota/pendaftar lama wajib diisi.' };
+  var reg = Database.findOne(TABS.PENDAFTAR, { id: p.id });
+  if (!reg) return { ok: false, data: null, message: 'Data anggota lama tidak ditemukan.' };
+
+  var token = uuid().replace(/-/g, '').slice(0, 24);
+  var expTime = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+  Database.updateRow(TABS.PENDAFTAR, reg._row, {
+    claim_token: token,
+    claim_expires_at: expTime
+  });
+
+  var claimUrl = (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/klaim-kta?token=' + token;
+  audit(ctx.user.username, 'LEGACY_CLAIM_TOKEN_GENERATED', 'Token klaim untuk ' + reg.full_name + ' (15 menit)');
+
+  return {
+    ok: true,
+    data: {
+      claim_token: token,
+      claim_expires_at: expTime,
+      claim_url: claimUrl
+    },
+    message: 'Token klaim mandiri berhasil dibuat (Berlaku 15 menit).'
+  };
+}
+
+/**
+ * claimLegacyKta: proses klaim mandiri anggota lama memperbarui foto & biodata via token.
+ * Publik.
+ */
+function claimLegacyKta(ctx) {
+  var p = ctx.payload || {};
+  if (!p.token) return { ok: false, data: null, message: 'Token klaim wajib diisi.' };
+
+  var reg = Database.findOne(TABS.PENDAFTAR, { claim_token: p.token });
+  if (!reg) return { ok: false, data: null, message: 'Token klaim tidak valid atau sudah digunakan.' };
+
+  var now = new Date();
+  if (reg.claim_expires_at && now > new Date(reg.claim_expires_at)) {
+    return { ok: false, data: null, message: 'Token klaim telah kadaluarsa (> 15 menit). Silakan hubungi Sekretariat untuk tautan baru.' };
+  }
+
+  var updateData = {
+    claim_token: '',
+    claim_expires_at: ''
+  };
+
+  if (p.phone) updateData.phone = String(p.phone).trim();
+  if (p.address) updateData.address = String(p.address).trim();
+  if (p.division_interest) updateData.division_interest = String(p.division_interest).trim();
+
+  if (p.ktp_base64) {
+    updateData.ktp_drive_url = saveUploadToDrive_(p.ktp_base64, 'KTP_KLAIM_' + (reg.reg_number || reg.id) + '.jpg', '08_Identitas_KTA_KTP') || reg.ktp_drive_url;
+  }
+  if (p.selfie_base64) {
+    updateData.selfie_drive_url = saveUploadToDrive_(p.selfie_base64, 'PASFOTO_KLAIM_' + (reg.reg_number || reg.id) + '.jpg', '08_Identitas_KTA_KTP') || reg.selfie_drive_url;
+  }
+
+  Database.updateRow(TABS.PENDAFTAR, reg._row, updateData);
+  audit('public', 'LEGACY_MEMBER_CLAIMED', 'Anggota lama ' + reg.full_name + ' berhasil klaim data mandiri');
+
+  return {
+    ok: true,
+    data: { id: reg.id, full_name: reg.full_name },
+    message: 'Data keanggotaan berhasil diperbarui! Tim Sekretariat akan segera mencetak KTA Nasional 5 Tahun Anda.'
+  };
 }
 

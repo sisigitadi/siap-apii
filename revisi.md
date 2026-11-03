@@ -51,9 +51,12 @@ Setelah pengguna memberikan instruksi tegas **"OKE TERAPKAN"**, implementasi kod
 - [x] Lokalisasi notifikasi peran wilayah `kirimNotifikasiKeRole_(role, ..., targetWilayah)` untuk mencegah spam blast lintas cabang (Benteng A-03).
 
 ### Fase 5: Keanggotaan Nasional & KTA 5 Tahun (gas/Auth.gs & portal/portal.js)
-- [ ] Penegakan masa berlaku KTA terkunci mutlak 5 tahun (ART).
-- [ ] Modul konsolidasi anggota lama & klaim mandiri OTP WhatsApp (15 menit).
-- [ ] Generator KTA digital kanvas CR80 ber-QR Code verifikasi publik.
+- [x] Penegakan masa berlaku KTA terkunci mutlak 5 tahun (ART Bab II Pasal 4 & 5).
+- [x] Generator KTA sekuensial nasional tunggal (KTA:NASIONAL:{tahun} - e.g. 2026-JABO-00142) dengan pencatatan Sheet_KTA_Nasional.
+- [x] Kepatuhan UU PDP No. 27/2022 pada endpoint verifikasi publik /verifikasi-kta (masking NIK & privasi alamat).
+- [x] Modul konsolidasi anggota lama & klaim mandiri tautan WhatsApp (token 15 menit).
+- [x] Generator KTA digital kanvas CR80 ISO/IEC 7810 ID-1 (1012x638 px, 300 DPI), tampak muka & punggung (5 butir kode etik ART Bab II Pasal 6), cetak instan & unduh PNG.
+- [x] Navigasi 3 Tab Pengelolaan Anggota di portal: Verifikasi Berkas Baru, Direktori KTA Nasional Aktif, dan Konsolidasi Anggota Lama.
 
 ### Fase 6: Formasi Pengurus & Delegasi Plt (gas/Divisi.gs & portal/portal.js)
 - [ ] Pemetaan BPH & 7 Divisi Resmi APII sesuai ART.

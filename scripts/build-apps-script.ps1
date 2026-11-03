@@ -31,7 +31,7 @@ $fnNames = @(
   'hashPassword','login','loginWithGoogle','logout','verifySession','me','getListPengguna',
   'createPengguna','updatePengguna','getAuditLogs',
   'registerAnggota','getListPendaftar','verifyPendaftarSekretaris','approvePendaftarKetum','rejectPendaftar',
-  'exportPendaftar','saveUploadToDrive_',
+  'exportPendaftar','getKtaNasionalList','verifyKtaPublic','generateLegacyClaimToken','claimLegacyKta','saveUploadToDrive_',
   'initSchema','readAll','findOne','findMany','insert','updateRow','deleteRow',
   'nextSequence','getPartitionedSequenceKey','seedDefaultAccounts_','seedDefaultSettings_',
   'uuid','audit','formatRupiah','formatTanggal','toRoman','sanitizeUser','getDashboard',

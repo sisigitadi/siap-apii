@@ -1783,7 +1783,7 @@
         case 'WA-09':
           return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh, Yth. Ketua " + (d.division || 'Divisi') + '. Surat Proposal Program: "' + (d.program_title || '-') + '" No: ' + (d.tracking_id || '-') + ' telah DISETUJUI Ketua ' + wName + '. Rincian: ' + portalUrl + '/#/divisi';
         case 'WA-10':
-          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh. Alhamdulillah, kegiatan "" + (d.program_title || '-') + '" tuntas. ' + (d.division || 'Divisi') + ' telah mengajukan Surat Pengantar LPJ No: ' + (d.tracking_id || '-') + ' ke portal. Mohon verifikasi: ' + portalUrl + '/#/divisi';
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh. Alhamdulillah, kegiatan \"" + (d.program_title || '-') + '" tuntas. ' + (d.division || 'Divisi') + ' telah mengajukan Surat Pengantar LPJ No: ' + (d.tracking_id || '-') + ' ke portal. Mohon verifikasi: ' + portalUrl + '/#/divisi';
         case 'WA-11':
           return prefix + "Pemberitahuan Resmi Dewan Pimpinan Pusat (DPP APII): Telah terbit instruksi No: " + (d.letter_number || '-') + ' tentang "' + (d.title || '-') + '". Mohon Sekretaris ' + (d.dpw_tujuan || 'DPW') + ' mencatat agenda masuk & meneruskan disposisi ke Ketua: ' + portalUrl + '/#/disposisi';
         case 'WA-12':
@@ -4598,7 +4598,61 @@
     renderPendaftarView: function () {
       var box = document.getElementById('penggunaContainer');
       var self = this;
-      box.innerHTML =
+      self.state.pendaftarSubTab = self.state.pendaftarSubTab || 'berkas';
+      var tab = self.state.pendaftarSubTab;
+
+      var navHtml =
+        '<div class="flex items-center gap-2 p-1.5 bg-emerald-50/70 border border-emerald-100 rounded-2xl mb-6 flex-wrap">' +
+        '<button type="button" id="subtabBerkasBtn" class="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ' + (tab === 'berkas' ? 'bg-white text-emerald-dark shadow-sm border border-emerald-200' : 'text-gray-600 hover:text-emerald-800') + '">' +
+        '<span>📥 Verifikasi Berkas Baru</span>' +
+        '</button>' +
+        '<button type="button" id="subtabDirektoriBtn" class="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ' + (tab === 'direktori' ? 'bg-white text-emerald-dark shadow-sm border border-emerald-200' : 'text-gray-600 hover:text-emerald-800') + '">' +
+        '<span>🪪 Direktori KTA Nasional</span>' +
+        '</button>' +
+        '<button type="button" id="subtabKonsolidasiBtn" class="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ' + (tab === 'konsolidasi' ? 'bg-white text-emerald-dark shadow-sm border border-emerald-200' : 'text-gray-600 hover:text-emerald-800') + '">' +
+        '<span>🔄 Konsolidasi &amp; Klaim Mandiri</span>' +
+        '</button>' +
+        '</div>' +
+        '<div id="pendaftarSubContent"></div>';
+
+      box.innerHTML = navHtml;
+
+      var bBerkas = document.getElementById('subtabBerkasBtn');
+      var bDir = document.getElementById('subtabDirektoriBtn');
+      var bKon = document.getElementById('subtabKonsolidasiBtn');
+
+      if (bBerkas) {
+        bBerkas.addEventListener('click', function () {
+          self.state.pendaftarSubTab = 'berkas';
+          self.renderPendaftarView();
+        });
+      }
+      if (bDir) {
+        bDir.addEventListener('click', function () {
+          self.state.pendaftarSubTab = 'direktori';
+          self.renderPendaftarView();
+        });
+      }
+      if (bKon) {
+        bKon.addEventListener('click', function () {
+          self.state.pendaftarSubTab = 'konsolidasi';
+          self.renderPendaftarView();
+        });
+      }
+
+      var subBox = document.getElementById('pendaftarSubContent');
+      if (tab === 'direktori') {
+        self.renderDirektoriKtaView(subBox);
+      } else if (tab === 'konsolidasi') {
+        self.renderKonsolidasiView(subBox);
+      } else {
+        self.renderBerkasPendaftarView(subBox);
+      }
+    },
+
+    renderBerkasPendaftarView: function (subBox) {
+      var self = this;
+      subBox.innerHTML =
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 mb-6 flex flex-col sm:flex-row gap-3 items-center">' +
         '<input id="pendaftarQ" type="text" placeholder="Cari nama pemohon / NIK / WA / kota…" class="field flex-1" />' +
         '<select id="pendaftarStatus" class="field sm:w-56">' +
@@ -4679,6 +4733,7 @@
 
         tb.innerHTML = items.length ? items.map(function (p) {
           var statusBadge = self.badge(p.status, p.status_label || p.status);
+          var isApproved = (p.status === 'APPROVED' || p.status === 'DISETUJUI' || p.no_kta);
           return '<tr data-id="' + p.id + '">' +
             '<td><div class="font-mono text-xs text-gray-500 font-bold">' + Auth.esc(p.registration_no) + '</div>' +
             '<div class="font-bold text-gray-900 leading-snug">' + Auth.esc(p.nama_lengkap) + '</div>' +
@@ -4690,6 +4745,7 @@
             '<td class="text-gray-500 text-xs whitespace-nowrap">' + Auth.esc((p.created_at || '').slice(0, 10)) + '</td>' +
             '<td>' + statusBadge + '</td>' +
             '<td class="tbl-actions"><div class="flex gap-1.5">' +
+            (isApproved ? self.aBtn('kta', '🪪 KTA', 'Lihat Kartu Anggota Digital CR80') : '') +
             self.aBtn('review', 'Periksa Berkas', 'Lihat biodata, KTP & foto selfie') +
             '</div></td>' +
             '</tr>';
@@ -4697,11 +4753,175 @@
 
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
           var id = tr.getAttribute('data-id');
-          var btn = tr.querySelector('[data-act="review"]');
-          if (btn) {
-            btn.addEventListener('click', function () {
-              var item = items.filter(function (x) { return String(x.id) === String(id); })[0];
-              if (item) self.pendaftarDetail(item);
+          var item = items.filter(function (x) { return String(x.id) === String(id); })[0];
+          var btnReview = tr.querySelector('[data-act="review"]');
+          var btnKta = tr.querySelector('[data-act="kta"]');
+          if (btnReview && item) {
+            btnReview.addEventListener('click', function () {
+              self.pendaftarDetail(item);
+            });
+          }
+          if (btnKta && item) {
+            btnKta.addEventListener('click', function () {
+              self.openKtaCardModal(item);
+            });
+          }
+        });
+      });
+    },
+
+    /** TAB 2: Direktori KTA Nasional Aktif */
+    renderDirektoriKtaView: function (subBox) {
+      var self = this;
+      subBox.innerHTML =
+        '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 mb-6 flex flex-col sm:flex-row gap-3 items-center">' +
+        '<input id="ktaQ" type="text" placeholder="Cari nama anggota / No. KTA / NIK…" class="field flex-1" />' +
+        '<select id="ktaStatusFilter" class="field sm:w-48">' +
+        '<option value="">Semua Status</option>' +
+        '<option value="AKTIF" selected>KTA Aktif (5 Tahun)</option>' +
+        '<option value="KADALUARSA">Kadaluarsa</option>' +
+        '</select>' +
+        '<button type="button" id="btnReloadKta" class="btn btn-ghost px-4 py-2.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border border-emerald-200 text-emerald-800 hover:bg-emerald-50">' +
+        '<span>🔄 Muat Ulang</span></button>' +
+        '</div>' +
+        '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
+        '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+        '<th>No. KTA &amp; Nama Anggota</th><th>NIK (Masked UU PDP)</th><th>Wilayah Kerja</th><th>Tgl Terbit</th><th>Masa Berlaku (5 Th)</th><th>Status</th><th>Aksi</th>' +
+        '</tr></thead><tbody id="ktaRows">' + this.loadingRow(7) + '</tbody></table></div>' +
+        '</div>';
+
+      var load = function () { self.loadKtaNasional(); };
+      document.getElementById('ktaQ').addEventListener('input', load);
+      document.getElementById('ktaStatusFilter').addEventListener('change', load);
+      document.getElementById('btnReloadKta').addEventListener('click', load);
+
+      this.loadKtaNasional();
+    },
+
+    loadKtaNasional: function () {
+      var tb = document.getElementById('ktaRows');
+      var self = this;
+      if (!tb) return;
+      var q = (document.getElementById('ktaQ') ? document.getElementById('ktaQ').value.trim() : '').toLowerCase();
+      var st = document.getElementById('ktaStatusFilter') ? document.getElementById('ktaStatusFilter').value : '';
+
+      Auth.fetch('getKtaNasionalList', { q: q, status: st, scope: 'NASIONAL' }).then(function (res) {
+        var items = (res && res.data && res.data.items) || [];
+        if (!items.length) {
+          tb.innerHTML = '<tr class="tbl-empty"><td colspan="7" class="text-center text-gray-400 py-10">Tidak ada KTA Nasional yang sesuai filter.</td></tr>';
+          return;
+        }
+        tb.innerHTML = items.map(function (k) {
+          var statusBadge = self.badge(k.status, k.status === 'AKTIF' ? 'AKTIF (5 TH)' : k.status);
+          var wilayahLabel = (k.wilayah_id === 'DPP_PUSAT') ? 'DPP PUSAT' : (k.wilayah_id === 'DPW_JABODETABEK' ? 'DPW JABODETABEK' : String(k.wilayah_id || '-'));
+          return '<tr data-no="' + Auth.esc(k.no_kta) + '">' +
+            '<td><div class="font-mono text-xs text-emerald-800 font-extrabold">' + Auth.esc(k.no_kta) + '</div>' +
+            '<div class="font-bold text-gray-900 leading-snug">' + Auth.esc(k.full_name) + '</div></td>' +
+            '<td><div class="font-mono text-xs text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-100 inline-block">' + Auth.esc(k.nik_masked || '************') + '</div></td>' +
+            '<td class="text-xs font-semibold text-gray-700">' + Auth.esc(wilayahLabel) + '</td>' +
+            '<td class="text-xs text-gray-500 whitespace-nowrap">' + Auth.esc(k.tgl_terbit_label || k.tgl_terbit) + '</td>' +
+            '<td class="text-xs font-bold text-amber-700 whitespace-nowrap">' + Auth.esc(k.masa_berlaku_label || k.masa_berlaku) + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td class="tbl-actions"><div class="flex gap-1.5">' +
+            self.aBtn('kta', '🪪 KTA Digital', 'Buka KTA Digital CR80') +
+            self.aBtn('verify', '🔍 Validasi', 'Periksa Keabsahan UU PDP') +
+            '</div></td>' +
+            '</tr>';
+        }).join('');
+
+        Array.prototype.forEach.call(tb.querySelectorAll('tr[data-no]'), function (tr) {
+          var no = tr.getAttribute('data-no');
+          var item = items.filter(function (x) { return x.no_kta === no; })[0];
+          var btnKta = tr.querySelector('[data-act="kta"]');
+          var btnVerif = tr.querySelector('[data-act="verify"]');
+          if (btnKta && item) {
+            btnKta.addEventListener('click', function () { self.openKtaCardModal(item); });
+          }
+          if (btnVerif && item) {
+            btnVerif.addEventListener('click', function () { self.verifyKtaModal(item.qr_token || item.no_kta); });
+          }
+        });
+      }).catch(function (err) {
+        tb.innerHTML = '<tr class="tbl-empty"><td colspan="7" class="text-center text-red-500 py-6">Gagal memuat direktori KTA: ' + Auth.esc(err.message) + '</td></tr>';
+      });
+    },
+
+    /** TAB 3: Konsolidasi Anggota Lama & Klaim Mandiri */
+    renderKonsolidasiView: function (subBox) {
+      var self = this;
+      subBox.innerHTML =
+        '<div class="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">' +
+        '<div>' +
+        '<div class="font-bold text-emerald-950 text-sm flex items-center gap-2">' +
+        '<span>🔄 Konsolidasi Anggota Lama &amp; Tautan Klaim Mandiri (15 Menit)</span>' +
+        '</div>' +
+        '<p class="text-xs text-emerald-800 mt-1 leading-relaxed">' +
+        'Bagi anggota yang terdaftar sebelum sistem online, bangkitkan tautan klaim mandiri 15 menit melalui WhatsApp. Anggota dapat melengkapi foto KTP ber-watermark UU PDP dan pasfoto selfie resmi secara mandiri.' +
+        '</p>' +
+        '</div>' +
+        '</div>' +
+        '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 mb-6 flex flex-col sm:flex-row gap-3 items-center">' +
+        '<input id="konsolidasiQ" type="text" placeholder="Cari nama anggota lama / WA / kota…" class="field flex-1" />' +
+        '</div>' +
+        '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
+        '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+        '<th>Nama Lengkap</th><th>Nomor Kontak / WA</th><th>Domisili / Kota</th><th>Status Berkas</th><th>Aksi Konsolidasi</th>' +
+        '</tr></thead><tbody id="konsolidasiRows">' + this.loadingRow(5) + '</tbody></table></div>' +
+        '</div>';
+
+      var load = function () { self.loadKonsolidasiAnggota(); };
+      document.getElementById('konsolidasiQ').addEventListener('input', load);
+
+      this.loadKonsolidasiAnggota();
+    },
+
+    loadKonsolidasiAnggota: function () {
+      var tb = document.getElementById('konsolidasiRows');
+      var self = this;
+      if (!tb) return;
+      var q = (document.getElementById('konsolidasiQ') ? document.getElementById('konsolidasiQ').value.trim() : '').toLowerCase();
+
+      Auth.getCached('getListPendaftar', null, function (data) {
+        var items = (data && data.items) || [];
+        if (q) {
+          items = items.filter(function (x) {
+            return (x.nama_lengkap || '').toLowerCase().indexOf(q) !== -1 ||
+              (x.whatsapp || '').indexOf(q) !== -1 ||
+              (x.kota || '').toLowerCase().indexOf(q) !== -1;
+          });
+        }
+
+        tb.innerHTML = items.length ? items.map(function (p) {
+          var statusBadge = self.badge(p.status, p.status_label || p.status);
+          var hasKta = !!(p.no_kta || p.status === 'APPROVED' || p.status === 'DISETUJUI');
+          return '<tr data-id="' + p.id + '">' +
+            '<td><div class="font-bold text-gray-900 leading-snug">' + Auth.esc(p.nama_lengkap) + '</div>' +
+            '<div class="font-mono text-xs text-gray-500">' + Auth.esc(p.registration_no || p.nik || '-') + '</div></td>' +
+            '<td><div class="font-mono text-xs text-emerald-800 font-bold">' + Auth.esc(p.whatsapp) + '</div>' +
+            '<div class="text-xs text-gray-400">' + Auth.esc(p.email || '-') + '</div></td>' +
+            '<td class="text-xs text-gray-700">' + Auth.esc(p.kota || '-') + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap">' +
+            '<button type="button" data-act="claim_token" class="btn bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 transition">' +
+            '<span>🔗 Token Klaim WA</span></button>' +
+            (hasKta ? self.aBtn('kta', '🪪 KTA', 'Buka KTA Digital') : '') +
+            '</div></td>' +
+            '</tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="5" class="text-center text-gray-400 py-10">Tidak ada anggota yang ditemukan.</td></tr>';
+
+        Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
+          var id = tr.getAttribute('data-id');
+          var item = items.filter(function (x) { return String(x.id) === String(id); })[0];
+          var btnClaim = tr.querySelector('[data-act="claim_token"]');
+          var btnKta = tr.querySelector('[data-act="kta"]');
+          if (btnClaim && item) {
+            btnClaim.addEventListener('click', function () {
+              self.klaimModalDialog(item);
+            });
+          }
+          if (btnKta && item) {
+            btnKta.addEventListener('click', function () {
+              self.openKtaCardModal(item);
             });
           }
         });
@@ -4789,6 +5009,8 @@
           '<button type="button" id="btnApproveKetum" class="btn bg-gold hover:bg-gold-light text-emerald-dark flex-1 py-3 rounded-xl font-extrabold text-xs shadow-sm">🌟 Sahkan &amp; Setujui Anggota (Ketua DPW)</button>' : '') +
         (p.status === 'PENDING' || p.status === 'VERIFIED_SEKRETARIS' || p.status === 'DIVERIFIKASI_SEKRETARIS' ?
           '<button type="button" id="btnRejectPendaftar" class="btn btn-danger px-4 py-3 rounded-xl font-bold text-xs">Tolak Berkas</button>' : '') +
+        ((p.status === 'APPROVED' || p.status === 'DISETUJUI' || p.no_kta) ?
+          '<button type="button" id="btnDetailKta" class="btn bg-gold hover:bg-gold-light text-emerald-dark px-4 py-3 rounded-xl font-extrabold text-xs shadow-sm inline-flex items-center gap-1.5"><span>🪪 KTA Digital CR80</span></button>' : '') +
         '<button type="button" id="btnPrintReceiptBtn" class="btn btn-ghost px-4 py-3 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 border border-gray-200"><span>🖨️ Cetak Tanda Terima</span></button>' +
         '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold text-xs">Tutup</button>' +
         '</div>' +
@@ -4827,6 +5049,13 @@
         bReject.addEventListener('click', function () {
           self.rejectModal('Tolak Pendaftaran', 'Pendaftaran <b>' + Auth.esc(p.nama_lengkap) + '</b> akan ditolak dengan alasan di bawah ini.',
             'rejectPendaftar', p.id, function () { self.loadPendaftar(); });
+        });
+      }
+
+      var bDetailKta = document.getElementById('btnDetailKta');
+      if (bDetailKta) {
+        bDetailKta.addEventListener('click', function () {
+          self.openKtaCardModal(p);
         });
       }
 
@@ -4895,6 +5124,574 @@
       Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
         b.addEventListener('click', function () { self.closeModal(); });
       });
+    },
+
+    /** Modal dialog bangkitkan token klaim mandiri 15 menit untuk anggota lama via WhatsApp */
+    klaimModalDialog: function (item) {
+      var self = this;
+      self.toast('Membangkitkan token klaim mandiri 15 menit...', 'info');
+      Auth.fetch('generateLegacyClaimToken', { id: item.id }).then(function (res) {
+        if (!res || !res.ok || !res.data) {
+          self.toast('Gagal membangkitkan token klaim: ' + (res && res.message), 'error');
+          return;
+        }
+        var d = res.data;
+        var token = d.claim_token;
+        var claimUrl = d.claim_url || ((window.location.origin || 'https://siapii.sigitadi.id') + '/#/klaim-kta?token=' + token);
+        var waPhone = item.whatsapp || item.phone || '';
+        var waMsg = "Assalamu'alaikum Warahmatullahi Wabarakatuh, Yth. Saudara/i " + (item.nama_lengkap || item.full_name) +
+          ". Berikut tautan resmi pembaruan berkas KTA Nasional APII Anda (berlaku 15 menit):\n\n" +
+          claimUrl + "\n\n" +
+          "Mohon lengkapi pasfoto dan foto KTP untuk pengesahan KTA Digital CR80 5 Tahun. Syukron.\n- Sekretariat APII";
+
+        var html =
+          '<div class="p-6">' +
+          '<div class="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">' +
+          '<div>' +
+          '<span class="text-xs font-mono font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">TOKEN 15 MENIT</span>' +
+          '<h3 class="text-lg font-black text-emerald-dark mt-1">Tautan Klaim Mandiri Anggota</h3>' +
+          '<div class="text-xs text-gray-500 font-semibold">' + Auth.esc(item.nama_lengkap || item.full_name) + ' (' + Auth.esc(waPhone) + ')</div>' +
+          '</div>' +
+          '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
+          '</button>' +
+          '</div>' +
+          '<div class="space-y-4 text-xs">' +
+          '<div>' +
+          '<label class="lbl">Tautan Klaim Mandiri (Berlaku 15 Menit):</label>' +
+          '<div class="flex gap-2 items-center">' +
+          '<input id="inpClaimUrl" type="text" readonly value="' + Auth.esc(claimUrl) + '" class="field font-mono text-xs flex-1 bg-gray-50 text-gray-800 select-all" />' +
+          '<button type="button" id="btnCopyClaimUrl" class="btn btn-ghost px-4 py-2.5 rounded-xl text-xs font-bold border border-gray-200 hover:bg-gray-100 whitespace-nowrap">📋 Salin</button>' +
+          '</div>' +
+          '</div>' +
+          '<div class="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-amber-950 leading-relaxed text-[11px]">' +
+          '⚠️ <b>Keamanan Token:</b> Tautan ini aktif selama <b>15 menit</b> sejak dibuat. Jika masa berlaku habis, silakan klik tombol bangkitkan token kembali untuk membuat tautan baru.' +
+          '</div>' +
+          '</div>' +
+          '<div class="flex items-center justify-end gap-2 pt-5 border-t border-gray-100 mt-5">' +
+          (waPhone ?
+            '<button type="button" id="btnSendClaimWa" class="btn bg-emerald hover:bg-emerald-dark text-white px-5 py-2.5 rounded-xl font-bold text-xs inline-flex items-center gap-2 shadow-sm">' +
+            '<span>📲 Kirim ke WhatsApp Anggota</span></button>' : '') +
+          '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 rounded-xl font-semibold text-xs">Tutup</button>' +
+          '</div>' +
+          '</div>';
+
+        self.openModal(html, 'max-w-lg');
+
+        var btnCopy = document.getElementById('btnCopyClaimUrl');
+        if (btnCopy) {
+          btnCopy.addEventListener('click', function () {
+            var inp = document.getElementById('inpClaimUrl');
+            if (inp) {
+              inp.select();
+              if (navigator.clipboard) {
+                navigator.clipboard.writeText(claimUrl).then(function () {
+                  self.toast('Tautan klaim berhasil disalin ke clipboard.', 'success');
+                });
+              } else {
+                document.execCommand('copy');
+                self.toast('Tautan klaim disalin.', 'success');
+              }
+            }
+          });
+        }
+
+        var btnWa = document.getElementById('btnSendClaimWa');
+        if (btnWa) {
+          btnWa.addEventListener('click', function () {
+            self.openWhatsApp(waPhone, waMsg, {
+              touchpoint: 'WA-17',
+              recipientName: item.nama_lengkap || item.full_name
+            });
+          });
+        }
+
+        Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+          b.addEventListener('click', function () { self.closeModal(); });
+        });
+      }).catch(function (err) {
+        self.toast('Gagal: ' + Auth.esc(err.message), 'error');
+      });
+    },
+
+    /** Modal verifikasi publik keabsahan KTA (UU PDP No. 27/2022) */
+    verifyKtaModal: function (tokenOrNo) {
+      var self = this;
+      self.toast('Memverifikasi keabsahan KTA...', 'info');
+      Auth.fetch('verifyKtaPublic', { token: tokenOrNo }).then(function (res) {
+        if (!res || !res.ok || !res.data) {
+          self.toast('KTA tidak terdaftar atau tidak sah: ' + (res && res.message), 'error');
+          return;
+        }
+        var d = res.data;
+        var isValid = d.is_valid;
+        var html =
+          '<div class="p-6">' +
+          '<div class="text-center pb-4 mb-4 border-b border-gray-100">' +
+          '<div class="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-3 ' + (isValid ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800') + '">' +
+          (isValid ? '<svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' :
+                     '<svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>') +
+          '</div>' +
+          '<h3 class="text-lg font-black text-gray-900">' + (isValid ? 'KTA Terverifikasi Resmi' : 'Status KTA: Tidak Aktif / Kadaluarsa') + '</h3>' +
+          '<p class="text-xs text-gray-500 mt-1">Pangkalan Data Resmi Dewan Pimpinan Pusat Yayasan APII</p>' +
+          '</div>' +
+          '<div class="space-y-2 text-xs py-2">' +
+          '<div class="flex justify-between py-1 border-b border-gray-100"><span class="text-gray-500">Nomor KTA:</span><span class="font-mono font-black text-emerald-900">' + Auth.esc(d.no_kta) + '</span></div>' +
+          '<div class="flex justify-between py-1 border-b border-gray-100"><span class="text-gray-500">Nama Anggota:</span><span class="font-bold text-gray-900">' + Auth.esc(d.full_name) + '</span></div>' +
+          '<div class="flex justify-between py-1 border-b border-gray-100"><span class="text-gray-500">Wilayah Penugasan:</span><span class="font-semibold text-gray-800">' + Auth.esc(d.wilayah_nama || d.wilayah_id) + '</span></div>' +
+          '<div class="flex justify-between py-1 border-b border-gray-100"><span class="text-gray-500">Masa Berlaku (5 Tahun):</span><span class="font-bold text-amber-800">' + Auth.esc(d.masa_berlaku) + '</span></div>' +
+          '<div class="flex justify-between py-1"><span class="text-gray-500">Status Keabsahan:</span>' + self.badge(d.status, d.status) + '</div>' +
+          '</div>' +
+          '<div class="p-3 bg-gray-50 rounded-xl text-[10px] text-gray-500 leading-relaxed mt-4">' +
+          '🛡️ <b>Kepatuhan UU PDP No. 27/2022:</b> Halaman verifikasi publik ini sengaja tidak menampilkan NIK utuh maupun alamat tempat tinggal pribadi guna melindungi privasi anggota.' +
+          '</div>' +
+          '<div class="flex items-center justify-end gap-2 pt-4 border-t border-gray-100 mt-4">' +
+          '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 rounded-xl font-semibold text-xs">Tutup</button>' +
+          '</div>' +
+          '</div>';
+
+        self.openModal(html, 'max-w-md');
+        Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+          b.addEventListener('click', function () { self.closeModal(); });
+        });
+      }).catch(function (err) {
+        self.toast('Gagal verifikasi: ' + Auth.esc(err.message), 'error');
+      });
+    },
+
+    /**
+     * Modal KTA Digital CR80 Standar ISO/IEC 7810 ID-1 (85.60 mm x 53.98 mm)
+     * Dilengkapi kanvas resolusi tinggi 300 DPI, tampak muka & punggung, unduh PNG, cetak langsung.
+     */
+    openKtaCardModal: function (k) {
+      var self = this;
+      var nama = k.full_name || k.nama_lengkap || 'ANGGOTA RESMI APII';
+      var noKta = k.no_kta || '2026-JABO-00001';
+      var nikMasked = k.nik_masked || ((k.nik && k.nik.length >= 10) ? (k.nik.slice(0, 4) + '********' + k.nik.slice(-4)) : '3171********0001');
+      var wId = k.wilayah_id || 'DPW_JABODETABEK';
+      var wilayahLabel = (wId === 'DPP_PUSAT') ? 'DEWAN PIMPINAN PUSAT' : 'DEWAN PIMPINAN WILAYAH JABODETABEK';
+      var masaBerlaku = k.masa_berlaku_label || k.masa_berlaku || '5 Tahun';
+      var qrVerifyUrl = k.qr_verify_url || ((window.location.origin || 'https://siapii.sigitadi.id') + '/verifikasi-kta?token=' + encodeURIComponent(k.qr_token || noKta));
+      var qrImgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=' + encodeURIComponent(qrVerifyUrl);
+      var fotoUrl = k.selfie_image_url || k.selfie_drive_url || '';
+
+      var modalHtml =
+        '<div class="p-4 sm:p-6 printable-kta-container">' +
+        '<div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-100 no-print">' +
+        '<div>' +
+        '<div class="flex items-center gap-2">' +
+        '<span class="text-[10px] uppercase font-black tracking-widest text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">STANDAR CR80 ISO/IEC 7810</span>' +
+        '<span class="text-[10px] text-gray-500 font-mono">' + Auth.esc(noKta) + '</span>' +
+        '</div>' +
+        '<h3 class="text-base sm:text-lg font-black text-emerald-dark mt-0.5">Kartu Tanda Anggota (KTA) Digital 5 Tahun</h3>' +
+        '</div>' +
+        '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
+        '</button>' +
+        '</div>' +
+
+        // Toggle Tampak Depan / Belakang
+        '<div class="flex items-center justify-center gap-2 mb-4 bg-gray-100 p-1.5 rounded-2xl max-w-xs mx-auto no-print">' +
+        '<button type="button" id="tabKtaFrontBtn" class="flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition bg-white text-emerald-dark shadow-sm">🪪 Tampak Muka</button>' +
+        '<button type="button" id="tabKtaBackBtn" class="flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition text-gray-500 hover:text-gray-900">🔄 Tampak Punggung</button>' +
+        '</div>' +
+
+        // Card Container View (CR80 ratio 85.60 mm x 53.98 mm)
+        '<div class="flex justify-center p-2 mb-4 overflow-hidden">' +
+
+        // TAMPAK MUKA (DEPAN)
+        '<div id="ktaFaceFront" class="w-full max-w-[460px] aspect-[856/540] rounded-2xl p-4 text-white shadow-2xl relative overflow-hidden flex flex-col justify-between border-2 border-amber-400/90" style="background: linear-gradient(135deg, #022c22 0%, #064e3b 55%, #0f766e 100%);">' +
+        // Watermark ornamen latar
+        '<div class="absolute inset-0 opacity-10 pointer-events-none flex items-center justify-center font-black text-9xl text-amber-300 select-none">APII</div>' +
+        // Header
+        '<div class="flex items-center justify-between border-b border-amber-400/40 pb-2 relative z-10">' +
+        '<div class="flex items-center gap-2.5">' +
+        '<div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-emerald-950 font-black flex items-center justify-center text-xs shadow-md border border-amber-200">APII</div>' +
+        '<div>' +
+        '<div class="text-[8px] uppercase tracking-wider text-amber-300 font-extrabold leading-tight">YAYASAN APOLOGET ISLAM INDONESIA</div>' +
+        '<div class="text-[11px] font-black text-white tracking-wide leading-tight">KARTU TANDA ANGGOTA NASIONAL</div>' +
+        '<div class="text-[7.5px] font-bold text-emerald-200 uppercase tracking-widest leading-tight">' + Auth.esc(wilayahLabel) + '</div>' +
+        '</div>' +
+        '</div>' +
+        '<div class="text-right">' +
+        '<div class="text-[7px] text-amber-300 uppercase tracking-widest font-mono">BERLAKU 5 TH</div>' +
+        '<div class="font-mono text-[9px] font-black text-white">' + Auth.esc(noKta) + '</div>' +
+        '</div>' +
+        '</div>' +
+        // Middle Content (Foto + Biodata)
+        '<div class="flex items-center gap-3.5 my-auto relative z-10">' +
+        '<div class="w-20 sm:w-24 aspect-[3/4] rounded-xl border-2 border-amber-400/80 overflow-hidden bg-emerald-950/80 shadow-md flex items-center justify-center flex-shrink-0">' +
+        (fotoUrl ?
+          '<img src="' + Auth.esc(fotoUrl) + '" alt="Pasfoto" class="w-full h-full object-cover" />' :
+          '<div class="text-center p-1 text-emerald-300"><div class="text-xl">👤</div><div class="text-[7px] font-bold">FOTO RESMI</div></div>') +
+        '</div>' +
+        '<div class="flex-1 min-w-0 space-y-1">' +
+        '<div>' +
+        '<div class="text-[8px] text-emerald-300 font-bold uppercase tracking-wider">Nama Lengkap Anggota</div>' +
+        '<div class="text-xs sm:text-sm font-black text-amber-300 uppercase tracking-wide truncate leading-snug">' + Auth.esc(nama) + '</div>' +
+        '</div>' +
+        '<div class="grid grid-cols-2 gap-2 pt-0.5">' +
+        '<div>' +
+        '<div class="text-[7.5px] text-emerald-300 font-semibold uppercase">NIK (UU PDP)</div>' +
+        '<div class="font-mono text-[9px] text-gray-200 font-bold">' + Auth.esc(nikMasked) + '</div>' +
+        '</div>' +
+        '<div>' +
+        '<div class="text-[7.5px] text-emerald-300 font-semibold uppercase">Masa Berlaku</div>' +
+        '<div class="text-[9px] text-amber-200 font-black">' + Auth.esc(masaBerlaku) + '</div>' +
+        '</div>' +
+        '</div>' +
+        '<div class="pt-0.5">' +
+        '<div class="text-[7.5px] text-emerald-300 font-semibold uppercase">Wilayah Penugasan</div>' +
+        '<div class="text-[8.5px] text-white font-bold truncate">' + Auth.esc(wilayahLabel) + '</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        // Footer (Stempel & Otentikasi)
+        '<div class="flex items-center justify-between border-t border-amber-400/40 pt-1.5 relative z-10">' +
+        '<div class="text-[6.5px] font-mono text-amber-300/90 tracking-widest uppercase">OTENTIKASI DIGITAL DPP PUSAT • CR80 ISO/IEC 7810</div>' +
+        '<div class="text-[7px] text-emerald-200 font-bold uppercase tracking-wider">SAH &amp; TERVERIFIKASI</div>' +
+        '</div>' +
+        '</div>' +
+
+        // TAMPAK PUNGGUNG (BELAKANG)
+        '<div id="ktaFaceBack" class="w-full max-w-[460px] aspect-[856/540] rounded-2xl p-4 text-white shadow-2xl relative overflow-hidden flex flex-col justify-between border-2 border-amber-400/90 hidden" style="background: linear-gradient(135deg, #022c22 0%, #064e3b 55%, #0f766e 100%);">' +
+        // Watermark ornamen latar
+        '<div class="absolute inset-0 opacity-10 pointer-events-none flex items-center justify-center font-black text-9xl text-amber-300 select-none">APII</div>' +
+        // Header
+        '<div class="text-center border-b border-amber-400/40 pb-1.5 relative z-10">' +
+        '<div class="text-[9px] font-black text-amber-300 uppercase tracking-wider">KODE ETIK KEANGGOTAAN APII</div>' +
+        '<div class="text-[7px] text-emerald-200 tracking-wider">ANGGARAN RUMAH TANGGA BAB II PASAL 6</div>' +
+        '</div>' +
+        // Middle Content (5 Butir Kode Etik)
+        '<div class="my-auto space-y-1 text-[7.5px] sm:text-[8px] text-gray-100 leading-tight relative z-10 pl-1">' +
+        '<div class="flex items-start gap-1.5"><span class="text-amber-400 font-bold">1.</span><span>Menjaga aqidah Ahlussunnah wal Jama\'ah dan kehormatan Yayasan APII.</span></div>' +
+        '<div class="flex items-start gap-1.5"><span class="text-amber-400 font-bold">2.</span><span>Berdakwah secara ilmiah, santun, beradab, dan berlandaskan data primer.</span></div>' +
+        '<div class="flex items-start gap-1.5"><span class="text-amber-400 font-bold">3.</span><span>Tunduk dan patuh pada AD/ART serta keputusan pimpinan organisasi.</span></div>' +
+        '<div class="flex items-start gap-1.5"><span class="text-amber-400 font-bold">4.</span><span>Menjaga persatuan umat Islam, kerukunan bangsa, serta tidak menyebarkan fitnah/hoaks.</span></div>' +
+        '<div class="flex items-start gap-1.5"><span class="text-amber-400 font-bold">5.</span><span>Menjalankan tugas dakwah dengan penuh amanah, profesionalisme, dan integritas syar\'i.</span></div>' +
+        '</div>' +
+        // Footer (QR Code Validasi & Legalitas)
+        '<div class="flex items-center justify-between border-t border-amber-400/40 pt-1.5 relative z-10 gap-2">' +
+        '<div class="flex-1">' +
+        '<div class="text-[6.5px] text-gray-200 leading-tight">Kartu ini adalah identitas resmi anggota Yayasan APII. Pindai QR Code untuk memeriksa keaslian kartu pada server resmi APII.</div>' +
+        '<div class="text-[6px] text-emerald-300 font-mono mt-0.5">DITERBITKAN RESMI OLEH DPP YAYASAN APII</div>' +
+        '</div>' +
+        '<div class="bg-white p-1 rounded-lg shadow-sm border border-amber-300 flex-shrink-0">' +
+        '<img src="' + Auth.esc(qrImgUrl) + '" alt="QR Verifikasi" class="w-12 h-12 object-contain" />' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+
+        '</div>' + // end card container
+
+        // Offscreen Canvas Engine (1012 x 638 px) untuk download PNG 300 DPI
+        '<canvas id="ktaCanvasEngine" width="1012" height="638" style="display:none;"></canvas>' +
+
+        // Action Buttons
+        '<div class="flex items-center justify-end gap-2 pt-4 border-t border-gray-100 flex-wrap no-print">' +
+        '<button type="button" id="btnDownloadKtaPng" class="btn bg-gold hover:bg-gold-light text-emerald-dark px-4 py-2.5 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 shadow-sm">' +
+        '<span>💾 Unduh Kartu (PNG)</span></button>' +
+        '<button type="button" id="btnPrintKtaBtn" class="btn btn-ghost px-4 py-2.5 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50">' +
+        '<span>🖨️ Cetak KTA</span></button>' +
+        '<button type="button" id="btnVerifyKtaDirect" class="btn btn-ghost px-3.5 py-2.5 rounded-xl font-semibold text-xs border border-emerald-200 text-emerald-800 hover:bg-emerald-50">' +
+        '<span>🔍 Cek Validasi</span></button>' +
+        '<button type="button" data-close class="btn btn-ghost px-4 py-2.5 rounded-xl font-semibold text-xs">Tutup</button>' +
+        '</div>' +
+        '</div>';
+
+      self.openModal(modalHtml, 'max-w-xl');
+
+      var currentSide = 'depan';
+      var fFront = document.getElementById('ktaFaceFront');
+      var fBack = document.getElementById('ktaFaceBack');
+      var bFront = document.getElementById('tabKtaFrontBtn');
+      var bBack = document.getElementById('tabKtaBackBtn');
+
+      var setSide = function (s) {
+        currentSide = s;
+        if (s === 'depan') {
+          fFront.classList.remove('hidden');
+          fBack.classList.add('hidden');
+          bFront.className = 'flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition bg-white text-emerald-dark shadow-sm';
+          bBack.className = 'flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition text-gray-500 hover:text-gray-900';
+        } else {
+          fFront.classList.add('hidden');
+          fBack.classList.remove('hidden');
+          bBack.className = 'flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition bg-white text-emerald-dark shadow-sm';
+          bFront.className = 'flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition text-gray-500 hover:text-gray-900';
+        }
+      };
+
+      if (bFront) bFront.addEventListener('click', function () { setSide('depan'); });
+      if (bBack) bBack.addEventListener('click', function () { setSide('belakang'); });
+
+      var btnDownload = document.getElementById('btnDownloadKtaPng');
+      if (btnDownload) {
+        btnDownload.addEventListener('click', function () {
+          btnDownload.disabled = true;
+          self.toast('Memproses gambar KTA resolusi tinggi 300 DPI...', 'info');
+          var cvs = document.getElementById('ktaCanvasEngine');
+          self.drawKtaCanvas(cvs, k, currentSide, function () {
+            btnDownload.disabled = false;
+            try {
+              var dataUrl = cvs.toDataURL('image/png');
+              var a = document.createElement('a');
+              a.href = dataUrl;
+              a.download = 'KTA_APII_' + (noKta || 'ANGGOTA').replace(/[^a-zA-Z0-9_-]/g, '_') + '_' + currentSide.toUpperCase() + '.png';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              self.toast('Kartu KTA (' + currentSide.toUpperCase() + ') berhasil diunduh.', 'success');
+            } catch (e) {
+              self.toast('Gagal unduh kanvas: ' + e.message, 'error');
+            }
+          });
+        });
+      }
+
+      var btnPrint = document.getElementById('btnPrintKtaBtn');
+      if (btnPrint) {
+        btnPrint.addEventListener('click', function () {
+          window.print();
+        });
+      }
+
+      var btnVerify = document.getElementById('btnVerifyKtaDirect');
+      if (btnVerify) {
+        btnVerify.addEventListener('click', function () {
+          self.verifyKtaModal(k.qr_token || noKta);
+        });
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+        b.addEventListener('click', function () { self.closeModal(); });
+      });
+    },
+
+    /**
+     * Engine Kanvas Resolusi Tinggi CR80 (1012 x 638 px) untuk download PNG 300 DPI
+     */
+    drawKtaCanvas: function (canvas, k, side, onReady) {
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+      var w = 1012;
+      var h = 638;
+      canvas.width = w;
+      canvas.height = h;
+
+      var nama = (k.full_name || k.nama_lengkap || 'ANGGOTA RESMI APII').toUpperCase();
+      var noKta = k.no_kta || '2026-JABO-00001';
+      var nikMasked = k.nik_masked || ((k.nik && k.nik.length >= 10) ? (k.nik.slice(0, 4) + '********' + k.nik.slice(-4)) : '3171********0001');
+      var wId = k.wilayah_id || 'DPW_JABODETABEK';
+      var wilayahLabel = (wId === 'DPP_PUSAT') ? 'DEWAN PIMPINAN PUSAT' : 'DEWAN PIMPINAN WILAYAH JABODETABEK';
+      var masaBerlaku = k.masa_berlaku_label || k.masa_berlaku || '5 Tahun';
+      var qrVerifyUrl = k.qr_verify_url || ((window.location.origin || 'https://siapii.sigitadi.id') + '/verifikasi-kta?token=' + encodeURIComponent(k.qr_token || noKta));
+      var qrImgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(qrVerifyUrl);
+
+      // Background Gradient Luxury Islamic Green
+      var grad = ctx.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, '#022c22');
+      grad.addColorStop(0.5, '#064e3b');
+      grad.addColorStop(1, '#0f766e');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Border Emas Dobel
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 10;
+      ctx.strokeRect(15, 15, w - 30, h - 30);
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(25, 25, w - 50, h - 50);
+
+      // Watermark APII di tengah
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.06)';
+      ctx.font = '900 240px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('APII', w / 2, h / 2 + 80);
+
+      if (side === 'depan') {
+        // Header Logo Monogram Box
+        ctx.fillStyle = '#d97706';
+        ctx.fillRect(50, 45, 80, 80);
+        ctx.strokeStyle = '#fef3c7';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(50, 45, 80, 80);
+        ctx.fillStyle = '#022c22';
+        ctx.font = '900 32px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('APII', 90, 97);
+
+        // Header Texts
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#fde68a';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillText('YAYASAN APOLOGET ISLAM INDONESIA', 145, 68);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 28px sans-serif';
+        ctx.fillText('KARTU TANDA ANGGOTA NASIONAL', 145, 100);
+
+        ctx.fillStyle = '#a7f3d0';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText(wilayahLabel, 145, 122);
+
+        // Header Right Info
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#fde68a';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText('MASA BERLAKU 5 TAHUN', w - 50, 75);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 24px monospace';
+        ctx.fillText(noKta, w - 50, 105);
+
+        // Garis pemisah header
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(50, 140);
+        ctx.lineTo(w - 50, 140);
+        ctx.stroke();
+
+        // Foto Box (x: 50, y: 170, w: 200, h: 260)
+        ctx.fillStyle = 'rgba(2, 44, 34, 0.8)';
+        ctx.fillRect(50, 170, 200, 260);
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(50, 170, 200, 260);
+        ctx.fillStyle = '#a7f3d0';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('PASFOTO RESMI', 150, 305);
+
+        // Biodata Block
+        ctx.textAlign = 'left';
+
+        ctx.fillStyle = '#6ee7b7';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText('NAMA LENGKAP ANGGOTA', 280, 200);
+        ctx.fillStyle = '#fef08a';
+        ctx.font = '900 28px sans-serif';
+        ctx.fillText(nama, 280, 235);
+
+        ctx.fillStyle = '#6ee7b7';
+        ctx.font = 'bold 15px sans-serif';
+        ctx.fillText('NOMOR KTA NASIONAL', 280, 285);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 24px monospace';
+        ctx.fillText(noKta, 280, 315);
+
+        ctx.fillStyle = '#6ee7b7';
+        ctx.font = 'bold 15px sans-serif';
+        ctx.fillText('NIK (UU PDP MASKED)', 280, 365);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText(nikMasked, 280, 395);
+
+        ctx.fillStyle = '#6ee7b7';
+        ctx.font = 'bold 15px sans-serif';
+        ctx.fillText('MASA BERLAKU HINGGA', 640, 365);
+        ctx.fillStyle = '#fef08a';
+        ctx.font = '900 22px sans-serif';
+        ctx.fillText(masaBerlaku, 640, 395);
+
+        ctx.fillStyle = '#6ee7b7';
+        ctx.font = 'bold 15px sans-serif';
+        ctx.fillText('WILAYAH PENUGASAN', 280, 440);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillText(wilayahLabel, 280, 470);
+
+        // Footer Garis & Text
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(50, 560);
+        ctx.lineTo(w - 50, 560);
+        ctx.stroke();
+
+        ctx.fillStyle = '#fde68a';
+        ctx.font = 'bold 15px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText('CR80 ISO/IEC 7810 ID-1 • OTENTIKASI RESMI NASIONAL', 50, 595);
+
+        ctx.fillStyle = '#a7f3d0';
+        ctx.font = 'bold 15px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('DEWAN PIMPINAN PUSAT YAYASAN APII', w - 50, 595);
+
+        if (onReady) onReady();
+      } else {
+        // BELAKANG (PUNGGUNG)
+        ctx.fillStyle = '#fde68a';
+        ctx.font = '900 26px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('KODE ETIK KEANGGOTAAN APII', w / 2, 75);
+
+        ctx.fillStyle = '#a7f3d0';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText('ANGGARAN RUMAH TANGGA BAB II PASAL 6', w / 2, 105);
+
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(60, 125);
+        ctx.lineTo(w - 60, 125);
+        ctx.stroke();
+
+        // 5 Butir Kode Etik
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '18px sans-serif';
+        var etik = [
+          '1. Menjaga aqidah Ahlussunnah wal Jama\'ah dan kehormatan Yayasan APII.',
+          '2. Berdakwah secara ilmiah, santun, beradab, dan berlandaskan data primer yang valid.',
+          '3. Tunduk dan patuh pada AD/ART serta keputusan resmi pimpinan organisasi.',
+          '4. Menjaga persatuan umat Islam, keutuhan bangsa, serta tidak menyebarkan fitnah/hoaks.',
+          '5. Menjalankan tugas dakwah dengan penuh amanah, profesionalisme, dan integritas syar\'i.'
+        ];
+        var yPos = 175;
+        etik.forEach(function (txt) {
+          ctx.fillText(txt, 70, yPos);
+          yPos += 45;
+        });
+
+        // Footer Bar
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(60, 480);
+        ctx.lineTo(w - 60, 480);
+        ctx.stroke();
+
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('Kartu ini adalah identitas sah anggota Yayasan Apologet Islam Indonesia.', 70, 520);
+        ctx.fillText('Pindai QR Code untuk memeriksa keaslian kartu pada server resmi APII.', 70, 545);
+        ctx.fillStyle = '#a7f3d0';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText('DITERBITKAN RESMI OLEH DPP YAYASAN APII', 70, 580);
+
+        // Draw QR Code Image if loaded
+        var qrImg = new Image();
+        qrImg.crossOrigin = 'anonymous';
+        qrImg.onload = function () {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(w - 180, 475, 120, 120);
+          ctx.drawImage(qrImg, w - 175, 480, 110, 110);
+          if (onReady) onReady();
+        };
+        qrImg.onerror = function () {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(w - 180, 475, 120, 120);
+          ctx.fillStyle = '#022c22';
+          ctx.font = 'bold 12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('QR VALIDASI', w - 120, 540);
+          if (onReady) onReady();
+        };
+        qrImg.src = qrImgUrl;
+      }
     },
 
     /** Modal buat/ubah akun pengguna pengurus (SUPERADMIN). Hanya 8 peran pengurus. */

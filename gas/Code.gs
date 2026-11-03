@@ -80,6 +80,10 @@ var ROUTES = {
   approvePendaftarKetum:     { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Auth.approvePendaftarKetum },
   rejectPendaftar:           { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS], handler: Auth.rejectPendaftar },
   exportPendaftar:           { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS], handler: Auth.exportPendaftar },
+  getKtaNasionalList:        { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS], handler: Auth.getKtaNasionalList },
+  verifyKtaPublic:           { auth: false, roles: null, handler: Auth.verifyKtaPublic },
+  generateLegacyClaimToken:  { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.SEKRETARIS], handler: Auth.generateLegacyClaimToken },
+  claimLegacyKta:            { auth: false, roles: null, handler: Auth.claimLegacyKta },
 
   // --- Dashboard ---
   getDashboard:        { auth: true,  roles: null, handler: Utils.getDashboard },

@@ -49,7 +49,7 @@ SCHEMA[TABS.SEQUENCES] = ['key', 'value'];
 SCHEMA[TABS.PENDAFTAR] = ['id', 'reg_number', 'full_name', 'nik', 'birth_place', 'birth_date',
   'gender', 'job', 'phone', 'email', 'address', 'division_interest', 'ktp_drive_url',
   'selfie_drive_url', 'status', 'verified_by_sekretaris', 'verified_by_sekretaris_at',
-  'approved_by_ketum', 'approved_by_ketum_at', 'rejection_notes', 'created_at', 'wilayah_id'];
+  'approved_by_ketum', 'approved_by_ketum_at', 'rejection_notes', 'created_at', 'wilayah_id', 'no_kta', 'kta_masa_berlaku', 'legacy_id', 'claim_token', 'claim_expires_at'];
 SCHEMA[TABS.ACCOUNTS] = ['id', 'code', 'name', 'bank_name', 'account_number', 'holder_name',
   'category', 'is_active', 'show_on_public', 'created_at', 'updated_at', 'wilayah_id'];
 SCHEMA[TABS.SETTINGS] = ['key', 'value', 'description', 'updated_by', 'updated_at', 'setting_id', 'wilayah_id', 'scope'];
