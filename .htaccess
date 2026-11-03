@@ -1,5 +1,6 @@
 # ==============================================================================
 # SIAP APII Root - Routing & Security Configuration
+# Domain: siapii.sigitadi.id (Portal Publik Default, Portal Pengurus via /portal)
 # ==============================================================================
 Options -MultiViews
 RewriteEngine On
@@ -14,3 +15,25 @@ RewriteEngine On
 
 # 2. Prevent Directory Browsing
 Options -Indexes
+
+# 3. Routing Portal Pengurus (/portal)
+RewriteRule ^portal$ portal/ [R=301,L]
+RewriteCond %{REQUEST_URI} ^/portal/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^portal/(.*)$ portal/index.html [L]
+
+# 4. Routing Portal Publik (Default Root / untuk siapii.sigitadi.id)
+# Lewatkan request jika mengarah ke folder portal/
+RewriteCond %{REQUEST_URI} ^/portal/ [NC]
+RewriteRule ^ - [L]
+
+# Jika file fisik ada di public/, sajikan langsung
+RewriteCond %{DOCUMENT_ROOT}/public/$1 -f [OR]
+RewriteCond %{DOCUMENT_ROOT}/public/$1 -d
+RewriteRule ^(.*)$ public/$1 [L]
+
+# Fallback SPA Portal Publik
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ public/index.html [L]
