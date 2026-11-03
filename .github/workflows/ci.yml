@@ -32,6 +32,9 @@ jobs:
           node -c public/app.js
           node -c public/config.js
 
+      - name: Build Apps Script Backend
+        run: node scripts/build-apps-script.mjs
+
       - name: Run Automated Test Suites
         run: npm test
 

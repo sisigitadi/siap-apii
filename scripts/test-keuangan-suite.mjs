@@ -60,3 +60,4 @@ assert.ok(portalCode.includes('btn-convert-sim'), 'Tombol konversi 1-klik proyek
 console.log('  PASS  Frontend portal/portal.js menyediakan Kalkulator Kas Run-Rate & Inflow Digital');
 
 console.log('\nHasil: Semua pengujian Suite Keuangan LULUS 100%!');
+

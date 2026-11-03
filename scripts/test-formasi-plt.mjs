@@ -51,3 +51,4 @@ assert.ok(portalCode.includes('generateSkConfirm'), 'Dialog konfirmasi penerbita
 console.log('  PASS  Antarmuka visual Formasi Pengurus & Delegasi Plt terintegrasi penuh');
 
 console.log('\nHasil: Seluruh pengujian Formasi Pengurus & Delegasi Plt LULUS 100%!');
+
