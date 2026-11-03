@@ -81,7 +81,7 @@ check('Backend gas/Surat.gs getPublishedSurat memfilter surat berdasarkan wilaya
 // -----------------------------------------------------------------------------
 // 5. Audit Anti-Slop: Bebas Karakter Em Dash
 // -----------------------------------------------------------------------------
-console.log('\n-- 5. Audit Anti-Slop: Bebas Karakter Em Dash (—) --');
+console.log('\n-- 5. Audit Anti-Slop: Bebas Karakter Em Dash (\\u2014) --');
 const filesToCheck = [
   ['public/index.html', html],
   ['public/app.js', js],

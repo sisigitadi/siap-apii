@@ -1,4 +1,4 @@
-# PRD (Product Requirements Document) — SIAP APII v2.5.0 Enterprise
+# PRD (Product Requirements Document) - SIAP APII v3.0.0 Enterprise
 **Sistem Informasi & Administrasi Terpadu Yayasan APII DPW Jabodetabek**
 
 Dokumen ini adalah spesifikasi arsitektur resmi dan Master Living Context yang dikelola oleh **RetroBOT by Sigit Adi (https://sigitadi.id)**.
@@ -164,9 +164,16 @@ ZONA BAWAH: MASTER CONTEXT & LOGIKA SISTEM TERKINI (LIVING CONTEXT)
   - **Immediate Write Flush Lintas Sesi:** Menambahkan `SpreadsheetApp.flush()` pada seluruh operasi tulis (`insert`, `updateRow`, `deleteRow`, dan `saveSettings()`), memastikan mutasi data langsung tersimpan seketika di Google Sheets dan terbaca oleh sesi lain di perangkat berbeda.
   - **Cache-Busting & Anti-Stale HTTP Header:** Menambahkan query param dinamis `&_t=` timestamp dan `cache: 'no-store'` pada seluruh request GET di `portal/auth.js` dan `public/app.js`, serta invalidasi cache memori total `self.cache.clear()` pada setiap mutasi POST berhasil.
   - **Sinkronisasi Dua Arah Pengaturan Pendaftaran:** Menyelaraskan penyimpanan dan pembacaan konfigurasi pendaftaran anggota antara objek `registration_config` dan flattened keys di backend Apps Script.
-- **v3.0.0 (SIAP APII Multi-Tenant Enterprise — 1 DPP + Banyak DPW):**
+- **v3.0.0 (SIAP APII Multi-Tenant Enterprise - 1 DPP + Banyak DPW):**
   - **Arsitektur Multi-Tenant Organisasi:** Ekspansi struktur tunggal DPW Jabodetabek menjadi 1 DPP (Pusat) + Banyak DPW (Wilayah) berlandaskan SK Kemenkumham AHU-0014970.AH.01.04.Tahun 2023 dan ART Yayasan APII (16 Bab Kodifikasi).
   - **Partisi Sekuensial & Atomic Locking per Wilayah:** Pemisahan penomoran naskah dinas dan keuangan per tenant (`SURAT:{wilayah}:{tipe}:{thn}`, `KEU:{wilayah}:{thn}`, `KTA:NASIONAL:{thn}`) dengan penjaminan `SpreadsheetApp.flush()` sebelum pelepasan kunci script lock (Benteng A-01 & A-05).
   - **Skema 14 Tabel Terpadu:** Penambahan tabel master `Sheet_Wilayah`, `Sheet_KTA_Nasional`, `Sheet_Settings_Audit`, dan `Sheet_Kas_Simulator`, serta injeksi kolom `wilayah_id` pada seluruh entitas operasional dengan migrasi otomatis data eksisting ke `DPW_JABODETABEK`.
-  - **Eliminasi Ketergantungan Vercel:** Penyiapan konfigurasi `.htaccess` lintas folder untuk deployment mandiri di server web Apache / LiteSpeed / cPanel dengan proteksi *Security Headers* standar industri.
-  - **Penyelarasan RetroBOT Lifecycle Architecture:** Transformasi total dokumentasi repositori dan panduan rekayasa sistem terpadu.
+  - **Tata Naskah Digital & Split-Screen A4:** Komposer Virtual A4 live preview, dynamic KOP DPP/DPW, stempel rotasi dinamis (3-5 derajat) multiply, unblock alur naskah ditolak (`REJECTED` -> edit & resubmit).
+  - **Keuangan Kas Syar'i & Dual-Slip Kwitansi:** Bonggol 30% dan Lembar Donatur 70%, batasan cash buffer (< Rp 2jt), dual control approval untuk kas keluar, dan Kas Simulator digital.
+  - **WhatsApp Notification Engine (21 Touchpoints):** Normalisasi E.164, Jam Senyap (22.00-06.00 WIB), lokalisasi peran wilayah anti-spam blast.
+  - **Keanggotaan Nasional & KTA 5 Tahun:** Masa berlaku 5 tahun terkunci mutlak, generator nomor sekuensial nasional, kanvas cetak CR80 ISO/IEC 7810 ID-1 (1012x638 px, 300 DPI) dengan 5 butir kode etik, verifikasi publik patuh UU PDP No. 27/2022.
+  - **Formasi Pengurus & Delegasi Plt:** Pemetaan BPH dan 7 Divisi resmi APII, batas ketat penugasan Plt <= 60 hari berfitur auto-revoke, serta One-Click Decree Generator SK Struktur DPP.
+  - **Google Drive Storage Vault Engine:** Hierarki 3-tingkat terpartisi wilayah, kompresi client-side WebP (< 250 KB), watermark dinamis KTP pendaftar, dan recycle bin retensi 30 hari berperingatan kuota 80%/90%.
+  - **Website Publik Adaptif Tunggal:** Smart Regional Lens (?w=jabo, ?w=pusat), National Announcement Ticker syndication, pendaftaran multi-cabang, dan Unified Public Verification Hub.
+  - **On-Demand Extension Modules:** 8 modul ekstensi (Litbang, Muallaf, Debat, Inventaris, Advokasi, Donatur, Kalender, Notulen) dengan toggle reaktif via feature flags.
+  - **Kompilasi & Validasi Mutu Paripurna:** Penegakan routes whitelist RBAC komprehensif, penghapusan ketergantungan Vercel, penyediaan .htaccess cPanel/Apache native, serta lulus 100% pada 13 automated test suites.

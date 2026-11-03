@@ -71,7 +71,7 @@ check('Tombol simpan mengirim payload feature_flags ke endpoint saveSettings',
 // -----------------------------------------------------------------------------
 // 5. Audit Anti-Slop: Bebas Karakter Em Dash
 // -----------------------------------------------------------------------------
-console.log('\n-- 5. Audit Anti-Slop: Bebas Karakter Em Dash (—) --');
+console.log('\n-- 5. Audit Anti-Slop: Bebas Karakter Em Dash (\\u2014) --');
 check('portal/portal.js bebas karakter em dash', !portalJs.includes('\u2014'));
 check('gas/Utils.gs bebas karakter em dash', !gasUtils.includes('\u2014'));
 

@@ -19,6 +19,12 @@ $asetSrc = 'Dokumen Sumber'
 if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir | Out-Null }
 
 # ---------------------------------------------------------------------------
+# 0) Validasi routes whitelist
+# ---------------------------------------------------------------------------
+& node scripts/validate-routes-whitelist.mjs
+if ($LASTEXITCODE -ne 0) { throw "Validasi routes whitelist gagal!" }
+
+# ---------------------------------------------------------------------------
 # 1) Backend.gs: gabungkan file .gs, lalu ganti pola namespace `Modul.fn(...)`
 #    menjadi pemanggilan global `fn(...)`. Di Apps Script semua fungsi .gs
 #    berbagi scope global, jadi `Auth.login` TIDAK valid - harus `login(...)`.
