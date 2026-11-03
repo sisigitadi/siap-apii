@@ -1,61 +1,84 @@
-# REVISI.MD — Lembar Kerja & Status Implementasi (by ZettBOT)
+# REVISI.MD — Lembar Kerja & Rencana Eksekusi Sistem (RetroBOT Lifecycle)
 ================================================================================
-STATUS: SEMUA FASE AUDIT SELESAI DITERAPKAN & TERVERIFIKASI (PASS 100%)
-SOP: PLAN -> APPROVAL -> SURGICAL EXECUTION -> CLEANUP & SYNC TO PRD.MD
+STATUS: SIAP UNTUK EKSEKUSI PARIPURNA (MENUNGGU PERINTAH "OKE TERAPKAN")
+SOP: PLAN -> APPROVAL ("OKE TERAPKAN") -> SURGICAL EXECUTION -> VERIFY & SYNC PRD
+ARSITEK: RetroBOT v3.0 by Sigit Adi (https://sigitadi.id)
+RUJUKAN UTAMA: rancangan_SIAP_APII.md (16 Bab Terpadu)
 ================================================================================
 
-Seluruh 4 tahapan audit logika, alur kerja, dan UI/UX telah dieksekusi secara bedah (surgical) dan divalidasi penuh oleh test suite:
-- `validate-routes-whitelist.mjs`: 65/65 routes OK, 135 handler whitelisted.
-- `smoke:backend`: 66/66 test PASS.
-- `smoke:auth`: 85/85 test PASS.
-- `check:frontend`: 5 berkas bersih, 0 temuan global leaks.
-- `smoke:portal`: 15/15 demo guard PASS.
-- `build-apps-script.ps1`: 16 modul terkompilasi bersih (378.230 karakter, 0 namespace tertinggal).
+## 1. Status Pembersihan Repositori (Completed)
+- [x] **Pembersihan Artefak Vercel:** Menghapus seluruh berkas `vercel.json` (root, portal, public, frontend).
+- [x] **Pembersihan AI Agent Non-Gemini:** Menghapus `ZettBOT.md`, `wealth_advisor_agent.py`, `.commandcode/`, `.freebuff/`.
+- [x] **Setup Routing Hosting Statis / cPanel:** Membuat berkas `.htaccess` di root, `portal/`, dan `public/` dengan aturan SPA Rewrite dan *Security Headers* (`X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`).
+- [x] **Pembaruan Konteks & Branding Dokumentasi:** Sinkronisasi `prd.md`, `revisi.md`, dan `README.md` ke standar RetroBOT Lifecycle Architecture.
+- [x] **Pelacakan Cetak Biru:** Menyertakan `rancangan_SIAP_APII.md` ke dalam *tracking* Git repositori.
 
 ---
 
-### RINGKASAN TINDAKAN BEDAH YANG TELAH DITERAPKAN
+## 2. Rencana Tahapan Eksekusi Paripurna (Fase 0 s.d. Fase 10)
 
-1. **Fase 1: Integritas Naskah Surat & Rejection Loop Persuratan**
-   - [x] **[portal/portal.js]**: Parse `item.content` (menimbang, mengingat, memutuskan) dan prefill ke textarea pada modal `suratForm`, serta pastikan content terkirim saat mode edit untuk mencegah konsideran hukum terhapus.
-   - [x] **[gas/Surat.gs]**: Longgarkan validasi status pada `updateSurat` dan `submitSurat` agar mendukung status `REJECTED`, serta bersihkan catatan penolakan lama saat naskah diajukan ulang ke Ketua DPW.
-   - [x] **[portal/portal.js]**: Tampilkan tombol aksi "Ubah" dan "Ajukan" pada baris surat berstatus `REJECTED`.
+Setelah pengguna memberikan instruksi tegas **"OKE TERAPKAN"**, implementasi kode akan dieksekusi secara bedah per fase berikut:
 
-2. **Fase 2: Hak Kelola & Rejection Loop Usulan Divisi Kerja**
-   - [x] **[gas/Divisi.gs]**: Aktifkan hak `can_edit` dan `can_submit` bila status usulan `DITOLAK`.
-   - [x] **[gas/Divisi.gs]**: Perbarui `assertOwnDivision_` dan `ajukanSubmission` agar mengizinkan revisi dan pengajuan ulang usulan `DITOLAK` ke Approval Board Ketua.
+### Fase 0: Penyelarasan PRD & Master Context
+- [ ] Sinkronisasi Zona Atas dan Zona Bawah `prd.md` dengan Bab 1 s.d. Bab 16 `rancangan_SIAP_APII.md`.
+- [ ] Penguncian skema 10 tabel basis data master dan ekstensi.
 
-3. **Fase 3: Validasi NIK, Penyelarasan WA, & Action Inbox Calon Anggota**
-   - [x] **[gas/Auth.gs]**: Tambahkan validasi 16 digit numerik (`/^\d{16}$/`) dan pencegahan duplikasi pendaftaran NIK aktif di `Sheet_Pendaftar`.
-   - [x] **[gas/Auth.gs]**: Tambahkan notifikasi email otomatis ke Sekretaris saat pendaftaran baru masuk, ke Ketua saat berkas diverifikasi, dan ke calon anggota saat disahkan atau ditolak.
-   - [x] **[gas/Utils.gs]**: Integrasikan antrean calon anggota baru dari `Sheet_Pendaftar` ke dalam `getDashboard` Action Inbox untuk peran `SEKRETARIS` (verifikasi berkas) dan `KETUA` (pengesahan final).
-   - [x] **[portal/portal.js]**: Arahkan navigasi klik Action Inbox calon anggota langsung ke tab Pendaftar di modul Manajemen Pengguna.
-   - [x] **[portal/portal.js]**: Perbaiki mismatch field generator WhatsApp (`k.verified_by_ketum` dan `d.approval_notes`).
+### Fase 1: Multi-Tenant Database & Partisi Sekuensial (gas/Database.gs & gas/00-Konfig.gs)
+- [ ] Inisialisasi tab sheet baru: `Sheet_Wilayah`, `Sheet_KTA_Nasional`, `Sheet_Settings_Audit`, `Sheet_Kas_Simulator`.
+- [ ] Injeksi kolom `wilayah_id` pada seluruh tabel operasional (Surat, Keuangan, Anggota, Formasi, Log).
+- [ ] Implementasi atomic sequence locking dengan partisi wilayah (`SURAT:{wilayah}:{tipe}:{thn}`, `KEU:{wilayah}:{thn}`, `KTA:NASIONAL:{thn}`).
+- [ ] Penambahan `SpreadsheetApp.flush()` sebelum pelepasan kunci `lock.releaseLock()`.
+- [ ] Penyiapan skrip migrasi data eksisting ke tenant awal `DPW_JABODETABEK`.
 
-4. **Fase 4: Pembersihan UI/UX & Standarisasi Enterprise ZettBOT**
-   - [x] **[portal/portal.js]**: Ganti emoji mentah pada elemen input dan tab navigasi dengan ikon SVG inline bergaya Tailwind/Lucide.
-   - [x] **[gas/Utils.gs]**: Perbarui template email notifikasi resmi agar menggunakan URL domain dinamis dan menghapus placeholder kontak hardcoded.
-   - [x] **[prd.md]**: Catat seluruh pembaruan pada Living Master Context (Official Update Log).
+### Fase 2: Tata Naskah Dinas, KOP & Stempel Digital (gas/Surat.gs & portal/portal.js)
+- [ ] Komposer Virtual A4 (Split-Screen Live Preview).
+- [ ] 5 Klaster Surat: Umum/Dinas, Undangan/Tugas, SK Penetapan, Proposal/LPJ (Tri-Signature), Muallaf (Catur-Signature).
+- [ ] Rotasi stempel basah acak 3°–5° dengan latar transparan PNG.
+- [ ] Penegakan aturan CSS cetak `@media print { break-inside: avoid; }`.
 
-5. **Fase 5: Audit Arsitektur RetroBOT & Optimasi Sistem (v2.5.1 - 2026-10-28)**
-   - [x] **[gas/Auth.gs]**: Standardisasi format `expired_at` sesi demo ke epoch ms dan lazy single-row cleanup (K2).
-   - [x] **[gas/Auth.gs]**: Eliminasi pemindaian tabel `Sheet_Sessions` penuh pada `verifySession` (K5).
-   - [x] **[gas/Utils.gs]**: Optimasi `getDashboard` menghilangkan duplikasi `readAll(TABS.KEUANGAN)` (K3).
-   - [x] **[gas/Keuangan.gs & gas/Utils.gs]**: Resolusi dinamis label rekening via `getAccountLabels_()` (T1).
-   - [x] **[portal/config.js]**: Sinkronisasi akun demo `ahumas` -> `ahumas1` (T2).
-   - [x] **[portal/portal.js]**: Perbaikan komentar penelan klausa ternary dan operator ganda `+ +` pada approval bar L1646.
-   - [x] **[gas/Database.gs & gas/Visitor.gs]**: Implementasi TextFinder fast-path pada `Database.findOne` (T5).
-   - [x] **[gas/Code.gs]**: Rate limiting endpoint publik berbasis `CacheService` 60s sliding window (K6).
-   - [x] **[gas/Code.gs]**: Inisialisasi otomatis `PASSWORD_SALT` ke Script Properties di `setup()` (K4).
-   - [x] **[scripts/build-apps-script.mjs]**: Migrasi build Apps Script ke Node.js cross-platform (T4).
+### Fase 3: Keuangan Kas Syar'i & Kalkulator Digital (gas/Keuangan.gs & portal/portal.js)
+- [ ] Kalkulator simulasi kas masuk bersih (potongan TikTok Live, YouTube, QRIS).
+- [ ] Alur persetujuan kas bertingkat (*Dual-Approval*).
+- [ ] Kwitansi *Dual-Slip* (Lembar 1 Pembayar, Lembar 2 Arsip Kasir) dengan audit watermark `BATAL/VOID`.
+- [ ] Proteksi batas kas kecil (Rp 500rb) dan cadangan kas minimal (Rp 2jt).
 
-6. **Fase 6: Audit & Resolusi Sesi Superadmin & Sinkronisasi Lintas Device (v2.5.2 - Release 27)**
-   - [x] **[gas/Database.gs]**: Perbaikan `Database.findOne` TextFinder race condition delay; jika TextFinder tidak langsung menemukan sel baru, fallback aman ke array scan `readAll()` agar verifikasi sesi baru tidak bernilai `null`.
-   - [x] **[gas/Database.gs]**: Penyempurnaan `matchFilter_` untuk komparasi string/number dengan `String(...).trim()` guna menghindari inkonsistensi tipe data sel Spreadsheet.
-   - [x] **[gas/Database.gs & gas/Pengaturan.gs]**: Penambahan `SpreadsheetApp.flush()` di `insert()`, `updateRow()`, `deleteRow()`, dan `saveSettings()` untuk menjamin seluruh penulisan data langsung committed ke penyimpanan Google Sheets.
-   - [x] **[gas/Auth.gs]**: Penambahan resilient username lookup di `verifySession()`: jika pencarian `user_id` gagal akibat latensi indeks baris baru, sistem fallback ke pencarian `username`.
-   - [x] **[portal/portal.js]**: Eliminasi jebakan hash URL `#login` di `bootApp()`, `bindLogin()`, dan `demoLoginBtn`. Transisi rute langsung diarahkan ke `#/dashboard` saat login berhasil.
-   - [x] **[portal/auth.js & public/app.js]**: Penambahan query param anti-cache `&_t=` timestamp dinamis dan header `cache: 'no-store'` pada seluruh request `GET` di portal pengurus dan publik untuk mencegah browser HP/desktop menyajikan respon usang.
-   - [x] **[portal/auth.js]**: Pembersihan total in-memory cache frontend (`self.cache.clear()`) setelah mutasi data `POST` berhasil.
-   - [x] **[gas/Pengaturan.gs]**: Sinkronisasi dua arah konfigurasi pendaftaran anggota (`registration_config` <-> `registration_*` flattened keys) pada `getSettings`, `saveSettings`, dan `getPublicSettings`.
+### Fase 4: Routing Disposisi & WhatsApp Engine (gas/Utils.gs & portal/portal.js)
+- [ ] 21 Titik Sentuh Notifikasi WhatsApp (WA-01 s.d. WA-21).
+- [ ] Dual-Mode WhatsApp: Manual Click-to-Chat (`wa.me`) dan Webhook API.
+- [ ] Jam senyap (*Quiet Hours* 22.00–06.00 WIB) dan proteksi teks < 650 karakter.
 
+### Fase 5: Keanggotaan Nasional & KTA 5 Tahun (gas/Auth.gs & portal/portal.js)
+- [ ] Penegakan masa berlaku KTA terkunci mutlak 5 tahun (ART).
+- [ ] Modul konsolidasi anggota lama & klaim mandiri OTP WhatsApp (15 menit).
+- [ ] Generator KTA digital kanvas CR80 ber-QR Code verifikasi publik.
+
+### Fase 6: Formasi Pengurus & Delegasi Plt (gas/Divisi.gs & portal/portal.js)
+- [ ] Pemetaan BPH & 7 Divisi Resmi APII sesuai ART.
+- [ ] Generator SK Pengurus Naskah Dinas PDF.
+- [ ] Modul Delegasi Pelaksana Tugas (Plt / Ad-Interim) maksimal 60 hari berfitur *auto-revoke*.
+
+### Fase 7: Google Drive Storage Vault Engine (apps-script/Pengaturan.gs)
+- [ ] Struktur folder hierarkis 3 tingkat (Root -> Wilayah -> Kategori -> Tahun).
+- [ ] Kompresi gambar WebP otomatis.
+- [ ] Watermark dinamis KTP (*UU PDP Compliance*).
+- [ ] *Soft-Delete* recycle bin 30 hari dan ambang kuota 80%/90%.
+
+### Fase 8: Website Publik Adaptif Tunggal (public/app.js & public/index.html)
+- [ ] Lensa wilayah dinamis (*Regional Lens*) berbasis URL slug/parameter.
+- [ ] Ticker maklumat nasional DPP.
+- [ ] Formulir pendaftaran anggota & verifikasi dokumen publik.
+
+### Fase 9: On-Demand Extension Modules (portal/portal.js)
+- [ ] Sakelar toggle dan konfigurasi parameter 8 modul ekstensi (Muallaf CRM, Debat, Inventaris, Donatur, dll).
+
+### Fase 10: Validasi, Quality Assurance & Kompilasi Akhir
+- [ ] Menjalankan skrip validasi rute `validate-routes-whitelist.mjs`.
+- [ ] Menjalankan smoke test backend, auth, dan portal.
+- [ ] Kompilasi modul via `build-apps-script.ps1`.
+- [ ] Verifikasi akhir di repositori GitHub.
+
+---
+
+## 3. Gerbang Persetujuan Eksekusi
+Seluruh persiapan pembersihan repositori telah selesai. Kode aplikasi pada `gas/`, `apps-script/`, `portal/`, dan `public/` saat ini masih terjaga aman.
+Ketik: **"OKE TERAPKAN"** untuk memulai eksekusi bedah Fase 0 dan Fase 1.

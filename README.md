@@ -109,16 +109,11 @@ Hasil kompilasi siap-tempel akan diperbarui di folder `apps-script/`:
 4. Klik **Deploy** $\to$ **Manage deployments** $\to$ Pilih versi **New version** $\to$ **Deploy**.
 5. Pastikan URL endpoint Web App sinkron pada `portal/config.js` dan `public/config.js`.
 
-### 3. Deployment Frontend via Vercel (CI/CD Otomatis)
-Cukup lakukan commit dan push ke branch `main`:
-```bash
-git add .
-git commit -m "feat(release): update sistem siap apii"
-git push origin main
-```
-Vercel akan otomatis men-deploy versi terbaru ke domain produksi:
-- Portal Pengurus: `https://siapii.sigitadi.id`
-- Portal Publik: `https://apii.sigitadi.id`
+### 3. Deployment Frontend (Hosting Mandiri / Apache / cPanel)
+Unggah berkas statis ke server web Anda dengan konfigurasi `.htaccess` yang telah disediakan:
+- Berkas `public/` diunggah ke *root document* situs publik (`https://apii.sigitadi.id`)
+- Berkas `portal/` diunggah ke sub-direktori atau subdomain portal pengurus (`https://siapii.sigitadi.id`)
+- Konfigurasi SPA rewrite dan security headers sudah terpasang otomatis via berkas `.htaccess`.
 
 ---
 

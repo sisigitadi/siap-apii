@@ -1,7 +1,7 @@
 # PRD (Product Requirements Document) — SIAP APII v2.5.0 Enterprise
 **Sistem Informasi & Administrasi Terpadu Yayasan APII DPW Jabodetabek**
 
-Dokumen ini adalah spesifikasi arsitektur resmi dan Master Living Context yang dikelola oleh **ZettBOT by Zettbos**.
+Dokumen ini adalah spesifikasi arsitektur resmi dan Master Living Context yang dikelola oleh **RetroBOT by Sigit Adi (https://sigitadi.id)**.
 
 ================================================================================
 ZONA ATAS: SPESIFIKASI KEBUTUHAN PRODUK (BLUEPRINT AWAL)
@@ -38,7 +38,7 @@ Sistem membagi hak akses ke dalam matriks peran yang ketat:
 - **Penyimpanan Berkas:** Google Drive API (folder terstruktur untuk PDF surat resmi, bukti transfer kas, arsip KTP ber-watermark, dan pasfoto).
 - **Mesin Render Dokumen:** Google Docs Template API + Canvas Watermarking + Stempel basah transparan.
 - **Frontend Layer:** Single Page Application (SPA) HTML5 + Vanilla JavaScript + Tailwind CSS CDN + In-Memory SWR Caching (0ms navigasi antar tab).
-- **Hosting Frontend:** Vercel (CI/CD Otomatis via Git Push).
+- **Hosting Frontend:** Server Web Hosting Mandiri / Statis (Apache / LiteSpeed / Node.js) dengan proteksi .htaccess.
 
 ---
 
@@ -136,7 +136,7 @@ ZONA BAWAH: MASTER CONTEXT & LOGIKA SISTEM TERKINI (LIVING CONTEXT)
   - Integrasi auto-cleanup file lama saat deployment clasp.
   - Integrasi Mini-CMS Redaksi Konten Portal Pengurus (`Editorial.gs` & `Sheet_EditorialHistory`).
   - Pemantauan analitik pengunjung publik aman privasi (`Visitor.gs` & `Sheet_Visitors`).
-  - Penyelarasan ZettBOT Engineering System ke dalam repositori.
+  - Penyelarasan RetroBOT Engineering System ke dalam repositori.
   - [HOTFIX REVISI 1] Perbaikan logika `purgeExpiredSessions_` pada `Auth.gs`: penghapusan baris sesi kedaluwarsa diurutkan secara menurun (descending) untuk mencegah bug pergeseran baris (*forward-loop index shift*) yang mencabut sesi aktif pengurus lain secara acak.
   - [PENYELARASAN REVISI 2] Penegasan kebijakan tata kelola kas yayasan: Dual-Approval mutlak wajib untuk Kas KELUAR (Bendahara verifikasi nota -> Ketua setujui pencairan dana), sedangkan Kas MASUK disahkan langsung oleh Bendahara untuk efisiensi operasional. Dokumentasi PRD & README disinkronkan secara konsisten.
   - [OPTIMASI REVISI 3] Optimasi performa `trackVisitor` pada `Visitor.gs`: lookup data pengunjung kini menggunakan native `createTextFinder` pada kolom `visitor_id` (waktu eksekusi <50ms) menggantikan pemindaian `readAll` seluruh tabel, menghemat 95% konsumsi memori dan kuota harian saat portal publik diakses.
@@ -147,7 +147,7 @@ ZONA BAWAH: MASTER CONTEXT & LOGIKA SISTEM TERKINI (LIVING CONTEXT)
     - **Validasi Ketat & Anti-Spam NIK 16 Digit:** Modul `gas/Auth.gs` kini menerapkan validasi regex `/^\d{16}$/` dan pencegahan duplikasi pendaftaran aktif di `Sheet_Pendaftar`.
     - **Agregasi Antrean Calon Anggota ke Action Inbox:** Fungsi `getDashboard` di `gas/Utils.gs` kini memasukkan antrean pendaftar baru (`PENDING` untuk Sekretaris, `DIVERIFIKASI_SEKRETARIS` untuk Ketua), dilengkapi routing instan ke tab Pendaftar di portal.
     - **Notifikasi Siklus Hidup Pendaftaran:** Calon anggota otomatis menerima email bukti pendaftaran, konfirmasi pengesahan keanggotaan, atau penjelasan penolakan resmi.
-    - **Purge Emoji & Standarisasi UI Enterprise:** Pembersihan karakter emoji mentah pada antarmuka input dan tab navigasi dengan ikon inline SVG profesional sesuai standar ZettBOT Anti-AI.
+    - **Purge Emoji & Standarisasi UI Enterprise:** Pembersihan karakter emoji mentah pada antarmuka input dan tab navigasi dengan ikon inline SVG profesional sesuai standar RetroBOT Anti-AI.
 - **v2.5.1 (RetroBOT Architecture Audit & Optimization):**
   - **TextFinder Fast-Path Generik:** Kueri baris tunggal (`Database.findOne`) kini otomatis diakselerasi via `createTextFinder` untuk filter 1 kolom dengan fallback aman ke pemindaian reguler.
   - **Eliminasi Pemindaian Sesi per-Request:** `verifySession` kini melakukan validasi kedaluwarsa langsung per token tanpa melakukan `purgeExpiredSessions_()` penuh di setiap request, menghemat latensi ~500ms.
