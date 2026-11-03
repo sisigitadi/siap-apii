@@ -724,11 +724,21 @@ function deleteAccount(ctx) {
 
 /**
  * getPublicAccounts: daftar rekening donasi aktif untuk publik.
+ * Mendukung filter wilayah (Regional Lens).
  */
 function getPublicAccounts(ctx) {
+  var p = ctx.payload || ctx.parameter || {};
+  var targetWilayah = p.wilayah || p.w || p.wilayah_id || null;
+
   var rows = Database.readAll(TABS.ACCOUNTS).filter(function (a) {
-    return (a.is_active === 'TRUE' || a.is_active === true) &&
-           (a.show_on_public === 'TRUE' || a.show_on_public === true);
+    var isPub = (a.is_active === 'TRUE' || a.is_active === true) &&
+                (a.show_on_public === 'TRUE' || a.show_on_public === true);
+    if (!isPub) return false;
+    if (targetWilayah) {
+      // Tampilkan rekening cabang terkait atau rekening nasional DPP
+      return !a.wilayah_id || a.wilayah_id === targetWilayah || a.wilayah_id === 'DPP_PUSAT';
+    }
+    return true;
   });
   var items = rows.map(function (a) {
     return {
@@ -741,10 +751,70 @@ function getPublicAccounts(ctx) {
       nomor_rekening: a.account_number || '-',
       holder_name: a.holder_name || 'YAYASAN APOLOGET ISLAM INDONESIA',
       atas_nama: a.holder_name || 'YAYASAN APOLOGET ISLAM INDONESIA',
-      category: a.category || 'Operasional DPW'
+      category: a.category || 'Operasional DPW',
+      wilayah_id: a.wilayah_id || 'DPW_JABODETABEK'
     };
   });
   return { ok: true, data: items, message: 'Rekening resmi publik berhasil dimuat.' };
+}
+
+/**
+ * verifyKwitansiPublic: verifikasi keabsahan kwitansi/voucher kas publik (UU PDP No. 27/2022).
+ * Dapat dipanggil via QR Code pada kwitansi dual-slip atau pencarian nomor kwitansi.
+ */
+function verifyKwitansiPublic(ctx) {
+  var p = ctx.payload || ctx.parameter || {};
+  var noKwitansi = String(p.voucher_number || p.no || p.no_kwitansi || p.id || p.query || '').trim();
+  if (!noKwitansi) {
+    return { ok: false, data: null, message: 'Nomor bukti kwitansi wajib disertakan.' };
+  }
+
+  var row = Database.findOne(TABS.KEUANGAN, { voucher_number: noKwitansi }) ||
+            Database.findOne(TABS.KEUANGAN, { id: noKwitansi });
+
+  if (!row) {
+    return { ok: false, data: null, message: 'Nomor kwitansi atau bukti kas tidak terdaftar dalam pangkalan data resmi.' };
+  }
+
+  // Masking nama pembayar/donatur sesuai standar UU PDP
+  var rawName = String(row.pembayar_penerima || '').trim();
+  var maskedName = '-';
+  if (rawName) {
+    var parts = rawName.split(' ');
+    if (parts.length === 1) {
+      maskedName = parts[0].slice(0, 2) + '***';
+    } else {
+      maskedName = parts[0] + ' ' + parts.slice(1).map(function (w) { return w.charAt(0) + '***'; }).join(' ');
+    }
+  }
+
+  var isApproved = (row.status === 'APPROVED');
+  var isVoid = (row.status === 'VOID');
+
+  var wilayahNama = (row.wilayah_id === 'DPP_PUSAT') ? 'DPP APII (Pusat)' : 'DPW APII Jabodetabek';
+
+  return {
+    ok: true,
+    data: {
+      voucher_number: row.voucher_number,
+      doc_type: row.doc_type || 'KWITANSI_MASUK',
+      type: row.type,
+      amount: row.amount,
+      terbilang: row.terbilang || (terbilang(Number(row.amount) || 0) + ' Rupiah'),
+      transaction_date: row.transaction_date,
+      pembayar_masked: maskedName,
+      category: row.category,
+      wilayah_id: row.wilayah_id,
+      wilayah_nama: wilayahNama,
+      status: row.status,
+      is_valid: isApproved,
+      is_void: isVoid,
+      void_reason: isVoid ? (row.void_reason || 'Dibatalkan oleh otoritas keuangan') : null,
+      verified_at: row.verified_by_ketum_at || row.verified_by_bendahara_at || row.created_at
+    },
+    message: isApproved ? 'Kwitansi sah & tercatat resmi dalam pembukuan kas APII.' :
+             (isVoid ? 'Kwitansi telah DIBATALKAN (VOID) dan tidak berlaku lagi.' : 'Kwitansi sedang dalam proses verifikasi otoritas keuangan.')
+  };
 }
 
 /**

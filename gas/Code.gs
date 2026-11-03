@@ -117,11 +117,14 @@ var ROUTES = {
   saveAccount:         { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.BENDAHARA], handler: Keuangan.saveAccount },
   deleteAccount:       { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.BENDAHARA], handler: Keuangan.deleteAccount },
   getPublicAccounts:   { auth: false, roles: null, handler: Keuangan.getPublicAccounts },
+  verifyKwitansi:      { auth: false, roles: null, handler: Keuangan.verifyKwitansiPublic },
+  verifyReceipt:       { auth: false, roles: null, handler: Keuangan.verifyKwitansiPublic },
 
   // --- Pengaturan & Penyimpanan (Utils.gs) ---
   getSettings:         { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Utils.getSettings },
   saveSettings:        { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.saveSettings },
   getPublicSettings:   { auth: false, roles: null, handler: Utils.getPublicSettings },
+  getPublicWilayahList: { auth: false, roles: null, handler: Utils.getPublicWilayahList },
   getEditorialContent: { auth: true,  roles: null, handler: Utils.getEditorialContent },
   saveEditorialContent:{ auth: true,  roles: EDITORIAL_WRITE_ROLES, handler: Utils.saveEditorialContent },
   uploadKopImage:      { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.uploadKopImage },

@@ -398,12 +398,19 @@ function rejectSurat(ctx) {
  * @param {object} ctx.payload { limit?, page? }
  */
 function getPublishedSurat(ctx) {
-  var p = ctx.payload || {};
+  var p = ctx.payload || ctx.parameter || {};
   var limit = Math.min(Number(p.limit) || 9, 50);
   var page = Math.max(Number(p.page) || 1, 1);
+  var targetWilayah = p.wilayah || p.w || p.wilayah_id || null;
 
   var rows = Database.readAll(TABS.SURAT)
-    .filter(function (s) { return s.status === 'PUBLISHED'; })
+    .filter(function (s) {
+      if (s.status !== 'PUBLISHED') return false;
+      if (targetWilayah) {
+        return !s.wilayah_id || s.wilayah_id === targetWilayah || s.wilayah_id === 'DPP_PUSAT';
+      }
+      return true;
+    })
     .sort(function (a, b) { return (b.published_at || '').localeCompare(a.published_at || ''); });
 
   var total = rows.length;
@@ -428,34 +435,47 @@ function getPublishedSurat(ctx) {
  * @param {object} ctx.payload { letter_number } atau { hash }
  */
 function verifySurat(ctx) {
-  var p = ctx.payload || {};
+  var p = ctx.payload || ctx.parameter || {};
   var s = null;
-  if (p.letter_number) {
-    s = Database.findOne(TABS.SURAT, { letter_number: String(p.letter_number).trim() });
-  } else if (p.hash) {
+  var query = String(p.letter_number || p.hash || p.q || p.no || p.query || '').trim();
+
+  if (p.hash) {
     s = Database.findOne(TABS.SURAT, { sha256_hash: String(p.hash).trim() });
+  } else if (p.letter_number) {
+    s = Database.findOne(TABS.SURAT, { letter_number: String(p.letter_number).trim() });
+  } else if (query) {
+    // Cari berdasarkan hash atau nomor surat
+    s = Database.findOne(TABS.SURAT, { sha256_hash: query }) ||
+        Database.findOne(TABS.SURAT, { letter_number: query });
   }
+
   if (!s) {
     return { ok: false, data: null,
-      message: 'Nomor surat tidak ditemukan dalam sistem.' };
+      message: 'Nomor surat atau kode verifikasi tidak ditemukan dalam sistem.' };
   }
   // Hanya surat PUBLISHED yang bisa diverifikasi publik.
   if (s.status !== 'PUBLISHED') {
     return { ok: false, data: null,
       message: 'Surat dengan nomor ini belum diterbitkan secara resmi.' };
   }
+
+  var wilayahNama = (s.wilayah_id === 'DPP_PUSAT') ? 'DPP APII (Pusat)' : 'DPW APII Jabodetabek';
+
   return {
     ok: true,
     data: {
       letter_number: s.letter_number, title: s.title,
+      letter_type: s.letter_type,
       letter_type_label: LETTER_TYPE_LABELS[s.letter_type] || s.letter_type,
       tanggal_label: formatTanggal(s.tanggal_surat),
       status: s.status, status_label: STATUS_LABELS[s.status],
       published_at: s.published_at, approved_by: s.approved_by,
       sha256_hash: s.sha256_hash, pdf_url: s.pdf_url,
+      wilayah_id: s.wilayah_id || 'DPW_JABODETABEK',
+      wilayah_nama: wilayahNama,
       valid: true
     },
-    message: 'Surat sah & diterbitkan resmi oleh Yayasan APII DPW Jabodetabek.'
+    message: 'Surat sah & diterbitkan resmi oleh ' + wilayahNama + '.'
   };
 }
 

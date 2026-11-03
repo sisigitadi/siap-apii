@@ -74,9 +74,10 @@ Setelah pengguna memberikan instruksi tegas **"OKE TERAPKAN"**, implementasi kod
 - [x] Antarmuka Penjelajah Dokumen Vault terintegrasi di portal pengurus.
 
 ### Fase 8: Website Publik Adaptif Tunggal (public/app.js & public/index.html)
-- [ ] Lensa wilayah dinamis (*Regional Lens*) berbasis URL slug/parameter.
-- [ ] Ticker maklumat nasional DPP.
-- [ ] Formulir pendaftaran anggota & verifikasi dokumen publik.
+- [x] Lensa wilayah dinamis (*Regional Lens*) berbasis URL slug/parameter (`?w=jabo`, `?w=pusat`), pemilih cabang di header/drawer, dan sinkronisasi kontak & KOP.
+- [x] Ticker maklumat nasional DPP (*National Syndication Alert Bar*) aktif di seluruh varian wilayah.
+- [x] Formulir pendaftaran anggota adaptif multi-tenant (`#regWilayah`) terhubung ke partisi wilayah.
+- [x] Hub validasi publik terpadu (`#verifikasi`) untuk Surat Resmi, KTA Nasional Digital (5 tahun), dan Kwitansi Kas donatur berstandar UU PDP No. 27/2022.
 
 ### Fase 9: On-Demand Extension Modules (portal/portal.js)
 - [ ] Sakelar toggle dan konfigurasi parameter 8 modul ekstensi (Muallaf CRM, Debat, Inventaris, Donatur, dll).

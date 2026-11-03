@@ -76,19 +76,54 @@
   <!-- ====================== NAVBAR ====================== -->
   <header id="navbar" class="fixed top-0 inset-x-0 z-50 bg-white/95 backdrop-blur-md border-b border-emerald-100 shadow-sm">
     <div id="announcementBannerContainer" class="hidden"></div>
-    <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-      <a href="#beranda" class="flex items-center gap-2.5 sm:gap-3 min-w-0">
-        <img src="logo.png" alt="Logo APII" class="h-10 w-10 sm:h-12 sm:w-12 object-contain flex-shrink-0" onerror="this.style.display='none'" />
-        <div class="leading-tight min-w-0">
-          <div class="font-extrabold text-emerald-dark text-base sm:text-lg truncate">Yayasan APII</div>
-          <div class="text-xs sm:text-sm text-gray-500 font-medium truncate">DPW Jabodetabek</div>
+
+    <!-- Ticker Maklumat Nasional DPP (Sindikasi Lintas Cabang) -->
+    <div id="nationalTickerBar" class="bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-950 text-white border-b border-gold/30 text-xs">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <span class="inline-flex items-center gap-1 bg-gold text-emerald-dark text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex-shrink-0 shadow-xs">
+            <span>📢</span>
+            <span id="tickerBadgeText">MAKLUMAT DPP PUSAT</span>
+          </span>
+          <span id="tickerContentText" class="truncate font-medium text-emerald-100 text-xs sm:text-sm">
+            Maklumat Pimpinan Pusat tentang Panduan Syiar &amp; Dakwah Digital: Menjaga Etika Dialog Ilmiah &amp; Ukhuwah Islamiyah di Seluruh Indonesia
+          </span>
         </div>
-      </a>
-      <ul class="hidden lg:flex items-center gap-6 font-medium text-sm text-gray-700">
+        <a href="#warta" id="tickerLinkBtn" class="text-[11px] font-bold text-gold hover:text-gold-light flex-shrink-0 underline">
+          <span>Detail</span> &rarr;
+        </a>
+      </div>
+    </div>
+
+    <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <div class="flex items-center gap-3 sm:gap-4 min-w-0">
+        <a href="#beranda" class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <img src="logo.png" alt="Logo APII" class="h-10 w-10 sm:h-12 sm:w-12 object-contain flex-shrink-0" onerror="this.style.display='none'" />
+          <div class="leading-tight min-w-0">
+            <div class="font-extrabold text-emerald-dark text-base sm:text-lg truncate" id="brandTitle">Yayasan APII</div>
+            <div class="text-xs sm:text-sm text-gray-500 font-medium truncate" id="brandSubtitle">DPW Jabodetabek</div>
+          </div>
+        </a>
+
+        <!-- Regional Lens Selector (Smart Switcher Desktop) -->
+        <div class="hidden xl:flex items-center" id="regionalLensBox">
+          <label for="regionalLensSelect" class="sr-only">Pilih Wilayah Cabang</label>
+          <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/70 text-xs font-bold text-emerald-900 dark:text-emerald-100">
+            <span class="text-emerald-600 dark:text-emerald-400">🏛️</span>
+            <select id="regionalLensSelect" class="bg-transparent font-bold outline-none cursor-pointer text-xs pr-1 text-emerald-950 dark:text-emerald-100">
+              <option value="DPW_JABODETABEK">DPW Jabodetabek</option>
+              <option value="DPP_PUSAT">DPP APII (Pusat)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <ul class="hidden lg:flex items-center gap-5 xl:gap-6 font-medium text-sm text-gray-700">
         <li><a href="#beranda" class="nav-link hover:text-emerald transition">Beranda</a></li>
         <li><a href="#profil" class="nav-link hover:text-emerald transition">Profil</a></li>
         <li><a href="#warta" class="nav-link hover:text-emerald transition">Warta</a></li>
         <li><a href="#informasi" class="nav-link hover:text-emerald transition">Informasi &amp; Keuangan</a></li>
+        <li><a href="#verifikasi" class="nav-link hover:text-emerald transition">Verifikasi</a></li>
         <li><a href="#faq" class="nav-link hover:text-emerald transition">FAQ</a></li>
         <li><a href="#kontak" class="nav-link hover:text-emerald transition">Kontak</a></li>
       </ul>
@@ -110,7 +145,7 @@
         <div id="headerRegDesktop" class="hidden sm:flex items-center">
           <button type="button" id="headerRegBtnDesktop" class="inline-flex items-center gap-2 bg-gold hover:bg-gold-light text-emerald-dark px-4 sm:px-5 py-2.5 rounded-xl font-extrabold text-sm shadow-md hover:shadow-lg transition cursor-pointer">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-            <span>Daftar Anggota DPW</span>
+            <span>Daftar Anggota</span>
           </button>
         </div>
 
@@ -129,10 +164,23 @@
       </div>
     </nav>
     <div id="mobileMenu" class="hidden lg:hidden bg-white dark:bg-[#0C1A14] border-t border-emerald-100 dark:border-emerald-900 px-4 py-4 space-y-3 font-medium text-gray-700 dark:text-gray-200 shadow-xl">
+      <!-- Mobile Regional Lens Switcher -->
+      <div class="py-2 border-b border-emerald-100 dark:border-emerald-900/60" id="mobileRegionalLensBox">
+        <label for="mobileRegionalLensSelect" class="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Lensa Wilayah:</label>
+        <div class="flex items-center gap-2 p-2 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800">
+          <span class="text-base">🏛️</span>
+          <select id="mobileRegionalLensSelect" class="w-full bg-transparent font-bold text-xs text-emerald-950 dark:text-emerald-100 outline-none">
+            <option value="DPW_JABODETABEK">DPW Jabodetabek</option>
+            <option value="DPP_PUSAT">DPP APII (Pusat)</option>
+          </select>
+        </div>
+      </div>
+
       <a href="#beranda" class="block py-2 mobile-link">Beranda</a>
       <a href="#profil" class="block py-2 mobile-link">Profil</a>
       <a href="#warta" class="block py-2 mobile-link">Warta &amp; Agenda</a>
       <a href="#informasi" class="block py-2 mobile-link">Informasi &amp; Keuangan</a>
+      <a href="#verifikasi" class="block py-2 mobile-link">Verifikasi Dokumen / KTA</a>
       <a href="#faq" class="block py-2 mobile-link">FAQ</a>
       <a href="#kontak" class="block py-2 mobile-link">Kontak</a>
       <div id="mobileMenuRegContainer" class="pt-2">
@@ -450,6 +498,14 @@
               </div>
 
               <div>
+                <label for="regWilayah" class="block text-xs font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">Cabang Wilayah Pendaftaran <span class="text-red-500">*</span></label>
+                <select id="regWilayah" required class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-[#2A4D40] dark:bg-[#060D0A] dark:text-white focus:border-emerald focus:ring-2 focus:ring-emerald/20 outline-none text-sm bg-white font-medium">
+                  <option value="DPW_JABODETABEK">DPW APII Jabodetabek</option>
+                  <option value="DPP_PUSAT">DPP APII (Pusat)</option>
+                </select>
+              </div>
+
+              <div>
                 <label for="regDivision" class="block text-xs font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">Minat Bidang / Divisi Kerja</label>
                 <select id="regDivision" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-[#2A4D40] dark:bg-[#060D0A] dark:text-white focus:border-emerald focus:ring-2 focus:ring-emerald/20 outline-none text-sm bg-white font-medium">
                   <option value="">-- Pilih Minat Divisi Kerja --</option>
@@ -727,6 +783,63 @@
 
         </div>
 
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== VERIFIKASI TERPADU (SURAT, KTA & KWITANSI) ====================== -->
+  <section id="verifikasi" class="py-24 bg-gray-50/70 dark:bg-[#07130E] border-t border-emerald-100 dark:border-emerald-900/60 pattern-islamic-subtle">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-10">
+        <span class="inline-flex items-center gap-2 bg-emerald-light dark:bg-emerald-950 text-emerald dark:text-emerald-300 text-xs font-bold px-4 py-1.5 rounded-full mb-3 shadow-2xs">
+          <span>🛡️</span>
+          <span>Validasi Keabsahan Terpadu</span>
+        </span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-emerald-dark dark:text-white mb-3">
+          Verifikasi Dokumen &amp; KTA Resmi
+        </h2>
+        <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
+          Layanan validasi publik terpadu untuk Surat Keputusan/Dinas, Kartu Tanda Anggota (KTA) Digital Nasional, dan Bukti Kwitansi Infaq Yayasan APII berstandar UU PDP No. 27/2022.
+        </p>
+      </div>
+
+      <!-- Card Verifikasi Interaktif -->
+      <div class="bg-white dark:bg-[#0C1A14] rounded-3xl p-6 sm:p-8 border border-emerald-100 dark:border-emerald-900/60 shadow-lg">
+        <!-- 3 Tab Mode Verifikasi -->
+        <div class="flex items-center justify-center p-1.5 bg-gray-100 dark:bg-emerald-950/60 rounded-2xl mb-8 max-w-lg mx-auto">
+          <button type="button" id="tabVerifySurat" class="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-extrabold text-emerald-dark dark:text-white bg-white dark:bg-emerald-900 shadow-xs transition cursor-pointer text-center">
+            📄 Surat Resmi
+          </button>
+          <button type="button" id="tabVerifyKta" class="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-gray-500 dark:text-gray-400 hover:text-emerald-dark dark:hover:text-emerald-300 transition cursor-pointer text-center">
+            🪪 KTA Nasional
+          </button>
+          <button type="button" id="tabVerifyKwitansi" class="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-gray-500 dark:text-gray-400 hover:text-emerald-dark dark:hover:text-emerald-300 transition cursor-pointer text-center">
+            🧾 Kwitansi Kas
+          </button>
+        </div>
+
+        <!-- Formulir Pencarian / Input Validasi -->
+        <form id="unifiedVerifyForm" class="max-w-2xl mx-auto mb-6">
+          <div class="flex flex-col sm:flex-row gap-3">
+            <div class="relative flex-1">
+              <span class="absolute left-4 top-3.5 text-gray-400">🔍</span>
+              <input type="text" id="verifyInputQuery" required
+                     placeholder="Masukkan nomor surat atau kode hash SHA-256..."
+                     class="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-300 dark:border-emerald-800 dark:bg-[#060D0A] dark:text-white focus:border-emerald focus:ring-2 focus:ring-emerald/20 outline-none text-sm font-mono shadow-xs" />
+            </div>
+            <button type="submit" id="btnRunVerify"
+                    class="bg-emerald hover:bg-emerald-dark text-white font-extrabold px-6 py-3 rounded-2xl text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 cursor-pointer flex-shrink-0">
+              <span id="btnVerifySpinner" class="hidden animate-spin">⏳</span>
+              <span>Periksa Keabsahan</span>
+            </button>
+          </div>
+          <div id="verifyHintText" class="text-[11px] text-gray-400 dark:text-gray-400 mt-2 text-center">
+            Contoh: 042/SK-DPW/XI/2026 atau paste hash SHA-256 surat resmi.
+          </div>
+        </form>
+
+        <!-- Kotak Hasil Verifikasi -->
+        <div id="verifyResultContainer" class="hidden max-w-2xl mx-auto mt-6"></div>
       </div>
     </div>
   </section>

@@ -722,14 +722,55 @@ function sanitizeUrl_(u) {
 
 
 /**
+ * getPublicWilayahList: daftar cabang aktif untuk Regional Lens publik.
+ */
+function getPublicWilayahList(ctx) {
+  var list = [];
+  try {
+    list = Database.readAll(TABS.WILAYAH).filter(function (w) {
+      return w.is_active === 'TRUE' || w.is_active === true || w.is_active === '1' || w.is_active === 1;
+    });
+  } catch (e) {}
+
+  if (!list || list.length === 0) {
+    list = [
+      { id: 'DPP_PUSAT', nama: 'Dewan Pimpinan Pusat (DPP) APII', tingkat: 'PUSAT', kode_surat: 'DPP', alamat: 'Sekretariat DPP APII, DKI Jakarta, Indonesia', email: 'sekretariat@apii.sigitadi.id', hotline_wa: '6281288882026', slug: 'pusat', is_active: true },
+      { id: 'DPW_JABODETABEK', nama: 'DPW APII Jabodetabek', tingkat: 'WILAYAH', kode_surat: 'JABO', alamat: 'Sekretariat DPW APII Jabodetabek, DKI Jakarta & Sekitarnya', email: 'info@apii-jabo.or.id', hotline_wa: '6281299887711', slug: 'jabo', is_active: true }
+    ];
+  }
+  return { ok: true, data: list, message: 'Daftar wilayah aktif berhasil dimuat.' };
+}
+
+/**
  * getPublicSettings: ambil konfigurasi yang boleh dibaca publik.
- * Publik (tanpa token).
+ * Publik (tanpa token). Mendukung adaptasi Smart Regional Lens.
  */
 function getPublicSettings(ctx) {
+  var p = (ctx && (ctx.payload || ctx.parameter)) || {};
+  var wilayahQuery = String(p.wilayah || p.w || p.wilayah_id || '').trim().toLowerCase();
+
+  var wilayahRes = getPublicWilayahList(ctx);
+  var wilayahList = wilayahRes.data || [];
+
+  var activeWilayah = null;
+  if (wilayahQuery) {
+    activeWilayah = wilayahList.find(function (w) {
+      return (w.slug && w.slug.toLowerCase() === wilayahQuery) ||
+             (w.id && w.id.toLowerCase() === wilayahQuery);
+    });
+  }
+  if (!activeWilayah) {
+    activeWilayah = wilayahList.find(function (w) { return w.id === 'DPW_JABODETABEK'; }) || wilayahList[0] || {
+      id: 'DPW_JABODETABEK', nama: 'DPW APII Jabodetabek', tingkat: 'WILAYAH', kode_surat: 'JABO',
+      alamat: 'Sekretariat DPW APII Jabodetabek, DKI Jakarta & Sekitarnya', email: 'info@apii-jabo.or.id',
+      hotline_wa: '6281299887711', slug: 'jabo', is_active: true
+    };
+  }
+
   var pubConfig = getSettingValue_('public_config', {
     show_verification: true, show_finance: true, show_programs: true, show_accounts: true,
     show_registration: true, announcement_banner_active: true,
-    announcement_banner: 'Selamat datang di Portal Resmi Yayasan APII DPW Jabodetabek.'
+    announcement_banner: 'Selamat datang di Portal Resmi Yayasan APII.'
   });
   var kop = getSettingValue_('letter_kop', {});
   var reg = getSettingValue_('registration_config', {
@@ -738,14 +779,14 @@ function getPublicSettings(ctx) {
     quota_limit: 0,
     closed_title: 'Pendaftaran Anggota Sementara Ditutup',
     closed_message: 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
-    instructions: 'Silakan isi formulir pendaftaran anggota Yayasan APII DPW Jabodetabek dengan data yang valid sesuai identitas KTP resmi.',
+    instructions: 'Silakan isi formulir pendaftaran anggota Yayasan APII dengan data yang valid sesuai identitas KTP resmi.',
     require_ktp: true,
     require_selfie: true,
     max_file_size_mb: 3,
     open_divisions: ['DIV_DAKWAH', 'DIV_HUKUM', 'DIV_HUMAS', 'DIV_MEDIA', 'DIV_SOSIAL', 'DIV_LITBANG', 'DIV_EKONOMI'],
-    contact_wa: '081288882026',
-    wa_template: 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
-    agreement_text: 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
+    contact_wa: activeWilayah.hotline_wa || '081288882026',
+    wa_template: 'Halo Sekretariat APII ' + (activeWilayah.nama || '') + ', saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
+    agreement_text: 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII.'
   });
 
   var sepStatus = getSettingValue_('registration_status', null);
@@ -763,16 +804,33 @@ function getPublicSettings(ctx) {
     pubConfig.show_registration = (sepAllowReg === true || sepAllowReg === 'true' || sepAllowReg === '1' || sepAllowReg === 1);
   }
 
+  // Lensa Wilayah KOP
+  var orgTitle = activeWilayah.nama ? activeWilayah.nama.toUpperCase() : 'DEWAN PIMPINAN WILAYAH APOLOGET ISLAM INDONESIA (APII) JABODETABEK';
+  if (activeWilayah.id === 'DPP_PUSAT') {
+    orgTitle = 'DEWAN PIMPINAN PUSAT APOLOGET ISLAM INDONESIA (APII)';
+  }
+
+  var nationalTicker = {
+    active: true,
+    badge: 'MAKLUMAT DPP PUSAT',
+    title: 'Maklumat Pimpinan Pusat tentang Panduan Syiar & Dakwah Digital: Menjaga Etika Dialog Ilmiah & Ukhuwah Islamiyah di Seluruh Indonesia',
+    date: '2026-11-03',
+    link: '#warta'
+  };
+
   return {
     ok: true,
     data: {
       config: pubConfig,
       registration: reg,
+      active_wilayah: activeWilayah,
+      wilayah_list: wilayahList,
+      national_ticker: nationalTicker,
       kop: {
-        org_name: kop.org_name || 'DEWAN PIMPINAN WILAYAH APOLOGET ISLAM INDONESIA (APII) JABODETABEK',
-        address: kop.address || 'DKI Jakarta & Sekitarnya, Indonesia',
-        email: kop.email || 'sekretariat@apii.sigitadi.id',
-        phone: kop.phone || '0812-8888-2026'
+        org_name: kop.org_name || orgTitle,
+        address: activeWilayah.alamat || kop.address || 'DKI Jakarta & Sekitarnya, Indonesia',
+        email: activeWilayah.email || kop.email || 'sekretariat@apii.sigitadi.id',
+        phone: activeWilayah.hotline_wa || kop.phone || '0812-8888-2026'
       },
       editorial: loadEditorial_()
     },

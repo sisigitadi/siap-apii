@@ -12,11 +12,17 @@
     state: {
       ktpBase64: '',
       selfieBase64: '',
-      registration: null
+      registration: null,
+      currentWilayah: 'DPW_JABODETABEK',
+      wilayahList: [],
+      nationalTicker: null,
+      activeVerifyTab: 'surat'
     },
 
     init: function () {
       this.initTheme();
+      this.initRegionalLens();
+      this.initUnifiedVerification();
       this.bindMobileNav();
       this.bindRegistrationForm();
       this.bindRegistrationModal();
@@ -65,6 +71,426 @@
       if (btn) {
         btn.setAttribute('aria-label', isDark ? 'Ubah ke mode terang' : 'Ubah ke mode gelap');
         btn.title = isDark ? 'Ubah ke mode terang' : 'Ubah ke mode gelap';
+      }
+    },
+
+    // ---------------------------------------------------------------
+    // SMART REGIONAL LENS ENGINE (BAB 9)
+    // ---------------------------------------------------------------
+    initRegionalLens: function () {
+      var self = this;
+      var qWil = null;
+      try {
+        var urlParams = new URLSearchParams(window.location.search);
+        qWil = urlParams.get('w') || urlParams.get('wilayah');
+      } catch (_) {}
+
+      var savedWil = null;
+      try { savedWil = localStorage.getItem('apii_regional_lens'); } catch (_) {}
+
+      // Subdomain check (misal: pusat.apii.or.id atau jabo.apii.or.id)
+      var host = window.location.hostname || '';
+      var subMatch = host.match(/^([a-z0-9-]+)\./i);
+      var subSlug = subMatch ? subMatch[1].toLowerCase() : '';
+
+      var initialWil = 'DPW_JABODETABEK';
+      if (qWil) {
+        initialWil = (qWil.toLowerCase() === 'pusat' || qWil.toUpperCase() === 'DPP_PUSAT') ? 'DPP_PUSAT' : 'DPW_JABODETABEK';
+      } else if (subSlug === 'pusat') {
+        initialWil = 'DPP_PUSAT';
+      } else if (savedWil) {
+        initialWil = savedWil;
+      }
+
+      self.state.currentWilayah = initialWil;
+
+      var selectDesk = document.getElementById('regionalLensSelect');
+      var selectMob = document.getElementById('mobileRegionalLensSelect');
+      var selectReg = document.getElementById('regWilayah');
+
+      var onWilayahChange = function (val) {
+        self.applyRegionalLens(val, true);
+      };
+
+      if (selectDesk) {
+        selectDesk.value = initialWil;
+        selectDesk.addEventListener('change', function () { onWilayahChange(this.value); });
+      }
+      if (selectMob) {
+        selectMob.value = initialWil;
+        selectMob.addEventListener('change', function () { onWilayahChange(this.value); });
+      }
+      if (selectReg) {
+        selectReg.value = initialWil;
+        selectReg.addEventListener('change', function () {
+          self.state.currentWilayah = this.value;
+          if (selectDesk) selectDesk.value = this.value;
+          if (selectMob) selectMob.value = this.value;
+        });
+      }
+    },
+
+    populateWilayahSelectors: function (list, currentId) {
+      if (!Array.isArray(list) || list.length === 0) return;
+      var selectDesk = document.getElementById('regionalLensSelect');
+      var selectMob = document.getElementById('mobileRegionalLensSelect');
+      var selectReg = document.getElementById('regWilayah');
+
+      var buildOptions = function () {
+        return list.map(function (w) {
+          var sel = (w.id === currentId) ? ' selected' : '';
+          var label = (w.tingkat === 'PUSAT') ? 'DPP APII (Pusat)' : (w.nama || w.id);
+          return '<option value="' + w.id + '"' + sel + '>' + label + '</option>';
+        }).join('');
+      };
+
+      var opts = buildOptions();
+      if (selectDesk) selectDesk.innerHTML = opts;
+      if (selectMob) selectMob.innerHTML = opts;
+      if (selectReg) selectReg.innerHTML = opts;
+    },
+
+    applyRegionalLens: function (wilayahId, updateUrl) {
+      var self = this;
+      self.state.currentWilayah = wilayahId;
+      try { localStorage.setItem('apii_regional_lens', wilayahId); } catch (_) {}
+
+      var selectDesk = document.getElementById('regionalLensSelect');
+      var selectMob = document.getElementById('mobileRegionalLensSelect');
+      var selectReg = document.getElementById('regWilayah');
+      if (selectDesk && selectDesk.value !== wilayahId) selectDesk.value = wilayahId;
+      if (selectMob && selectMob.value !== wilayahId) selectMob.value = wilayahId;
+      if (selectReg && selectReg.value !== wilayahId) selectReg.value = wilayahId;
+
+      var wList = self.state.wilayahList || [];
+      var wObj = wList.find(function (w) { return w.id === wilayahId; }) || {
+        id: wilayahId,
+        nama: (wilayahId === 'DPP_PUSAT') ? 'Dewan Pimpinan Pusat (DPP) APII' : 'DPW APII Jabodetabek',
+        tingkat: (wilayahId === 'DPP_PUSAT') ? 'PUSAT' : 'WILAYAH',
+        slug: (wilayahId === 'DPP_PUSAT') ? 'pusat' : 'jabo',
+        alamat: (wilayahId === 'DPP_PUSAT') ? 'Sekretariat DPP APII, DKI Jakarta, Indonesia' : 'Sekretariat DPW APII Jabodetabek, DKI Jakarta',
+        email: (wilayahId === 'DPP_PUSAT') ? 'sekretariat@apii.sigitadi.id' : 'info@apii-jabo.or.id',
+        hotline_wa: (wilayahId === 'DPP_PUSAT') ? '6281288882026' : '6281299887711'
+      };
+
+      if (updateUrl && window.history && window.history.replaceState) {
+        try {
+          var u = new URL(window.location);
+          u.searchParams.set('w', wObj.slug || wilayahId.toLowerCase());
+          window.history.replaceState({}, '', u);
+        } catch (_) {}
+      }
+
+      self.applyWilayahBranding(wObj);
+
+      // Refresh data publik spesifik wilayah
+      self.loadPublicSurat({ wilayah: wilayahId });
+      self.loadPublicAccounts({ wilayah: wilayahId });
+    },
+
+    applyWilayahBranding: function (w) {
+      if (!w) return;
+      var brandSub = document.getElementById('brandSubtitle');
+      if (brandSub) {
+        brandSub.textContent = (w.tingkat === 'PUSAT') ? 'Dewan Pimpinan Pusat' : (w.nama || 'DPW Jabodetabek');
+      }
+
+      var addr = document.getElementById('contactAddressVal');
+      if (addr && w.alamat) { addr.textContent = w.alamat; }
+
+      var email = document.getElementById('contactEmailVal');
+      if (email && w.email) { email.textContent = w.email; }
+
+      var waVal = document.getElementById('contactWaVal');
+      var waCard = document.getElementById('contactWaCard');
+      if (waVal && w.hotline_wa) {
+        waVal.textContent = w.hotline_wa;
+        if (waCard) {
+          waCard.classList.remove('hidden');
+          var digits = String(w.hotline_wa).replace(/\D/g, '').replace(/^0/, '62');
+          waCard.onclick = function () {
+            window.open('https://wa.me/' + digits + '?text=' + encodeURIComponent('Halo Sekretariat APII, saya ingin bertanya terkait portal publik.'), '_blank', 'noopener');
+          };
+        }
+      }
+    },
+
+    // ---------------------------------------------------------------
+    // UNIFIED VERIFICATION HUB (SURAT, KTA & KWITANSI)
+    // ---------------------------------------------------------------
+    initUnifiedVerification: function () {
+      var self = this;
+      var tabSurat = document.getElementById('tabVerifySurat');
+      var tabKta = document.getElementById('tabVerifyKta');
+      var tabKwitansi = document.getElementById('tabVerifyKwitansi');
+      var input = document.getElementById('verifyInputQuery');
+      var hint = document.getElementById('verifyHintText');
+      var form = document.getElementById('unifiedVerifyForm');
+      var resBox = document.getElementById('verifyResultContainer');
+
+      if (!form || !input) return;
+
+      var setTab = function (tab) {
+        self.state.activeVerifyTab = tab;
+        var activeCls = ['bg-white', 'dark:bg-emerald-900', 'text-emerald-dark', 'dark:text-white', 'shadow-xs', 'font-extrabold'];
+        var inactiveCls = ['text-gray-500', 'dark:text-gray-400', 'font-bold'];
+
+        [tabSurat, tabKta, tabKwitansi].forEach(function (btn) {
+          if (!btn) return;
+          activeCls.forEach(function (c) { btn.classList.remove(c); });
+          inactiveCls.forEach(function (c) { btn.classList.add(c); });
+        });
+
+        if (tab === 'surat' && tabSurat) {
+          inactiveCls.forEach(function (c) { tabSurat.classList.remove(c); });
+          activeCls.forEach(function (c) { tabSurat.classList.add(c); });
+          input.placeholder = 'Masukkan nomor surat atau hash SHA-256...';
+          if (hint) hint.textContent = 'Contoh: 042/SK-DPW/XI/2026 atau tempel kode hash SHA-256.';
+        } else if (tab === 'kta' && tabKta) {
+          inactiveCls.forEach(function (c) { tabKta.classList.remove(c); });
+          activeCls.forEach(function (c) { tabKta.classList.add(c); });
+          input.placeholder = 'Masukkan nomor KTA (contoh: 2026-JABO-00142) atau QR token...';
+          if (hint) hint.textContent = 'Sistem memverifikasi status keanggotaan aktif & masa berlaku 5 tahun secara UU PDP compliant.';
+        } else if (tab === 'kwitansi' && tabKwitansi) {
+          inactiveCls.forEach(function (c) { tabKwitansi.classList.remove(c); });
+          activeCls.forEach(function (c) { tabKwitansi.classList.add(c); });
+          input.placeholder = 'Masukkan nomor kwitansi/voucher kas (contoh: 001/KW-M-JABO/XI/2026)...';
+          if (hint) hint.textContent = 'Validasi bukti penerimaan infaq/donasi kas resmi terdaftar.';
+        }
+      };
+
+      if (tabSurat) tabSurat.addEventListener('click', function () { setTab('surat'); });
+      if (tabKta) tabKta.addEventListener('click', function () { setTab('kta'); });
+      if (tabKwitansi) tabKwitansi.addEventListener('click', function () { setTab('kwitansi'); });
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var q = String(input.value || '').trim();
+        if (!q) return;
+        self.executeUnifiedVerification(self.state.activeVerifyTab || 'surat', q);
+      });
+
+      // Auto check query params on page load
+      var qSurat = null, qKta = null, qKwitansi = null;
+      try {
+        var urlParams = new URLSearchParams(window.location.search);
+        qSurat = urlParams.get('verifikasi') || urlParams.get('verifikasi-surat') || urlParams.get('hash');
+        qKta = urlParams.get('verifikasi-kta') || urlParams.get('kta') || urlParams.get('token');
+        qKwitansi = urlParams.get('verifikasi-kuitansi') || urlParams.get('kwitansi') || urlParams.get('no');
+      } catch (_) {}
+
+      if (qSurat) {
+        setTab('surat');
+        input.value = qSurat;
+        self.executeUnifiedVerification('surat', qSurat);
+      } else if (qKta) {
+        setTab('kta');
+        input.value = qKta;
+        self.executeUnifiedVerification('kta', qKta);
+      } else if (qKwitansi) {
+        setTab('kwitansi');
+        input.value = qKwitansi;
+        self.executeUnifiedVerification('kwitansi', qKwitansi);
+      }
+    },
+
+    executeUnifiedVerification: function (type, query) {
+      var self = this;
+      var spinner = document.getElementById('btnVerifySpinner');
+      var btn = document.getElementById('btnRunVerify');
+      var resBox = document.getElementById('verifyResultContainer');
+      if (!resBox) return;
+
+      if (spinner) spinner.classList.remove('hidden');
+      if (btn) btn.disabled = true;
+      resBox.classList.remove('hidden');
+      resBox.innerHTML = '<div class="p-6 text-center text-sm font-semibold text-gray-500 animate-pulse">Memeriksa keabsahan data di pangkalan data resmi APII...</div>';
+
+      var action = 'verifySurat';
+      var params = { query: query, hash: query, letter_number: query };
+      if (type === 'kta') {
+        action = 'verifyKtaPublic';
+        params = { token: query, no_kta: query };
+      } else if (type === 'kwitansi') {
+        action = 'verifyKwitansi';
+        params = { no: query, voucher_number: query, id: query };
+      }
+
+      this.get(action, params).then(function (res) {
+        if (spinner) spinner.classList.add('hidden');
+        if (btn) btn.disabled = false;
+        self.renderVerificationResult(type, query, res);
+      }).catch(function (err) {
+        if (spinner) spinner.classList.add('hidden');
+        if (btn) btn.disabled = false;
+        resBox.innerHTML = '' +
+          '<div class="p-6 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-900 dark:text-rose-200">' +
+            '<div class="flex items-center gap-2 font-bold mb-1">' +
+              '<span>⚠️</span> <span>Gagal Memeriksa Data</span>' +
+            '</div>' +
+            '<p class="text-xs">Terjadi kendala jaringan saat menghubungi server APII. Silakan coba kembali.</p>' +
+          '</div>';
+      });
+    },
+
+    renderVerificationResult: function (type, query, res) {
+      var self = this;
+      var resBox = document.getElementById('verifyResultContainer');
+      if (!resBox) return;
+
+      var ok = res && res.success && res.data;
+      var d = (res && res.data) || {};
+
+      if (!ok) {
+        resBox.innerHTML = '' +
+          '<div class="p-6 sm:p-7 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-900 dark:text-rose-200">' +
+            '<div class="flex items-start gap-3">' +
+              '<div class="h-10 w-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl flex-shrink-0">❌</div>' +
+              '<div>' +
+                '<h4 class="font-extrabold text-sm sm:text-base mb-1">Data Tidak Terdaftar / Tidak Valid</h4>' +
+                '<p class="text-xs sm:text-sm text-rose-800 dark:text-rose-300 leading-relaxed">' + self.esc((res && res.message) || 'Kode atau nomor referensi tidak ditemukan dalam pangkalan data resmi Yayasan APII.') + '</p>' +
+                '<div class="mt-3 text-[11px] font-mono text-rose-700/80 bg-white/70 dark:bg-black/40 px-3 py-1.5 rounded-lg border border-rose-200/60 inline-block">' +
+                  'Query: ' + self.esc(query) +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        return;
+      }
+
+      if (type === 'surat') {
+        resBox.innerHTML = '' +
+          '<div class="p-6 sm:p-7 rounded-3xl bg-emerald-50/70 dark:bg-emerald-950/40 border-2 border-emerald-500/50 shadow-md">' +
+            '<div class="flex items-center justify-between gap-3 pb-4 mb-4 border-b border-emerald-200 dark:border-emerald-800 flex-wrap">' +
+              '<div class="flex items-center gap-2">' +
+                '<span class="h-3 w-3 rounded-full bg-emerald-600 animate-pulse"></span>' +
+                '<span class="text-xs font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">DOKUMEN RESMI SAH &amp; TERVERIFIKASI</span>' +
+              '</div>' +
+              '<span class="text-xs font-bold bg-emerald-200/70 dark:bg-emerald-900 text-emerald-950 dark:text-emerald-100 px-3 py-1 rounded-full">' + self.esc(d.status_label || d.status) + '</span>' +
+            '</div>' +
+            '<div class="space-y-3 text-xs sm:text-sm">' +
+              '<div>' +
+                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Judul Surat / Perihal:</div>' +
+                '<div class="font-black text-gray-950 dark:text-white text-base">' + self.esc(d.title) + '</div>' +
+              '</div>' +
+              '<div class="grid sm:grid-cols-2 gap-3 pt-1">' +
+                '<div>' +
+                  '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Nomor Naskah Dinas:</div>' +
+                  '<div class="font-mono font-bold text-emerald-900 dark:text-emerald-200 break-all">' + self.esc(d.letter_number) + '</div>' +
+                '</div>' +
+                '<div>' +
+                  '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Penerbit:</div>' +
+                  '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.wilayah_nama || 'Yayasan APII') + '</div>' +
+                '</div>' +
+                '<div>' +
+                  '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Tanggal Terbit:</div>' +
+                  '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.tanggal_label || d.published_at || '-') + '</div>' +
+                '</div>' +
+                '<div>' +
+                  '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Klasifikasi:</div>' +
+                  '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.letter_type_label || d.letter_type) + '</div>' +
+                '</div>' +
+              '</div>' +
+              (d.sha256_hash ?
+                '<div class="pt-2">' +
+                  '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Hash Integritas Digital (SHA-256):</div>' +
+                  '<div class="font-mono text-[11px] text-gray-600 dark:text-gray-400 break-all bg-white/70 dark:bg-black/30 p-2 rounded-xl border border-emerald-100 dark:border-emerald-900/60">' + self.esc(d.sha256_hash) + '</div>' +
+                '</div>' : '') +
+              (d.pdf_url ?
+                '<div class="pt-3">' +
+                  '<a href="' + self.esc(d.pdf_url) + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 bg-emerald hover:bg-emerald-dark text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow transition">' +
+                    '<span>📥 Unduh Salinan Resmi Dokumen (PDF)</span>' +
+                  '</a>' +
+                '</div>' : '') +
+            '</div>' +
+          '</div>';
+      } else if (type === 'kta') {
+        var isValidKta = d.is_valid && d.status === 'AKTIF';
+        var borderCls = isValidKta ? 'border-emerald-500/50 bg-emerald-50/70 dark:bg-emerald-950/40' : 'border-amber-400 bg-amber-50 dark:bg-amber-950/40';
+        var badgeCls = isValidKta ? 'bg-emerald-200/70 text-emerald-950' : 'bg-amber-200/70 text-amber-950';
+
+        resBox.innerHTML = '' +
+          '<div class="p-6 sm:p-7 rounded-3xl border-2 ' + borderCls + ' shadow-md">' +
+            '<div class="flex items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-200 dark:border-emerald-800 flex-wrap">' +
+              '<div class="flex items-center gap-2">' +
+                '<span class="text-xl">🪪</span>' +
+                '<span class="text-xs font-black uppercase tracking-wider text-emerald-900 dark:text-emerald-300">KARTU TANDA ANGGOTA NASIONAL APII</span>' +
+              '</div>' +
+              '<span class="text-xs font-black ' + badgeCls + ' px-3 py-1 rounded-full">' + self.esc(d.status) + '</span>' +
+            '</div>' +
+            '<div class="grid sm:grid-cols-2 gap-4 text-xs sm:text-sm">' +
+              '<div>' +
+                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Nama Anggota:</div>' +
+                '<div class="font-black text-gray-950 dark:text-white text-base">' + self.esc(d.full_name) + '</div>' +
+              '</div>' +
+              '<div>' +
+                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Nomor KTA Nasional (ART Bab II):</div>' +
+                '<div class="font-mono font-bold text-emerald-900 dark:text-emerald-200 text-base">' + self.esc(d.no_kta) + '</div>' +
+              '</div>' +
+              '<div>' +
+                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Afiliasi Wilayah:</div>' +
+                '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.wilayah_nama || d.wilayah_id) + '</div>' +
+              '</div>' +
+              '<div>' +
+                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Masa Berlaku (5 Tahun Terkunci):</div>' +
+                '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.tgl_terbit || '-') + ' s.d. ' + self.esc(d.masa_berlaku || '-') + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="mt-4 pt-3 border-t border-gray-200 dark:border-emerald-900 text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">' +
+              '<span>🔒</span> <span>Verifikasi terlindungi UU PDP No. 27/2022 (Data NIK &amp; privasi pribadi disamarkan).</span>' +
+            '</div>' +
+          '</div>';
+      } else if (type === 'kwitansi') {
+        var isVoid = d.is_void;
+        var isValidKwt = d.is_valid && !isVoid;
+        var kwtBorder = isValidKwt ? 'border-emerald-500/50 bg-emerald-50/70 dark:bg-emerald-950/40' : (isVoid ? 'border-rose-400 bg-rose-50 dark:bg-rose-950/40' : 'border-amber-400 bg-amber-50 dark:bg-amber-950/40');
+        var kwtStatusText = isValidKwt ? 'LUNAS &amp; SAH' : (isVoid ? 'DIBATALKAN / VOID' : self.esc(d.status));
+        var kwtBadgeCls = isValidKwt ? 'bg-emerald-600 text-white' : (isVoid ? 'bg-rose-600 text-white' : 'bg-amber-600 text-white');
+
+        resBox.innerHTML = '' +
+          '<div class="p-6 sm:p-7 rounded-3xl border-2 ' + kwtBorder + ' shadow-md">' +
+            '<div class="flex items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-200 dark:border-emerald-800 flex-wrap">' +
+              '<div class="flex items-center gap-2">' +
+                '<span class="text-xl">🧾</span>' +
+                '<span class="text-xs font-black uppercase tracking-wider text-emerald-900 dark:text-emerald-300">BUKTI PENERIMAAN KAS RESMI (KWITANSI)</span>' +
+              '</div>' +
+              '<span class="text-xs font-black ' + kwtBadgeCls + ' px-3.5 py-1 rounded-full">' + kwtStatusText + '</span>' +
+            '</div>' +
+            '<div class="grid sm:grid-cols-2 gap-4 text-xs sm:text-sm">' +
+              '<div>' +
+                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Nomor Kwitansi:</div>' +
+                '<div class="font-mono font-bold text-gray-950 dark:text-white text-base break-all">' + self.esc(d.voucher_number) + '</div>' +
+              '</div>' +
+              '<div>' +
+                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Nominal Infaq / Donasi:</div>' +
+                '<div class="font-mono font-black text-emerald-900 dark:text-emerald-200 text-lg">Rp ' + (Number(d.amount) || 0).toLocaleString('id-ID') + ',-</div>' +
+              '</div>' +
+              '<div class="sm:col-span-2">' +
+                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Terbilang:</div>' +
+                '<div class="font-semibold italic text-gray-800 dark:text-gray-200">' + self.esc(d.terbilang || '-') + '</div>' +
+              '</div>' +
+              '<div>' +
+                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Sudah Terima Dari:</div>' +
+                '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.pembayar_masked || '-') + '</div>' +
+              '</div>' +
+              '<div>' +
+                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Tanggal Transaksi:</div>' +
+                '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.transaction_date || '-') + '</div>' +
+              '</div>' +
+              '<div>' +
+                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Pos Anggaran / Program:</div>' +
+                '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.category || '-') + '</div>' +
+              '</div>' +
+              '<div>' +
+                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Entitas Penerima:</div>' +
+                '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.wilayah_nama || 'Yayasan APII') + '</div>' +
+              '</div>' +
+            '</div>' +
+            (isVoid ?
+              '<div class="mt-4 p-3 rounded-xl bg-rose-100 text-rose-900 text-xs font-bold flex items-center gap-2">' +
+                '<span>⚠️</span> <span>Kwitansi ini telah dibatalkan (VOID): ' + self.esc(d.void_reason || 'Alasan pembatalan internal') + '</span>' +
+              '</div>' : '') +
+          '</div>';
       }
     },
 
@@ -575,6 +1001,9 @@
 
       var fullPhone = phone.startsWith('0') ? '62' + phone.slice(1) : (phone.startsWith('+62') ? phone.slice(1) : (phone.startsWith('62') ? phone : '62' + phone));
 
+      var wilEl = document.getElementById('regWilayah');
+      var regWilayahId = (wilEl && wilEl.value) || self.state.currentWilayah || 'DPW_JABODETABEK';
+
       var payload = {
         full_name: fullName,
         nik: nik,
@@ -584,6 +1013,7 @@
         phone: fullPhone,
         email: email,
         job: job,
+        wilayah_id: regWilayahId,
         division_interest: division,
         address: address,
         ktp_base64: self.state.ktpBase64,
@@ -741,7 +1171,33 @@
           }
         }
 
-        // 1b. Redaksi Konten Dinamis Portal Publik (Mini-CMS)
+        // 1b. Ticker Maklumat Nasional DPP (Sindikasi Lintas Cabang)
+        var tickerBar = document.getElementById('nationalTickerBar');
+        var tickerBadge = document.getElementById('tickerBadgeText');
+        var tickerText = document.getElementById('tickerContentText');
+        var tickerLink = document.getElementById('tickerLinkBtn');
+        var nt = d.national_ticker;
+        if (tickerBar) {
+          if (nt && nt.active !== false) {
+            tickerBar.classList.remove('hidden');
+            if (tickerBadge && nt.badge) tickerBadge.textContent = nt.badge;
+            if (tickerText && nt.title) tickerText.textContent = nt.title;
+            if (tickerLink && nt.link) tickerLink.href = nt.link;
+          } else {
+            tickerBar.classList.add('hidden');
+          }
+        }
+
+        // 1c. Populate Wilayah List & Lensa Wilayah
+        if (Array.isArray(d.wilayah_list) && d.wilayah_list.length > 0) {
+          self.state.wilayahList = d.wilayah_list;
+          self.populateWilayahSelectors(d.wilayah_list, self.state.currentWilayah);
+        }
+        if (d.active_wilayah) {
+          self.applyWilayahBranding(d.active_wilayah);
+        }
+
+        // 1d. Redaksi Konten Dinamis Portal Publik (Mini-CMS)
         var ed = d.editorial || self.getDefaultEditorial();
         var defEd = self.getDefaultEditorial();
         if (ed && ed.profile) {
@@ -947,7 +1403,8 @@
       applyConfig(defaultSettings);
 
       // Kemudian update dengan data otentik live dari server
-      this.get('getPublicSettings').then(function (res) {
+      var qWil = { wilayah: self.state.currentWilayah || 'DPW_JABODETABEK' };
+      this.get('getPublicSettings', qWil).then(function (res) {
         if (res && res.success && res.data) {
           var liveReg = res.data.registration || {};
           var liveConf = res.data.config || {};
@@ -1365,14 +1822,15 @@
     // ---------------------------------------------------------------
     // ARSIP SURAT & DOKUMEN RESMI PUBLIK
     // ---------------------------------------------------------------
-    loadPublicSurat: function () {
+    loadPublicSurat: function (params) {
       var self = this;
       var loadingEl = document.getElementById('loadingSurat');
       var listEl = document.getElementById('publicSuratList');
       var emptyEl = document.getElementById('emptySurat');
       if (!listEl) return;
 
-      this.get('getPublishedSurat', { limit: 8 }).then(function (res) {
+      var targetWil = (params && params.wilayah) || this.state.currentWilayah || 'DPW_JABODETABEK';
+      this.get('getPublishedSurat', { limit: 8, wilayah: targetWil }).then(function (res) {
         if (loadingEl) loadingEl.classList.add('hidden');
         if (res && res.success && res.data && res.data.items && res.data.items.length) {
           listEl.innerHTML = res.data.items.map(function (s) {
@@ -1409,14 +1867,15 @@
     // ---------------------------------------------------------------
     // REKENING KEUANGAN RESMI YAYASAN
     // ---------------------------------------------------------------
-    loadPublicAccounts: function () {
+    loadPublicAccounts: function (params) {
       var self = this;
       var loadingEl = document.getElementById('loadingAccount');
       var container = document.getElementById('publicAccountList');
       var emptyEl = document.getElementById('emptyAccount');
       if (!container) return;
 
-      this.get('getPublicAccounts').then(function (res) {
+      var targetWil = (params && params.wilayah) || this.state.currentWilayah || 'DPW_JABODETABEK';
+      this.get('getPublicAccounts', { wilayah: targetWil }).then(function (res) {
         if (loadingEl) loadingEl.classList.add('hidden');
         if (res && res.success && res.data && res.data.length) {
           container.innerHTML = res.data.map(function (acc, idx) {
