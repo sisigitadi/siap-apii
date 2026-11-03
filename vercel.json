@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "cleanUrls": true,
   "headers": [
     {
       "source": "/(.*)",
@@ -42,44 +41,8 @@
       "destination": "/public/index.html"
     },
     {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "siapii.sigitadi.id"
-        }
-      ],
-      "destination": "/portal/index.html"
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.siapii.sigitadi.id"
-        }
-      ],
-      "destination": "/portal/index.html"
-    },
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "siapii.sigitadi.id"
-        }
-      ],
-      "destination": "/portal/:path*"
-    },
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.siapii.sigitadi.id"
-        }
-      ],
-      "destination": "/portal/:path*"
+      "source": "/verifikasi(.*)",
+      "destination": "/public/index.html"
     },
     {
       "source": "/",
@@ -123,11 +86,11 @@
     },
     {
       "source": "/",
-      "destination": "/public/index.html"
+      "destination": "/portal/index.html"
     },
     {
       "source": "/:path*",
-      "destination": "/public/:path*"
+      "destination": "/portal/:path*"
     }
   ]
 }
