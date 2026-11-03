@@ -460,6 +460,20 @@ function getSettings(ctx) {
   settings.google_drive_folder_id = settings.google_drive_folder_id || drv.custom_folder_id || '';
   settings.auto_annual_subfolders = settings.auto_annual_subfolders !== undefined ? settings.auto_annual_subfolders : true;
 
+  // Modul Ekstensi Fungsional Pilihan (Bab 14)
+  if (!settings.feature_flags || typeof settings.feature_flags !== 'object') {
+    settings.feature_flags = {
+      ext_khazanah_litbang: false,
+      ext_muallaf_crm: false,
+      ext_manajemen_debat: false,
+      ext_inventaris_aset: false,
+      ext_advokasi_hukum: false,
+      ext_donatur_crm: false,
+      ext_kalender_dakwah: false,
+      ext_notulen_rapat: false
+    };
+  }
+
   // Resolusi metadata folder aktif aktual (nama, ID, url, custom/default)
   try {
     var activeFId = siapkanFolderPdf_();

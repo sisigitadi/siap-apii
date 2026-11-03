@@ -5944,6 +5944,7 @@
       var canPendaftaran = ['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'PEMBINA', 'PENGAWAS'].indexOf(role) !== -1;
       var canKeuanganTab = ['SUPERADMIN', 'KETUA', 'BENDAHARA', 'PEMBINA', 'PENGAWAS'].indexOf(role) !== -1;
       var canFormasi = ['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'PEMBINA', 'PENGAWAS'].indexOf(role) !== -1;
+      var canEkstensi = ['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'PEMBINA', 'PENGAWAS'].indexOf(role) !== -1;
       var canRbac = ['SUPERADMIN', 'KETUA'].indexOf(role) !== -1;
       var canDrive = ['SUPERADMIN', 'KETUA'].indexOf(role) !== -1;
 
@@ -5960,6 +5961,8 @@
       if (currentTab === 'surat' && !canSurat) currentTab = canEditorial ? 'redaksi' : 'pendaftaran';
       if (currentTab === 'pendaftaran' && !canPendaftaran) currentTab = canEditorial ? 'redaksi' : 'rekening';
       if (currentTab === 'keuangan' && !canKeuanganTab) currentTab = canEditorial ? 'redaksi' : 'rekening';
+      if (currentTab === 'formasi' && !canFormasi) currentTab = canEditorial ? 'redaksi' : 'rekening';
+      if (currentTab === 'ekstensi' && !canEkstensi) currentTab = canEditorial ? 'redaksi' : 'rekening';
       if (currentTab === 'rbac' && !canRbac) currentTab = canEditorial ? 'redaksi' : 'rekening';
       if (currentTab === 'drive' && !canDrive) currentTab = canEditorial ? 'redaksi' : 'rekening';
       if (currentTab === 'redaksi' && !canEditorial) currentTab = canRekening ? 'rekening' : 'pendaftaran';
@@ -5969,15 +5972,16 @@
 
       main.innerHTML = this.pageHead('Pengaturan &amp; Master Data',
         isMaster
-          ? 'Kelola master rekening kas, format penomoran & KOP surat resmi, pendaftaran anggota, aturan keuangan, RBAC, Google Drive, dan redaksi konten portal publik.'
+          ? 'Kelola master rekening kas, format penomoran & KOP surat resmi, pendaftaran anggota, aturan keuangan, RBAC, Google Drive, formasi kepengurusan, modul ekstensi, dan redaksi konten portal publik.'
           : 'Konfigurasi master data, perizinan, dan publikasi warta portal.', '') +
         bannerHtml +
-        '<div class="flex items-center gap-2 p-1.5 bg-gray-100 rounded-2xl mb-6 flex-wrap max-w-4xl">' +
+        '<div class="flex items-center gap-2 p-1.5 bg-gray-100 rounded-2xl mb-6 flex-wrap max-w-5xl">' +
         (canRekening ? '<button type="button" data-ptab="rekening" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rekening' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💳 Master Rekening</button>' : '') +
         (canSurat ? '<button type="button" data-ptab="surat" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'surat' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📄 Format &amp; KOP Surat</button>' : '') +
         (canPendaftaran ? '<button type="button" data-ptab="pendaftaran" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'pendaftaran' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📝 Pendaftaran</button>' : '') +
         (canKeuanganTab ? '<button type="button" data-ptab="keuangan" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'keuangan' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💰 Keuangan</button>' : '') +
         (canFormasi ? '<button type="button" data-ptab="formasi" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'formasi' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">👥 Formasi Pengurus &amp; Plt</button>' : '') +
+        (canEkstensi ? '<button type="button" data-ptab="ekstensi" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'ekstensi' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">🧩 Modul Ekstensi</button>' : '') +
         (canRbac ? '<button type="button" data-ptab="rbac" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rbac' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">🛡️ RBAC &amp; Publik</button>' : '') +
         (canDrive ? '<button type="button" data-ptab="drive" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'drive' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">☁️ Google Drive</button>' : '') +
         (canEditorial ? '<button type="button" data-ptab="redaksi" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'redaksi' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📰 Redaksi Konten Portal</button>' : '') +
@@ -6001,6 +6005,7 @@
       else if (currentTab === 'pendaftaran') this.renderPengaturanPendaftaran();
       else if (currentTab === 'keuangan') this.renderPengaturanKeuangan();
       else if (currentTab === 'formasi') this.renderPengaturanFormasi();
+      else if (currentTab === 'ekstensi') this.renderPengaturanEkstensi();
       else if (currentTab === 'rbac') this.renderPengaturanRbac();
       else if (currentTab === 'drive') this.renderPengaturanDrive();
       else if (currentTab === 'redaksi') this.renderPengaturanRedaksi();
@@ -8725,6 +8730,172 @@
             self.toast('Gagal terbitkan SK: ' + Auth.esc(err.message), 'error');
           });
         });
+    },
+
+    // ---------------------------------------------------------------
+    // PENGATURAN MODUL EKSTENSI FUNGSIONAL PILIHAN (FASE 9 - BAB 14)
+    // ---------------------------------------------------------------
+    renderPengaturanEkstensi: function () {
+      var box = document.getElementById('pengaturanBox');
+      var self = this;
+      if (!box) return;
+      box.innerHTML = this.loadingRow(6);
+
+      var modulesDef = [
+        {
+          key: 'ext_khazanah_litbang',
+          icon: '📚',
+          title: 'E-Khazanah Litbang & Bank Dalil',
+          pic: 'Divisi Penelitian & Pengembangan',
+          desc: 'Bank dalil tematik Al-Qur\'an, Hadits, perbandingan lintas kitab samawi (PL/PB/manuskrip kuno), serta transkrip debat komparasi berfitur Quick Search Bar da\'i.',
+          features: ['Bank Dalil Tematik & Tafsir', 'Pencarian Instan Hitungan Detik', 'Transkrip Risalah Debat']
+        },
+        {
+          key: 'ext_muallaf_crm',
+          icon: '🤝',
+          title: 'Muallaf Journey CRM & Buku Da\'i',
+          pic: 'Divisi Dakwah & Advokasi Hukum',
+          desc: 'Pelacakan siklus pembinaan saudara baru 5 tahap (Konsultasi -> Bimbingan -> Ikrar Syahadat -> Pembinaan Pasca -> Mandiri), Catatan Bimbingan Terenkripsi, dan Tombol Darurat Persekusi.',
+          features: ['Pelacakan 5 Tahap Pembinaan', 'Buku Catatan Da\'i Terenkripsi', 'Early Warning Tombol Darurat']
+        },
+        {
+          key: 'ext_manajemen_debat',
+          icon: '🎙️',
+          title: 'Manajemen Acara Dialog & Debat',
+          pic: 'Divisi Medsos & Divisi Dakwah',
+          desc: 'Pencatatan agenda dialog/debat ilmiah (ART Bab VI Pasal 17), penerbitan otomatis Surat Mandat Moderator Resmi, dan widget hitung mundur (countdown) acara publik.',
+          features: ['Surat Mandat Moderator ART Ps. 17', 'Live Countdown Widget', 'Multi-Platform Broadcast Tracker']
+        },
+        {
+          key: 'ext_inventaris_aset',
+          icon: '📦',
+          title: 'Inventaris Aset Dakwah & QR-Tag',
+          pic: 'Divisi Rumah Tangga & Umum',
+          desc: 'Pangkalan data aset tetap & logistik bergerak per cabang (kamera, mixer studio, genset, kendaraan), stiker label QR fisik, dan Berita Acara Peminjaman (BA-ASET).',
+          features: ['Pangkalan Data Aset Multi-Tenant', 'Label QR Code Fisik Barang', 'Berita Acara Peminjaman (BA-ASET)']
+        },
+        {
+          key: 'ext_advokasi_hukum',
+          icon: '⚖️',
+          title: 'Sistem Aduan & Pelacak Kasus Advokasi',
+          pic: 'Divisi Advokasi Hukum & HAM',
+          desc: 'Helpdesk pengaduan rahasia (whistleblower) diskriminasi hak sipil muallaf/umat, dasbor alur perkara (Laporan -> Investigasi -> Mediasi -> Sidang), dan Surat Kuasa Khusus.',
+          features: ['Whistleblower Portal Rahasia', 'Pipeline 4 Tahap Perkara Hukum', 'Surat Kuasa & Tugas Otomatis']
+        },
+        {
+          key: 'ext_donatur_crm',
+          icon: '💎',
+          title: 'Donatur CRM & Laporan Dampak',
+          pic: 'Divisi Bisnis & Bendahara',
+          desc: 'Buku induk donatur tetap bulanan & wakaf khusus asnaf muallaf, penerbitan Annual Impact Report transparan per donatur untuk pelaporan zakat/pajak.',
+          features: ['Buku Induk Donatur Tetap', 'Laporan Akuntabilitas Tahunan', 'Sertifikat Tanda Terima Infaq']
+        },
+        {
+          key: 'ext_kalender_dakwah',
+          icon: '🗓️',
+          title: 'Master Kalender Dakwah & Safari Da\'i',
+          pic: 'Divisi Dakwah & Humas',
+          desc: 'Matriks kalender safari asatidz APII (Khutbah Jum\'at, Tablig Akbar, Kajian Muallaf, Debat), sinkronisasi otomatis ke Google Calendar bagi jamaah.',
+          features: ['Penjadwalan Safari Asatidz', 'Sinkronisasi Google Calendar', 'Tampil Otomatis di Web Publik']
+        },
+        {
+          key: 'ext_notulen_rapat',
+          icon: '📝',
+          title: 'E-Presensi & Notulen Rapat Pleno',
+          pic: 'Sekretariat BPH',
+          desc: 'Agenda rapat pleno/Muswil dengan presensi pemindaian QR Code layar, pencatatan E-Notulen & butir penugasan (action items + PIC + deadline), dan Berita Acara Rapat (BA-RAPAT).',
+          features: ['Presensi QR Code di Layar Sidang', 'E-Notulen & Action Item Matrix', 'Berita Acara Rapat (BA-RAPAT)']
+        }
+      ];
+
+      Auth.getCached('getSettings', null).then(function (res) {
+        var sData = (res && res.data) || {};
+        var flags = sData.feature_flags || {};
+
+        var cardsHtml = modulesDef.map(function (m) {
+          var isAct = flags[m.key] === true || flags[m.key] === 'TRUE' || flags[m.key] === '1' || flags[m.key] === 1;
+          var statusBadge = isAct
+            ? '<span class="badge badge-published">AKTIF</span>'
+            : '<span class="badge badge-draft">NON-AKTIF</span>';
+
+          var featuresHtml = m.features.map(function (f) {
+            return '<li class="flex items-center gap-1.5 text-[11px] text-gray-500"><span class="text-emerald font-bold">✓</span> ' + Auth.esc(f) + '</li>';
+          }).join('');
+
+          return '' +
+            '<div class="card p-5 bg-white rounded-2xl border ' + (isAct ? 'border-emerald-300 ring-2 ring-emerald-500/10' : 'border-gray-200 opacity-90') + ' flex flex-col justify-between shadow-xs transition hover:shadow-md">' +
+              '<div>' +
+                '<div class="flex items-start justify-between gap-3 mb-3">' +
+                  '<div class="flex items-center gap-2.5">' +
+                    '<span class="text-2xl p-2 rounded-xl bg-gray-50 border border-gray-100 flex-shrink-0">' + m.icon + '</span>' +
+                    '<div>' +
+                      '<h4 class="font-extrabold text-gray-900 text-sm leading-tight">' + Auth.esc(m.title) + '</h4>' +
+                      '<div class="text-[11px] text-emerald-800 font-semibold mt-0.5">' + Auth.esc(m.pic) + '</div>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div>' + statusBadge + '</div>' +
+                '</div>' +
+                '<p class="text-xs text-gray-600 leading-relaxed mb-3.5">' + Auth.esc(m.desc) + '</p>' +
+                '<ul class="space-y-1 mb-4 pt-3 border-t border-gray-100">' + featuresHtml + '</ul>' +
+              '</div>' +
+              '<div class="pt-3 border-t border-gray-100 flex items-center justify-between">' +
+                '<span class="text-[11px] font-bold text-gray-500">Status Modul:</span>' +
+                '<label class="relative inline-flex items-center cursor-pointer">' +
+                  '<input type="checkbox" data-flag-key="' + m.key + '" ' + (isAct ? 'checked' : '') + ' class="sr-only peer" />' +
+                  '<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[\'\'] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald"></div>' +
+                '</label>' +
+              '</div>' +
+            '</div>';
+        }).join('');
+
+        box.innerHTML = '' +
+          '<div class="space-y-6">' +
+            '<div class="card p-6 bg-gradient-to-br from-emerald-50/60 to-white rounded-2xl border border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">' +
+              '<div>' +
+                '<div class="flex items-center gap-2 mb-1">' +
+                  '<span class="text-lg">🧩</span>' +
+                  '<h3 class="font-black text-gray-900 text-base">Modul Ekstensi Organisasi (On-Demand Feature Flags)</h3>' +
+                '</div>' +
+                '<p class="text-xs text-gray-600 leading-relaxed max-w-2xl">' +
+                  'Seluruh 8 modul di bawah ini berstatus <strong>Pilihan Mandiri (Non-Mandatory)</strong>. Modul inti (Persuratan, Keuangan Kas, Disposisi, KTA Nasional, dan Website Publik) berjalan ramping secara mandiri. Aktifkan modul tambahan sesuai kebutuhan operasional divisi cabang.' +
+                '</p>' +
+              '</div>' +
+              '<button type="button" id="btnSaveFeatureFlags" class="btn btn-primary px-5 py-2.5 rounded-xl font-bold text-xs shadow-md hover:shadow-lg flex items-center gap-1.5 flex-shrink-0 cursor-pointer">' +
+                '<span>Simpan Pengaturan Modul</span>' +
+              '</button>' +
+            '</div>' +
+            '<div class="grid grid-cols-1 md:grid-cols-2 gap-5">' + cardsHtml + '</div>' +
+          '</div>';
+
+        var btnSave = document.getElementById('btnSaveFeatureFlags');
+        if (btnSave) {
+          btnSave.addEventListener('click', function () {
+            var updatedFlags = {};
+            var inputs = box.querySelectorAll('input[data-flag-key]');
+            Array.prototype.forEach.call(inputs, function (inp) {
+              var k = inp.getAttribute('data-flag-key');
+              updatedFlags[k] = inp.checked;
+            });
+
+            btnSave.disabled = true;
+            btnSave.textContent = 'Menyimpan...';
+
+            Auth.post('saveSettings', { feature_flags: updatedFlags }).then(function () {
+              btnSave.disabled = false;
+              btnSave.textContent = 'Simpan Pengaturan Modul';
+              self.toast('Pengaturan modul ekstensi berhasil disimpan.', 'success');
+              Auth.clearCache('getSettings');
+              self.renderPengaturanEkstensi();
+            }).catch(function (err) {
+              btnSave.disabled = false;
+              btnSave.textContent = 'Simpan Pengaturan Modul';
+              self.toast('Gagal menyimpan: ' + Auth.esc(err.message), 'error');
+            });
+          });
+        }
+      }).catch(function (err) {
+        box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat modul ekstensi: ' + Auth.esc(err.message) + '</div>';
+      });
     },
 
     // ---------------------------------------------------------------

@@ -80,7 +80,8 @@ Setelah pengguna memberikan instruksi tegas **"OKE TERAPKAN"**, implementasi kod
 - [x] Hub validasi publik terpadu (`#verifikasi`) untuk Surat Resmi, KTA Nasional Digital (5 tahun), dan Kwitansi Kas donatur berstandar UU PDP No. 27/2022.
 
 ### Fase 9: On-Demand Extension Modules (portal/portal.js)
-- [ ] Sakelar toggle dan konfigurasi parameter 8 modul ekstensi (Muallaf CRM, Debat, Inventaris, Donatur, dll).
+- [x] Sakelar toggle dan konfigurasi parameter 8 modul ekstensi (Muallaf CRM, Debat, Inventaris, Donatur, Advokasi, Litbang, Kalender, Notulen) pada Pengaturan -> Modul Ekstensi (Bab 14).
+- [x] Manajemen penyimpanan `feature_flags` di `Sheet_Settings` dan pencatatan audit perubahan.
 
 ### Fase 10: Validasi, Quality Assurance & Kompilasi Akhir
 - [ ] Menjalankan skrip validasi rute `validate-routes-whitelist.mjs`.
