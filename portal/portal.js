@@ -1029,33 +1029,66 @@
     },
 
     /** Daftar menu sesuai peran (RBAC frontend; backend tetap penjaga mutlak). */
+    /** 
+     * 9 Menu Navigasi Seragam Portal Pengurus (Bab 10.2 Dokumen Rancangan):
+     * 1. Dasbor & Kotak Aksi (Action Inbox)
+     * 2. Instruksi & Disposisi Nasional
+     * 3. Persuratan Resmi & Komposer A4
+     * 4. Buku Kas & Keuangan
+     * 5. Program 7 Divisi Kerja
+     * 6. Pendaftar & KTA Nasional
+     * 7. Redaksi Web Publik (Mini-CMS)
+     * 8. Arsip & Dokumen Vault
+     * 9. Akun & Pengaturan
+     * Plus menu sekunder: Manajemen Pengguna (Superadmin), Jejak Audit, Profil.
+     */
     navForRole: function (role, user) {
       var u = user || this.state.user || {};
-      var items = [{ id: 'dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' }];
       var has = function (arr) { return arr.indexOf(role) !== -1; };
-      // Hak edit redaksi konten portal (mini-CMS): core + Divisi Humas & Medsos.
-      var canEditorial = has(['SUPERADMIN', 'KETUA', 'SEKRETARIS']) ||
-        (has(['KETUA_DIVISI', 'ANGGOTA_DIVISI']) &&
-          (u.division === 'DIV_HUMAS' || u.division === 'DIV_SOSMED'));
+      var canEditorial = has(['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'PEMBINA', 'PENGAWAS']) ||
+        (has(['KETUA_DIVISI', 'ANGGOTA_DIVISI']) && (u.division === 'DIV_HUMAS' || u.division === 'DIV_SOSMED'));
 
-      if (has(['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'PEMBINA', 'PENGAWAS'])) {
-        items.push({ id: 'surat', label: 'Persuratan', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' });
-      }
+      var items = [
+        // 1. Dasbor & Kotak Aksi
+        { id: 'dashboard', label: 'Dasbor & Kotak Aksi', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+        // 2. Instruksi & Disposisi Nasional
+        { id: 'disposisi', label: 'Instruksi & Disposisi', icon: 'M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l3-3m-3 3L9 8m-5 5h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293h6.586a1 1 0 00.707-.293l2.414-2.414a1 1 0 01.707-.293H20' },
+        // 3. Persuratan Resmi & Komposer A4
+        { id: 'surat', label: 'Persuratan & Komposer A4', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }
+      ];
+
+      // 4. Buku Kas & Keuangan (Pengurus Inti & Pengawas)
       if (has(['SUPERADMIN', 'KETUA', 'BENDAHARA', 'PEMBINA', 'PENGAWAS'])) {
-        items.push({ id: 'keuangan', label: 'Keuangan', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' });
+        items.push({ id: 'keuangan', label: 'Buku Kas & Keuangan', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' });
       }
-      // Divisi Kerja untuk semua 8 peran pengurus
-      items.push({ id: 'divisi', label: 'Divisi Kerja', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' });
-      // Daftar akun: read-only untuk pengurus inti & pengawas; tulis hanya SUPERADMIN.
+
+      // 5. Program 7 Divisi Kerja (Semua Peran)
+      items.push({ id: 'divisi', label: 'Program 7 Divisi', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' });
+
+      // 6. Pendaftar & KTA Nasional (Pengurus Inti)
+      if (has(['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'PEMBINA', 'PENGAWAS'])) {
+        items.push({ id: 'kta', label: 'Pendaftar & KTA', icon: 'M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2' });
+      }
+
+      // 7. Redaksi Web Publik (Mini-CMS)
+      if (has(['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'PEMBINA', 'PENGAWAS']) || canEditorial) {
+        items.push({ id: 'redaksi', label: 'Redaksi Web Publik', icon: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z' });
+      }
+
+      // 8. Arsip & Dokumen Vault (Semua Peran)
+      items.push({ id: 'vault', label: 'Arsip & Vault', icon: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4' });
+
+      // 9. Akun & Pengaturan (Pengurus Inti)
       if (has(['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'BENDAHARA', 'PEMBINA', 'PENGAWAS'])) {
+        items.push({ id: 'pengaturan', label: 'Akun & Pengaturan', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' });
+      }
+
+      // Menu Tambahan / Sekunder
+      if (has(['SUPERADMIN'])) {
         items.push({ id: 'pengguna', label: 'Manajemen Pengguna', icon: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-3.13a4 4 0 10-8 0 4 4 0 008 0zm6 0a4 4 0 10-8 0 4 4 0 008 0z' });
       }
       if (has(['SUPERADMIN', 'KETUA', 'PEMBINA', 'PENGAWAS'])) {
         items.push({ id: 'audit', label: 'Jejak Audit', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' });
-      }
-      // Pengaturan & Master: SUPERADMIN, KETUA, SEKRETARIS, BENDAHARA, PEMBINA, PENGAWAS, atau editor redaksi
-      if (has(['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'BENDAHARA', 'PEMBINA', 'PENGAWAS']) || canEditorial) {
-        items.push({ id: 'pengaturan', label: 'Pengaturan & Master', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' });
       }
       items.push({ id: 'profil', label: 'Profil Saya', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' });
       return items;
@@ -1076,13 +1109,17 @@
     // ROUTER
     // ---------------------------------------------------------------
     PAGES: {
-      dashboard: { t: 'Dashboard', s: 'Ringkasan aktivitas yayasan', fn: 'renderDashboard' },
-      surat: { t: 'Persuratan', s: 'Kelola surat resmi: draf → persetujuan → terbit', fn: 'renderSurat' },
-      keuangan: { t: 'Keuangan', s: 'Buku kas & voucher dengan verifikasi ganda', fn: 'renderKeuangan' },
-      divisi: { t: 'Divisi Kerja', s: 'Usulan program dari 7 divisi kerja', fn: 'renderDivisi' },
-      pengguna: { t: 'Manajemen Pengguna', s: 'Kelola akun pengurus sistem & pendaftar anggota', fn: 'renderPengguna' },
+      dashboard: { t: 'Dasbor & Kotak Aksi', s: 'Ringkasan aktivitas yayasan & tugas tertunda', fn: 'renderDashboard' },
+      disposisi: { t: 'Instruksi & Disposisi Nasional', s: 'Lalu lintas komunikasi kedinasan hierarkis antar-sekretariat (DPP ↔ DPW)', fn: 'renderDisposisi' },
+      surat: { t: 'Persuratan Resmi & Komposer A4', s: 'Kelola surat dinas, proposal/LPJ divisi, dan komposer A4 live', fn: 'renderSurat' },
+      keuangan: { t: 'Buku Kas & Keuangan', s: 'Buku kas & voucher dengan verifikasi ganda', fn: 'renderKeuangan' },
+      divisi: { t: 'Program 7 Divisi Kerja', s: 'Usulan program & LPJ dari 7 divisi kerja resmi', fn: 'renderDivisi' },
+      kta: { t: 'Pendaftar & KTA Nasional', s: 'Verifikasi pendaftar baru 2-tingkat, direktori KTA 5 tahun, dan klaim anggota lama', fn: 'renderKta' },
+      redaksi: { t: 'Redaksi Web Publik (Mini-CMS)', s: 'Pengelolaan warta terkurasi, agenda dakwah, transparansi LPJ, dan banner maklumat', fn: 'renderRedaksi' },
+      vault: { t: 'Arsip & Dokumen Vault', s: 'Penjelajah berkas digital terpusat Google Drive per kategori', fn: 'renderVault' },
+      pengaturan: { t: 'Akun & Pengaturan Organisasi', s: 'Master rekening kas, format KOP surat, formasi pengurus, dan Google Drive', fn: 'renderPengaturan' },
+      pengguna: { t: 'Manajemen Pengguna', s: 'Kelola akun pengurus sistem', fn: 'renderPengguna' },
       audit: { t: 'Jejak Audit', s: 'Catatan keamanan & log kepatuhan (WORM - Anti-Hapus)', fn: 'renderAudit' },
-      pengaturan: { t: 'Pengaturan & Master Data', s: 'Master rekening kas, format KOP surat, pendaftaran anggota, RBAC, dan Google Drive', fn: 'renderPengaturan' },
       profil: { t: 'Profil Saya', s: 'Informasi akun Anda', fn: 'renderProfil' }
     },
 
@@ -1440,6 +1477,21 @@
 
     bindGlobal: function () {
       var self = this;
+
+      // Switcher Lensa Wilayah Topbar (Bab 10.1 Dokumen Rancangan)
+      var wilSel = document.getElementById('topbarWilayahSelect');
+      if (wilSel) {
+        wilSel.addEventListener('change', function () {
+          var val = this.value;
+          self.state.activeTenant = val;
+          var pillTxt = document.getElementById('topbarTenantText');
+          if (pillTxt) {
+            pillTxt.textContent = (val === 'DPP_PUSAT') ? 'DPP APII PUSAT (NASIONAL)' : 'DPW JABODETABEK';
+          }
+          self.toast('Lensa wilayah beralih ke: ' + (val === 'DPP_PUSAT' ? 'DPP APII Pusat (Pemantauan Nasional)' : 'DPW Jabodetabek'), 'info');
+          self.router();
+        });
+      }
 
       // Klik menu navigasi.
       document.getElementById('navItems').addEventListener('click', function (e) {
@@ -2079,6 +2131,536 @@
     // ---------------------------------------------------------------
     // PERSURATAN
     // ---------------------------------------------------------------
+
+    // ---------------------------------------------------------------
+    // BAB 10.2 ITEM 6: PENDAFTAR & KTA NASIONAL
+    // ---------------------------------------------------------------
+    renderKta: function () {
+      var self = this;
+      var main = document.getElementById('mainContent');
+      if (!main) return;
+      main.innerHTML = self.pageHead('Pendaftar &amp; KTA Nasional 🪪',
+        'Tata kelola keanggotaan terpadu: verifikasi pendaftar baru 2-tingkat, direktori KTA aktif 5 tahun (ART Bab II Pasal 5), dan konsolidasi klaim anggota lama.', '') +
+        '<div id="penggunaContainer"></div>';
+      self.renderPendaftarView();
+    },
+
+    // ---------------------------------------------------------------
+    // BAB 10.2 ITEM 7: REDAKSI WEB PUBLIK (MINI-CMS)
+    // ---------------------------------------------------------------
+    renderRedaksi: function () {
+      var self = this;
+      var main = document.getElementById('mainContent');
+      if (!main) return;
+      main.innerHTML = self.pageHead('Redaksi Web Publik (Mini-CMS) 📰',
+        'Kelola tampilan portal resmi apii.sigitadi.id: Warta, Agenda, Transparansi LPJ Proker, Khazanah Riset, dan Banner Maklumat.', '') +
+        '<div id="pengaturanBox"></div>';
+      self.renderPengaturanRedaksi();
+    },
+
+    // ---------------------------------------------------------------
+    // BAB 10.2 ITEM 8: ARSIP & DOKUMEN VAULT
+    // ---------------------------------------------------------------
+    renderVault: function () {
+      var self = this;
+      var main = document.getElementById('mainContent');
+      if (!main) return;
+
+      var activeCategory = '';
+      var isTrash = false;
+      var q = '';
+
+      var cats = [
+        { id: '', label: 'Semua Berkas' },
+        { id: 'Surat', label: '📄 Surat PDF' },
+        { id: 'Kwitansi', label: '🧾 Kwitansi Kas' },
+        { id: 'Nota', label: '📑 Nota Belanja' },
+        { id: 'Muallaf', label: '📜 Berkas Muallaf' },
+        { id: 'Warta', label: '🖼️ Foto Warta' },
+        { id: 'KTP', label: '🪪 KTP Anggota' },
+        { id: 'trash', label: '🗑️ Tong Sampah' }
+      ];
+
+      var pillsHtml = cats.map(function (c) {
+        if (c.id === 'trash') {
+          return '<button type="button" data-cat="trash" class="px-3 py-1.5 rounded-xl text-xs font-bold transition bg-red-50 text-red-700 hover:bg-red-100 flex items-center gap-1"><span>' + c.label + '</span></button>';
+        }
+        return '<button type="button" data-cat="' + c.id + '" class="px-3 py-1.5 rounded-xl text-xs font-bold transition ' + (c.id === '' ? 'bg-emerald text-white' : 'bg-gray-100 dark:bg-emerald-950 text-gray-700 dark:text-emerald-200 hover:bg-gray-200') + '">' + c.label + '</button>';
+      }).join('');
+
+      main.innerHTML = self.pageHead('Arsip &amp; Dokumen Vault 🗄️',
+        'Penjelajah arsip digital terpusat Google Drive per kategori dokumen APII dengan pratinjau instan &amp; kapasitas penyimpanan.', '') +
+        '<div class="space-y-6">' +
+        // Bar Indikator Kapasitas Google Drive
+        '<div class="card bg-white dark:bg-[#0C1A14] rounded-2xl p-6 border border-emerald-100 dark:border-emerald-900 shadow-sm">' +
+        '<div class="flex items-center justify-between flex-wrap gap-3 mb-2">' +
+        '<div class="flex items-center gap-2">' +
+        '<span class="text-xl">☁️</span>' +
+        '<div><h4 class="font-extrabold text-sm text-emerald-dark dark:text-emerald-200">Kapasitas Google Drive APII</h4>' +
+        '<p class="text-xs text-gray-500 dark:text-gray-400">Penyimpanan Terdistribusi Google Workspace Non-Profit APII</p></div>' +
+        '</div>' +
+        '<div class="text-right">' +
+        '<span class="text-xs font-bold text-emerald-900 dark:text-emerald-300">1.2 GB / 15 GB Terpakai</span>' +
+        '<span class="text-[10px] text-gray-400 block">(92% Kapasitas Aman Bebas)</span>' +
+        '</div>' +
+        '</div>' +
+        '<div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2.5 overflow-hidden">' +
+        '<div class="bg-emerald h-2.5 rounded-full" style="width: 8%"></div>' +
+        '</div>' +
+        '</div>' +
+        // Penjelajah Berkas
+        '<div class="card bg-white dark:bg-[#0C1A14] rounded-2xl p-6 border border-emerald-100 dark:border-emerald-900 shadow-sm">' +
+        '<div class="flex items-center justify-between gap-3 pb-3 mb-4 border-b border-gray-100 dark:border-gray-800 flex-wrap">' +
+        '<div class="flex items-center gap-1.5 overflow-x-auto pb-1 flex-wrap" id="vaultCategoryPills">' + pillsHtml + '</div>' +
+        '<div class="flex items-center gap-2">' +
+        '<input type="text" id="vaultSearchQ" placeholder="Cari nama berkas / dokumen / pengunggah..." class="field text-xs sm:w-64" />' +
+        '<button type="button" id="btnReloadVault" class="btn btn-ghost px-3 py-2 rounded-xl text-xs font-bold border border-gray-200">🔄</button>' +
+        '</div>' +
+        '</div>' +
+        '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+        '<th>Nama Berkas &amp; Dokumen</th><th>Kategori</th><th>Ukuran</th><th>Pengunggah</th><th>Waktu</th><th>Aksi</th>' +
+        '</tr></thead><tbody id="vaultTableRows">' + self.loadingRow(6) + '</tbody></table></div>' +
+        '<div class="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800 mt-4">' +
+        '<div id="vaultTrashActions" class="hidden">' +
+        '<button type="button" id="btnPurgeTrash" class="btn bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-3.5 py-1.5 rounded-xl font-bold text-xs inline-flex items-center gap-1.5">' +
+        '<span>🧹 Bersihkan Permanen (&gt; 30 Hari)</span></button>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
+
+      var loadVault = function () {
+        var tb = document.getElementById('vaultTableRows');
+        var searchInput = document.getElementById('vaultSearchQ');
+        q = searchInput ? searchInput.value.trim() : '';
+        if (!tb) return;
+
+        var trashBox = document.getElementById('vaultTrashActions');
+        if (trashBox) {
+          if (isTrash) trashBox.classList.remove('hidden');
+          else trashBox.classList.add('hidden');
+        }
+
+        Auth.fetch('getListVaultFiles', { category: activeCategory, is_trash: isTrash, q: q }).then(function (res) {
+          var items = (res && res.data && res.data.items) || [];
+          if (!items.length) {
+            tb.innerHTML = '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-8">Tidak ada berkas yang ditemukan dalam arsip ini.</td></tr>';
+            return;
+          }
+          tb.innerHTML = items.map(function (f) {
+            return '<tr data-file-id="' + f.id + '">' +
+              '<td><div class="font-bold text-gray-900 dark:text-gray-100 leading-snug text-xs sm:text-sm">' + Auth.esc(f.file_name) + '</div>' +
+              (f.sha256_hash ? '<div class="font-mono text-[9px] text-gray-400 truncate max-w-xs">SHA: ' + Auth.esc(f.sha256_hash) + '</div>' : '') + '</td>' +
+              '<td><span class="text-[10px] font-mono bg-gray-100 dark:bg-emerald-950 px-2 py-0.5 rounded text-gray-700 dark:text-emerald-200">' + Auth.esc(f.category || 'Surat') + '</span></td>' +
+              '<td class="text-xs font-mono text-gray-600 dark:text-gray-300">' + (f.file_size_kb ? (f.file_size_kb + ' KB') : '-') + '</td>' +
+              '<td class="text-xs text-gray-700 dark:text-gray-300">' + Auth.esc(f.uploaded_by || 'system') + '</td>' +
+              '<td class="text-xs text-gray-500 whitespace-nowrap">' + Auth.esc((f.uploaded_at || '').slice(0, 16)) + '</td>' +
+              '<td class="tbl-actions"><div class="flex gap-1.5">' +
+              (f.drive_url ? '<a href="' + Auth.esc(f.drive_url) + '" target="_blank" rel="noopener" class="btn btn-ghost py-1 px-2.5 rounded-lg text-xs font-bold border border-gray-200">Pratinjau ↗</a>' : '') +
+              (isTrash ?
+                '<button type="button" class="btn bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 py-1 px-2.5 rounded-lg text-xs font-bold" data-act="restore">Pulihkan</button>' :
+                '<button type="button" class="btn btn-danger py-1 px-2.5 rounded-lg text-xs font-bold" data-act="soft_delete">Hapus</button>') +
+              '</div></td>' +
+              '</tr>';
+          }).join('');
+
+          Array.prototype.forEach.call(tb.querySelectorAll('tr[data-file-id]'), function (tr) {
+            var fId = tr.getAttribute('data-file-id');
+            var btnDel = tr.querySelector('[data-act="soft_delete"]');
+            var btnRes = tr.querySelector('[data-act="restore"]');
+            if (btnDel) {
+              btnDel.addEventListener('click', function () {
+                self.confirm('Hapus Berkas ke Tong Sampah', 'Pindahkan berkas ini ke Tong Sampah? Berkas masih dapat dipulihkan dalam 30 hari.', function () {
+                  Auth.fetch('softDeleteVaultFile', { id: fId }).then(function () {
+                    self.toast('Berkas dipindahkan ke tong sampah.', 'success');
+                    loadVault();
+                  });
+                });
+              });
+            }
+            if (btnRes) {
+              btnRes.addEventListener('click', function () {
+                Auth.fetch('restoreVaultFile', { id: fId }).then(function () {
+                  self.toast('Berkas berhasil dipulihkan.', 'success');
+                  loadVault();
+                });
+              });
+            }
+          });
+        }).catch(function (err) {
+          tb.innerHTML = '<tr class="tbl-empty"><td colspan="6" class="text-center text-red-500 py-6">Gagal memuat berkas: ' + Auth.esc(err.message) + '</td></tr>';
+        });
+      };
+
+      var pCont = document.getElementById('vaultCategoryPills');
+      if (pCont) {
+        Array.prototype.forEach.call(pCont.querySelectorAll('[data-cat]'), function (btn) {
+          btn.addEventListener('click', function () {
+            var cat = btn.getAttribute('data-cat');
+            if (cat === 'trash') {
+              isTrash = true;
+              activeCategory = '';
+            } else {
+              isTrash = false;
+              activeCategory = cat;
+            }
+            Array.prototype.forEach.call(pCont.querySelectorAll('[data-cat]'), function (b) {
+              var c = b.getAttribute('data-cat');
+              if (c === 'trash') {
+                b.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition ' + (isTrash ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100');
+              } else {
+                b.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition ' + (activeCategory === c && !isTrash ? 'bg-emerald text-white' : 'bg-gray-100 dark:bg-emerald-950 text-gray-700 dark:text-emerald-200 hover:bg-gray-200');
+              }
+            });
+            loadVault();
+          });
+        });
+      }
+
+      var btnReload = document.getElementById('btnReloadVault');
+      if (btnReload) btnReload.addEventListener('click', loadVault);
+      var qInput = document.getElementById('vaultSearchQ');
+      if (qInput) qInput.addEventListener('input', loadVault);
+
+      loadVault();
+    },
+
+    // ---------------------------------------------------------------
+    // BAB 10.2 ITEM 2 & BAB 7: INSTRUKSI & DISPOSISI NASIONAL
+    // ---------------------------------------------------------------
+    renderDisposisi: function () {
+      var self = this;
+      var main = document.getElementById('mainContent');
+      if (!main) return;
+
+      var currentTab = self.state.disposisiTab || 'inbox';
+
+      var getLocalDisposisi = function () {
+        var raw = localStorage.getItem('siapii_disposisi_items');
+        if (raw) {
+          try { return JSON.parse(raw); } catch (_) {}
+        }
+        return [
+          {
+            id: 'DSP-001',
+            tipe: 'INSTRUKSI_DPP',
+            tab: 'inbox',
+            nomor_agenda: 'AGD-2026/XI/001',
+            no_surat: '014/INS-DPP/APII/XI/2026',
+            pengirim: 'Dewan Pimpinan Pusat (DPP APII)',
+            perihal: 'Instruksi Pelaksanaan Safari Ramadhan & Penyaluran Da\'i Nasional 1447 H',
+            sifat: 'SANGAT_SEGERA',
+            divisi_pelaksana: 'DIV_DAKWAH',
+            divisi_label: 'Dakwah & Pendidikan',
+            deadline: '2026-11-20',
+            status: 'BARU',
+            arahan: 'Tindak lanjuti dengan memetakan 15 Da\'i ke wilayah Jabodetabek dan koordinasi titik masjid mitra.',
+            catatan: 'Prioritaskan wilayah pembinaan muallaf di pinggiran ibu kota.'
+          },
+          {
+            id: 'DSP-002',
+            tipe: 'KOORDINASI_WILAYAH',
+            tab: 'inbox',
+            nomor_agenda: 'AGD-2026/XI/002',
+            no_surat: '008/KRD-DPW/JBR-APII/XI/2026',
+            pengirim: 'DPW APII Jawa Barat',
+            perihal: 'Permohonan Sinergi Advokasi Keumatan & Bantuan Hukum Kasus Penistaan Agama',
+            sifat: 'SEGERA',
+            divisi_pelaksana: 'DIV_HUKUM',
+            divisi_label: 'Hukum & Advokasi Keumatan',
+            deadline: '2026-11-25',
+            status: 'DIPROSES',
+            arahan: 'Siapkan tim hukum pendamping dan telaah berkas perkara bersama LBH APII.',
+            catatan: 'Tembusan telah diarsipkan ke DPP APII Pusat.'
+          },
+          {
+            id: 'DSP-003',
+            tipe: 'DISPOSISI_INTERNAL',
+            tab: 'internal',
+            nomor_agenda: 'AGD-2026/XI/003',
+            no_surat: '003/DISP-JABO/XI/2026',
+            pengirim: 'Ketua DPW Jabodetabek',
+            perihal: 'Penyusunan Modul Khazanah Kristologi & Kajian Komparatif Litbang 2026',
+            sifat: 'BIASA',
+            divisi_pelaksana: 'DIV_LITBANG',
+            divisi_label: 'Penelitian & Pengembangan (Litbang)',
+            deadline: '2026-12-05',
+            status: 'DIPROSES',
+            arahan: 'Kaji referensi naskah dan susun draft silabus pelatihan apologet dasar.',
+            catatan: 'Target pencetakan buku saku da\'i akhir tahun.'
+          },
+          {
+            id: 'DSP-004',
+            tipe: 'ARAHAN_DPW',
+            tab: 'outbox',
+            nomor_agenda: 'AGD-2026/XI/004',
+            no_surat: '042/DPW-APII/JABO/XI/2026',
+            pengirim: 'Sekretariat DPW Jabodetabek',
+            perihal: 'Permohonan Arahan Fatwa Muallaf Center & Standardisasi Piagam Syahadat',
+            sifat: 'SEGERA',
+            divisi_pelaksana: 'DIV_UMUM',
+            divisi_label: 'Umum & Operasional',
+            deadline: '2026-11-30',
+            status: 'TERKIRIM',
+            arahan: 'Menunggu telaah Dewan Pembina / Pimpinan Pusat DPP APII.',
+            catatan: 'Dokumen pendukung terlampir di Google Drive.'
+          }
+        ];
+      };
+
+      var saveLocalDisposisi = function (items) {
+        try { localStorage.setItem('siapii_disposisi_items', JSON.stringify(items)); } catch (_) {}
+      };
+
+      var items = getLocalDisposisi();
+
+      main.innerHTML = self.pageHead('Instruksi &amp; Disposisi Nasional 🏛️',
+        'Lalu lintas komunikasi kedinasan hierarkis antar-sekretariat DPP APII dan DPW se-Indonesia (Bab 7 Dokumen Rancangan).',
+        '<button type="button" id="btnBuatDisposisi" class="btn btn-primary px-4 py-2.5 rounded-xl font-bold text-xs inline-flex items-center gap-2 shadow-sm">' +
+        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>' +
+        '<span>Buat Lembar Disposisi / Instruksi Baru</span></button>') +
+        '<div class="space-y-6">' +
+        // Tab Navigasi Disposisi (Bab 7 & 10.2 item 2)
+        '<div class="flex items-center gap-2 p-1.5 bg-emerald-50/70 dark:bg-emerald-950/60 border border-emerald-100 dark:border-emerald-900 rounded-2xl flex-wrap">' +
+        '<button type="button" data-disp-tab="inbox" class="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ' + (currentTab === 'inbox' ? 'bg-white dark:bg-[#0C1A14] text-emerald-dark dark:text-emerald-200 shadow-sm border border-emerald-200 dark:border-emerald-800' : 'text-gray-600 dark:text-gray-400') + '">' +
+        '<span>📥 Kotak Masuk (DPP / Wilayah Lain)</span>' +
+        '</button>' +
+        '<button type="button" data-disp-tab="outbox" class="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ' + (currentTab === 'outbox' ? 'bg-white dark:bg-[#0C1A14] text-emerald-dark dark:text-emerald-200 shadow-sm border border-emerald-200 dark:border-emerald-800' : 'text-gray-600 dark:text-gray-400') + '">' +
+        '<span>📤 Kotak Keluar (Permohonan Arahan)</span>' +
+        '</button>' +
+        '<button type="button" data-disp-tab="internal" class="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ' + (currentTab === 'internal' ? 'bg-white dark:bg-[#0C1A14] text-emerald-dark dark:text-emerald-200 shadow-sm border border-emerald-200 dark:border-emerald-800' : 'text-gray-600 dark:text-gray-400') + '">' +
+        '<span>📋 Disposisi Wilayah (Ke 7 Divisi)</span>' +
+        '</button>' +
+        '<button type="button" data-disp-tab="arsip" class="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ' + (currentTab === 'arsip' ? 'bg-white dark:bg-[#0C1A14] text-emerald-dark dark:text-emerald-200 shadow-sm border border-emerald-200 dark:border-emerald-800' : 'text-gray-600 dark:text-gray-400') + '">' +
+        '<span>🗄️ Arsip Selesai</span>' +
+        '</button>' +
+        '</div>' +
+        // Filter & Search bar
+        '<div class="card bg-white dark:bg-[#0C1A14] rounded-2xl p-4 border border-emerald-100 dark:border-emerald-900 shadow-sm flex flex-col sm:flex-row gap-3 items-center">' +
+        '<input id="disposisiSearchQ" type="text" placeholder="Cari nomor agenda / no surat / perihal / pengirim..." class="field flex-1 text-xs" />' +
+        '<select id="disposisiSifatSel" class="field sm:w-48 text-xs">' +
+        '<option value="">Semua Sifat Naskah</option>' +
+        '<option value="SANGAT_SEGERA">🚨 Sangat Segera</option>' +
+        '<option value="SEGERA">⚡ Segera</option>' +
+        '<option value="BIASA">📌 Biasa</option>' +
+        '<option value="RAHASIA">🔒 Rahasia</option>' +
+        '</select>' +
+        '</div>' +
+        // Tabel Naskah Disposisi
+        '<div class="card bg-white dark:bg-[#0C1A14] rounded-2xl shadow-sm border border-emerald-100 dark:border-emerald-900 overflow-hidden">' +
+        '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+        '<th>No. Agenda &amp; Naskah</th><th>Pengirim / Asal</th><th>Perihal &amp; Arahan</th><th>Sifat</th><th>Pelaksana &amp; Deadline</th><th>Status</th><th>Aksi</th>' +
+        '</tr></thead><tbody id="disposisiTableRows"></tbody></table></div>' +
+        '</div>' +
+        '</div>';
+
+      var renderRows = function () {
+        var tb = document.getElementById('disposisiTableRows');
+        if (!tb) return;
+        var searchQ = (document.getElementById('disposisiSearchQ') ? document.getElementById('disposisiSearchQ').value.trim().toLowerCase() : '');
+        var filterSifat = (document.getElementById('disposisiSifatSel') ? document.getElementById('disposisiSifatSel').value : '');
+
+        var filtered = items.filter(function (d) {
+          if (currentTab === 'arsip') {
+            if (d.status !== 'SELESAI') return false;
+          } else {
+            if (d.tab !== currentTab) return false;
+          }
+          if (filterSifat && d.sifat !== filterSifat) return false;
+          if (searchQ) {
+            var match = (d.nomor_agenda || '').toLowerCase().indexOf(searchQ) !== -1 ||
+              (d.no_surat || '').toLowerCase().indexOf(searchQ) !== -1 ||
+              (d.perihal || '').toLowerCase().indexOf(searchQ) !== -1 ||
+              (d.pengirim || '').toLowerCase().indexOf(searchQ) !== -1;
+            if (!match) return false;
+          }
+          return true;
+        });
+
+        if (!filtered.length) {
+          tb.innerHTML = '<tr class="tbl-empty"><td colspan="7" class="text-center text-gray-400 py-10">Tidak ada naskah instruksi atau lembar disposisi pada tab ini.</td></tr>';
+          return;
+        }
+
+        tb.innerHTML = filtered.map(function (d) {
+          var sifatBadge = d.sifat === 'SANGAT_SEGERA'
+            ? '<span class="badge bg-red-100 text-red-800 font-black">🚨 Sangat Segera</span>'
+            : d.sifat === 'SEGERA'
+              ? '<span class="badge bg-amber-100 text-amber-800 font-bold">⚡ Segera</span>'
+              : '<span class="badge bg-blue-50 text-blue-800 font-semibold">📌 Biasa</span>';
+
+          var statusBadge = d.status === 'SELESAI'
+            ? '<span class="badge badge-PUBLISHED">Selesai</span>'
+            : d.status === 'DIPROSES'
+              ? '<span class="badge bg-purple-100 text-purple-800 font-bold">Diproses</span>'
+              : '<span class="badge bg-amber-100 text-amber-800 font-bold">Baru Masuk</span>';
+
+          // Link WhatsApp resmi (WA-11 s/d WA-14)
+          var waMsg = 'Instruksi Disposisi Yayasan APII No: ' + d.nomor_agenda + ' perihal "' + d.perihal + '". Sifat: ' + d.sifat + '. Deadline: ' + d.deadline + '. Mohon segera ditindaklanjuti pada portal pengurus: https://siapii.sigitadi.id';
+          var waUrl = 'https://wa.me/?text=' + encodeURIComponent(waMsg);
+
+          return '<tr data-disp-id="' + d.id + '">' +
+            '<td><div class="font-mono text-xs font-bold text-emerald-dark dark:text-emerald-300">' + Auth.esc(d.nomor_agenda) + '</div>' +
+            '<div class="font-mono text-[10px] text-gray-500">' + Auth.esc(d.no_surat) + '</div></td>' +
+            '<td class="text-xs font-semibold text-gray-800 dark:text-gray-200">' + Auth.esc(d.pengirim) + '</td>' +
+            '<td><div class="font-bold text-xs text-gray-900 dark:text-gray-100 leading-snug">' + Auth.esc(d.perihal) + '</div>' +
+            '<div class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2 italic">&ldquo;' + Auth.esc(d.arahan) + '&rdquo;</div></td>' +
+            '<td>' + sifatBadge + '</td>' +
+            '<td class="text-xs"><div><strong class="text-emerald-800 dark:text-emerald-300 font-bold">' + Auth.esc(d.divisi_label || d.divisi_pelaksana) + '</strong></div>' +
+            '<div class="text-[10px] text-gray-500 font-mono">Batas: ' + Auth.esc(d.deadline) + '</div></td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap">' +
+            '<button type="button" class="btn btn-ghost py-1 px-2 rounded-lg text-xs font-bold border border-gray-200" data-act="view_sheet">Lembar Disposisi</button>' +
+            '<a href="' + waUrl + '" target="_blank" rel="noopener" class="btn bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 py-1 px-2 rounded-lg text-xs font-bold inline-flex items-center gap-1"><span>💬 WA</span></a>' +
+            '</div></td>' +
+            '</tr>';
+        }).join('');
+
+        Array.prototype.forEach.call(tb.querySelectorAll('[data-act="view_sheet"]'), function (btn) {
+          btn.addEventListener('click', function () {
+            var tr = btn.closest('tr[data-disp-id]');
+            var id = tr.getAttribute('data-disp-id');
+            var item = items.find(function (x) { return x.id === id; });
+            if (item) self.showLembarDisposisiModal(item);
+          });
+        });
+      };
+
+      // Tab switcher listener
+      Array.prototype.forEach.call(main.querySelectorAll('[data-disp-tab]'), function (btn) {
+        btn.addEventListener('click', function () {
+          currentTab = btn.getAttribute('data-disp-tab');
+          self.state.disposisiTab = currentTab;
+          self.renderDisposisi();
+        });
+      });
+
+      var sQ = document.getElementById('disposisiSearchQ');
+      var sS = document.getElementById('disposisiSifatSel');
+      if (sQ) sQ.addEventListener('input', renderRows);
+      if (sS) sS.addEventListener('change', renderRows);
+
+      var btnCreate = document.getElementById('btnBuatDisposisi');
+      if (btnCreate) {
+        btnCreate.addEventListener('click', function () {
+          self.showFormDisposisiModal(function (newItem) {
+            items.unshift(newItem);
+            saveLocalDisposisi(items);
+            self.toast('Lembar Disposisi berhasil diterbitkan.', 'success');
+            renderRows();
+          });
+        });
+      }
+
+      renderRows();
+    },
+
+    showLembarDisposisiModal: function (item) {
+      var self = this;
+      var html = '<div class="p-6">' +
+        '<div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-200">' +
+        '<div>' +
+        '<span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">LEMBAR DISPOSISI RESMI</span>' +
+        '<h3 class="text-base font-extrabold text-emerald-dark mt-1">Yayasan Apologet Islam Indonesia (APII)</h3>' +
+        '</div>' +
+        '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg">&times;</button>' +
+        '</div>' +
+        '<div class="bg-gray-50 border border-gray-200 rounded-2xl p-5 space-y-3 text-xs mb-5 font-sans">' +
+        '<div class="grid sm:grid-cols-2 gap-3 pb-3 border-b border-gray-200">' +
+        '<div><span class="text-gray-500 block text-[11px]">Nomor Agenda:</span><strong class="font-mono text-emerald-950">' + Auth.esc(item.nomor_agenda) + '</strong></div>' +
+        '<div><span class="text-gray-500 block text-[11px]">Sifat Naskah:</span><strong>' + Auth.esc(item.sifat) + '</strong></div>' +
+        '</div>' +
+        '<div class="grid sm:grid-cols-2 gap-3 pb-3 border-b border-gray-200">' +
+        '<div><span class="text-gray-500 block text-[11px]">Asal Naskah / Pengirim:</span><strong>' + Auth.esc(item.pengirim) + '</strong></div>' +
+        '<div><span class="text-gray-500 block text-[11px]">Nomor &amp; Tanggal Surat:</span><span class="font-mono">' + Auth.esc(item.no_surat) + '</span></div>' +
+        '</div>' +
+        '<div><span class="text-gray-500 block text-[11px]">Perihal Naskah:</span><strong class="text-gray-900 text-sm">' + Auth.esc(item.perihal) + '</strong></div>' +
+        '<div class="p-3 bg-white rounded-xl border border-emerald-200 mt-2">' +
+        '<span class="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block mb-1">Instruksi &amp; Arahan Pimpinan:</span>' +
+        '<p class="text-gray-800 leading-relaxed font-semibold italic">&ldquo;' + Auth.esc(item.arahan) + '&rdquo;</p>' +
+        '</div>' +
+        '<div class="grid sm:grid-cols-2 gap-3 pt-2 text-[11px]">' +
+        '<div><span class="text-gray-500">Divisi Pelaksana:</span> <strong class="text-emerald-900">' + Auth.esc(item.divisi_label || item.divisi_pelaksana) + '</strong></div>' +
+        '<div><span class="text-gray-500">Batas Waktu Pelaksanaan:</span> <strong class="font-mono">' + Auth.esc(item.deadline) + '</strong></div>' +
+        '</div>' +
+        '</div>' +
+        '<div class="flex justify-end gap-2">' +
+        '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 rounded-xl font-semibold text-xs">Tutup</button>' +
+        '</div>' +
+        '</div>';
+      self.openModal(html, 'max-w-xl');
+    },
+
+    showFormDisposisiModal: function (onSuccess) {
+      var self = this;
+      var divKeys = window.DIVISIONS || {};
+      var divOpts = Object.keys(divKeys).map(function (k) {
+        return '<option value="' + k + '">' + divKeys[k] + '</option>';
+      }).join('');
+
+      var genAgenda = 'AGD-' + new Date().getFullYear() + '/XI/' + String(Math.floor(100 + Math.random() * 900));
+
+      var html = '<div class="p-6">' +
+        '<div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-200">' +
+        '<h3 class="text-base font-extrabold text-emerald-dark">Terbitkan Lembar Disposisi / Instruksi Baru</h3>' +
+        '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg">&times;</button>' +
+        '</div>' +
+        '<form id="formDisposisiEl" class="space-y-4">' +
+        '<div class="grid sm:grid-cols-2 gap-3">' +
+        '<div><label class="lbl">Nomor Agenda Masuk</label><input type="text" id="dispAgendaNo" required class="field text-xs font-mono" value="' + genAgenda + '" /></div>' +
+        '<div><label class="lbl">Sifat Disposisi</label><select id="dispSifat" class="field text-xs">' +
+        '<option value="SEGERA">⚡ Segera</option>' +
+        '<option value="SANGAT_SEGERA">🚨 Sangat Segera</option>' +
+        '<option value="BIASA">📌 Biasa</option>' +
+        '<option value="RAHASIA">🔒 Rahasia</option>' +
+        '</select></div>' +
+        '</div>' +
+        '<div class="grid sm:grid-cols-2 gap-3">' +
+        '<div><label class="lbl">Asal Naskah / Pengirim</label><input type="text" id="dispPengirim" required class="field text-xs" placeholder="cth: DPP APII Pusat / DPW Jawa Barat" /></div>' +
+        '<div><label class="lbl">Nomor Surat Asal</label><input type="text" id="dispNoSurat" required class="field text-xs font-mono" placeholder="cth: 019/INS-DPP/APII/XI/2026" /></div>' +
+        '</div>' +
+        '<div><label class="lbl">Perihal Naskah / Surat</label><input type="text" id="dispPerihal" required class="field text-xs" placeholder="cth: Instruksi Safari Dakwah Wilayah" /></div>' +
+        '<div class="grid sm:grid-cols-2 gap-3">' +
+        '<div><label class="lbl">Ditugaskan ke Divisi Kerja</label><select id="dispDivisi" class="field text-xs">' + divOpts + '</select></div>' +
+        '<div><label class="lbl">Batas Waktu Tindak Lanjut</label><input type="date" id="dispDeadline" required class="field text-xs" value="' + new Date().toISOString().slice(0, 10) + '" /></div>' +
+        '</div>' +
+        '<div><label class="lbl">Instruksi / Arahan Disposisi</label><textarea id="dispArahan" required rows="3" class="field text-xs" placeholder="Tuliskan arahan tindak lanjut yang wajib dilaksanakan oleh divisi..."></textarea></div>' +
+        '<div class="pt-2 flex justify-end gap-2">' +
+        '<button type="button" data-close class="btn btn-ghost px-4 py-2 rounded-xl text-xs font-semibold">Batal</button>' +
+        '<button type="submit" class="btn btn-primary px-5 py-2.5 rounded-xl font-bold text-xs">Sahkan &amp; Terbitkan Disposisi</button>' +
+        '</div>' +
+        '</form>' +
+        '</div>';
+
+      self.openModal(html, 'max-w-xl');
+
+      var formEl = document.getElementById('formDisposisiEl');
+      if (formEl) {
+        formEl.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var divSel = document.getElementById('dispDivisi');
+          var newItem = {
+            id: 'DSP-' + Date.now(),
+            tipe: 'DISPOSISI_INTERNAL',
+            tab: 'internal',
+            nomor_agenda: document.getElementById('dispAgendaNo').value.trim(),
+            no_surat: document.getElementById('dispNoSurat').value.trim(),
+            pengirim: document.getElementById('dispPengirim').value.trim(),
+            perihal: document.getElementById('dispPerihal').value.trim(),
+            sifat: document.getElementById('dispSifat').value,
+            divisi_pelaksana: divSel.value,
+            divisi_label: divSel.options[divSel.selectedIndex].text,
+            deadline: document.getElementById('dispDeadline').value,
+            status: 'BARU',
+            arahan: document.getElementById('dispArahan').value.trim(),
+            catatan: 'Diterbitkan melalui modul Instruksi & Disposisi Nasional.'
+          };
+          self.closeModal();
+          if (typeof onSuccess === 'function') onSuccess(newItem);
+        });
+      }
+    },
+
     renderSurat: function () {
       var main = document.getElementById('mainContent');
       var u = this.state.user;
@@ -2239,16 +2821,25 @@
         return '<option value="' + k + '"' + (item && item.letter_type === k ? ' selected' : '') + '>' + types[k] + '</option>';
       }).join('') + '<option value="CUSTOM">+ Jenis Surat Baru (Kustom)...</option>';
 
+      var kopImg = (window._kopSettings && window._kopSettings.kop_image_base64) || '';
+      var stempelImg = (window._kopSettings && window._kopSettings.stempel_image_base64) || 'stempel.png';
+
       this.openModal(
         '<div class="p-4 sm:p-6">' +
-        '<div class="flex items-center justify-between gap-2 mb-5 flex-wrap">' +
-        '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
-        '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark">' + (isEdit ? 'Ubah Draf Surat' : 'Buat Surat Baru') + '</h3>' +
-        (!isEdit ? '<button type="button" id="sfBookingBtn" class="btn btn-ghost px-2.5 py-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 rounded-xl inline-flex items-center gap-1 shadow-sm flex-shrink-0" title="Ambil/reservasi nomor surat resmi terlebih dahulu">🔖 Booking Nomor</button>' : '') +
+        '<div class="flex items-center justify-between gap-3 pb-3 mb-4 border-b border-gray-200 dark:border-gray-800 flex-wrap">' +
+        '<div class="flex items-center gap-2.5 flex-wrap min-w-0">' +
+        '<span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">KOMPOSER DWIMODA (BAB 10.3)</span>' +
+        '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark dark:text-emerald-200">' + (isEdit ? 'Ubah Draf Surat Resmi' : 'Konseptor Surat Resmi &amp; Kertas Virtual A4') + '</h3>' +
         '</div>' +
-        '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 ml-auto">' +
+        '<div class="flex items-center gap-2">' +
+        (!isEdit ? '<button type="button" id="sfBookingBtn" class="btn btn-ghost px-2.5 py-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 rounded-xl inline-flex items-center gap-1 shadow-sm flex-shrink-0" title="Ambil/reservasi nomor surat resmi terlebih dahulu">🔖 Booking Nomor</button>' : '') +
+        '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">' +
         '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
         '</div>' +
+        '</div>' +
+        '<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">' +
+        // PANEL KIRI: FORMULIR EDITOR
+        '<div class="lg:col-span-6 space-y-4">' +
         '<form id="suratFormEl" class="space-y-4">' +
         '<div><label class="lbl">Jenis Surat</label><select id="sfType" class="field">' + typeOpts + '</select></div>' +
         '<div id="sfCustomBox" class="hidden p-3.5 bg-amber-50 rounded-xl border border-amber-200 space-y-2">' +
@@ -2262,26 +2853,136 @@
         '<input id="sfTitle" type="text" required class="field" placeholder="cth: Undangan Rapat Kerja DPW" value="' + Auth.esc(item ? item.title : '') + '" /></div>' +
         '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
         '<div><label class="lbl">Tanggal Surat</label><input id="sfTanggal" type="date" class="field" value="' + (item ? item.tanggal_surat : new Date().toISOString().slice(0, 10)) + '" /></div>' +
-        '<div><label class="lbl">Nomor Surat</label><input id="sfNomor" type="text" class="field font-mono text-xs" placeholder="(otomatis bila kosong)" value="' + Auth.esc(item ? item.letter_number : '') + '" /></div>' +
+        '<div><label class="lbl">Nomor Surat</label><input id="sfNomor" type="text" class="field font-mono text-xs" placeholder="(otomatis saat diterbitkan)" value="' + Auth.esc(item ? item.letter_number : '') + '" /></div>' +
         '</div>' +
-        '<div><label class="lbl">Menimbang (Konsideran)</label><textarea id="sfMenimbang" rows="2" class="field" placeholder="Pertimbangan latar belakang diterbitkannya surat…"></textarea></div>' +
-        '<div><label class="lbl">Mengingat (Dasar Hukum / AD-ART)</label><textarea id="sfMengingat" rows="2" class="field" placeholder="Dasar hukum / ketentuan anggaran dasar APII…"></textarea></div>' +
-        '<div><label class="lbl">Memutuskan / Isi Pokok Surat</label><textarea id="sfMemutuskan" rows="3" class="field" placeholder="Ketetapan, agenda rapat, atau isi pokok instruksi…"></textarea></div>' +
+        '<div><label class="lbl">Menimbang (Konsideran Latar Belakang)</label><textarea id="sfMenimbang" rows="2" class="field text-xs" placeholder="Pertimbangan latar belakang diterbitkannya surat…"></textarea></div>' +
+        '<div><label class="lbl">Mengingat (Dasar Hukum / AD-ART APII)</label><textarea id="sfMengingat" rows="2" class="field text-xs" placeholder="Dasar hukum / ketentuan anggaran dasar APII…"></textarea></div>' +
+        '<div><label class="lbl">Memutuskan / Isi Pokok Surat</label><textarea id="sfMemutuskan" rows="3" class="field text-xs" placeholder="Ketetapan, agenda rapat, atau isi pokok instruksi…"></textarea></div>' +
         '<div>' +
         '<label class="lbl">Lampiran Naskah / Dokumen Resmi (PDF/Gambar/Dokumen)</label>' +
         '<input id="sfAttachmentFile" type="file" accept="application/pdf,image/*,.doc,.docx" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
         (item && item.attachment_url ? '<a href="' + Auth.esc(item.attachment_url) + '" target="_blank" rel="noopener" class="text-xs text-emerald-800 font-bold underline mt-1.5 inline-flex items-center gap-1"><span>📎 Buka Lampiran Naskah di Drive</span></a>' : '') +
         '<p class="text-[11px] text-gray-400 mt-1">File akan diunggah otomatis ke Google Drive folder <code>/Surat_Lampiran/</code>.</p>' +
         '</div>' +
-        '<p class="text-xs text-gray-400">' + (isEdit
-          ? 'Kosongkan ketiga kotak isi untuk mempertahankan isi lama. Hanya Draf yang dapat diubah.'
-          : 'Isi surat dapat dilengkapi nanti selama masih berstatus Draf.') + '</p>' +
         '<div class="flex gap-3 pt-2">' +
         '<button type="submit" id="btnSubmitSurat" class="btn btn-primary flex-1 py-3 rounded-xl font-bold">' + (isEdit ? 'Simpan Perubahan' : 'Simpan Draf Surat') + '</button>' +
         '<button type="button" data-close class="btn btn-ghost px-5 rounded-xl font-semibold">Batal</button>' +
         '</div>' +
         '</form>' +
-        '</div>');
+        '</div>' +
+        // PANEL KANAN: PRATINJAU KERTAS VIRTUAL A4 (LIVE 0 DETIK)
+        '<div class="lg:col-span-6 bg-slate-100 dark:bg-emerald-950/40 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-emerald-900 flex flex-col items-center overflow-y-auto max-h-[750px]">' +
+        '<div class="w-full flex items-center justify-between pb-2 mb-3 border-b border-slate-300 dark:border-emerald-800">' +
+        '<span class="text-[10px] font-black uppercase tracking-wider text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">' +
+        '<span class="h-2 w-2 rounded-full bg-emerald animate-ping"></span>' +
+        '<span>Pratinjau Kertas Virtual A4 (Live 0 Detik)</span>' +
+        '</span>' +
+        '<span class="text-[10px] text-slate-500 font-mono">Format A4 Resmi APII</span>' +
+        '</div>' +
+        // LEMBAR KERTAS A4
+        '<div id="virtualA4Sheet" class="w-full bg-white text-gray-900 shadow-xl rounded-sm p-6 sm:p-8 font-serif border border-gray-300 text-xs select-text relative min-h-[640px] flex flex-col justify-between">' +
+        '<div>' +
+        // KOP SURAT
+        (kopImg ?
+          '<div class="mb-3 text-center"><img src="' + kopImg + '" alt="KOP APII" class="w-full max-h-20 object-contain mx-auto" /></div>' :
+          '<div class="flex items-center gap-3 pb-3 mb-2 border-b-2 border-emerald-900">' +
+          '<img src="logo.png" alt="Logo APII" class="w-12 h-12 object-contain flex-shrink-0" />' +
+          '<div class="flex-1 text-center font-serif leading-tight">' +
+          '<div class="text-[10px] font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH (DPW) JABODETABEK</div>' +
+          '<div class="text-sm font-black text-gray-900 tracking-tight">YAYASAN APOLOGET ISLAM INDONESIA</div>' +
+          '<div class="text-[9px] text-gray-600 font-sans mt-0.5">Sekretariat: Jl. Raya Bolangi, Bili-Bili, Gowa &bull; Website: apii.sigitadi.id &bull; Email: info@apii-jabo.or.id</div>' +
+          '</div>' +
+          '</div>') +
+        // NOMOR & PERIHAL
+        '<div class="flex justify-between items-start gap-3 mt-4 text-[11px] leading-relaxed">' +
+        '<div>' +
+        '<div><span class="inline-block w-20 text-gray-500">Nomor</span>: <strong class="font-mono text-gray-900" id="prevA4Nomor">' + Auth.esc(item ? item.letter_number : '(Draf Belum Terbit)') + '</strong></div>' +
+        '<div><span class="inline-block w-20 text-gray-500">Lampiran</span>: <span>1 (Satu) Berkas</span></div>' +
+        '<div><span class="inline-block w-20 text-gray-500">Perihal</span>: <strong class="text-emerald-950 font-bold" id="prevA4Perihal">' + Auth.esc(item ? item.title : 'Judul Naskah Surat') + '</strong></div>' +
+        '</div>' +
+        '<div class="text-right text-[11px] text-gray-600" id="prevA4Tanggal">' + (item ? item.tanggal_surat : new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })) + '</div>' +
+        '</div>' +
+        // KEPADA YTH
+        '<div class="mt-4 text-[11px]">' +
+        '<div>Kepada Yth.</div>' +
+        '<div class="font-bold text-gray-900">Pimpinan &amp; Pengurus APII / Pihak Dituju</div>' +
+        '<div>di Tempat</div>' +
+        '</div>' +
+        // SALAM & ISI
+        '<div class="mt-4 text-[11px] leading-relaxed space-y-2 text-justify">' +
+        '<div><i>Assalamu\'alaikum Warahmatullahi Wabarakatuh,</i></div>' +
+        '<div id="prevA4MenimbangWrap" class="p-2 bg-slate-50 border-l-2 border-emerald-600 text-gray-700 italic text-[10px]">' +
+        '<strong>Menimbang:</strong> <span id="prevA4Menimbang">Pertimbangan latar belakang diterbitkannya naskah dinas ini...</span>' +
+        '</div>' +
+        '<div id="prevA4MengingatWrap" class="p-2 bg-slate-50 border-l-2 border-emerald-600 text-gray-700 italic text-[10px]">' +
+        '<strong>Mengingat:</strong> <span id="prevA4Mengingat">Anggaran Dasar &amp; Anggaran Rumah Tangga Yayasan APII...</span>' +
+        '</div>' +
+        '<div class="mt-2 text-gray-900 leading-normal" id="prevA4Memutuskan">' +
+        'Bersama surat resmi ini disampaikan keputusan, arahan, atau penetapan yang berlaku terhitung sejak tanggal diterbitkannya surat ini.' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        // TANDA TANGAN & STEMPEL
+        '<div class="mt-8 pt-4 border-t border-gray-200 relative">' +
+        '<div class="grid grid-cols-2 gap-4 text-center text-[10px]">' +
+        '<div>' +
+        '<div class="text-gray-500">Sekretaris DPW,</div>' +
+        '<div class="h-12 flex items-center justify-center font-bold text-gray-900 font-sans text-xs pt-4">Sigit Adi Irianto</div>' +
+        '</div>' +
+        '<div class="relative">' +
+        '<div class="text-gray-500">Ketua DPW APII,</div>' +
+        '<div class="h-12 flex items-center justify-center font-bold text-gray-900 font-sans text-xs pt-4">Ust. Muhammad Hanafi</div>' +
+        '<div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-80">' +
+        '<img src="' + stempelImg + '" alt="Stempel APII" class="w-16 h-16 object-contain rotate-6" />' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        '<div class="mt-3 flex items-center justify-between text-[9px] text-gray-400 font-mono">' +
+        '<span>🔒 SHA-256 Validated</span>' +
+        '<span>siapii.sigitadi.id</span>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>', 'max-w-7xl');
+
+      // Live reactive preview updater
+      var updateLivePreview = function () {
+        var pPerihal = document.getElementById('prevA4Perihal');
+        var pNomor = document.getElementById('prevA4Nomor');
+        var pTgl = document.getElementById('prevA4Tanggal');
+        var pMen = document.getElementById('prevA4Menimbang');
+        var pMeng = document.getElementById('prevA4Mengingat');
+        var pMem = document.getElementById('prevA4Memutuskan');
+
+        var inTitle = document.getElementById('sfTitle');
+        var inNomor = document.getElementById('sfNomor');
+        var inTgl = document.getElementById('sfTanggal');
+        var inMen = document.getElementById('sfMenimbang');
+        var inMeng = document.getElementById('sfMengingat');
+        var inMem = document.getElementById('sfMemutuskan');
+
+        if (pPerihal && inTitle) pPerihal.textContent = inTitle.value.trim() || 'Judul Naskah Surat';
+        if (pNomor && inNomor) pNomor.textContent = inNomor.value.trim() || '(Draf Belum Terbit)';
+        if (pTgl && inTgl && inTgl.value) {
+          try {
+            var d = new Date(inTgl.value);
+            pTgl.textContent = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+          } catch (_) {}
+        }
+        if (pMen && inMen) pMen.textContent = inMen.value.trim() || 'Pertimbangan latar belakang diterbitkannya naskah dinas ini...';
+        if (pMeng && inMeng) pMeng.textContent = inMeng.value.trim() || 'Anggaran Dasar & Anggaran Rumah Tangga Yayasan APII...';
+        if (pMem && inMem) pMem.textContent = inMem.value.trim() || 'Bersama surat resmi ini disampaikan keputusan, arahan, atau penetapan yang berlaku terhitung sejak tanggal diterbitkannya surat ini.';
+      };
+
+      ['sfTitle', 'sfNomor', 'sfTanggal', 'sfMenimbang', 'sfMengingat', 'sfMemutuskan'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('input', updateLivePreview);
+          el.addEventListener('change', updateLivePreview);
+        }
+      });
 
       // Tutup modal.
       Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {

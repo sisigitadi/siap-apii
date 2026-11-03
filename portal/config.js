@@ -1,5 +1,5 @@
 /**
- * config.js — Konfigurasi frontend portal pengurus (siapii.sigitadi.id)
+ * config.js: Konfigurasi frontend portal pengurus (siapii.sigitadi.id)
  * ============================================================================
  * Ganti API_BASE dengan URL Web App Apps Script Anda setelah deploy.
  * Format: https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec
@@ -16,12 +16,15 @@ window.PORTAL_URL = 'https://siapii.sigitadi.id';
 window.APP_NAME = 'SIAPII';
 window.APP_FULL = 'Sistem Informasi & Administrasi APII DPW Jabodetabek';
 
-// 4 divisi kerja resmi DPW APII Jabodetabek
+// 7 divisi kerja resmi Yayasan APII (ART Bab I & Bab II)
 window.DIVISIONS = {
+  DIV_LITBANG: 'Penelitian & Pengembangan (Litbang)',
   DIV_DAKWAH: 'Dakwah & Pendidikan',
-  DIV_HUMAS: 'Humas',
-  DIV_SOSMED: 'Sosial Media',
-  DIV_INVESTASI: 'Pengembangan & Investasi Bisnis'
+  DIV_HUMAS: 'Hubungan Masyarakat',
+  DIV_SOSMED: 'Media Sosial & Publikasi Digital',
+  DIV_INVESTASI: 'Pengembangan & Investasi Bisnis',
+  DIV_HUKUM: 'Hukum & Advokasi Keumatan',
+  DIV_UMUM: 'Umum & Operasional'
 };
 
 // Akun kas (harus sama dengan backend ACCOUNT_LABELS).
@@ -56,8 +59,8 @@ window.STATUS_LABELS = {
   DIVERIFIKASI_SEKRETARIS: 'Diverifikasi Sekretaris'
 };
 
-// 12 Akun Pengurus Resmi untuk Mode Demo Simulasi:
-// (Pengurus Harian, Superadmin, & 4 Divisi Kerja sesuai SK Kepengurusan DPW APII)
+// Akun Pengurus Resmi untuk Mode Demo Simulasi:
+// (Pengurus Harian, Superadmin, & 7 Divisi Kerja sesuai SK Kepengurusan APII)
 window.DEMO_ACCOUNTS = [
   // 1. Administrator Sistem (Akses Penuh)
   { u: 'superadmin', r: 'Administrator Sistem', name: 'Administrator Sistem', desc: 'Administrator Sistem · Akses Penuh Sistem & Pengaturan' },
@@ -67,21 +70,30 @@ window.DEMO_ACCOUNTS = [
   { u: 'sekretaris', r: 'Sekretaris Umum', name: 'Sigit Adi Irianto', desc: 'Sigit Adi Irianto · Konseptor Naskah Surat & Verifikasi Berkas' },
   { u: 'bendahara', r: 'Bendahara Umum', name: 'Sri Wati', desc: 'Sri Wati · Pembukuan Kas, Verifikasi & Pencetakan Kuitansi' },
 
-  // 3. Divisi Dakwah & Pendidikan
+  // 3. Divisi Penelitian & Pengembangan (Litbang)
+  { u: 'klitbang', r: 'Ketua Divisi Litbang', name: 'Dr. Faisal Rahman', desc: 'Dr. Faisal Rahman · Riset Keagamaan, Kurikulum & Khazanah' },
+
+  // 4. Divisi Dakwah & Pendidikan
   { u: 'kdakwah', r: 'Ketua Divisi Dakwah & Pendidikan', name: 'Ahmad Daman Huri', desc: 'Ahmad Daman Huri · Program Kajian, Dakwah & Kurikulum' },
   { u: 'adakwah', r: 'Anggota Divisi Dakwah & Pendidikan', name: 'Jaelani', desc: 'Jaelani · Pelaksana Teknis Dakwah & Edukasi Lapangan' },
 
-  // 4. Divisi Humas
+  // 5. Divisi Humas
   { u: 'khumas', r: 'Ketua Divisi Humas', name: 'Federico Fachrudin', desc: 'Federico Fachrudin · Kemitraan Ormas & Komunikasi Eksternal' },
   { u: 'ahumas', r: 'Anggota Divisi Humas', name: 'Kartinah', desc: 'Kartinah · Hubungan Antar Lembaga & Dokumentasi Kegiatan' },
 
-  // 5. Divisi Sosial Media
+  // 6. Divisi Sosial Media
   { u: 'ksosmed', r: 'Ketua Divisi Sosial Media', name: 'Sri Maryati', desc: 'Sri Maryati · Publikasi Digital, Konten Kreatif & Medsos' },
   { u: 'asosmed', r: 'Anggota Divisi Sosial Media', name: 'Robert Albertus', desc: 'Robert Albertus · Desain Grafis, Video Editor & Distribusi Konten' },
 
-  // 6. Divisi Pengembangan dan Investasi Bisnis
+  // 7. Divisi Pengembangan dan Investasi Bisnis
   { u: 'kbisnis', r: 'Ketua Divisi Pengembangan & Bisnis', name: 'Novizal Andriyanto', desc: 'Novizal Andriyanto · Inkubasi Bisnis, Kemitraan & Wakaf Produktif' },
-  { u: 'abisnis', r: 'Anggota Divisi Pengembangan & Bisnis', name: 'Juli Nasution Guci', desc: 'Juli Nasution Guci · Analisis Kelayakan Investasi & Operasional' }
+  { u: 'abisnis', r: 'Anggota Divisi Pengembangan & Bisnis', name: 'Juli Nasution Guci', desc: 'Juli Nasution Guci · Analisis Kelayakan Investasi & Operasional' },
+
+  // 8. Divisi Hukum & Advokasi Keumatan
+  { u: 'khukum', r: 'Ketua Divisi Hukum & Advokasi', name: 'H. Bambang Setiawan, S.H., M.H.', desc: 'H. Bambang Setiawan · Legalitas, Kepatuhan & Advokasi Keumatan' },
+
+  // 9. Divisi Umum & Operasional
+  { u: 'kumum', r: 'Ketua Divisi Umum & Operasional', name: 'Rahmat Hidayat', desc: 'Rahmat Hidayat · Logistik Acara, Perlengkapan & Sarana Prasarana' }
 ];
 
 // ============================================================================
@@ -145,6 +157,18 @@ window.DEMO_USER_PROFILES = {
     is_demo: true,
     is_demo_mode: true
   },
+  klitbang: {
+    username: 'klitbang',
+    full_name: 'Dr. Faisal Rahman',
+    role: 'KETUA_DIVISI',
+    role_label: 'Ketua Divisi',
+    division: 'DIV_LITBANG',
+    division_label: 'Penelitian & Pengembangan (Litbang)',
+    email: 'litbang@apii-jabo.or.id',
+    phone: '0812-9988-7750',
+    is_demo: true,
+    is_demo_mode: true
+  },
   kdakwah: {
     username: 'kdakwah',
     full_name: 'Ahmad Daman Huri',
@@ -199,7 +223,7 @@ window.DEMO_USER_PROFILES = {
     role: 'KETUA_DIVISI',
     role_label: 'Ketua Divisi',
     division: 'DIV_SOSMED',
-    division_label: 'Sosial Media',
+    division_label: 'Media Sosial & Publikasi Digital',
     email: 'sosmed@apii-jabo.or.id',
     phone: '0812-9988-7761',
     is_demo: true,
@@ -211,7 +235,7 @@ window.DEMO_USER_PROFILES = {
     role: 'ANGGOTA_DIVISI',
     role_label: 'Anggota Divisi',
     division: 'DIV_SOSMED',
-    division_label: 'Sosial Media',
+    division_label: 'Media Sosial & Publikasi Digital',
     email: 'robert.sosmed@apii-jabo.or.id',
     phone: '0812-9988-7762',
     is_demo: true,
@@ -240,6 +264,29 @@ window.DEMO_USER_PROFILES = {
     phone: '0812-9988-7792',
     is_demo: true,
     is_demo_mode: true
+  },
+  khukum: {
+    username: 'khukum',
+    full_name: 'H. Bambang Setiawan, S.H., M.H.',
+    role: 'KETUA_DIVISI',
+    role_label: 'Ketua Divisi',
+    division: 'DIV_HUKUM',
+    division_label: 'Hukum & Advokasi Keumatan',
+    email: 'hukum@apii-jabo.or.id',
+    phone: '0812-9988-7795',
+    is_demo: true,
+    is_demo_mode: true
+  },
+  kumum: {
+    username: 'kumum',
+    full_name: 'Rahmat Hidayat',
+    role: 'KETUA_DIVISI',
+    role_label: 'Ketua Divisi',
+    division: 'DIV_UMUM',
+    division_label: 'Umum & Operasional',
+    email: 'umum@apii-jabo.or.id',
+    phone: '0812-9988-7798',
+    is_demo: true,
+    is_demo_mode: true
   }
 };
-

@@ -1649,27 +1649,65 @@
         });
       }
 
-      // Tab switcher Maklumat <-> Agenda
+      // Tab switcher Warta 4 Kategori (Maklumat, Agenda, Live Impact LPJ, Khazanah Riset)
       var tabB = document.getElementById('wartaTabBulletins');
       var tabE = document.getElementById('wartaTabEvents');
+      var tabI = document.getElementById('tabLiveImpactBtn') || document.getElementById('wartaTabImpact');
+      var tabK = document.getElementById('tabKhazanahBtn') || document.getElementById('wartaTabKhazanah');
       var paneB = document.getElementById('wartaBulletinsPane');
       var paneE = document.getElementById('wartaEventsPane');
-      var setTab = function (isEvents) {
+      var paneI = document.getElementById('wartaTabLiveImpact') || document.getElementById('wartaImpactPane');
+      var paneK = document.getElementById('wartaTabKhazanah') || document.getElementById('wartaKhazanahPane');
+
+      var setTab = function (mode) {
         var onCls = ['active', 'bg-white', 'text-emerald-dark', 'shadow-sm'];
-        if (isEvents) {
-          paneB.classList.add('hidden'); paneE.classList.remove('hidden');
-          tabE.classList.add.apply(tabE.classList, onCls); tabE.classList.remove('text-gray-500');
-          tabB.classList.remove.apply(tabB.classList, onCls); tabB.classList.add('text-gray-500');
-          tabE.setAttribute('aria-selected', 'true'); tabB.setAttribute('aria-selected', 'false');
+        var offCls = ['text-gray-500', 'dark:text-gray-400'];
+        var allPanes = [paneB, paneE, paneI, paneK].filter(Boolean);
+        var allTabs = [tabB, tabE, tabI, tabK].filter(Boolean);
+
+        allPanes.forEach(function (p) { p.classList.add('hidden'); });
+        allTabs.forEach(function (t) {
+          t.classList.remove.apply(t.classList, onCls);
+          offCls.forEach(function (c) { t.classList.add(c); });
+          t.setAttribute('aria-selected', 'false');
+        });
+
+        if (mode === true || mode === 'events') {
+          if (paneE) paneE.classList.remove('hidden');
+          if (tabE) {
+            tabE.classList.add.apply(tabE.classList, onCls);
+            offCls.forEach(function (c) { tabE.classList.remove(c); });
+            tabE.setAttribute('aria-selected', 'true');
+          }
+        } else if (mode === 'impact') {
+          if (paneI) paneI.classList.remove('hidden');
+          if (tabI) {
+            tabI.classList.add.apply(tabI.classList, onCls);
+            offCls.forEach(function (c) { tabI.classList.remove(c); });
+            tabI.setAttribute('aria-selected', 'true');
+          }
+        } else if (mode === 'khazanah') {
+          if (paneK) paneK.classList.remove('hidden');
+          if (tabK) {
+            tabK.classList.add.apply(tabK.classList, onCls);
+            offCls.forEach(function (c) { tabK.classList.remove(c); });
+            tabK.setAttribute('aria-selected', 'true');
+          }
         } else {
-          paneE.classList.add('hidden'); paneB.classList.remove('hidden');
-          tabB.classList.add.apply(tabB.classList, onCls); tabB.classList.remove('text-gray-500');
-          tabE.classList.remove.apply(tabE.classList, onCls); tabE.classList.add('text-gray-500');
-          tabB.setAttribute('aria-selected', 'true'); tabE.setAttribute('aria-selected', 'false');
+          // Default: Bulletins / Maklumat
+          if (paneB) paneB.classList.remove('hidden');
+          if (tabB) {
+            tabB.classList.add.apply(tabB.classList, onCls);
+            offCls.forEach(function (c) { tabB.classList.remove(c); });
+            tabB.setAttribute('aria-selected', 'true');
+          }
         }
       };
+
       if (tabB && !tabB.dataset.bound) { tabB.dataset.bound = '1'; tabB.addEventListener('click', function () { setTab(false); }); }
       if (tabE && !tabE.dataset.bound) { tabE.dataset.bound = '1'; tabE.addEventListener('click', function () { setTab(true); }); }
+      if (tabI && !tabI.dataset.bound) { tabI.dataset.bound = '1'; tabI.addEventListener('click', function () { setTab('impact'); }); }
+      if (tabK && !tabK.dataset.bound) { tabK.dataset.bound = '1'; tabK.addEventListener('click', function () { setTab('khazanah'); }); }
     },
 
     renderBulletins: function () {

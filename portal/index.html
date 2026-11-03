@@ -319,7 +319,31 @@
               <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
             <div class="min-w-0">
-              <h1 id="pageTitle" class="font-extrabold text-emerald-dark text-lg sm:text-xl truncate">Dashboard</h1>
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <div class="flex items-center gap-2.5 flex-wrap">
+                <h1 id="pageTitle" class="font-extrabold text-emerald-dark text-lg sm:text-xl truncate">Dashboard</h1>
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg border border-slate-300 dark:border-emerald-800 bg-slate-50 dark:bg-emerald-950/80 text-[10px] font-black tracking-wider uppercase text-emerald-900 dark:text-emerald-200" id="topbarTenantPill">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald"></span>
+                  <span id="topbarTenantText">DPW JABODETABEK</span>
+                </div>
+                <div class="hidden md:inline-flex items-center" id="topbarWilayahSwitcher">
+                  <select id="topbarWilayahSelect" class="bg-emerald-50/80 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 rounded-xl px-2.5 py-1 text-xs font-bold text-emerald-950 dark:text-emerald-100 outline-none cursor-pointer">
+                    <option value="DPW_JABODETABEK">Lensa: DPW Jabodetabek</option>
+                    <option value="DPP_PUSAT">Lensa: DPP APII (Pusat)</option>
+                  </select>
+                </div>
+              </div>
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg border border-slate-300 dark:border-emerald-800 bg-slate-50 dark:bg-emerald-950/80 text-[10px] font-black tracking-wider uppercase text-emerald-900 dark:text-emerald-200" id="topbarTenantPill">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald"></span>
+                  <span id="topbarTenantText">DPW JABODETABEK</span>
+                </div>
+                <div class="hidden md:inline-flex items-center" id="topbarWilayahSwitcher">
+                  <select id="topbarWilayahSelect" class="bg-emerald-50/80 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 rounded-xl px-2.5 py-1 text-xs font-bold text-emerald-950 dark:text-emerald-100 outline-none cursor-pointer">
+                    <option value="DPW_JABODETABEK">Lensa: DPW Jabodetabek</option>
+                    <option value="DPP_PUSAT">Lensa: DPP APII (Pusat)</option>
+                  </select>
+                </div>
+              </div>
               <p id="pageSubtitle" class="text-xs text-gray-600 font-medium truncate hidden sm:block">Ringkasan aktivitas yayasan</p>
             </div>
           </div>
