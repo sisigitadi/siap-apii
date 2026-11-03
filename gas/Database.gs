@@ -20,35 +20,43 @@ var TABS = {
   SEQUENCES: 'Sheet_Sequences',
   PENDAFTAR: 'Sheet_Pendaftar',
   ACCOUNTS: 'Sheet_Accounts',
-  SETTINGS: 'Sheet_Settings'
+  SETTINGS: 'Sheet_Settings',
+  WILAYAH: 'Sheet_Wilayah',
+  KTA_NASIONAL: 'Sheet_KTA_Nasional',
+  SETTINGS_AUDIT: 'Sheet_Settings_Audit',
+  KAS_SIMULATOR: 'Sheet_Kas_Simulator'
 };
 
 // Definisi header tiap tab (dipakai initSchema & insert).
 var SCHEMA = {};
 SCHEMA[TABS.USERS] = ['id', 'username', 'password_hash', 'full_name', 'email', 'role',
-  'division', 'is_active', 'can_manage_users', 'created_at', 'updated_at'];
+  'division', 'is_active', 'can_manage_users', 'created_at', 'updated_at', 'wilayah_id'];
 SCHEMA[TABS.SESSIONS] = ['token', 'user_id', 'username', 'role', 'division',
-  'created_at', 'expired_at'];
+  'created_at', 'expired_at', 'wilayah_id'];
 SCHEMA[TABS.SURAT] = ['id', 'letter_number', 'title', 'letter_type', 'content', 'status',
   'tanggal_surat', 'created_by', 'created_by_name', 'created_at', 'submitted_at',
-  'published_at', 'approved_by', 'rejection_notes', 'sha256_hash', 'pdf_url', 'qr_verify_url', 'attachment_url'];
+  'published_at', 'approved_by', 'rejection_notes', 'sha256_hash', 'pdf_url', 'qr_verify_url', 'attachment_url', 'wilayah_id'];
 SCHEMA[TABS.KEUANGAN] = ['id', 'voucher_number', 'type', 'account', 'amount', 'category',
   'description', 'transaction_date', 'status', 'verified_by_bendahara',
   'verified_by_bendahara_at', 'verified_by_ketum', 'verified_by_ketum_at',
-  'rejection_notes', 'created_by', 'created_at', 'receipt_url'];
+  'rejection_notes', 'created_by', 'created_at', 'receipt_url', 'wilayah_id'];
 SCHEMA[TABS.DIVISI] = ['id', 'tracking_id', 'division', 'program_title', 'description',
   'budget_estimate', 'target_audience', 'execution_date', 'status', 'submitted_by',
   'submitted_by_name', 'submitted_at', 'reviewed_by', 'reviewed_at', 'approval_notes',
-  'created_at', 'started_at', 'lpj_url', 'lpj_notes', 'realisasi_anggaran', 'lpj_submitted_at'];
+  'created_at', 'started_at', 'lpj_url', 'lpj_notes', 'realisasi_anggaran', 'lpj_submitted_at', 'wilayah_id'];
 SCHEMA[TABS.AUDIT] = ['id', 'timestamp', 'actor', 'action', 'module', 'detail', 'ip_client', 'status'];
 SCHEMA[TABS.SEQUENCES] = ['key', 'value'];
 SCHEMA[TABS.PENDAFTAR] = ['id', 'reg_number', 'full_name', 'nik', 'birth_place', 'birth_date',
   'gender', 'job', 'phone', 'email', 'address', 'division_interest', 'ktp_drive_url',
   'selfie_drive_url', 'status', 'verified_by_sekretaris', 'verified_by_sekretaris_at',
-  'approved_by_ketum', 'approved_by_ketum_at', 'rejection_notes', 'created_at'];
+  'approved_by_ketum', 'approved_by_ketum_at', 'rejection_notes', 'created_at', 'wilayah_id'];
 SCHEMA[TABS.ACCOUNTS] = ['id', 'code', 'name', 'bank_name', 'account_number', 'holder_name',
-  'category', 'is_active', 'show_on_public', 'created_at', 'updated_at'];
-SCHEMA[TABS.SETTINGS] = ['key', 'value', 'description', 'updated_by', 'updated_at'];
+  'category', 'is_active', 'show_on_public', 'created_at', 'updated_at', 'wilayah_id'];
+SCHEMA[TABS.SETTINGS] = ['key', 'value', 'description', 'updated_by', 'updated_at', 'setting_id', 'wilayah_id', 'scope'];
+SCHEMA[TABS.WILAYAH] = ['id', 'nama', 'tingkat', 'kode_surat', 'alamat', 'email', 'hotline_wa', 'slug', 'is_active', 'created_at'];
+SCHEMA[TABS.KTA_NASIONAL] = ['no_kta', 'nik', 'full_name', 'wilayah_id', 'status', 'masa_berlaku', 'tgl_terbit', 'qr_token', 'created_at'];
+SCHEMA[TABS.SETTINGS_AUDIT] = ['id', 'wilayah_id', 'key', 'old_value', 'new_value', 'changed_by', 'timestamp'];
+SCHEMA[TABS.KAS_SIMULATOR] = ['id', 'wilayah_id', 'platform', 'gross_amount', 'fee_percentage', 'fee_amount', 'net_amount', 'pembayar', 'keterangan', 'status', 'created_by', 'created_at'];
 
 /**
  * Inisialisasi semua tab + header. Idempoten.
@@ -87,12 +95,51 @@ function initSchema() {
   // Seed default pengaturan sistem jika kosong
   seedDefaultSettings_();
 
+  // Seed default wilayah jika kosong (Fase 1 Multi-Tenant)
+  seedDefaultWilayah_();
+
   return true;
 }
 
 /** Seed rekening kas bawaan jika Sheet_Accounts kosong (dikosongkan agar pengurus menginput rekening riil via portal). */
 function seedDefaultAccounts_() {
   // Tidak mengisi dummy rekening secara otomatis. Rekening dikelola penuh oleh pengurus via portal master rekening.
+}
+
+/** Seed wilayah bawaan jika Sheet_Wilayah kosong. */
+function seedDefaultWilayah_() {
+  try {
+    var list = readAll(TABS.WILAYAH);
+    if (!list || list.length === 0) {
+      var now = Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyy-MM-dd HH:mm:ss');
+      insert(TABS.WILAYAH, {
+        id: 'DPP_PUSAT',
+        nama: 'Dewan Pimpinan Pusat (DPP) APII',
+        tingkat: 'PUSAT',
+        kode_surat: 'DPP',
+        alamat: 'Sekretariat DPP APII, Jakarta, Indonesia',
+        email: 'dpp@apii.or.id',
+        hotline_wa: '6281299887700',
+        slug: 'pusat',
+        is_active: 'TRUE',
+        created_at: now
+      });
+      insert(TABS.WILAYAH, {
+        id: 'DPW_JABODETABEK',
+        nama: 'DPW APII Jabodetabek',
+        tingkat: 'WILAYAH',
+        kode_surat: 'JABO',
+        alamat: 'Sekretariat DPW APII Jabodetabek, DKI Jakarta',
+        email: 'info@apii-jabo.or.id',
+        hotline_wa: '6281299887711',
+        slug: 'jabo',
+        is_active: 'TRUE',
+        created_at: now
+      });
+    }
+  } catch (e) {
+    Logger.log('Gagal seedDefaultWilayah_: ' + e);
+  }
 }
 
 /** Seed pengaturan bawaan jika Sheet_Settings kosong. */
@@ -321,6 +368,7 @@ function insert(tab, values) {
     return (v === undefined || v === null) ? '' : v;
   });
   sheet.appendRow(row);
+  try { SpreadsheetApp.flush(); } catch (e) {}
   var obj = { _row: sheet.getLastRow() };
   headers.forEach(function (h, i) { obj[h] = row[i]; });
   return obj;
@@ -348,6 +396,7 @@ function updateRow(tab, rowNum, values) {
   });
   if (!hasChange) return false;
   range.setValues([currentValues]);
+  try { SpreadsheetApp.flush(); } catch (e) {}
   return true;
 }
 
@@ -356,12 +405,13 @@ function updateRow(tab, rowNum, values) {
  * PERINGATAN: TABS.AUDIT bersifat WORM (Write Once, Read Many) permanen dan dilarang dihapus.
  */
 function deleteRow(tab, rowNum) {
-  if (tab === TABS.AUDIT) {
+  if (tab === TABS.AUDIT || tab === TABS.SETTINGS_AUDIT) {
     throw new Error('AKSES DITOLAK: Jejak audit sistem bersifat permanen dan tidak dapat dihapus.');
   }
   var sheet = getSheetSafe_(tab);
   if (!sheet) return false;
   sheet.deleteRow(rowNum);
+  try { SpreadsheetApp.flush(); } catch (e) {}
   return true;
 }
 
@@ -386,8 +436,22 @@ function nextSequence(key) {
     } else {
       insert(TABS.SEQUENCES, { key: key, value: 1 });
     }
+    try { SpreadsheetApp.flush(); } catch (e) {}
     return next;
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * Benteng A-01: Membangun kunci sequence yang terpartisi per wilayah.
+ * Format baku: 'SURAT:{wilayah_id}:{tipe}:{thn}' atau 'KEU:{wilayah_id}:{thn}'
+ */
+function getPartitionedSequenceKey(prefix, wilayahId, category, year) {
+  var w = (wilayahId || (typeof KONFIG !== 'undefined' && KONFIG.DEFAULT_WILAYAH_ID) || 'DPW_JABODETABEK').toUpperCase();
+  var y = year || new Date().getFullYear();
+  if (category) {
+    return prefix.toUpperCase() + ':' + w + ':' + category.toUpperCase() + ':' + y;
+  }
+  return prefix.toUpperCase() + ':' + w + ':' + y;
 }

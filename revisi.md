@@ -20,15 +20,15 @@ RUJUKAN UTAMA: rancangan_SIAP_APII.md (16 Bab Terpadu)
 Setelah pengguna memberikan instruksi tegas **"OKE TERAPKAN"**, implementasi kode akan dieksekusi secara bedah per fase berikut:
 
 ### Fase 0: Penyelarasan PRD & Master Context
-- [ ] Sinkronisasi Zona Atas dan Zona Bawah `prd.md` dengan Bab 1 s.d. Bab 16 `rancangan_SIAP_APII.md`.
-- [ ] Penguncian skema 10 tabel basis data master dan ekstensi.
+- [x] Sinkronisasi Zona Atas dan Zona Bawah `prd.md` dengan Bab 1 s.d. Bab 16 `rancangan_SIAP_APII.md`.
+- [x] Penguncian skema 10 tabel basis data master dan ekstensi.
 
 ### Fase 1: Multi-Tenant Database & Partisi Sekuensial (gas/Database.gs & gas/00-Konfig.gs)
-- [ ] Inisialisasi tab sheet baru: `Sheet_Wilayah`, `Sheet_KTA_Nasional`, `Sheet_Settings_Audit`, `Sheet_Kas_Simulator`.
-- [ ] Injeksi kolom `wilayah_id` pada seluruh tabel operasional (Surat, Keuangan, Anggota, Formasi, Log).
-- [ ] Implementasi atomic sequence locking dengan partisi wilayah (`SURAT:{wilayah}:{tipe}:{thn}`, `KEU:{wilayah}:{thn}`, `KTA:NASIONAL:{thn}`).
-- [ ] Penambahan `SpreadsheetApp.flush()` sebelum pelepasan kunci `lock.releaseLock()`.
-- [ ] Penyiapan skrip migrasi data eksisting ke tenant awal `DPW_JABODETABEK`.
+- [x] Inisialisasi tab sheet baru: `Sheet_Wilayah`, `Sheet_KTA_Nasional`, `Sheet_Settings_Audit`, `Sheet_Kas_Simulator`.
+- [x] Injeksi kolom `wilayah_id` pada seluruh tabel operasional (Surat, Keuangan, Anggota, Formasi, Log).
+- [x] Implementasi atomic sequence locking dengan partisi wilayah (`SURAT:{wilayah}:{tipe}:{thn}`, `KEU:{wilayah}:{thn}`, `KTA:NASIONAL:{thn}`).
+- [x] Penambahan `SpreadsheetApp.flush()` sebelum pelepasan kunci `lock.releaseLock()`.
+- [x] Penyiapan skrip migrasi data eksisting ke tenant awal `DPW_JABODETABEK`.
 
 ### Fase 2: Tata Naskah Dinas, KOP & Stempel Digital (gas/Surat.gs & portal/portal.js)
 - [ ] Komposer Virtual A4 (Split-Screen Live Preview).

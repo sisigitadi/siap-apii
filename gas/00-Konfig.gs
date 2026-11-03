@@ -22,5 +22,14 @@ var KONFIG = {
   DRIVE_FOLDER_NAME: 'APII Jabo - PDF Surat Resmi',
 
   // Nama dokumen template Google Docs (dibuat otomatis beserta kop & stempel).
-  TEMPLATE_DOC_NAME: 'Template Surat Resmi APII DPW Jabodetabek'
+  TEMPLATE_DOC_NAME: 'Template Surat Resmi APII DPW Jabodetabek',
+
+  // Default Wilayah Tenant jika data belum memiliki wilayah_id
+  DEFAULT_WILAYAH_ID: 'DPW_JABODETABEK',
+
+  // Tingkat Wilayah Organisasi (ART Bab I & II)
+  ORG_LEVELS: {
+    PUSAT: 'DPP',
+    WILAYAH: 'DPW'
+  }
 };
