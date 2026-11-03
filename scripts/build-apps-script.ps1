@@ -44,6 +44,7 @@ $fnNames = @(
   'verifyVoucherKetum','rejectVoucher','resubmitVoucher','voidVoucher','getVoucherDetail','getKasSimulatorData','saveKasSimulation','convertSimulationToKas','buildVoucherNumber','getBranchShortCode_','getAccountLabels_','getAccounts','saveAccount','deleteAccount','getPublicAccounts',
   'getListDivisi','createSubmission','updateSubmission','ajukanSubmission',
   'approveSubmission','rejectSubmission','startExecution','submitLPJ','buildTrackingId',
+  'getFormasiPengurus','savePejabatFormasi','createPltDelegasi','getListPltDelegasi','revokePltDelegasi','generateSkPengurus',
   'siapkanFolderPdf_','siapkanTemplateSurat_','generateTemplateSurat',
   'getLogoBlob_','getStempelBlob_','urlVerifikasiSurat_','parSurat_'
 )

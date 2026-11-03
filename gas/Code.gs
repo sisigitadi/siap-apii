@@ -141,6 +141,14 @@ var ROUTES = {
   startExecution:      { auth: true,  roles: DIVISI_SUBMIT_ROLES, handler: Divisi.startExecution },
   submitLPJ:           { auth: true,  roles: DIVISI_SUBMIT_ROLES, handler: Divisi.submitLPJ },
 
+  // --- Formasi Pengurus & Delegasi Plt (Fase 6 - Divisi.gs) ---
+  getFormasiPengurus:  { auth: true,  roles: null, handler: Divisi.getFormasiPengurus },
+  savePejabatFormasi:  { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Divisi.savePejabatFormasi },
+  createPltDelegasi:   { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Divisi.createPltDelegasi },
+  getListPltDelegasi:  { auth: true,  roles: null, handler: Divisi.getListPltDelegasi },
+  revokePltDelegasi:   { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Divisi.revokePltDelegasi },
+  generateSkPengurus:  { auth: true,  roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Divisi.generateSkPengurus },
+
   // --- Alias Kompatibilitas (Pencegahan Notif Aksi Tidak Dikenali) ---
   getDashboardSummary: { auth: true,  roles: null, handler: Utils.getDashboard },
   getListProgram:      { auth: true,  roles: null, handler: Divisi.getListDivisi },

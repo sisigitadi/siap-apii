@@ -24,7 +24,9 @@ var TABS = {
   WILAYAH: 'Sheet_Wilayah',
   KTA_NASIONAL: 'Sheet_KTA_Nasional',
   SETTINGS_AUDIT: 'Sheet_Settings_Audit',
-  KAS_SIMULATOR: 'Sheet_Kas_Simulator'
+  KAS_SIMULATOR: 'Sheet_Kas_Simulator',
+  PENGURUS: 'Sheet_Pengurus',
+  PLT_DELEGASI: 'Sheet_Plt_Delegasi'
 };
 
 // Definisi header tiap tab (dipakai initSchema & insert).
@@ -57,6 +59,8 @@ SCHEMA[TABS.WILAYAH] = ['id', 'nama', 'tingkat', 'kode_surat', 'alamat', 'email'
 SCHEMA[TABS.KTA_NASIONAL] = ['no_kta', 'nik', 'full_name', 'wilayah_id', 'status', 'masa_berlaku', 'tgl_terbit', 'qr_token', 'created_at'];
 SCHEMA[TABS.SETTINGS_AUDIT] = ['id', 'wilayah_id', 'key', 'old_value', 'new_value', 'changed_by', 'timestamp'];
 SCHEMA[TABS.KAS_SIMULATOR] = ['id', 'wilayah_id', 'platform', 'gross_amount', 'fee_percentage', 'fee_amount', 'net_amount', 'pembayar', 'keterangan', 'status', 'created_by', 'created_at', 'expires_at'];
+SCHEMA[TABS.PENGURUS] = ['id', 'wilayah_id', 'jabatan_code', 'jabatan_nama', 'kategori', 'user_id', 'full_name', 'nik', 'no_kta', 'phone', 'periode_mulai', 'periode_selesai', 'status', 'sk_id', 'created_at', 'updated_at'];
+SCHEMA[TABS.PLT_DELEGASI] = ['id', 'wilayah_id', 'jabatan_code', 'jabatan_nama', 'pejabat_asli_id', 'pejabat_asli_nama', 'plt_user_id', 'plt_user_nama', 'surat_tugas_no', 'alasan', 'start_date', 'end_date', 'status', 'created_by', 'created_at'];
 
 /**
  * Inisialisasi semua tab + header. Idempoten.

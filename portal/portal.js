@@ -5943,6 +5943,7 @@
       var canSurat = ['SUPERADMIN', 'KETUA', 'SEKRETARIS'].indexOf(role) !== -1;
       var canPendaftaran = ['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'PEMBINA', 'PENGAWAS'].indexOf(role) !== -1;
       var canKeuanganTab = ['SUPERADMIN', 'KETUA', 'BENDAHARA', 'PEMBINA', 'PENGAWAS'].indexOf(role) !== -1;
+      var canFormasi = ['SUPERADMIN', 'KETUA', 'SEKRETARIS', 'PEMBINA', 'PENGAWAS'].indexOf(role) !== -1;
       var canRbac = ['SUPERADMIN', 'KETUA'].indexOf(role) !== -1;
       var canDrive = ['SUPERADMIN', 'KETUA'].indexOf(role) !== -1;
 
@@ -5976,6 +5977,7 @@
         (canSurat ? '<button type="button" data-ptab="surat" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'surat' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📄 Format &amp; KOP Surat</button>' : '') +
         (canPendaftaran ? '<button type="button" data-ptab="pendaftaran" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'pendaftaran' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📝 Pendaftaran</button>' : '') +
         (canKeuanganTab ? '<button type="button" data-ptab="keuangan" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'keuangan' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">💰 Keuangan</button>' : '') +
+        (canFormasi ? '<button type="button" data-ptab="formasi" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'formasi' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">👥 Formasi Pengurus &amp; Plt</button>' : '') +
         (canRbac ? '<button type="button" data-ptab="rbac" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'rbac' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">🛡️ RBAC &amp; Publik</button>' : '') +
         (canDrive ? '<button type="button" data-ptab="drive" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'drive' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">☁️ Google Drive</button>' : '') +
         (canEditorial ? '<button type="button" data-ptab="redaksi" class="py-2 px-3.5 rounded-xl text-xs font-bold transition ' + (currentTab === 'redaksi' ? 'bg-white text-emerald-dark shadow-sm' : 'text-gray-500 hover:text-gray-900') + '">📰 Redaksi Konten Portal</button>' : '') +
@@ -5998,6 +6000,7 @@
       else if (currentTab === 'surat') this.renderPengaturanSurat();
       else if (currentTab === 'pendaftaran') this.renderPengaturanPendaftaran();
       else if (currentTab === 'keuangan') this.renderPengaturanKeuangan();
+      else if (currentTab === 'formasi') this.renderPengaturanFormasi();
       else if (currentTab === 'rbac') this.renderPengaturanRbac();
       else if (currentTab === 'drive') this.renderPengaturanDrive();
       else if (currentTab === 'redaksi') this.renderPengaturanRedaksi();
@@ -7971,6 +7974,516 @@
       }).catch(function (err) {
         box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat pengaturan Drive: ' + Auth.esc(err.message) + '</div>';
       });
+    },
+
+    // ---------------------------------------------------------------
+    // FORMASI PENGURUS & DELEGASI PLT (FASE 6 - ART BAB V)
+    // ---------------------------------------------------------------
+    renderPengaturanFormasi: function () {
+      var box = document.getElementById('pengaturanBox');
+      var self = this;
+      box.innerHTML =
+        '<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 mb-5 border-b border-gray-100 gap-3">' +
+        '<div>' +
+        '<div class="flex items-center gap-2">' +
+        '<span class="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">ART BAB V PASAL 14 &amp; 16</span>' +
+        '<span id="tenureBadge" class="text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded border border-amber-200">Periode 2023 - 2028</span>' +
+        '</div>' +
+        '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark mt-1">Formasi Pengurus &amp; Delegasi Wewenang Plt</h3>' +
+        '<p class="text-xs text-gray-500">Susunan Badan Pengurus Harian (BPH), 7 Divisi Kerja Resmi, dan pembatasan mandat Plt maksimal 60 hari berfitur auto-revoke.</p>' +
+        '</div>' +
+        '<div class="flex items-center gap-2 flex-wrap">' +
+        '<button type="button" id="btnGenSkStruktur" class="btn bg-gold hover:bg-gold-light text-emerald-dark px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-sm">' +
+        '<span>📜 Terbitkan SK Struktur DPP (PDF)</span></button>' +
+        '<button type="button" id="btnOpenPltModal" class="btn btn-primary px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-sm">' +
+        '<span>⚡ Delegasi Plt (Maks 60 Hari)</span></button>' +
+        '<button type="button" id="btnReloadFormasi" class="btn btn-ghost px-3 py-2 rounded-xl text-xs font-bold border border-gray-200">' +
+        '<span>🔄 Muat Ulang</span></button>' +
+        '</div>' +
+        '</div>' +
+        '<div id="formasiContainer" class="space-y-6">' +
+        this.loadingRow(4) +
+        '</div>';
+
+      document.getElementById('btnReloadFormasi').addEventListener('click', function () {
+        self.loadFormasiPengurus();
+      });
+      document.getElementById('btnOpenPltModal').addEventListener('click', function () {
+        self.modalPltDelegasi();
+      });
+      document.getElementById('btnGenSkStruktur').addEventListener('click', function () {
+        self.generateSkConfirm();
+      });
+
+      this.loadFormasiPengurus();
+    },
+
+    loadFormasiPengurus: function () {
+      var cont = document.getElementById('formasiContainer');
+      var self = this;
+      if (!cont) return;
+
+      Auth.fetch('getFormasiPengurus', {}).then(function (res) {
+        if (!res || !res.ok || !res.data) {
+          cont.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat formasi pengurus: ' + Auth.esc(res && res.message) + '</div>';
+          return;
+        }
+        var d = res.data;
+        var t = d.tenure || {};
+        var tb = document.getElementById('tenureBadge');
+        if (tb) {
+          tb.textContent = 'Masa Bakti: ' + (t.periode_label || '2023-2028');
+        }
+
+        var bphHtml = (d.bph || []).map(function (pej) {
+          var pltHtml = pej.is_plt && pej.plt_detail ?
+            '<div class="mt-2.5 p-2 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-950">' +
+            '<div class="flex items-center justify-between font-bold">' +
+            '<span>⚡ Pejabat Plt: ' + Auth.esc(pej.plt_detail.plt_user_nama) + '</span>' +
+            '<span class="text-amber-700">Tersisa ' + pej.plt_detail.sisa_hari + ' Hari</span>' +
+            '</div>' +
+            '<div class="text-[10px] text-gray-500 mt-0.5">No. Surat: ' + Auth.esc(pej.plt_detail.surat_tugas_no) + '</div>' +
+            '</div>' : '';
+
+          return '<div class="card bg-white rounded-2xl border border-emerald-100 p-4 shadow-sm relative overflow-hidden flex flex-col justify-between" data-code="' + pej.jabatan_code + '">' +
+            '<div>' +
+            '<div class="flex items-center justify-between pb-2 mb-2 border-b border-gray-100">' +
+            '<span class="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded">' + Auth.esc(pej.jabatan_code) + '</span>' +
+            (pej.is_plt ? '<span class="text-[9px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">PLT AKTIF</span>' : '<span class="text-[9px] font-bold text-gray-400">DEFINITIF</span>') +
+            '</div>' +
+            '<h4 class="font-extrabold text-sm text-emerald-950">' + Auth.esc(pej.jabatan_nama) + '</h4>' +
+            '<div class="text-base font-black text-gray-900 mt-1">' + Auth.esc(pej.full_name) + '</div>' +
+            '<div class="font-mono text-xs text-gray-500 mt-0.5">' + (pej.no_kta ? ('KTA: ' + Auth.esc(pej.no_kta)) : 'Belum ada No. KTA') + '</div>' +
+            (pej.phone ? '<div class="text-xs text-emerald-800 font-semibold mt-1">WA: ' + Auth.esc(pej.phone) + '</div>' : '') +
+            pltHtml +
+            '</div>' +
+            '<div class="pt-3 mt-3 border-t border-gray-100 flex gap-2">' +
+            '<button type="button" class="btn btn-ghost flex-1 py-1.5 rounded-xl text-xs font-bold border border-gray-200 hover:bg-gray-50" data-act="edit_pejabat">✏️ Ganti Pejabat</button>' +
+            '<button type="button" class="btn bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-3 py-1.5 rounded-xl text-xs font-bold" data-act="delegasi_plt">⚡ Plt</button>' +
+            '</div>' +
+            '</div>';
+        }).join('');
+
+        var divisiHtml = (d.divisi || []).map(function (pej) {
+          var pltHtml = pej.is_plt && pej.plt_detail ?
+            '<div class="mt-2.5 p-2 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-950">' +
+            '<div class="flex items-center justify-between font-bold">' +
+            '<span>⚡ Pejabat Plt: ' + Auth.esc(pej.plt_detail.plt_user_nama) + '</span>' +
+            '<span class="text-amber-700">Tersisa ' + pej.plt_detail.sisa_hari + ' Hari</span>' +
+            '</div>' +
+            '</div>' : '';
+
+          return '<div class="card bg-white rounded-2xl border border-emerald-100 p-4 shadow-sm relative overflow-hidden flex flex-col justify-between" data-code="' + pej.jabatan_code + '">' +
+            '<div>' +
+            '<div class="flex items-center justify-between pb-2 mb-2 border-b border-gray-100">' +
+            '<span class="text-[9px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded">' + Auth.esc(pej.jabatan_code) + '</span>' +
+            (pej.is_plt ? '<span class="text-[9px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">PLT</span>' : '<span class="text-[9px] font-bold text-gray-400">DEF</span>') +
+            '</div>' +
+            '<h4 class="font-extrabold text-xs text-emerald-950 leading-tight">' + Auth.esc(pej.jabatan_nama) + '</h4>' +
+            '<div class="text-sm font-black text-gray-900 mt-1">' + Auth.esc(pej.full_name) + '</div>' +
+            '<div class="font-mono text-[11px] text-gray-500 mt-0.5">' + (pej.no_kta ? ('KTA: ' + Auth.esc(pej.no_kta)) : '-') + '</div>' +
+            pltHtml +
+            '</div>' +
+            '<div class="pt-3 mt-3 border-t border-gray-100 flex gap-2">' +
+            '<button type="button" class="btn btn-ghost flex-1 py-1.5 rounded-xl text-xs font-bold border border-gray-200 hover:bg-gray-50" data-act="edit_pejabat">✏️ Ganti</button>' +
+            '<button type="button" class="btn bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1.5 rounded-xl text-xs font-bold" data-act="delegasi_plt">⚡ Plt</button>' +
+            '</div>' +
+            '</div>';
+        }).join('');
+
+        cont.innerHTML =
+          // Banner Status Masa Jabatan
+          '<div class="p-5 bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-800 text-white rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">' +
+          '<div>' +
+          '<div class="text-[11px] uppercase tracking-wider text-amber-300 font-extrabold">Masa Bakti Pengurus APII: ' + Auth.esc(t.periode_label || '2023-2028') + '</div>' +
+          '<div class="text-base sm:text-lg font-black mt-0.5">' + Auth.esc(t.status) + ' • Sisa Masa Jabatan: ' + Auth.esc(t.sisa_label) + '</div>' +
+          '<p class="text-xs text-emerald-200/90 mt-1">Struktur definitif mengikat seragam di tingkat pusat &amp; cabang wilayah sesuai ART Bab V Pasal 16.</p>' +
+          '</div>' +
+          '<div class="bg-white/10 px-4 py-2 rounded-xl border border-white/20 text-center whitespace-nowrap">' +
+          '<div class="text-xl font-black text-amber-300">' + (d.active_plt_count || 0) + '</div>' +
+          '<div class="text-[10px] uppercase font-bold text-emerald-100">Mandat Plt Aktif</div>' +
+          '</div>' +
+          '</div>' +
+
+          // Seksi 1: Badan Pengurus Harian (BPH)
+          '<div>' +
+          '<div class="flex items-center gap-2 mb-3">' +
+          '<h4 class="text-sm font-black text-emerald-dark uppercase tracking-wider">1. Badan Pengurus Harian (BPH)</h4>' +
+          '<span class="text-[10px] text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded-full">3 Pimpinan Utama</span>' +
+          '</div>' +
+          '<div class="grid grid-cols-1 md:grid-cols-3 gap-4">' +
+          bphHtml +
+          '</div>' +
+          '</div>' +
+
+          // Seksi 2: 7 Divisi Resmi APII
+          '<div>' +
+          '<div class="flex items-center gap-2 mb-3">' +
+          '<h4 class="text-sm font-black text-emerald-dark uppercase tracking-wider">2. Tujuh (7) Divisi Operasional Resmi (ART Bab V Pasal 16)</h4>' +
+          '<span class="text-[10px] text-emerald-800 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">Seragam Nasional</span>' +
+          '</div>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">' +
+          divisiHtml +
+          '</div>' +
+          '</div>' +
+
+          // Seksi 3: Riwayat Penugasan Plt
+          '<div>' +
+          '<div class="flex items-center justify-between mb-3">' +
+          '<h4 class="text-sm font-black text-emerald-dark uppercase tracking-wider">3. Riwayat Delegasi Pelaksana Tugas (Plt / Ad-Interim)</h4>' +
+          '<span class="text-xs text-amber-700 font-bold">Maksimal 60 Hari • Auto-Revoke</span>' +
+          '</div>' +
+          '<div class="card bg-white rounded-2xl border border-emerald-100 overflow-hidden shadow-sm">' +
+          '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+          '<th>Jabatan &amp; Wilayah</th><th>Pejabat Asli</th><th>Pejabat Plt (Penerima Mandat)</th><th>Surat Tugas &amp; Alasan</th><th>Durasi Masa Tugas</th><th>Status</th><th>Aksi</th>' +
+          '</tr></thead><tbody id="pltRows">' + self.loadingRow(7) + '</tbody></table></div>' +
+          '</div>' +
+          '</div>';
+
+        // Wire edit & delegasi buttons on cards
+        var allPejabatList = d.all || [];
+        Array.prototype.forEach.call(cont.querySelectorAll('[data-code]'), function (card) {
+          var code = card.getAttribute('data-code');
+          var pej = allPejabatList.filter(function (x) { return x.jabatan_code === code; })[0];
+          var bEdit = card.querySelector('[data-act="edit_pejabat"]');
+          var bPlt = card.querySelector('[data-act="delegasi_plt"]');
+          if (bEdit && pej) {
+            bEdit.addEventListener('click', function () { self.modalEditPejabat(pej); });
+          }
+          if (bPlt && pej) {
+            bPlt.addEventListener('click', function () { self.modalPltDelegasi(pej.jabatan_code); });
+          }
+        });
+
+        // Load Plt Table Rows
+        self.loadPltTableRows();
+      }).catch(function (err) {
+        cont.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal: ' + Auth.esc(err.message) + '</div>';
+      });
+    },
+
+    loadPltTableRows: function () {
+      var tb = document.getElementById('pltRows');
+      var self = this;
+      if (!tb) return;
+
+      Auth.fetch('getListPltDelegasi', {}).then(function (res) {
+        var items = (res && res.data && res.data.items) || [];
+        if (!items.length) {
+          tb.innerHTML = '<tr class="tbl-empty"><td colspan="7" class="text-center text-gray-400 py-6">Belum ada riwayat penugasan Pelaksana Tugas (Plt).</td></tr>';
+          return;
+        }
+        var now = new Date();
+        tb.innerHTML = items.map(function (plt) {
+          var isAktif = plt.status === 'AKTIF';
+          var sDate = new Date(plt.start_date);
+          var eDate = new Date(plt.end_date);
+          var totalDays = Math.round((eDate - sDate) / (1000 * 60 * 60 * 24));
+          var sisaHari = Math.max(0, Math.ceil((new Date(plt.end_date + 'T23:59:59') - now) / (1000 * 60 * 60 * 24)));
+
+          var statusBadge = isAktif ?
+            '<span class="badge bg-emerald-100 text-emerald-800 font-bold">AKTIF (' + sisaHari + ' HARI)</span>' :
+            self.badge(plt.status, plt.status);
+
+          return '<tr data-plt-id="' + plt.id + '">' +
+            '<td><div class="font-bold text-gray-900 leading-snug">' + Auth.esc(plt.jabatan_nama) + '</div>' +
+            '<div class="font-mono text-xs text-gray-500">' + Auth.esc(plt.jabatan_code) + '</div></td>' +
+            '<td class="text-xs text-gray-700">' + Auth.esc(plt.pejabat_asli_nama || '-') + '</td>' +
+            '<td><div class="font-bold text-emerald-950 text-xs sm:text-sm">' + Auth.esc(plt.plt_user_nama) + '</div>' +
+            (plt.plt_user_id ? '<div class="text-[10px] text-gray-400 font-mono">ID: ' + Auth.esc(plt.plt_user_id) + '</div>' : '') + '</td>' +
+            '<td><div class="font-mono text-xs font-bold text-gray-800">' + Auth.esc(plt.surat_tugas_no) + '</div>' +
+            '<div class="text-xs text-gray-500 italic">' + Auth.esc(plt.alasan || '-') + '</div></td>' +
+            '<td><div class="text-xs font-semibold text-gray-800">' + Auth.esc(plt.start_date) + ' s.d ' + Auth.esc(plt.end_date) + '</div>' +
+            '<div class="text-[10px] text-amber-700 font-bold">' + totalDays + ' Hari (Maks 60 Hari)</div></td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td class="tbl-actions">' +
+            (isAktif ? '<button type="button" class="btn btn-danger py-1 px-2.5 rounded-lg text-xs font-bold" data-act="revoke_plt">Cabut Mandat</button>' : '<span class="text-xs text-gray-400">-</span>') +
+            '</td>' +
+            '</tr>';
+        }).join('');
+
+        Array.prototype.forEach.call(tb.querySelectorAll('tr[data-plt-id]'), function (tr) {
+          var pId = tr.getAttribute('data-plt-id');
+          var btnRevoke = tr.querySelector('[data-act="revoke_plt"]');
+          if (btnRevoke) {
+            btnRevoke.addEventListener('click', function () {
+              self.revokePltConfirm(pId);
+            });
+          }
+        });
+      }).catch(function (err) {
+        tb.innerHTML = '<tr class="tbl-empty"><td colspan="7" class="text-center text-red-500 py-4">Gagal memuat riwayat Plt: ' + Auth.esc(err.message) + '</td></tr>';
+      });
+    },
+
+    modalEditPejabat: function (pej) {
+      var self = this;
+      var html =
+        '<div class="p-6">' +
+        '<div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">' +
+        '<div>' +
+        '<span class="text-[10px] uppercase font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">MUTASI &amp; PENGANGKATAN PEJABAT</span>' +
+        '<h3 class="text-base sm:text-lg font-black text-emerald-dark mt-1">' + Auth.esc(pej.jabatan_nama) + '</h3>' +
+        '</div>' +
+        '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
+        '</button>' +
+        '</div>' +
+        '<form id="formEditPejabat" class="space-y-4 text-xs">' +
+        '<div>' +
+        '<label class="lbl">Nama Lengkap Pejabat Definitif:</label>' +
+        '<input type="text" id="inpPejNama" value="' + Auth.esc(pej.full_name) + '" required class="field font-bold text-gray-900" />' +
+        '</div>' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
+        '<div>' +
+        '<label class="lbl">Nomor KTA Nasional:</label>' +
+        '<input type="text" id="inpPejKta" value="' + Auth.esc(pej.no_kta || '') + '" placeholder="e.g. 2026-JABO-00001" class="field font-mono" />' +
+        '</div>' +
+        '<div>' +
+        '<label class="lbl">Nomor NIK (16 Digit):</label>' +
+        '<input type="text" id="inpPejNik" value="' + Auth.esc(pej.nik || '') + '" maxlength="16" placeholder="3171..." class="field font-mono" />' +
+        '</div>' +
+        '</div>' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
+        '<div>' +
+        '<label class="lbl">Nomor Kontak WhatsApp:</label>' +
+        '<input type="text" id="inpPejPhone" value="' + Auth.esc(pej.phone || '') + '" placeholder="08..." class="field font-mono" />' +
+        '</div>' +
+        '<div>' +
+        '<label class="lbl">Masa Periode Kepengurusan:</label>' +
+        '<div class="flex items-center gap-2">' +
+        '<input type="number" id="inpPejMulai" value="' + Auth.esc(pej.periode_mulai || '2023') + '" class="field text-center font-bold" />' +
+        '<span class="text-gray-400">s.d</span>' +
+        '<input type="number" id="inpPejSelesai" value="' + Auth.esc(pej.periode_selesai || '2028') + '" class="field text-center font-bold" />' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        '<div class="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-950 text-[11px] leading-relaxed">' +
+        'ℹ️ <b>Integrasi RBAC Otomatis:</b> Penetapan pejabat ini otomatis memperbarui akun login di Sheet_Users dan menyesuaikan spesimen naskah dinas resmi organisasi.' +
+        '</div>' +
+        '<div class="flex items-center justify-end gap-2 pt-4 border-t border-gray-100">' +
+        '<button type="submit" id="btnSavePejabatSubmit" class="btn btn-primary px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm">Simpan Formasi</button>' +
+        '<button type="button" data-close class="btn btn-ghost px-4 py-2.5 rounded-xl font-semibold text-xs">Batal</button>' +
+        '</div>' +
+        '</form>' +
+        '</div>';
+
+      self.openModal(html, 'max-w-md');
+
+      var form = document.getElementById('formEditPejabat');
+      if (form) {
+        form.addEventListener('submit', function (ev) {
+          ev.preventDefault();
+          var btnSub = document.getElementById('btnSavePejabatSubmit');
+          btnSub.disabled = true;
+          self.toast('Menyimpan perubahan pejabat formasi...', 'info');
+
+          var payload = {
+            id: pej.id,
+            jabatan_code: pej.jabatan_code,
+            jabatan_nama: pej.jabatan_nama,
+            kategori: pej.kategori,
+            full_name: document.getElementById('inpPejNama').value.trim(),
+            no_kta: document.getElementById('inpPejKta').value.trim(),
+            nik: document.getElementById('inpPejNik').value.trim(),
+            phone: document.getElementById('inpPejPhone').value.trim(),
+            periode_mulai: document.getElementById('inpPejMulai').value.trim(),
+            periode_selesai: document.getElementById('inpPejSelesai').value.trim()
+          };
+
+          Auth.fetch('savePejabatFormasi', payload).then(function (res) {
+            btnSub.disabled = false;
+            self.closeModal();
+            self.toast((res && res.message) || 'Pejabat formasi berhasil diperbarui.', 'success');
+            self.loadFormasiPengurus();
+          }).catch(function (err) {
+            btnSub.disabled = false;
+            self.toast('Gagal simpan: ' + Auth.esc(err.message), 'error');
+          });
+        });
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+        b.addEventListener('click', function () { self.closeModal(); });
+      });
+    },
+
+    modalPltDelegasi: function (prefillCode) {
+      var self = this;
+      var today = new Date().toISOString().slice(0, 10);
+      var max60 = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+      var jabatanOptions = [
+        ['BPH_KETUA', 'Ketua Wilayah (BPH)'],
+        ['BPH_SEKRETARIS', 'Sekretaris Wilayah (BPH)'],
+        ['BPH_BENDAHARA', 'Bendahara Wilayah (BPH)'],
+        ['DIV_HUMAS', 'Ketua Divisi Humas & Hubungan Antar-Lembaga'],
+        ['DIV_LITBANG', 'Ketua Divisi Litbang'],
+        ['DIV_SOSMED', 'Ketua Divisi Media Sosial & Digital'],
+        ['DIV_DAKWAH', 'Ketua Divisi Dakwah & Pendidikan'],
+        ['DIV_INVESTASI', 'Ketua Divisi Bisnis & Investasi'],
+        ['DIV_HUKUM', 'Ketua Divisi Advokasi Hukum & HAM'],
+        ['DIV_UMUM', 'Ketua Divisi Rumah Tangga & Umum']
+      ].map(function (opt) {
+        return '<option value="' + opt[0] + '"' + (prefillCode === opt[0] ? ' selected' : '') + '>' + opt[1] + '</option>';
+      }).join('');
+
+      var html =
+        '<div class="p-6">' +
+        '<div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">' +
+        '<div>' +
+        '<span class="text-[10px] uppercase font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">DELEGASI AD-INTERIM (MAKS 60 HARI)</span>' +
+        '<h3 class="text-base sm:text-lg font-black text-emerald-dark mt-1">Terbitkan Mandat Pelaksana Tugas (Plt)</h3>' +
+        '</div>' +
+        '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
+        '</button>' +
+        '</div>' +
+        '<form id="formPltDelegasi" class="space-y-4 text-xs">' +
+        '<div>' +
+        '<label class="lbl">Jabatan yang Didelegasikan:</label>' +
+        '<select id="selPltJabatan" class="field font-bold">' +
+        jabatanOptions +
+        '</select>' +
+        '</div>' +
+        '<div>' +
+        '<label class="lbl">Nama Pejabat Penerima Mandat (Plt):</label>' +
+        '<input type="text" id="inpPltNama" placeholder="Nama lengkap penerima mandat Plt" required class="field font-bold text-gray-900" />' +
+        '</div>' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
+        '<div>' +
+        '<label class="lbl">Tanggal Mulai Tugas:</label>' +
+        '<input type="date" id="inpPltStart" value="' + today + '" required class="field font-mono" />' +
+        '</div>' +
+        '<div>' +
+        '<label class="lbl">Tanggal Berakhir Tugas:</label>' +
+        '<input type="date" id="inpPltEnd" value="' + max60 + '" required class="field font-mono" />' +
+        '</div>' +
+        '</div>' +
+        '<div id="pltDurationBox" class="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-amber-950 font-bold flex items-center justify-between">' +
+        '<span>Durasi Mandat Penugasan:</span>' +
+        '<span id="pltDayCount" class="text-sm font-black text-amber-900">60 Hari</span>' +
+        '</div>' +
+        '<div>' +
+        '<label class="lbl">Alasan Penugasan / Dasar Surat Mandat:</label>' +
+        '<input type="text" id="inpPltAlasan" placeholder="e.g. Pejabat definitif sedang ibadah haji / cuti kedinasan" required class="field" />' +
+        '</div>' +
+        '<div class="flex items-center justify-end gap-2 pt-4 border-t border-gray-100">' +
+        '<button type="submit" id="btnPltSubmit" class="btn bg-gold hover:bg-gold-light text-emerald-dark px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm">Sahkan Mandat Plt</button>' +
+        '<button type="button" data-close class="btn btn-ghost px-4 py-2.5 rounded-xl font-semibold text-xs">Batal</button>' +
+        '</div>' +
+        '</form>' +
+        '</div>';
+
+      self.openModal(html, 'max-w-lg');
+
+      var calcDuration = function () {
+        var sVal = document.getElementById('inpPltStart').value;
+        var eVal = document.getElementById('inpPltEnd').value;
+        var dayEl = document.getElementById('pltDayCount');
+        var boxEl = document.getElementById('pltDurationBox');
+        var btnSub = document.getElementById('btnPltSubmit');
+        if (!sVal || !eVal) return;
+        var s = new Date(sVal);
+        var e = new Date(eVal);
+        var days = Math.round((e - s) / (1000 * 60 * 60 * 24));
+        if (days > 60) {
+          dayEl.textContent = days + ' Hari (MELEBIHI BATAS ART 60 HARI)';
+          boxEl.className = 'p-3 bg-red-50 border border-red-200 rounded-xl text-red-950 font-bold flex items-center justify-between';
+          btnSub.disabled = true;
+        } else if (days <= 0) {
+          dayEl.textContent = 'Tanggal tidak valid';
+          boxEl.className = 'p-3 bg-red-50 border border-red-200 rounded-xl text-red-950 font-bold flex items-center justify-between';
+          btnSub.disabled = true;
+        } else {
+          dayEl.textContent = days + ' Hari (Sesuai Syarat Maks 60 Hari)';
+          boxEl.className = 'p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-950 font-bold flex items-center justify-between';
+          btnSub.disabled = false;
+        }
+      };
+
+      document.getElementById('inpPltStart').addEventListener('change', calcDuration);
+      document.getElementById('inpPltEnd').addEventListener('change', calcDuration);
+
+      var form = document.getElementById('formPltDelegasi');
+      if (form) {
+        form.addEventListener('submit', function (ev) {
+          ev.preventDefault();
+          var btnSub = document.getElementById('btnPltSubmit');
+          btnSub.disabled = true;
+          self.toast('Menerbitkan surat mandat Pelaksana Tugas (Plt)...', 'info');
+
+          var selJab = document.getElementById('selPltJabatan');
+          var payload = {
+            jabatan_code: selJab.value,
+            jabatan_nama: selJab.options[selJab.selectedIndex].text,
+            plt_user_nama: document.getElementById('inpPltNama').value.trim(),
+            start_date: document.getElementById('inpPltStart').value,
+            end_date: document.getElementById('inpPltEnd').value,
+            alasan: document.getElementById('inpPltAlasan').value.trim()
+          };
+
+          Auth.fetch('createPltDelegasi', payload).then(function (res) {
+            btnSub.disabled = false;
+            self.closeModal();
+            self.toast((res && res.message) || 'Mandat Plt berhasil diterbitkan.', 'success');
+            self.loadFormasiPengurus();
+          }).catch(function (err) {
+            btnSub.disabled = false;
+            self.toast('Gagal: ' + Auth.esc(err.message), 'error');
+          });
+        });
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+        b.addEventListener('click', function () { self.closeModal(); });
+      });
+    },
+
+    revokePltConfirm: function (pltId) {
+      var self = this;
+      self.confirm('Cabut Mandat Plt', 'Apakah Anda yakin ingin mencabut mandat Pelaksana Tugas (Plt) ini sebelum tanggal berakhirnya tugas?', function () {
+        self.toast('Mencabut mandat Plt...', 'info');
+        Auth.fetch('revokePltDelegasi', { id: pltId }).then(function (res) {
+          self.toast((res && res.message) || 'Mandat Plt berhasil dicabut.', 'success');
+          self.loadFormasiPengurus();
+        }).catch(function (err) {
+          self.toast('Gagal: ' + Auth.esc(err.message), 'error');
+        });
+      });
+    },
+
+    generateSkConfirm: function () {
+      var self = this;
+      self.confirm('Penerbitan SK Struktur Pengurus Resmi DPP',
+        'Sistem akan membangkitkan naskah resmi <b>Surat Keputusan (SK) Dewan Pimpinan Pusat Yayasan APII</b> lengkap dengan konsideran hukum (Akta Pendirian, SK Menkumham AHU-0014970 &amp; AD/ART APII), penomoran sekuensial naskah dinas, stempel digital DPP, dan matriks lampiran personalia BPH serta 7 Divisi Kerja.<br/><br/>Lanjutkan penerbitan SK?',
+        function () {
+          self.toast('Menerbitkan SK Struktur Pengurus DPP resmi...', 'info');
+          Auth.fetch('generateSkPengurus', {}).then(function (res) {
+            var d = (res && res.data) || {};
+            self.openModal(
+              '<div class="p-6 text-center">' +
+              '<div class="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto mb-4">' +
+              '<svg class="w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' +
+              '</div>' +
+              '<h3 class="text-lg font-black text-emerald-dark">SK Struktur Kepengurusan Sah Terbit</h3>' +
+              '<div class="font-mono text-sm font-extrabold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200 mt-2 inline-block">' +
+              Auth.esc(d.letter_number || 'SK-DPP') + '</div>' +
+              '<p class="text-xs text-gray-600 mt-3 leading-relaxed">' +
+              'Surat Keputusan resmi telah diarsipkan di menu Surat Keluar dengan status <b>PUBLISHED</b> ber-stempel basah DPP dan QR validasi keaslian dokumen.' +
+              '</p>' +
+              '<div class="flex items-center justify-center gap-2 mt-6">' +
+              '<a href="#/surat" class="btn btn-primary px-5 py-2.5 rounded-xl font-bold text-xs" data-close>Lihat di Arsip Surat</a>' +
+              '<button type="button" data-close class="btn btn-ghost px-4 py-2.5 rounded-xl font-semibold text-xs">Tutup</button>' +
+              '</div>' +
+              '</div>',
+              'max-w-md'
+            );
+            self.loadFormasiPengurus();
+          }).catch(function (err) {
+            self.toast('Gagal terbitkan SK: ' + Auth.esc(err.message), 'error');
+          });
+        });
     },
 
     // ---------------------------------------------------------------

@@ -59,9 +59,11 @@ Setelah pengguna memberikan instruksi tegas **"OKE TERAPKAN"**, implementasi kod
 - [x] Navigasi 3 Tab Pengelolaan Anggota di portal: Verifikasi Berkas Baru, Direktori KTA Nasional Aktif, dan Konsolidasi Anggota Lama.
 
 ### Fase 6: Formasi Pengurus & Delegasi Plt (gas/Divisi.gs & portal/portal.js)
-- [ ] Pemetaan BPH & 7 Divisi Resmi APII sesuai ART.
-- [ ] Generator SK Pengurus Naskah Dinas PDF.
-- [ ] Modul Delegasi Pelaksana Tugas (Plt / Ad-Interim) maksimal 60 hari berfitur *auto-revoke*.
+- [x] Pemetaan BPH & 7 Divisi Resmi APII sesuai ART Bab V Pasal 14 & 16 (Sheet_Pengurus).
+- [x] Manajemen masa bakti & sisa masa jabatan kepengurusan 5 tahun (Tenure Management).
+- [x] One-Click Decree Generator SK Struktur Kepengurusan DPP ber-konsideran hukum lengkap & penomoran naskah dinas sekuensial.
+- [x] Modul Delegasi Pelaksana Tugas (Plt / Ad-Interim) maksimal 60 hari berfitur auto-revoke & pembatalan awal (Sheet_Plt_Delegasi).
+- [x] Antarmuka Tab Formasi Pengurus & Plt di menu Pengaturan dengan visual bagan organisasi interaktif.
 
 ### Fase 7: Google Drive Storage Vault Engine (apps-script/Pengaturan.gs)
 - [ ] Struktur folder hierarkis 3 tingkat (Root -> Wilayah -> Kategori -> Tahun).
