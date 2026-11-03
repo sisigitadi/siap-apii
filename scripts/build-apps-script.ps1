@@ -37,7 +37,7 @@ $fnNames = @(
   'uuid','audit','formatRupiah','formatTanggal','toRoman','sanitizeUser','getDashboard',
   'terbilang','getSettingValue_','setSettingValue_','getSettings','saveSettings','getPublicSettings','uploadKopImage','testDriveStorage',
   'getEditorialContent','saveEditorialContent',
-  'createDriveFolder','moveDriveFolder','resetDriveStorage',
+  'createDriveFolder','moveDriveFolder','resetDriveStorage','initHierarchyFolders','getDriveStorageStatus','getListVaultFiles','softDeleteVaultFile','restoreVaultFile','purgeTrashVault','resolveStorageFolder_',
   'getListSurat','createSurat','updateSurat','submitSurat','approveSurat',
   'rejectSurat','verifySurat','getPublishedSurat','reserveLetterNumber','getLetterTypesMap_',
   'getSaldo','getListKeuangan','createVoucher','updateVoucherReceipt','verifyVoucherBendahara',

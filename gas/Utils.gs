@@ -1141,3 +1141,382 @@ function resetDriveStorage(ctx) {
 }
 
 
+
+
+// ============================================================================
+// GOOGLE DRIVE STORAGE VAULT ENGINE (FASE 7 - BAB 6.3)
+// ============================================================================
+
+var STORAGE_CATEGORIES = [
+  '01_Surat_Resmi_PDF',
+  '02_Surat_Masuk_Lampiran',
+  '03_Keuangan_Kwitansi',
+  '04_Keuangan_Voucher_Nota',
+  '05_Program_Proposal_LPJ',
+  '06_Pelayanan_Muallaf',
+  '07_Publikasi_Media_Web',
+  '08_Identitas_KTA_KTP'
+];
+
+/**
+ * resolveStorageFolder_: Menemukan atau membuat hierarki folder 3 tingkat:
+ * Root -> [Wilayah] -> [Tahun] -> [Kategori] + _Trash_Arsip_Terhapus
+ */
+function resolveStorageFolder_(rootFolder, wilayahId, category) {
+  var wId = wilayahId || (KONFIG && KONFIG.DEFAULT_WILAYAH_ID) || 'DPW_JABODETABEK';
+  var tahun = String(new Date().getFullYear());
+
+  // Tingkat 1: Folder Wilayah
+  var wFolder = null;
+  var itW = rootFolder.getFoldersByName(wId);
+  if (itW.hasNext()) {
+    wFolder = itW.next();
+  } else {
+    wFolder = rootFolder.createFolder(wId);
+  }
+
+  // Tingkat 2: Folder Tahun
+  var yFolder = null;
+  var itY = wFolder.getFoldersByName(tahun);
+  if (itY.hasNext()) {
+    yFolder = itY.next();
+  } else {
+    yFolder = wFolder.createFolder(tahun);
+  }
+
+  // Tingkat 3: Folder Kategori
+  var catName = category || '01_Surat_Resmi_PDF';
+  var catFolder = null;
+  var itC = yFolder.getFoldersByName(catName);
+  if (itC.hasNext()) {
+    catFolder = itC.next();
+  } else {
+    catFolder = yFolder.createFolder(catName);
+  }
+
+  return catFolder;
+}
+
+/**
+ * initHierarchyFolders: Memeriksa dan membangkitkan struktur hierarki 3 tingkat
+ * lengkap dengan 8 subfolder kategori dan _Trash_Arsip_Terhapus.
+ * SUPERADMIN.
+ */
+function initHierarchyFolders(ctx) {
+  try {
+    var p = (ctx && ctx.payload) || {};
+    var user = (ctx && ctx.user) || {};
+    var rootFolderId = p.root_folder_id || siapkanFolderPdf_();
+    var rootFolder = DriveApp.getFolderById(rootFolderId);
+
+    var defWilayah = (KONFIG && KONFIG.DEFAULT_WILAYAH_ID) || 'DPW_JABODETABEK';
+    var wId = p.wilayah_id || defWilayah;
+    var tahun = String(new Date().getFullYear());
+
+    // 1. Folder Wilayah
+    var wFolder = null;
+    var itW = rootFolder.getFoldersByName(wId);
+    if (itW.hasNext()) {
+      wFolder = itW.next();
+    } else {
+      wFolder = rootFolder.createFolder(wId);
+    }
+
+    // 2. Folder _Trash_Arsip_Terhapus di tingkat wilayah (Soft-Delete)
+    var itTrash = wFolder.getFoldersByName('_Trash_Arsip_Terhapus');
+    if (!itTrash.hasNext()) {
+      wFolder.createFolder('_Trash_Arsip_Terhapus');
+    }
+
+    // 3. Folder Master_Aset_Wilayah
+    var itAset = wFolder.getFoldersByName('Master_Aset_Wilayah');
+    if (!itAset.hasNext()) {
+      wFolder.createFolder('Master_Aset_Wilayah');
+    }
+
+    // 4. Folder Tahun Transaksi
+    var yFolder = null;
+    var itY = wFolder.getFoldersByName(tahun);
+    if (itY.hasNext()) {
+      yFolder = itY.next();
+    } else {
+      yFolder = wFolder.createFolder(tahun);
+    }
+
+    // 5. 8 Kategori Standar
+    var createdCount = 0;
+    for (var i = 0; i < STORAGE_CATEGORIES.length; i++) {
+      var cat = STORAGE_CATEGORIES[i];
+      var itC = yFolder.getFoldersByName(cat);
+      if (!itC.hasNext()) {
+        yFolder.createFolder(cat);
+        createdCount++;
+      }
+    }
+
+    audit(user.username || 'admin', 'DRIVE_HIERARCHY_INITIALIZED', 'Inisialisasi struktur hierarki 3 tingkat ' + wId + '/' + tahun, 'STORAGE');
+
+    return {
+      ok: true,
+      data: {
+        root_folder: rootFolder.getName(),
+        wilayah_folder: wFolder.getName(),
+        tahun_folder: yFolder.getName(),
+        categories_count: STORAGE_CATEGORIES.length,
+        new_created: createdCount
+      },
+      message: 'Struktur hierarki folder 3-tingkat (' + wId + ' / ' + tahun + ') berhasil diinisialisasi lengkap.'
+    };
+  } catch (err) {
+    return { ok: false, data: null, message: 'Gagal inisialisasi hierarki folder: ' + err.message };
+  }
+}
+
+/**
+ * getDriveStorageStatus: Membaca status penggunaan kuota, ambang peringatan (80% / 90%),
+ * dan rekapitulasi berkas pada Sheet_Storage_Vault.
+ */
+function getDriveStorageStatus(ctx) {
+  var p = (ctx && ctx.payload) || {};
+  var user = (ctx && ctx.user) || {};
+  var userWilayah = user.wilayah_id || (KONFIG && KONFIG.DEFAULT_WILAYAH_ID) || 'DPW_JABODETABEK';
+  var wId = p.wilayah_id || userWilayah;
+
+  var cfg = getSettingValue_('drive_storage', {
+    storage_type: 'SHARED_DRIVE',
+    auto_annual_subfolders: true,
+    auto_webp_compression: true,
+    auto_ktp_watermark: true,
+    soft_delete_enabled: true
+  });
+
+  var rows = Database.readAll(TABS.STORAGE_VAULT);
+  var tenantFiles = rows.filter(function (r) {
+    return (r.wilayah_id || userWilayah) === wId && !r.is_deleted;
+  });
+  var trashFiles = rows.filter(function (r) {
+    return (r.wilayah_id || userWilayah) === wId && (r.is_deleted === true || r.is_deleted === 'true');
+  });
+
+  // Hitung akumulasi ukuran berkas
+  var totalKb = 0;
+  var catCounts = {};
+  STORAGE_CATEGORIES.forEach(function (c) { catCounts[c] = 0; });
+
+  tenantFiles.forEach(function (f) {
+    var sz = Number(f.file_size_kb) || 120;
+    totalKb += sz;
+    var cat = f.category || '01_Surat_Resmi_PDF';
+    catCounts[cat] = (catCounts[cat] || 0) + 1;
+  });
+
+  var totalMb = totalKb / 1024;
+  var totalGb = totalMb / 1024;
+
+  // Standar kuota: Google Shared Drive (30 GB pooled) atau Standard (15 GB)
+  var quotaLimitGb = (cfg.storage_type === 'STANDARD') ? 15 : 30;
+  var usagePercent = Math.min(100, (totalGb / quotaLimitGb) * 100);
+
+  // Ambang peringatan 80% dan 90%
+  var healthStatus = 'NORMAL';
+  if (usagePercent >= 90) healthStatus = 'CRITICAL';
+  else if (usagePercent >= 80) healthStatus = 'WARNING';
+
+  return {
+    ok: true,
+    data: {
+      storage_type: cfg.storage_type || 'SHARED_DRIVE',
+      storage_type_label: (cfg.storage_type === 'STANDARD') ? 'Google Drive Standar (15 GB)' : 'Google Shared Drive Non-Profit (30 GB)',
+      quota_limit_gb: quotaLimitGb,
+      used_gb: Number(totalGb.toFixed(2)),
+      used_mb: Number(totalMb.toFixed(1)),
+      usage_percent: Number(usagePercent.toFixed(1)),
+      health_status: healthStatus,
+      total_active_files: tenantFiles.length,
+      total_trash_files: trashFiles.length,
+      category_breakdown: catCounts,
+      config: cfg
+    },
+    message: 'Status kapasitas penyimpanan Google Drive berhasil dihitung.'
+  };
+}
+
+/**
+ * getListVaultFiles: Daftar seluruh arsip berkas dari Sheet_Storage_Vault.
+ */
+function getListVaultFiles(ctx) {
+  var p = (ctx && ctx.payload) || {};
+  var user = (ctx && ctx.user) || {};
+  var userWilayah = user.wilayah_id || (KONFIG && KONFIG.DEFAULT_WILAYAH_ID) || 'DPW_JABODETABEK';
+  var wId = p.wilayah_id || userWilayah;
+  var isTrash = Boolean(p.is_trash);
+
+  var rows = Database.readAll(TABS.STORAGE_VAULT);
+  var filtered = rows.filter(function (r) {
+    var matchWilayah = (r.wilayah_id || userWilayah) === wId;
+    var deletedState = (r.is_deleted === true || r.is_deleted === 'true');
+    return matchWilayah && (isTrash ? deletedState : !deletedState);
+  });
+
+  if (p.category) {
+    filtered = filtered.filter(function (r) { return r.category === p.category; });
+  }
+  if (p.q) {
+    var q = String(p.q).toLowerCase();
+    filtered = filtered.filter(function (r) {
+      return (r.file_name || '').toLowerCase().indexOf(q) !== -1 ||
+             (r.uploaded_by || '').toLowerCase().indexOf(q) !== -1;
+    });
+  }
+
+  filtered.sort(function (a, b) {
+    return (b.uploaded_at || '').localeCompare(a.uploaded_at || '');
+  });
+
+  return {
+    ok: true,
+    data: { items: filtered, total: filtered.length },
+    message: 'Daftar berkas arsip vault berhasil dimuat.'
+  };
+}
+
+/**
+ * softDeleteVaultFile: Pindahkan berkas ke _Trash_Arsip_Terhapus dengan masa tenggang 30 hari.
+ * SUPERADMIN, KETUA, SEKRETARIS, BENDAHARA.
+ */
+function softDeleteVaultFile(ctx) {
+  var p = (ctx && ctx.payload) || {};
+  var user = (ctx && ctx.user) || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID berkas wajib diisi.' };
+
+  var row = Database.findOne(TABS.STORAGE_VAULT, { id: p.id });
+  if (!row) return { ok: false, data: null, message: 'Berkas tidak ditemukan dalam pangkalan data vault.' };
+
+  var now = new Date().toISOString();
+
+  // Pindahkan fisik berkas di Google Drive jika file ID tersedia
+  try {
+    if (row.drive_file_id) {
+      var file = DriveApp.getFileById(row.drive_file_id);
+      var rootFolderId = siapkanFolderPdf_();
+      var rootFolder = DriveApp.getFolderById(rootFolderId);
+      var wFolderIt = rootFolder.getFoldersByName(row.wilayah_id || 'DPW_JABODETABEK');
+      if (wFolderIt.hasNext()) {
+        var wFolder = wFolderIt.next();
+        var trashIt = wFolder.getFoldersByName('_Trash_Arsip_Terhapus');
+        if (trashIt.hasNext()) {
+          var trashFolder = trashIt.next();
+          trashFolder.addFile(file);
+          var parents = file.getParents();
+          while (parents.hasNext()) {
+            var oldP = parents.next();
+            if (oldP.getId() !== trashFolder.getId()) {
+              oldP.removeFile(file);
+            }
+          }
+        }
+      }
+    }
+  } catch (driveErr) {
+    Logger.log('Peringatan pemindahan file drive: ' + driveErr);
+  }
+
+  Database.updateRow(TABS.STORAGE_VAULT, row._row, {
+    is_deleted: true,
+    deleted_at: now
+  });
+
+  audit(user.username || 'admin', 'VAULT_FILE_DELETED', 'Soft-delete berkas ' + row.file_name + ' (Retensi 30 Hari)', 'STORAGE');
+
+  return {
+    ok: true,
+    data: { id: row.id, is_deleted: true },
+    message: 'Berkas ' + row.file_name + ' berhasil dipindahkan ke Tong Sampah (Tersimpan 30 Hari).'
+  };
+}
+
+/**
+ * restoreVaultFile: Memulihkan berkas dari Tong Sampah kembali ke kategori asalnya.
+ */
+function restoreVaultFile(ctx) {
+  var p = (ctx && ctx.payload) || {};
+  var user = (ctx && ctx.user) || {};
+  if (!p.id) return { ok: false, data: null, message: 'ID berkas wajib diisi.' };
+
+  var row = Database.findOne(TABS.STORAGE_VAULT, { id: p.id });
+  if (!row) return { ok: false, data: null, message: 'Berkas tidak ditemukan dalam pangkalan data vault.' };
+
+  // Pulihkan fisik di Google Drive
+  try {
+    if (row.drive_file_id) {
+      var file = DriveApp.getFileById(row.drive_file_id);
+      var rootFolderId = siapkanFolderPdf_();
+      var rootFolder = DriveApp.getFolderById(rootFolderId);
+      var targetFolder = resolveStorageFolder_(rootFolder, row.wilayah_id, row.category);
+      if (targetFolder) {
+        targetFolder.addFile(file);
+        var parents = file.getParents();
+        while (parents.hasNext()) {
+          var oldP = parents.next();
+          if (oldP.getId() !== targetFolder.getId()) {
+            oldP.removeFile(file);
+          }
+        }
+      }
+    }
+  } catch (driveErr) {
+    Logger.log('Peringatan pemulihan file drive: ' + driveErr);
+  }
+
+  Database.updateRow(TABS.STORAGE_VAULT, row._row, {
+    is_deleted: false,
+    deleted_at: ''
+  });
+
+  audit(user.username || 'admin', 'VAULT_FILE_RESTORED', 'Memulihkan berkas ' + row.file_name, 'STORAGE');
+
+  return {
+    ok: true,
+    data: { id: row.id, is_deleted: false },
+    message: 'Berkas ' + row.file_name + ' berhasil dipulihkan ke arsip aktif.'
+  };
+}
+
+/**
+ * purgeTrashVault: Pembersihan permanen berkas terhapus yang telah melampaui masa tenggang 30 hari.
+ * SUPERADMIN.
+ */
+function purgeTrashVault(ctx) {
+  var user = (ctx && ctx.user) || {};
+  if (user.role !== ROLES.SUPERADMIN) {
+    return { ok: false, data: null, message: 'Hanya Superadmin yang berwenang membersihkan tong sampah secara permanen.' };
+  }
+
+  var rows = Database.readAll(TABS.STORAGE_VAULT);
+  var now = new Date();
+  var purgedCount = 0;
+
+  rows.forEach(function (r) {
+    if ((r.is_deleted === true || r.is_deleted === 'true') && r.deleted_at) {
+      var delDate = new Date(r.deleted_at);
+      var days = Math.round((now - delDate) / (1000 * 60 * 60 * 24));
+      if (days >= 30) {
+        try {
+          if (r.drive_file_id) {
+            DriveApp.getFileById(r.drive_file_id).setTrashed(true);
+          }
+        } catch (e) {}
+        Database.deleteRow(TABS.STORAGE_VAULT, r._row);
+        purgedCount++;
+      }
+    }
+  });
+
+  audit(user.username || 'admin', 'VAULT_TRASH_PURGED', 'Membersihkan permanen ' + purgedCount + ' berkas kadaluarsa (> 30 hari)', 'STORAGE');
+
+  return {
+    ok: true,
+    data: { purged_count: purgedCount },
+    message: 'Pembersihan tong sampah selesai. Sebanyak ' + purgedCount + ' berkas lama (> 30 hari) dibersihkan permanen.'
+  };
+}

@@ -129,6 +129,12 @@ var ROUTES = {
   createDriveFolder:   { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.createDriveFolder },
   moveDriveFolder:     { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.moveDriveFolder },
   resetDriveStorage:   { auth: true,  roles: [ROLES.SUPERADMIN], handler: Utils.resetDriveStorage },
+  initHierarchyFolders: { auth: true, roles: [ROLES.SUPERADMIN, ROLES.KETUA], handler: Utils.initHierarchyFolders },
+  getDriveStorageStatus: { auth: true, roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS, ROLES.BENDAHARA], handler: Utils.getDriveStorageStatus },
+  getListVaultFiles:    { auth: true, roles: null, handler: Utils.getListVaultFiles },
+  softDeleteVaultFile:  { auth: true, roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS, ROLES.BENDAHARA], handler: Utils.softDeleteVaultFile },
+  restoreVaultFile:     { auth: true, roles: [ROLES.SUPERADMIN, ROLES.KETUA, ROLES.SEKRETARIS, ROLES.BENDAHARA], handler: Utils.restoreVaultFile },
+  purgeTrashVault:      { auth: true, roles: [ROLES.SUPERADMIN], handler: Utils.purgeTrashVault },
   initDatabaseSchema:  { auth: true,  roles: [ROLES.SUPERADMIN], handler: function (ctx) { Database.initSchema(); return { ok: true, data: null, message: 'Skema database Google Sheets berhasil disinkronkan.' }; } },
 
   // --- Divisi (Divisi.gs) ---

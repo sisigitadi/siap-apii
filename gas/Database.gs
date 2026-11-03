@@ -26,7 +26,8 @@ var TABS = {
   SETTINGS_AUDIT: 'Sheet_Settings_Audit',
   KAS_SIMULATOR: 'Sheet_Kas_Simulator',
   PENGURUS: 'Sheet_Pengurus',
-  PLT_DELEGASI: 'Sheet_Plt_Delegasi'
+  PLT_DELEGASI: 'Sheet_Plt_Delegasi',
+  STORAGE_VAULT: 'Sheet_Storage_Vault'
 };
 
 // Definisi header tiap tab (dipakai initSchema & insert).
@@ -61,6 +62,7 @@ SCHEMA[TABS.SETTINGS_AUDIT] = ['id', 'wilayah_id', 'key', 'old_value', 'new_valu
 SCHEMA[TABS.KAS_SIMULATOR] = ['id', 'wilayah_id', 'platform', 'gross_amount', 'fee_percentage', 'fee_amount', 'net_amount', 'pembayar', 'keterangan', 'status', 'created_by', 'created_at', 'expires_at'];
 SCHEMA[TABS.PENGURUS] = ['id', 'wilayah_id', 'jabatan_code', 'jabatan_nama', 'kategori', 'user_id', 'full_name', 'nik', 'no_kta', 'phone', 'periode_mulai', 'periode_selesai', 'status', 'sk_id', 'created_at', 'updated_at'];
 SCHEMA[TABS.PLT_DELEGASI] = ['id', 'wilayah_id', 'jabatan_code', 'jabatan_nama', 'pejabat_asli_id', 'pejabat_asli_nama', 'plt_user_id', 'plt_user_nama', 'surat_tugas_no', 'alasan', 'start_date', 'end_date', 'status', 'created_by', 'created_at'];
+SCHEMA[TABS.STORAGE_VAULT] = ['id', 'wilayah_id', 'category', 'file_name', 'drive_file_id', 'drive_url', 'mime_type', 'file_size_kb', 'sha256_hash', 'uploaded_by', 'uploaded_at', 'is_deleted', 'deleted_at', 'ref_id'];
 
 /**
  * Inisialisasi semua tab + header. Idempoten.

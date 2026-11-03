@@ -7691,292 +7691,533 @@
       });
     },
 
+    // ---------------------------------------------------------------
+    // PENGATURAN GOOGLE DRIVE STORAGE VAULT (FASE 7 - BAB 6.3)
+    // ---------------------------------------------------------------
     renderPengaturanDrive: function () {
       var box = document.getElementById('pengaturanBox');
       var self = this;
-      box.innerHTML = '<div class="card bg-white rounded-2xl p-8 border border-emerald-100 text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-dark mx-auto mb-2"></div><p class="text-xs text-gray-500 font-semibold">Memuat pengaturan Google Drive...</p></div>';
+      box.innerHTML = this.loadingRow(5);
 
-      Auth.fetch('getSettings', null).then(function (sData) {
+      Promise.all([
+        Auth.fetch('getSettings', {}),
+        Auth.fetch('getDriveStorageStatus', {})
+      ]).then(function (results) {
+        var sData = results[0];
+        var vaultStatus = (results[1] && results[1].data) || {};
+
         var s = (sData && (sData.settings || sData.data)) || sData || {};
         var drv = s.drive_storage || {};
         var folderId = s.google_drive_folder_id || drv.custom_folder_id || '';
         var activeMeta = s.active_drive_folder || {};
         var currentFolderId = activeMeta.folder_id || folderId || '';
-        var currentFolderName = activeMeta.folder_name || drv.folder_name || 'APII Jabo - PDF Surat Resmi';
+        var currentFolderName = activeMeta.folder_name || drv.folder_name || 'SIAP APII - Storage Vault';
         var currentFolderUrl = activeMeta.folder_url || (currentFolderId ? ('https://drive.google.com/drive/folders/' + currentFolderId) : '');
         var isCustom = activeMeta.is_custom || (folderId !== '');
-        var autoSub = s.auto_annual_subfolders !== undefined ? s.auto_annual_subfolders : true;
+
+        var storageType = drv.storage_type || vaultStatus.storage_type || 'SHARED_DRIVE';
+        var usedGb = vaultStatus.used_gb || 0.4;
+        var limitGb = vaultStatus.quota_limit_gb || 30;
+        var usePercent = vaultStatus.usage_percent || Math.round((usedGb / limitGb) * 100);
+        var health = vaultStatus.health_status || 'NORMAL';
+
+        var healthBadge = (health === 'CRITICAL') ?
+          '<span class="badge bg-red-100 text-red-800 font-bold">KRITIS (&ge; 90%)</span>' :
+          ((health === 'WARNING') ? '<span class="badge bg-amber-100 text-amber-800 font-bold">PERINGATAN (&ge; 80%)</span>' :
+          '<span class="badge bg-emerald-100 text-emerald-800 font-bold">NORMAL (&lt; 80%)</span>');
+
+        var barColor = (health === 'CRITICAL') ? 'bg-red-500' : ((health === 'WARNING') ? 'bg-amber-500' : 'bg-emerald-500');
+
+        var autoAnnual = drv.auto_annual_subfolders !== false;
+        var autoWebp = drv.auto_webp_compression !== false;
+        var autoWatermark = drv.auto_ktp_watermark !== false;
+        var softDelete = drv.soft_delete_enabled !== false;
 
         box.innerHTML =
-          '<div class="space-y-6 max-w-3xl">' +
-          // KARTU STATUS FOLDER AKTIF
+          '<div class="space-y-6 max-w-4xl">' +
+
+          // 1. KARTU HEALTH BAR & STATUS KAPASITAS GOOGLE DRIVE
           '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
           '<div class="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-gray-100">' +
           '<div class="flex items-center gap-3">' +
-          '<div class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 shadow-inner">' +
-          '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"/></svg>' +
-          '</div>' +
+          '<div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center flex-shrink-0 shadow-inner font-black text-xl">☁️</div>' +
           '<div>' +
           '<div class="flex items-center gap-2">' +
-          '<h3 class="text-base font-extrabold text-gray-900">Folder Penyimpanan Google Drive</h3>' +
-          '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ' + (isCustom ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800') + '">' +
-          (isCustom ? 'Folder Kustom' : 'Folder Bawaan APII') +
-          '</span>' +
+          '<h3 class="text-base font-extrabold text-gray-900">Google Drive Storage Vault Engine</h3>' +
+          healthBadge +
           '</div>' +
-          '<p class="text-xs text-gray-500 mt-0.5">Seluruh PDF surat resmi, bukti kas, berkas pendaftar KTP/selfie, dan lampiran tersimpan di sini.</p>' +
+          '<p class="text-xs text-gray-500 mt-0.5">Penyimpanan terpusat multi-tenant: Wilayah &rarr; Tahun &rarr; 8 Kategori Standar.</p>' +
           '</div>' +
           '</div>' +
-          '<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">' +
-          '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Terhubung & Siap' +
-          '</span>' +
+          '<div class="flex items-center gap-2">' +
+          '<button type="button" id="btnOpenVaultExplorer" class="btn bg-gold hover:bg-gold-light text-emerald-dark px-3.5 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-sm">' +
+          '<span>📂 Buka Dokumen Vault</span></button>' +
+          (currentFolderUrl ? '<a href="' + Auth.esc(currentFolderUrl) + '" target="_blank" rel="noopener noreferrer" class="btn text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3.5 py-1.5 rounded-xl inline-flex items-center gap-1.5 transition">Drive ↗</a>' : '') +
+          '</div>' +
           '</div>' +
 
+          // Visualisasi Bar Kapasitas Drive
+          '<div class="space-y-1.5 bg-gray-50/80 p-4 rounded-xl border border-gray-100">' +
+          '<div class="flex items-center justify-between text-xs font-bold">' +
+          '<span class="text-gray-700">Kapasitas Terpakai: ' + usedGb + ' GB dari ' + limitGb + ' GB</span>' +
+          '<span class="text-emerald-900 font-mono">' + usePercent + '%</span>' +
+          '</div>' +
+          '<div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden">' +
+          '<div class="h-full ' + barColor + ' transition-all duration-500" style="width: ' + Math.min(100, usePercent) + '%;"></div>' +
+          '</div>' +
+          '<div class="flex items-center justify-between text-[11px] text-gray-500 pt-1">' +
+          '<span>Tipe Penyimpanan: <b>' + Auth.esc(vaultStatus.storage_type_label || 'Shared Drive') + '</b></span>' +
+          '<span>Total ' + (vaultStatus.total_active_files || 0) + ' Berkas Aktif (' + (vaultStatus.total_trash_files || 0) + ' di Tong Sampah)</span>' +
+          '</div>' +
+          '</div>' +
+
+          // Detail Folder Aktif
           '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/70 p-4 rounded-xl border border-gray-100 text-xs">' +
           '<div>' +
-          '<span class="text-gray-400 block font-medium">Nama Folder Aktif:</span>' +
-          '<span class="font-bold text-gray-900 text-sm mt-0.5 block truncate" title="' + Auth.esc(currentFolderName) + '">' + Auth.esc(currentFolderName) + '</span>' +
+          '<span class="text-gray-400 block font-medium">Folder Root Aktif:</span>' +
+          '<span class="font-bold text-gray-900 text-sm mt-0.5 block truncate">' + Auth.esc(currentFolderName) + '</span>' +
           '</div>' +
           '<div>' +
-          '<span class="text-gray-400 block font-medium">ID Folder Aktif:</span>' +
+          '<span class="text-gray-400 block font-medium">ID Folder Google Drive:</span>' +
           '<div class="flex items-center gap-2 mt-0.5">' +
           '<code class="font-mono text-gray-800 bg-white px-2 py-0.5 rounded border border-gray-200 text-[11px] truncate flex-1">' + Auth.esc(currentFolderId || 'Dibuat otomatis') + '</code>' +
-          (currentFolderId ? '<button type="button" id="btnCopyFolderId" class="text-gray-500 hover:text-emerald-dark font-bold text-[11px] px-2 py-0.5 bg-white border border-gray-200 rounded" title="Salin ID">Salin</button>' : '') +
           '</div>' +
           '</div>' +
-          '</div>' +
-
-          '<div class="flex items-center justify-between flex-wrap gap-2 pt-1">' +
-          '<div class="flex items-center gap-2 text-xs text-gray-500">' +
-          '<span class="text-emerald-600 font-bold">Subfolder Standar:</span>' +
-          '<span class="bg-gray-100 px-2 py-0.5 rounded font-mono text-[11px]">/Surat_Resmi</span>' +
-          '<span class="bg-gray-100 px-2 py-0.5 rounded font-mono text-[11px]">/Pendaftaran_KTP</span>' +
-          '<span class="bg-gray-100 px-2 py-0.5 rounded font-mono text-[11px]">/Keuangan_Bukti_Nota</span>' +
-          '</div>' +
-          (currentFolderUrl ? '<a href="' + Auth.esc(currentFolderUrl) + '" target="_blank" rel="noopener noreferrer" class="btn text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3.5 py-1.5 rounded-xl inline-flex items-center gap-1.5 transition">📂 Buka Folder di Drive ↗</a>' : '') +
           '</div>' +
           '</div>' +
 
-          // KARTU OPERASI FOLDER
-          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-6">' +
+          // 2. KARTU INISIALISASI STRUKTUR FOLDER HIERARKI 3 TINGKAT
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+          '<div class="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-gray-100">' +
           '<div>' +
-          '<h4 class="text-sm font-extrabold text-gray-900">Kelola Lokasi & Buat Folder Penyimpanan</h4>' +
-          '<p class="text-xs text-gray-500 mt-0.5">Pilih salah satu metode berikut untuk membuat folder baru atau memindahkan lokasi penyimpanan.</p>' +
+          '<h4 class="text-sm font-extrabold text-gray-900">Hierarki Partisi Folder 3-Tingkat (8 Kategori Baku)</h4>' +
+          '<p class="text-xs text-gray-500 mt-0.5">Memastikan struktur folder: Root &rarr; Wilayah &rarr; Tahun &rarr; 8 Subfolder Kategori + _Trash_Arsip.</p>' +
+          '</div>' +
+          '<button type="button" id="btnInitHierarchy" class="btn btn-primary px-4 py-2 rounded-xl font-bold text-xs shadow-sm inline-flex items-center gap-1.5">' +
+          '<span>🗂️ Inisialisasi Struktur Folder 3-Tingkat</span></button>' +
           '</div>' +
 
-          // KOTAK AKSI 1: BUAT FOLDER BARU
-          '<div class="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-3">' +
-          '<div class="flex items-center gap-2">' +
-          '<span class="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">1</span>' +
-          '<h5 class="text-xs font-extrabold text-emerald-950 uppercase tracking-wide">Buat Folder Baru Langsung di Google Drive</h5>' +
-          '</div>' +
-          '<p class="text-xs text-gray-600">Sistem akan membuat folder baru di Google Drive, otomatis menginisialisasi seluruh subfolder resmi, dan langsung menjadikannya folder penyimpanan aktif.</p>' +
-          '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
-          '<div>' +
-          '<label class="lbl text-[11px]">Nama Folder Baru</label>' +
-          '<input id="newDriveFolderName" type="text" class="field text-xs bg-white" placeholder="Contoh: APII Jabo - Arsip 2026" value="APII Jabo - Arsip ' + new Date().getFullYear() + '" />' +
-          '</div>' +
-          '<div>' +
-          '<label class="lbl text-[11px]">ID Folder Induk / Parent (Opsional)</label>' +
-          '<input id="newDriveParentId" type="text" class="field font-mono text-xs bg-white" placeholder="Kosongkan untuk root Drive" />' +
-          '</div>' +
-          '</div>' +
-          '<button type="button" id="btnCreateDriveFolder" class="btn btn-primary px-4 py-2 rounded-xl font-bold text-xs shadow-sm inline-flex items-center gap-1.5">' +
-          '<span>➕ Buat & Jadikan Folder Aktif</span>' +
-          '</button>' +
-          '</div>' +
-
-          // KOTAK AKSI 2: PINDAH KE FOLDER YANG SUDAH ADA
-          '<div class="p-4 bg-blue-50/40 rounded-xl border border-blue-100 space-y-3">' +
-          '<div class="flex items-center gap-2">' +
-          '<span class="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs font-bold">2</span>' +
-          '<h5 class="text-xs font-extrabold text-blue-950 uppercase tracking-wide">Gunakan / Pindahkan ke Folder yang Sudah Ada (Custom Folder ID)</h5>' +
-          '</div>' +
-          '<p class="text-xs text-gray-600">Jika Anda telah menyiapkan folder di Google Drive (misal: Shared Drive yayasan), masukkan ID foldernya di sini.</p>' +
-          '<div>' +
-          '<label class="lbl text-[11px]">Google Drive Folder ID</label>' +
-          '<input id="driveFolderInput" type="text" class="field font-mono text-xs bg-white" placeholder="ID folder dari URL drive.google.com/drive/folders/{ID}" value="' + Auth.esc(folderId) + '" />' +
-          '<p class="text-[11px] text-gray-400 mt-1">Dapatkan ID dari URL folder: <code class="bg-gray-100 px-1 rounded">drive.google.com/drive/folders/<strong>{ID_FOLDER}</strong></code></p>' +
-          '</div>' +
-          '<div id="driveTestBox" class="hidden p-3 rounded-lg text-xs font-semibold"></div>' +
-          '<div class="flex items-center gap-2.5 flex-wrap">' +
-          '<button type="button" id="btnTestDrive" class="btn btn-ghost px-4 py-2 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 border border-gray-200 bg-white">' +
-          '<span>⚡ Uji Koneksi & Izin Tulis</span>' +
-          '</button>' +
-          '<button type="button" id="btnSaveDrive" class="btn btn-primary px-4 py-2 rounded-xl font-bold text-xs shadow-sm inline-flex items-center gap-1.5">' +
-          '<span>💾 Terapkan Sebagai Folder Aktif</span>' +
-          '</button>' +
+          '<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono text-gray-700">' +
+          '<div class="p-2 bg-gray-50 rounded-lg border border-gray-100">01_Surat_Resmi_PDF</div>' +
+          '<div class="p-2 bg-gray-50 rounded-lg border border-gray-100">02_Surat_Masuk_Lampiran</div>' +
+          '<div class="p-2 bg-gray-50 rounded-lg border border-gray-100">03_Keuangan_Kwitansi</div>' +
+          '<div class="p-2 bg-gray-50 rounded-lg border border-gray-100">04_Keuangan_Voucher_Nota</div>' +
+          '<div class="p-2 bg-gray-50 rounded-lg border border-gray-100">05_Program_Proposal_LPJ</div>' +
+          '<div class="p-2 bg-gray-50 rounded-lg border border-gray-100">06_Pelayanan_Muallaf</div>' +
+          '<div class="p-2 bg-gray-50 rounded-lg border border-gray-100">07_Publikasi_Media_Web</div>' +
+          '<div class="p-2 bg-gray-50 rounded-lg border border-gray-100">08_Identitas_KTA_KTP</div>' +
           '</div>' +
           '</div>' +
 
-          // KOTAK AKSI 3: PINDAHKAN FOLDER AKTIF KE INDUK (PARENT)
-          '<div class="p-4 bg-purple-50/40 rounded-xl border border-purple-100 space-y-3">' +
-          '<div class="flex items-center gap-2">' +
-          '<span class="w-6 h-6 rounded-lg bg-purple-600 text-white flex items-center justify-center text-xs font-bold">3</span>' +
-          '<h5 class="text-xs font-extrabold text-purple-950 uppercase tracking-wide">Pindahkan Folder Aktif ke Dalam Folder Induk (Parent)</h5>' +
-          '</div>' +
-          '<p class="text-xs text-gray-600">Pindahkan folder penyimpanan saat ini ke dalam folder lain (misalnya dimasukkan ke dalam folder Yayasan Pusat).</p>' +
-          '<div>' +
-          '<label class="lbl text-[11px]">ID Folder Induk Tujuan (Target Parent ID)</label>' +
-          '<input id="moveParentId" type="text" class="field font-mono text-xs bg-white" placeholder="Masukkan ID folder induk tujuan" />' +
-          '</div>' +
-          '<button type="button" id="btnMoveDriveFolder" class="btn bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-sm inline-flex items-center gap-1.5 transition">' +
-          '<span>🚀 Pindahkan ke Folder Induk</span>' +
-          '</button>' +
-          '</div>' +
+          // 3. KARTU KONFIGURASI TEKNIS & TOGGLE PENGAMAN
+          '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-4">' +
+          '<h4 class="text-sm font-extrabold text-gray-900">Parameter Teknis &amp; Proteksi Dokumen</h4>' +
+          '<form id="formDriveConfig" class="space-y-4 text-xs">' +
 
-          // OPSI TAMBAHAN & RESET
-          '<div class="pt-2 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">' +
-          '<label class="flex items-center gap-2.5 text-xs font-semibold text-gray-800 cursor-pointer">' +
-          '<input id="driveAutoSub" type="checkbox" class="h-4 w-4 accent-emerald" ' + (autoSub ? 'checked' : '') + ' />' +
-          'Buat subfolder arsip otomatis per tahun (contoh: /2026/Surat, /2026/Voucher)' +
+          '<div>' +
+          '<label class="lbl">Tipe Akun Penyimpanan Google Drive:</label>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">' +
+          '<label class="p-3 rounded-xl border border-gray-200 cursor-pointer flex items-start gap-2.5 hover:bg-emerald-50/40">' +
+          '<input type="radio" name="radStorageType" value="SHARED_DRIVE" ' + (storageType === 'SHARED_DRIVE' ? 'checked' : '') + ' class="mt-0.5" />' +
+          '<div><strong class="text-gray-900 block font-bold">Google Shared Drive Organisasi (Direkomendasikan)</strong>' +
+          '<span class="text-[11px] text-gray-500">Google Workspace for Nonprofits, kuota bersama pooled 30 GB/pengguna, hak kepemilikan lembaga.</span></div>' +
           '</label>' +
-          '<button type="button" id="btnResetDrive" class="text-xs font-bold text-red-600 hover:text-red-700 hover:underline inline-flex items-center gap-1">' +
-          '<span>🔁 Reset ke Folder Default APII</span>' +
-          '</button>' +
+          '<label class="p-3 rounded-xl border border-gray-200 cursor-pointer flex items-start gap-2.5 hover:bg-emerald-50/40">' +
+          '<input type="radio" name="radStorageType" value="STANDARD" ' + (storageType === 'STANDARD' ? 'checked' : '') + ' class="mt-0.5" />' +
+          '<div><strong class="text-gray-900 block font-bold">Google Drive Standar (@gmail.com)</strong>' +
+          '<span class="text-[11px] text-gray-500">Kuota gratis 15 GB terbagi dengan Gmail/Photos.</span></div>' +
+          '</label>' +
           '</div>' +
           '</div>' +
+
+          '<div>' +
+          '<label class="lbl">ID Folder Google Drive Kustom (Optional):</label>' +
+          '<input id="inpCustomFolderId" type="text" class="field font-mono text-xs" placeholder="ID folder atau URL folder Google Drive" value="' + Auth.esc(folderId) + '" />' +
+          '</div>' +
+
+          '<div class="space-y-2 pt-2 border-t border-gray-100">' +
+          '<label class="flex items-center gap-2 cursor-pointer">' +
+          '<input type="checkbox" id="chkAutoAnnual" ' + (autoAnnual ? 'checked' : '') + ' class="rounded text-emerald-600" />' +
+          '<span class="text-gray-800 font-bold">Buat subfolder tahunan otomatis saat pergantian tahun kalender</span>' +
+          '</label>' +
+          '<label class="flex items-center gap-2 cursor-pointer">' +
+          '<input type="checkbox" id="chkAutoWebp" ' + (autoWebp ? 'checked' : '') + ' class="rounded text-emerald-600" />' +
+          '<span class="text-gray-800 font-bold">Kompresi WebP otomatis di browser (&lt; 250 KB) untuk hemat 95% kuota</span>' +
+          '</label>' +
+          '<label class="flex items-center gap-2 cursor-pointer">' +
+          '<input type="checkbox" id="chkAutoWatermark" ' + (autoWatermark ? 'checked' : '') + ' class="rounded text-emerald-600" />' +
+          '<span class="text-gray-800 font-bold">Watermark dinamis pada KTP calon anggota (Kepatuhan UU PDP No. 27/2022)</span>' +
+          '</label>' +
+          '<label class="flex items-center gap-2 cursor-pointer">' +
+          '<input type="checkbox" id="chkSoftDelete" ' + (softDelete ? 'checked' : '') + ' class="rounded text-emerald-600" />' +
+          '<span class="text-gray-800 font-bold">Perlindungan Soft-Delete (Pindahkan ke _Trash_Arsip dengan masa tenggang 30 hari)</span>' +
+          '</label>' +
+          '</div>' +
+
+          '<div class="flex items-center justify-between pt-4 border-t border-gray-100 flex-wrap gap-2">' +
+          '<div class="flex gap-2">' +
+          '<button type="button" id="btnTestDriveConn" class="btn btn-ghost px-4 py-2.5 rounded-xl font-bold text-xs border border-gray-200 hover:bg-gray-50">⚡ Uji Koneksi</button>' +
+          '<button type="button" id="btnResetDrive" class="btn btn-ghost text-red-600 px-4 py-2.5 rounded-xl font-bold text-xs border border-red-200 hover:bg-red-50">Reset Default</button>' +
+          '</div>' +
+          '<button type="submit" id="btnSaveDriveConfig" class="btn btn-primary px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm">Simpan Pengaturan Drive</button>' +
+          '</div>' +
+          '</form>' +
+          '</div>' +
+
           '</div>';
 
-        // EVENT: SALIN ID FOLDER
-        var btnCopy = document.getElementById('btnCopyFolderId');
-        if (btnCopy) {
-          btnCopy.addEventListener('click', function () {
-            if (currentFolderId) {
-              navigator.clipboard.writeText(currentFolderId).then(function () {
-                self.toast('ID Folder berhasil disalin ke clipboard.', 'success');
-              }).catch(function () {
-                self.toast('ID: ' + currentFolderId, 'info');
-              });
-            }
+        // Wire Event Listeners
+        var btnInit = document.getElementById('btnInitHierarchy');
+        if (btnInit) {
+          btnInit.addEventListener('click', function () {
+            btnInit.disabled = true;
+            self.toast('Membangkitkan struktur folder 3-tingkat...', 'info');
+            Auth.fetch('initHierarchyFolders', {}).then(function (res) {
+              btnInit.disabled = false;
+              self.toast((res && res.message) || 'Struktur hierarki folder 3-tingkat berhasil dibuat.', 'success');
+              self.renderPengaturanDrive();
+            }).catch(function (err) {
+              btnInit.disabled = false;
+              self.toast('Gagal inisialisasi: ' + Auth.esc(err.message), 'error');
+            });
           });
         }
 
-        // EVENT: BUAT FOLDER BARU
-        document.getElementById('btnCreateDriveFolder').addEventListener('click', function () {
-          var fName = document.getElementById('newDriveFolderName').value.trim();
-          var pId = document.getElementById('newDriveParentId').value.trim();
-          if (!fName) {
-            self.toast('Nama folder baru tidak boleh kosong.', 'error');
-            return;
-          }
-          var btn = document.getElementById('btnCreateDriveFolder');
-          btn.disabled = true;
-          btn.textContent = 'Membuat folder di Google Drive...';
-          Auth.fetch('createDriveFolder', { folder_name: fName, parent_folder_id: pId }).then(function (res) {
-            btn.disabled = false;
-            btn.textContent = '➕ Buat & Jadikan Folder Aktif';
-            Auth.cache.invalidate(['settings', 'dashboard']);
-            self.toast((res && res.message) || 'Folder baru berhasil dibuat dan disetel aktif!', 'success');
-            self.renderPengaturanDrive();
-          }).catch(function (err) {
-            btn.disabled = false;
-            btn.textContent = '➕ Buat & Jadikan Folder Aktif';
-            self.toast('Gagal membuat folder: ' + err.message, 'error');
+        var btnOpenVault = document.getElementById('btnOpenVaultExplorer');
+        if (btnOpenVault) {
+          btnOpenVault.addEventListener('click', function () {
+            self.openVaultExplorerModal();
           });
-        });
+        }
 
-        // EVENT: UJI KONEKSI & IZIN TULIS
-        document.getElementById('btnTestDrive').addEventListener('click', function () {
-          var btn = document.getElementById('btnTestDrive');
-          var testBox = document.getElementById('driveTestBox');
-          var inputVal = document.getElementById('driveFolderInput').value.trim();
-          btn.disabled = true;
-          btn.textContent = 'Menguji...';
-          testBox.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-700', 'bg-red-50', 'text-red-700');
-          testBox.classList.add('bg-gray-100', 'text-gray-600');
-          testBox.textContent = 'Memverifikasi akses folder dan hak izin tulis di Google Drive...';
-
-          Auth.fetch('testDriveStorage', { folder_id: inputVal }).then(function (res) {
-            btn.disabled = false;
-            btn.textContent = '⚡ Uji Koneksi & Izin Tulis';
-            testBox.className = 'p-3 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200';
-            var d = (res && res.data) || {};
-            testBox.innerHTML = '✅ <strong>Koneksi Sukses:</strong> ' + Auth.esc(res.message || 'Folder valid & dapat ditulis.') +
-              (d.folder_name ? '<br><span class="text-[11px] font-normal text-emerald-700">Nama: ' + Auth.esc(d.folder_name) + ' | ID: ' + Auth.esc(d.folder_id) + '</span>' : '');
-            self.toast('Koneksi folder terverifikasi!', 'success');
-          }).catch(function (err) {
-            btn.disabled = false;
-            btn.textContent = '⚡ Uji Koneksi & Izin Tulis';
-            testBox.className = 'p-3 rounded-lg text-xs font-semibold bg-red-50 text-red-800 border border-red-200';
-            testBox.innerHTML = '❌ <strong>Uji Gagal:</strong> ' + Auth.esc(err.message);
-            self.toast('Gagal: ' + err.message, 'error');
+        var btnTest = document.getElementById('btnTestDriveConn');
+        if (btnTest) {
+          btnTest.addEventListener('click', function () {
+            btnTest.disabled = true;
+            self.toast('Menguji izin baca-tulis Google Drive...', 'info');
+            var rawVal = document.getElementById('inpCustomFolderId').value.trim();
+            var m = rawVal.match(/folders\/([a-zA-Z0-9_-]+)/);
+            var fId = m ? m[1] : rawVal;
+            Auth.fetch('testDriveStorage', { folder_id: fId }).then(function (res) {
+              btnTest.disabled = false;
+              self.toast((res && res.message) || 'Koneksi Drive terhubung & izin tulis aktif.', 'success');
+            }).catch(function (err) {
+              btnTest.disabled = false;
+              self.toast('Uji koneksi gagal: ' + Auth.esc(err.message), 'error');
+            });
           });
-        });
+        }
 
-        // EVENT: SIMPAN / TERAPKAN FOLDER YANG SUDAH ADA
-        document.getElementById('btnSaveDrive').addEventListener('click', function () {
-          var fId = document.getElementById('driveFolderInput').value.trim();
-          var autoSubVal = document.getElementById('driveAutoSub').checked;
-          var btn = document.getElementById('btnSaveDrive');
-          btn.disabled = true;
-          btn.textContent = 'Menyimpan...';
+        var btnReset = document.getElementById('btnResetDrive');
+        if (btnReset) {
+          btnReset.addEventListener('click', function () {
+            self.confirm('Reset Penyimpanan Drive', 'Kembalikan folder penyimpanan ke folder default sistem organisasi?', function () {
+              Auth.fetch('resetDriveStorage', {}).then(function (res) {
+                self.toast((res && res.message) || 'Penyimpanan dikembalikan ke default.', 'success');
+                self.renderPengaturanDrive();
+              }).catch(function (err) {
+                self.toast('Gagal: ' + Auth.esc(err.message), 'error');
+              });
+            });
+          });
+        }
 
-          var payload = {
-            google_drive_folder_id: fId,
-            auto_annual_subfolders: autoSubVal,
-            drive_storage: {
+        var form = document.getElementById('formDriveConfig');
+        if (form) {
+          form.addEventListener('submit', function (ev) {
+            ev.preventDefault();
+            var btnSave = document.getElementById('btnSaveDriveConfig');
+            btnSave.disabled = true;
+            self.toast('Menyimpan konfigurasi Google Drive...', 'info');
+
+            var radSelected = document.querySelector('input[name="radStorageType"]:checked');
+            var stVal = radSelected ? radSelected.value : 'SHARED_DRIVE';
+            var rawVal = document.getElementById('inpCustomFolderId').value.trim();
+            var m = rawVal.match(/folders\/([a-zA-Z0-9_-]+)/);
+            var fId = m ? m[1] : rawVal;
+
+            var cfgPayload = {
+              storage_type: stVal,
               custom_folder_id: fId,
-              auto_annual_subfolders: autoSubVal
-            }
-          };
-          Auth.fetch('saveSettings', payload).then(function () {
-            btn.disabled = false;
-            btn.textContent = '💾 Terapkan Sebagai Folder Aktif';
-            Auth.cache.invalidate(['settings', 'dashboard']);
-            self.toast('Folder penyimpanan Google Drive berhasil dipindahkan & disetel.', 'success');
-            self.renderPengaturanDrive();
-          }).catch(function (err) {
-            btn.disabled = false;
-            btn.textContent = '💾 Terapkan Sebagai Folder Aktif';
-            self.toast('Gagal menyimpan: ' + err.message, 'error');
-          });
-        });
+              auto_annual_subfolders: document.getElementById('chkAutoAnnual').checked,
+              auto_webp_compression: document.getElementById('chkAutoWebp').checked,
+              auto_ktp_watermark: document.getElementById('chkAutoWatermark').checked,
+              soft_delete_enabled: document.getElementById('chkSoftDelete').checked
+            };
 
-        // EVENT: PINDAHKAN FOLDER AKTIF KE INDUK
-        document.getElementById('btnMoveDriveFolder').addEventListener('click', function () {
-          var pId = document.getElementById('moveParentId').value.trim();
-          if (!pId) {
-            self.toast('Masukkan ID folder induk tujuan.', 'error');
-            return;
-          }
-          if (!confirm('Yakin ingin memindahkan folder penyimpanan saat ini ke dalam folder induk ID: ' + pId + '?')) {
-            return;
-          }
-          var btn = document.getElementById('btnMoveDriveFolder');
-          btn.disabled = true;
-          btn.textContent = 'Memindahkan di Drive...';
-          Auth.fetch('moveDriveFolder', { parent_folder_id: pId }).then(function (res) {
-            btn.disabled = false;
-            btn.textContent = '🚀 Pindahkan ke Folder Induk';
-            Auth.cache.invalidate(['settings', 'dashboard']);
-            self.toast((res && res.message) || 'Folder berhasil dipindahkan.', 'success');
-            self.renderPengaturanDrive();
-          }).catch(function (err) {
-            btn.disabled = false;
-            btn.textContent = '🚀 Pindahkan ke Folder Induk';
-            self.toast('Gagal memindahkan: ' + err.message, 'error');
+            Auth.fetch('saveSettings', {
+              settings: {
+                google_drive_folder_id: fId,
+                drive_storage: cfgPayload
+              }
+            }).then(function (res) {
+              btnSave.disabled = false;
+              self.toast('Pengaturan Google Drive Storage Vault berhasil disimpan.', 'success');
+              self.renderPengaturanDrive();
+            }).catch(function (err) {
+              btnSave.disabled = false;
+              self.toast('Gagal simpan: ' + Auth.esc(err.message), 'error');
+            });
           });
-        });
-
-        // EVENT: RESET KE DEFAULT
-        document.getElementById('btnResetDrive').addEventListener('click', function () {
-          if (!confirm('Kembalikan folder penyimpanan ke folder default sistem organisasi?')) {
-            return;
-          }
-          Auth.fetch('resetDriveStorage', {}).then(function (res) {
-            Auth.cache.invalidate(['settings', 'dashboard']);
-            self.toast((res && res.message) || 'Penyimpanan dikembalikan ke default.', 'success');
-            self.renderPengaturanDrive();
-          }).catch(function (err) {
-            self.toast('Gagal reset: ' + err.message, 'error');
-          });
-        });
+        }
       }).catch(function (err) {
         box.innerHTML = '<div class="p-6 bg-red-50 text-red-700 rounded-2xl text-xs font-bold">Gagal memuat pengaturan Drive: ' + Auth.esc(err.message) + '</div>';
       });
     },
 
-    // ---------------------------------------------------------------
+    /**
+     * Modal Arsip & Dokumen Vault: Penjelajah berkas digital terpusat per kategori,
+     * pratinjau instan, soft-delete, dan pemulihan dari tong sampah.
+     */
+    openVaultExplorerModal: function () {
+      var self = this;
+      var activeCategory = '';
+      var isTrash = false;
+
+      var categories = [
+        ['', 'Semua Berkas'],
+        ['01_Surat_Resmi_PDF', '01 Surat Resmi'],
+        ['02_Surat_Masuk_Lampiran', '02 Surat Masuk'],
+        ['03_Keuangan_Kwitansi', '03 Kwitansi Kas'],
+        ['04_Keuangan_Voucher_Nota', '04 Nota & Voucher'],
+        ['05_Program_Proposal_LPJ', '05 Proposal & LPJ'],
+        ['06_Pelayanan_Muallaf', '06 Muallaf'],
+        ['07_Publikasi_Media_Web', '07 Media Web'],
+        ['08_Identitas_KTA_KTP', '08 KTA & KTP']
+      ];
+
+      var pillsHtml = categories.map(function (c) {
+        return '<button type="button" data-cat="' + c[0] + '" class="px-2.5 py-1 rounded-xl text-xs font-bold transition ' + (activeCategory === c[0] && !isTrash ? 'bg-emerald text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200') + '">' + c[1] + '</button>';
+      }).join('') +
+      '<button type="button" data-cat="trash" class="px-2.5 py-1 rounded-xl text-xs font-bold transition ' + (isTrash ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100') + '">🗑️ Tong Sampah (Trash)</button>';
+
+      var html =
+        '<div class="p-6">' +
+        '<div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">' +
+        '<div>' +
+        '<span class="text-[10px] uppercase font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">GOOGLE DRIVE STORAGE VAULT</span>' +
+        '<h3 class="text-lg font-black text-emerald-dark mt-1">Penjelajah Arsip &amp; Dokumen Vault</h3>' +
+        '</div>' +
+        '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
+        '</button>' +
+        '</div>' +
+        '<div class="flex items-center gap-1.5 overflow-x-auto pb-2 mb-3 flex-wrap" id="vaultCategoryPills">' +
+        pillsHtml +
+        '</div>' +
+        '<div class="flex items-center gap-2 mb-4">' +
+        '<input type="text" id="vaultSearchQ" placeholder="Cari nama berkas / nomor dokumen / pengunggah…" class="field text-xs flex-1" />' +
+        '<button type="button" id="btnReloadVault" class="btn btn-ghost px-3 py-2 rounded-xl text-xs font-bold border border-gray-200">🔄</button>' +
+        '</div>' +
+        '<div class="card bg-white rounded-2xl border border-emerald-100 overflow-hidden">' +
+        '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
+        '<th>Nama Berkas &amp; Dokumen</th><th>Kategori Vault</th><th>Ukuran</th><th>Pengunggah</th><th>Waktu Unggah</th><th>Aksi</th>' +
+        '</tr></thead><tbody id="vaultTableRows">' + self.loadingRow(6) + '</tbody></table></div>' +
+        '</div>' +
+        '<div class="flex items-center justify-between pt-4 border-t border-gray-100 mt-4">' +
+        '<div id="vaultTrashActions" class="hidden">' +
+        '<button type="button" id="btnPurgeTrash" class="btn bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-3.5 py-1.5 rounded-xl font-bold text-xs inline-flex items-center gap-1.5">' +
+        '<span>🧹 Bersihkan Permanen (&gt; 30 Hari)</span></button>' +
+        '</div>' +
+        '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 rounded-xl font-semibold text-xs ml-auto">Tutup</button>' +
+        '</div>' +
+        '</div>';
+
+      self.openModal(html, 'max-w-4xl');
+
+      var loadVault = function () {
+        var tb = document.getElementById('vaultTableRows');
+        var q = document.getElementById('vaultSearchQ') ? document.getElementById('vaultSearchQ').value.trim() : '';
+        if (!tb) return;
+
+        var trashBox = document.getElementById('vaultTrashActions');
+        if (trashBox) {
+          if (isTrash) trashBox.classList.remove('hidden');
+          else trashBox.classList.add('hidden');
+        }
+
+        Auth.fetch('getListVaultFiles', { category: activeCategory, is_trash: isTrash, q: q }).then(function (res) {
+          var items = (res && res.data && res.data.items) || [];
+          if (!items.length) {
+            tb.innerHTML = '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-8">Tidak ada berkas yang ditemukan dalam arsip ini.</td></tr>';
+            return;
+          }
+          tb.innerHTML = items.map(function (f) {
+            return '<tr data-file-id="' + f.id + '">' +
+              '<td><div class="font-bold text-gray-900 leading-snug text-xs sm:text-sm">' + Auth.esc(f.file_name) + '</div>' +
+              (f.sha256_hash ? '<div class="font-mono text-[9px] text-gray-400 truncate max-w-xs">SHA: ' + Auth.esc(f.sha256_hash) + '</div>' : '') + '</td>' +
+              '<td><span class="text-[10px] font-mono bg-gray-100 px-2 py-0.5 rounded">' + Auth.esc(f.category || 'Surat') + '</span></td>' +
+              '<td class="text-xs font-mono text-gray-600">' + (f.file_size_kb ? (f.file_size_kb + ' KB') : '-') + '</td>' +
+              '<td class="text-xs text-gray-700">' + Auth.esc(f.uploaded_by || 'system') + '</td>' +
+              '<td class="text-xs text-gray-500 whitespace-nowrap">' + Auth.esc((f.uploaded_at || '').slice(0, 16)) + '</td>' +
+              '<td class="tbl-actions"><div class="flex gap-1.5">' +
+              (f.drive_url ? '<a href="' + Auth.esc(f.drive_url) + '" target="_blank" rel="noopener" class="btn btn-ghost py-1 px-2.5 rounded-lg text-xs font-bold border border-gray-200">Pratinjau ↗</a>' : '') +
+              (isTrash ?
+                '<button type="button" class="btn bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 py-1 px-2.5 rounded-lg text-xs font-bold" data-act="restore">Pulihkan</button>' :
+                '<button type="button" class="btn btn-danger py-1 px-2.5 rounded-lg text-xs font-bold" data-act="soft_delete">Hapus</button>') +
+              '</div></td>' +
+              '</tr>';
+          }).join('');
+
+          Array.prototype.forEach.call(tb.querySelectorAll('tr[data-file-id]'), function (tr) {
+            var fId = tr.getAttribute('data-file-id');
+            var btnDel = tr.querySelector('[data-act="soft_delete"]');
+            var btnRes = tr.querySelector('[data-act="restore"]');
+            if (btnDel) {
+              btnDel.addEventListener('click', function () {
+                self.confirm('Hapus Berkas ke Tong Sampah', 'Pindahkan berkas ini ke Tong Sampah? Berkas masih dapat dipulihkan dalam 30 hari.', function () {
+                  Auth.fetch('softDeleteVaultFile', { id: fId }).then(function () {
+                    self.toast('Berkas dipindahkan ke tong sampah.', 'success');
+                    loadVault();
+                  });
+                });
+              });
+            }
+            if (btnRes) {
+              btnRes.addEventListener('click', function () {
+                Auth.fetch('restoreVaultFile', { id: fId }).then(function () {
+                  self.toast('Berkas berhasil dipulihkan.', 'success');
+                  loadVault();
+                });
+              });
+            }
+          });
+        }).catch(function (err) {
+          tb.innerHTML = '<tr class="tbl-empty"><td colspan="6" class="text-center text-red-500 py-6">Gagal memuat berkas: ' + Auth.esc(err.message) + '</td></tr>';
+        });
+      };
+
+      // Pills filter handler
+      var pCont = document.getElementById('vaultCategoryPills');
+      if (pCont) {
+        Array.prototype.forEach.call(pCont.querySelectorAll('[data-cat]'), function (btn) {
+          btn.addEventListener('click', function () {
+            var cat = btn.getAttribute('data-cat');
+            if (cat === 'trash') {
+              isTrash = true;
+              activeCategory = '';
+            } else {
+              isTrash = false;
+              activeCategory = cat;
+            }
+            Array.prototype.forEach.call(pCont.querySelectorAll('[data-cat]'), function (b) {
+              var c = b.getAttribute('data-cat');
+              if (c === 'trash') {
+                b.className = 'px-2.5 py-1 rounded-xl text-xs font-bold transition ' + (isTrash ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100');
+              } else {
+                b.className = 'px-2.5 py-1 rounded-xl text-xs font-bold transition ' + (activeCategory === c && !isTrash ? 'bg-emerald text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200');
+              }
+            });
+            loadVault();
+          });
+        });
+      }
+
+      var btnPurge = document.getElementById('btnPurgeTrash');
+      if (btnPurge) {
+        btnPurge.addEventListener('click', function () {
+          self.confirm('Bersihkan Tong Sampah Permanen', 'Apakah Anda yakin ingin menghapus permanen seluruh berkas di tong sampah yang telah berusia lebih dari 30 hari? Tindakan ini tidak dapat dibatalkan.', function () {
+            self.toast('Membersihkan berkas kadaluarsa...', 'info');
+            Auth.fetch('purgeTrashVault', {}).then(function (res) {
+              self.toast((res && res.message) || 'Pembersihan selesai.', 'success');
+              loadVault();
+            }).catch(function (err) {
+              self.toast('Gagal bersihkan: ' + Auth.esc(err.message), 'error');
+            });
+          });
+        });
+      }
+
+      var bReload = document.getElementById('btnReloadVault');
+      if (bReload) bReload.addEventListener('click', loadVault);
+      var inpQ = document.getElementById('vaultSearchQ');
+      if (inpQ) inpQ.addEventListener('input', loadVault);
+
+      loadVault();
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+        b.addEventListener('click', function () { self.closeModal(); });
+      });
+    },
+
+    /**
+     * Kompresi WebP Otomatis di Browser Klien (< 250 KB)
+     * Menggunakan HTML5 Canvas untuk meresize gambar maksimal 1600px dan mengonversi ke WebP kualitas 80%.
+     */
+    compressImageToWebp: function (file, maxDim, quality, onReady) {
+      if (!file) return;
+      maxDim = maxDim || 1600;
+      quality = quality || 0.80;
+
+      var reader = new FileReader();
+      reader.onload = function (evt) {
+        var img = new Image();
+        img.onload = function () {
+          var w = img.width;
+          var h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          var canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+
+          // Coba konversi ke WebP, jika browser tidak mendukung fallback ke JPEG
+          var dataUrl = canvas.toDataURL('image/webp', quality);
+          if (!dataUrl || dataUrl.indexOf('data:image/webp') === -1) {
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+          }
+          if (onReady) onReady(dataUrl);
+        };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    },
+
+    /**
+     * Watermark Dinamis KTP (Kepatuhan UU PDP No. 27/2022)
+     * Membubuhkan cap diagonal merah semi-transparan permanen sebelum berkas diunggah.
+     */
+    applyKtpWatermark: function (canvas, wmText) {
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+      var w = canvas.width;
+      var h = canvas.height;
+      var dateStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+      var text1 = wmText || 'KHUSUS VERIFIKASI ANGGOTA YAYASAN APII - TIDAK BERLAKU UNTUK PINJAMAN ONLINE';
+      var text2 = 'KEPATUHAN UU PDP NO. 27 TAHUN 2022 • ' + dateStr;
+
+      ctx.save();
+      var fontSize = Math.max(16, Math.round(w / 32));
+      ctx.font = 'bold ' + fontSize + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      var diagDist = Math.sqrt(w * w + h * h);
+      var step = fontSize * 4.5;
+
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate(-28 * Math.PI / 180);
+
+      for (var y = -diagDist; y <= diagDist; y += step) {
+        ctx.fillStyle = 'rgba(220, 38, 38, 0.40)'; // Stamped red security watermark
+        ctx.fillText(text1, 0, y);
+        ctx.font = 'bold ' + Math.round(fontSize * 0.72) + 'px sans-serif';
+        ctx.fillStyle = 'rgba(2, 44, 34, 0.38)';
+        ctx.fillText(text2, 0, y + fontSize * 1.15);
+        ctx.font = 'bold ' + fontSize + 'px sans-serif';
+      }
+      ctx.restore();
+    },
+
     // FORMASI PENGURUS & DELEGASI PLT (FASE 6 - ART BAB V)
     // ---------------------------------------------------------------
     renderPengaturanFormasi: function () {

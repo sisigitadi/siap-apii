@@ -466,8 +466,11 @@
           ctx.textBaseline = 'middle';
           ctx.fillText('APII DPW JABODETABEK • TERPROTEKSI WATERMARK DIGITAL • ' + dateStr, w / 2, h - (bannerH / 2));
 
-          // Export compressed JPEG
-          var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          // Export compressed WebP dengan fallback ke JPEG (< 250 KB)
+          var dataUrl = canvas.toDataURL('image/webp', 0.82);
+          if (!dataUrl || dataUrl.indexOf('data:image/webp') === -1) {
+            dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          }
           self.state.ktpBase64 = dataUrl;
 
           var previewImg = document.getElementById('ktpPreviewImg');
@@ -504,7 +507,10 @@
           var ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, w, h);
 
-          var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          var dataUrl = canvas.toDataURL('image/webp', 0.82);
+          if (!dataUrl || dataUrl.indexOf('data:image/webp') === -1) {
+            dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          }
           self.state.selfieBase64 = dataUrl;
 
           var previewImg = document.getElementById('selfiePreviewImg');

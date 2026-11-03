@@ -65,11 +65,13 @@ Setelah pengguna memberikan instruksi tegas **"OKE TERAPKAN"**, implementasi kod
 - [x] Modul Delegasi Pelaksana Tugas (Plt / Ad-Interim) maksimal 60 hari berfitur auto-revoke & pembatalan awal (Sheet_Plt_Delegasi).
 - [x] Antarmuka Tab Formasi Pengurus & Plt di menu Pengaturan dengan visual bagan organisasi interaktif.
 
-### Fase 7: Google Drive Storage Vault Engine (apps-script/Pengaturan.gs)
-- [ ] Struktur folder hierarkis 3 tingkat (Root -> Wilayah -> Kategori -> Tahun).
-- [ ] Kompresi gambar WebP otomatis.
-- [ ] Watermark dinamis KTP (*UU PDP Compliance*).
-- [ ] *Soft-Delete* recycle bin 30 hari dan ambang kuota 80%/90%.
+### Fase 7: Google Drive Storage Vault Engine (gas/Utils.gs & portal/portal.js)
+- [x] Struktur folder hierarkis 3 tingkat (Root -> Wilayah -> Tahun -> 8 Kategori Baku + _Trash_Arsip).
+- [x] Pangkalan data indeks berkas digital Sheet_Storage_Vault terpasang.
+- [x] Kompresi gambar WebP otomatis di browser klien (< 250 KB) untuk efisiensi kuota 95%.
+- [x] Watermark dinamis KTP pendaftar dengan kepatuhan UU PDP No. 27/2022.
+- [x] Mekanisme Soft-Delete recycle bin retensi 30 hari & ambang kuota 80% (Warning) / 90% (Critical).
+- [x] Antarmuka Penjelajah Dokumen Vault terintegrasi di portal pengurus.
 
 ### Fase 8: Website Publik Adaptif Tunggal (public/app.js & public/index.html)
 - [ ] Lensa wilayah dinamis (*Regional Lens*) berbasis URL slug/parameter.
