@@ -2118,9 +2118,9 @@
           acts += self.aBtn('view', 'Detail', 'Lihat detail surat');
           acts += self.waBtn('Bagikan format surat ke WhatsApp');
           // Penulis: ajukkan draft.
-          if (canWrite && s.status === 'DRAFT') {
-            acts += self.aBtn('edit', 'Ubah', 'Ubah draf surat');
-            acts += self.aBtn('submit', 'Ajukan', 'Ajukan ke Ketua');
+          if (canWrite && (s.status === 'DRAFT' || s.status === 'REJECTED')) {
+            acts += self.aBtn('edit', 'Ubah', (s.status === 'REJECTED' ? 'Perbaiki surat yang ditolak' : 'Ubah draf surat'));
+            acts += self.aBtn('submit', (s.status === 'REJECTED' ? 'Ajukan Kembali' : 'Ajukan'), 'Ajukan ke Ketua');
           }
           // Ketua: setujui / tolak.
           if (canApprove && s.status === 'PENDING_APPROVAL') {
@@ -2242,6 +2242,14 @@
             }).catch(function () { });
           });
         });
+      }
+
+      if (item && item.content) {
+        var cObj = {};
+        try { cObj = typeof item.content === 'object' ? item.content : JSON.parse(item.content || '{}'); } catch (e) {}
+        if (cObj.menimbang) document.getElementById('sfMenimbang').value = cObj.menimbang;
+        if (cObj.mengingat) document.getElementById('sfMengingat').value = cObj.mengingat;
+        if (cObj.memutuskan) document.getElementById('sfMemutuskan').value = cObj.memutuskan;
       }
 
       document.getElementById('suratFormEl').addEventListener('submit', function (e) {
@@ -2411,22 +2419,26 @@
         '<div id="printPaperArea" class="paper-a4 p-3.5 sm:p-10 text-gray-900 shadow-xl border border-gray-200 rounded-xl relative overflow-hidden bg-white max-w-[760px] mx-auto select-text">' +
         watermarkHtml +
 
-        // KOP SURAT (Dukungan Gambar KOP Resmi Uploaded vs Teks Standar)
-        (window._kopSettings && window._kopSettings.kop_mode === 'image' && window._kopSettings.kop_image_base64
-          ? '<div class="mb-2 text-center"><img src="' + window._kopSettings.kop_image_base64 + '" alt="KOP Surat Resmi" class="w-full max-h-36 object-contain mx-auto" /></div>'
-          : '<div class="flex items-center gap-2.5 sm:gap-6 mb-2">' +
-          '<img src="logo.png" alt="Logo DPW APII" class="w-12 h-12 sm:w-20 sm:h-20 object-contain flex-shrink-0" />' +
-          '<div class="flex-1 text-center font-serif leading-tight min-w-0">' +
-          '<div class="text-[10px] sm:text-xs font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
-          '<div class="text-xs sm:text-lg font-black text-gray-900 tracking-tight mt-0.5 break-words">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
-          '<div class="text-[11px] sm:text-sm font-bold text-gray-800 tracking-normal">WILAYAH JABODETABEK</div>' +
-          '<div class="text-[8.5px] sm:text-[10.5px] text-gray-600 font-sans mt-1 leading-snug">' +
-          'Gedung Pusat Dakwah APII Wilayah Jabodetabek Lt. 3, Jl. Kramat Raya No. 45, Senen, Jakarta Pusat 10450<br class="hidden sm:inline"/>' +
-          'Telp: (021) 390-8812 &bull; Email: sekretariat.dpw@apii-jabodetabek.or.id &bull; Website: siapii.sigitadi.id' +
-          '</div>' +
-          '</div>' +
-          '</div>'
-        ) +
+        // KOP SURAT (Multi-Tenant DPP vs DPW + Dukungan Gambar KOP Uploaded)
+        (function () {
+          var isPusat = (s.wilayah_id === 'DPP_PUSAT') || (self.state.user && self.state.user.wilayah_id === 'DPP_PUSAT');
+          var wNama = isPusat ? 'PUSAT (NASIONAL)' : ((s.wilayah_id || 'DPW JABODETABEK').replace(/_/g, ' '));
+          var subHeader = isPusat ? 'DEWAN PIMPINAN PUSAT' : 'DEWAN PIMPINAN WILAYAH';
+          var orgLine = isPusat ? 'PUSAT DAKWAH NASIONAL APII' : ('WILAYAH ' + wNama.replace(/^(DPW|WILAYAH)\s*/i, ''));
+          var alamat = isPusat ? 'Gedung Pusat Dakwah DPP APII, Jakarta Pusat • Email: dpp@apii.or.id' : 'Gedung Pusat Dakwah APII Wilayah Jabodetabek, Jakarta • Email: info@apii-jabo.or.id';
+
+          if (window._kopSettings && window._kopSettings.kop_mode === 'image' && window._kopSettings.kop_image_base64) {
+            return '<div class="mb-2 text-center"><img src="' + window._kopSettings.kop_image_base64 + '" alt="KOP Surat Resmi" class="w-full max-h-36 object-contain mx-auto" /></div>';
+          }
+          return '<div class="flex items-center gap-2.5 sm:gap-6 mb-2">' +
+            '<img src="logo.png" alt="Logo APII" class="w-12 h-12 sm:w-20 sm:h-20 object-contain flex-shrink-0" />' +
+            '<div class="flex-1 text-center font-serif leading-tight min-w-0">' +
+            '<div class="text-[10px] sm:text-xs font-bold text-[#1B5E20] uppercase tracking-wider">' + subHeader + '</div>' +
+            '<div class="text-xs sm:text-lg font-black text-gray-900 tracking-tight mt-0.5 break-words">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
+            '<div class="text-[11px] sm:text-sm font-bold text-gray-800 tracking-normal uppercase">' + orgLine + '</div>' +
+            '<div class="text-[8.5px] sm:text-[10.5px] text-gray-600 font-sans mt-1 leading-snug">' + alamat + ' • Website: siapii.sigitadi.id</div>' +
+            '</div></div>';
+        })() +
 
         // DOUBLE DIVIDER LINE
         '<div class="hr-double-top"></div>' +
@@ -2457,31 +2469,90 @@
         '<div>Pada tanggal : <strong>' + Auth.esc(s.tanggal_label || s.tanggal_surat) + '</strong></div>' +
         '</div>' +
 
-        // BLOK TANDA TANGAN & STEMPEL
-        '<div class="mt-8 grid grid-cols-2 gap-4 text-xs sm:text-[13px] font-serif">' +
-        // SEKRETARIS (Kiri)
-        '<div class="text-center">' +
-        '<div class="font-medium text-gray-700">Sekretaris DPW Jabodetabek,</div>' +
-        '<div class="h-20 sm:h-24 flex items-center justify-center">' +
-        (s.status === 'PUBLISHED' ? '<span class="font-serif italic text-emerald-800 text-xs sm:text-sm opacity-60">Tertanda digital</span>' : '') +
-        '</div>' +
-        '<div class="font-bold underline text-gray-900">' + Auth.esc(sekretarisName) + '</div>' +
-        '<div class="text-[10px] text-gray-500 font-sans mt-0.5">Sekretaris Wilayah</div>' +
-        '</div>' +
+        // BLOK TANDA TANGAN & STEMPEL (Multi-Cluster: Dual, Tri, Catur Signature + Benteng A-12 Print CSS)
+        (function () {
+          var isPusat = (s.wilayah_id === 'DPP_PUSAT') || (self.state.user && self.state.user.wilayah_id === 'DPP_PUSAT');
+          var lType = String(s.letter_type || '').toUpperCase();
+          var isLpjOrProposal = (lType === 'LPJ' || lType === 'PROPOSAL');
+          var isMuallaf = (lType === 'MUALLAF' || lType === 'SYAHADAT' || lType === 'SKET_MUALLAF');
 
-        // KETUA + STEMPEL BASAH (Kanan)
-        '<div class="text-center relative">' +
-        '<div class="font-medium text-gray-700">Ketua DPW Jabodetabek,</div>' +
-        '<div class="h-20 sm:h-24 relative flex items-center justify-center">' +
-        (s.status === 'PUBLISHED' ?
-          '<img src="stempel.png" alt="Stempel Basah Resmi APII" class="stempel-basah" />' +
-          '<span class="font-serif italic text-emerald-900 text-xs sm:text-sm opacity-70 relative z-[2]">Tertanda & Disahkan</span>'
-          : '') +
-        '</div>' +
-        '<div class="font-bold underline text-gray-900 relative z-[4]">' + Auth.esc(ketuaName) + '</div>' +
-        '<div class="text-[10px] text-gray-500 font-sans mt-0.5 relative z-[4]">Ketua Dewan Pimpinan Wilayah</div>' +
-        '</div>' +
-        '</div>' +
+          var sekJabatan = isPusat ? 'Sekretaris Jenderal DPP' : 'Sekretaris Wilayah';
+          var ketuaJabatan = isPusat ? 'Ketua Umum DPP APII' : 'Ketua Dewan Pimpinan Wilayah';
+          var sekTitle = isPusat ? 'Sekretaris Jenderal DPP APII,' : 'Sekretaris DPW,';
+          var ketuaTitle = isPusat ? 'Ketua Umum DPP APII,' : 'Ketua DPW,';
+
+          // TRI-SIGNATURE (Proposal & LPJ Divisi): Ketua Divisi + Bendahara + Ketua Wilayah
+          if (isLpjOrProposal) {
+            var divisiName = s.division_leader || 'Ketua Divisi Pengusul';
+            var bendaharaName = s.treasurer_name || 'Bendahara Umum';
+            return '<div class="mt-8 grid grid-cols-3 gap-3 text-xs sm:text-[12px] font-serif" style="break-inside: avoid; page-break-inside: avoid;">' +
+              '<div class="text-center">' +
+              '<div class="font-medium text-gray-700">Pengusul Kegiatan,</div>' +
+              '<div class="h-20 flex items-center justify-center">' + (s.status === 'PUBLISHED' ? '<span class="font-serif italic text-emerald-800 text-xs opacity-60">Tertanda digital</span>' : '') + '</div>' +
+              '<div class="font-bold underline text-gray-900">' + Auth.esc(divisiName) + '</div>' +
+              '<div class="text-[10px] text-gray-500 font-sans mt-0.5">Ketua Divisi Kerja</div>' +
+              '</div>' +
+              '<div class="text-center">' +
+              '<div class="font-medium text-gray-700">Verifikator Anggaran,</div>' +
+              '<div class="h-20 flex items-center justify-center">' + (s.status === 'PUBLISHED' ? '<span class="font-serif italic text-emerald-800 text-xs opacity-60">Tertanda digital</span>' : '') + '</div>' +
+              '<div class="font-bold underline text-gray-900">' + Auth.esc(bendaharaName) + '</div>' +
+              '<div class="text-[10px] text-gray-500 font-sans mt-0.5">Bendahara Wilayah</div>' +
+              '</div>' +
+              '<div class="text-center relative">' +
+              '<div class="font-medium text-gray-700">Mengetahui &amp; Mengesahkan,</div>' +
+              '<div class="h-20 relative flex items-center justify-center">' +
+              (s.status === 'PUBLISHED' ? '<img src="stempel.png" alt="Stempel Basah" class="stempel-basah" style="transform: rotate(4deg); mix-blend-mode: multiply;" /><span class="font-serif italic text-emerald-900 text-xs opacity-70 relative z-[2]">Tertanda &amp; Disahkan</span>' : '') +
+              '</div>' +
+              '<div class="font-bold underline text-gray-900 relative z-[4]">' + Auth.esc(ketuaName) + '</div>' +
+              '<div class="text-[10px] text-gray-500 font-sans mt-0.5 relative z-[4]">' + ketuaJabatan + '</div>' +
+              '</div>' +
+              '</div>';
+          }
+
+          // CATUR-SIGNATURE (Muallaf & Ikrar Syahadat): Ketua + Konselor + 2 Saksi
+          if (isMuallaf) {
+            return '<div class="mt-8 space-y-6" style="break-inside: avoid; page-break-inside: avoid;">' +
+              '<div class="grid grid-cols-2 gap-4 text-xs sm:text-[12px] font-serif">' +
+              '<div class="text-center">' +
+              '<div class="font-medium text-gray-700">Pembimbing Ikrar Syahadat,</div>' +
+              '<div class="h-16 flex items-center justify-center">' + (s.status === 'PUBLISHED' ? '<span class="font-serif italic text-emerald-800 text-xs opacity-60">Tertanda</span>' : '') + '</div>' +
+              '<div class="font-bold underline text-gray-900">' + Auth.esc(s.konselor_name || 'Ustadz Pembimbing Muallaf') + '</div>' +
+              '<div class="text-[10px] text-gray-500 font-sans mt-0.5">Konselor / Dai APII</div>' +
+              '</div>' +
+              '<div class="text-center relative">' +
+              '<div class="font-medium text-gray-700">Mengesahkan,</div>' +
+              '<div class="h-16 relative flex items-center justify-center">' +
+              (s.status === 'PUBLISHED' ? '<img src="stempel.png" alt="Stempel" class="stempel-basah" style="transform: rotate(3deg); mix-blend-mode: multiply;" /><span class="font-serif italic text-emerald-900 text-xs opacity-70 relative z-[2]">Sah</span>' : '') +
+              '</div>' +
+              '<div class="font-bold underline text-gray-900 relative z-[4]">' + Auth.esc(ketuaName) + '</div>' +
+              '<div class="text-[10px] text-gray-500 font-sans mt-0.5 relative z-[4]">' + ketuaJabatan + '</div>' +
+              '</div>' +
+              '</div>' +
+              '<div class="grid grid-cols-2 gap-4 text-xs font-serif pt-2 border-t border-gray-100">' +
+              '<div class="text-center"><div class="font-medium text-gray-600">Saksi I:</div><div class="h-12 flex items-center justify-center italic text-gray-400 text-[11px]">(Tanda Tangan)</div><div class="font-semibold text-gray-800">' + Auth.esc(s.saksi1_name || '...................................') + '</div></div>' +
+              '<div class="text-center"><div class="font-medium text-gray-600">Saksi II:</div><div class="h-12 flex items-center justify-center italic text-gray-400 text-[11px]">(Tanda Tangan)</div><div class="font-semibold text-gray-800">' + Auth.esc(s.saksi2_name || '...................................') + '</div></div>' +
+              '</div>' +
+              '</div>';
+          }
+
+          // DUAL-SIGNATURE (Surat Biasa / Dinas / Undangan / SK): Sekretaris (Kiri) + Ketua (Kanan)
+          return '<div class="mt-8 grid grid-cols-2 gap-4 text-xs sm:text-[13px] font-serif" style="break-inside: avoid; page-break-inside: avoid;">' +
+            '<div class="text-center">' +
+            '<div class="font-medium text-gray-700">' + sekTitle + '</div>' +
+            '<div class="h-20 sm:h-24 flex items-center justify-center">' + (s.status === 'PUBLISHED' ? '<span class="font-serif italic text-emerald-800 text-xs sm:text-sm opacity-60">Tertanda digital</span>' : '') + '</div>' +
+            '<div class="font-bold underline text-gray-900">' + Auth.esc(sekretarisName) + '</div>' +
+            '<div class="text-[10px] text-gray-500 font-sans mt-0.5">' + sekJabatan + '</div>' +
+            '</div>' +
+            '<div class="text-center relative">' +
+            '<div class="font-medium text-gray-700">' + ketuaTitle + '</div>' +
+            '<div class="h-20 sm:h-24 relative flex items-center justify-center">' +
+            (s.status === 'PUBLISHED' ? '<img src="stempel.png" alt="Stempel Basah Resmi APII" class="stempel-basah" style="transform: rotate(4deg); mix-blend-mode: multiply;" /><span class="font-serif italic text-emerald-900 text-xs sm:text-sm opacity-70 relative z-[2]">Tertanda &amp; Disahkan</span>' : '') +
+            '</div>' +
+            '<div class="font-bold underline text-gray-900 relative z-[4]">' + Auth.esc(ketuaName) + '</div>' +
+            '<div class="text-[10px] text-gray-500 font-sans mt-0.5 relative z-[4]">' + ketuaJabatan + '</div>' +
+            '</div>' +
+            '</div>';
+        })() +
 
         // FOOTER RESMI KERTAS
         '<div class="mt-12 pt-3 border-t border-gray-300 flex flex-col sm:flex-row items-center justify-between text-[9px] sm:text-[10px] text-gray-500 font-sans gap-2">' +

@@ -37,17 +37,28 @@ function getLetterTypesMap_() {
 }
 
 /** Bangun nomor surat dinamis dari jenis + tanggal surat. */
-function buildLetterNumber(letterType, tanggalSurat) {
+function buildLetterNumber(letterType, tanggalSurat, wilayahId) {
   var d = new Date(tanggalSurat || new Date());
   var tahun = d.getFullYear();
   var bulan = toRoman(d.getMonth() + 1);
+  var wId = (wilayahId || (typeof KONFIG !== 'undefined' && KONFIG.DEFAULT_WILAYAH_ID) || 'DPW_JABODETABEK').toUpperCase();
+
+  // Dapatkan data wilayah untuk kode surat & org_code dinamis
+  var wilayahRow = null;
+  try {
+    wilayahRow = Database.findOne(TABS.WILAYAH, { id: wId });
+  } catch (e) {}
+
+  var kodeWilayah = (wilayahRow && wilayahRow.kode_surat) || 'JABO';
+  var isPusat = (wilayahRow && wilayahRow.tingkat === 'PUSAT') || wId === 'DPP_PUSAT';
+  var defaultOrgCode = isPusat ? 'DPP-APII' : ('DPW-APII/' + kodeWilayah);
 
   var numberingCfg = getSettingValue_('letter_numbering', {
     pattern: '{urut}/{kode}/{org}/{bulanRomawi}/{tahun}',
-    org_code: 'DPW-APII',
+    org_code: defaultOrgCode,
     digits: 3
   });
-  var orgCode = numberingCfg.org_code || 'DPW-APII';
+  var orgCode = numberingCfg.org_code || defaultOrgCode;
   var digits = Number(numberingCfg.digits) || 3;
 
   var typeMap = getLetterTypesMap_();
@@ -55,7 +66,9 @@ function buildLetterNumber(letterType, tanggalSurat) {
   var prefix = typeInfo.prefix || letterType;
   var kodeSurat = prefix + '-' + orgCode;
 
-  var urut = Database.nextSequence('SURAT:' + letterType + ':' + tahun);
+  // Benteng A-01: Sequence counter terpartisi per wilayah
+  var seqKey = getPartitionedSequenceKey('SURAT', wId, letterType, tahun);
+  var urut = Database.nextSequence(seqKey);
   var urutStr = String(urut);
   while (urutStr.length < digits) urutStr = '0' + urutStr;
 
@@ -99,6 +112,18 @@ function getListSurat(ctx) {
   var q = String(p.q || '').toLowerCase();
 
   var rows = Database.readAll(TABS.SURAT);
+  var userWilayah = (ctx.user && ctx.user.wilayah_id) || (typeof KONFIG !== 'undefined' && KONFIG.DEFAULT_WILAYAH_ID) || 'DPW_JABODETABEK';
+  var isSuperOrDPP = (ctx.user && (ctx.user.role === 'SUPERADMIN' || ctx.user.wilayah_id === 'DPP_PUSAT'));
+
+  if (!isSuperOrDPP) {
+    rows = rows.filter(function (s) {
+      return (s.wilayah_id || 'DPW_JABODETABEK') === userWilayah;
+    });
+  } else if (p.wilayah_id) {
+    rows = rows.filter(function (s) {
+      return (s.wilayah_id || 'DPW_JABODETABEK') === p.wilayah_id;
+    });
+  }
 
   // Pencarian tebas judul/nomor.
   if (q) {
@@ -131,7 +156,8 @@ function getListSurat(ctx) {
       content: s.content || '',
       attachment_url: s.attachment_url || '',
       pdf_url: s.status === 'PUBLISHED' ? s.pdf_url : '',
-      qr_verify_url: s.status === 'PUBLISHED' ? s.qr_verify_url : ''
+      qr_verify_url: s.status === 'PUBLISHED' ? s.qr_verify_url : '',
+      wilayah_id: s.wilayah_id || 'DPW_JABODETABEK'
     };
   });
 
@@ -179,9 +205,10 @@ function createSurat(ctx) {
   try { contentStr = JSON.stringify(content); } catch (e) { contentStr = '{}'; }
 
   // Nomor: pakai input bila ada & unik, jika tidak auto-generate.
+  var wilayahId = (ctx.user && ctx.user.wilayah_id) || (typeof KONFIG !== 'undefined' && KONFIG.DEFAULT_WILAYAH_ID) || 'DPW_JABODETABEK';
   var letterNumber = String(p.letter_number || '').trim();
   if (!letterNumber) {
-    letterNumber = buildLetterNumber(p.letter_type, tanggal);
+    letterNumber = buildLetterNumber(p.letter_type, tanggal, wilayahId);
   } else if (Database.findOne(TABS.SURAT, { letter_number: letterNumber })) {
     return { ok: false, data: null, message: 'Nomor surat sudah digunakan.' };
   }
@@ -262,14 +289,15 @@ function submitSurat(ctx) {
   if (!p.id) return { ok: false, data: null, message: 'ID surat wajib diisi.' };
   var s = Database.findOne(TABS.SURAT, { id: p.id });
   if (!s) return { ok: false, data: null, message: 'Surat tidak ditemukan.' };
-  if (s.status !== 'DRAFT') {
+  if (s.status !== 'DRAFT' && s.status !== 'REJECTED') {
     return { ok: false, data: null,
-      message: 'Hanya surat draf yang dapat diajukan (status saat ini: ' +
+      message: 'Hanya surat draf atau yang dikembalikan yang dapat diajukan (status saat ini: ' +
                (STATUS_LABELS[s.status] || s.status) + ').' };
   }
 
   Database.updateRow(TABS.SURAT, s._row, {
-    status: 'PENDING_APPROVAL', submitted_at: new Date().toISOString()
+    status: 'PENDING_APPROVAL', submitted_at: new Date().toISOString(),
+    rejection_notes: ''
   });
   audit(ctx.user.username, 'SURAT_SUBMIT', 'Nomor ' + s.letter_number);
 
@@ -448,12 +476,24 @@ function generateSuratPdf_(s) {
   // Nama pejabat penanda tangan diambil dari Sheet_Users (pejabat aktif),
   // bukan string hard-coded, supaya cetakan sesuai pemegang jabatan.
   // Bila belum ada akunnya, fallback ke label jabatan.
-  var ketuaName = 'Ketua DPW Jabodetabek';
-  var sekretarisName = 'Sekretaris DPW Jabodetabek';
+  // Benteng A-04 & Multi-Tenant: Resolusi nama pejabat berwenang berdasarkan tenant wilayah surat
+  var wId = s.wilayah_id || 'DPW_JABODETABEK';
+  var wilayahRow = null;
+  try { wilayahRow = Database.findOne(TABS.WILAYAH, { id: wId }); } catch (e) {}
+  var isPusat = (wilayahRow && wilayahRow.tingkat === 'PUSAT') || wId === 'DPP_PUSAT';
+
+  var ketuaLabel = isPusat ? 'Ketua Umum DPP APII' : ('Ketua DPW APII ' + ((wilayahRow && wilayahRow.nama) ? wilayahRow.nama.replace(/^(DPW\s+APII\s+|Dewan\s+Pimpinan\s+Wilayah\s+)/i, '') : 'Jabodetabek'));
+  var sekLabel = isPusat ? 'Sekretaris Jenderal DPP APII' : ('Sekretaris DPW APII ' + ((wilayahRow && wilayahRow.nama) ? wilayahRow.nama.replace(/^(DPW\s+APII\s+|Dewan\s+Pimpinan\s+Wilayah\s+)/i, '') : 'Jabodetabek'));
+
+  var ketuaName = ketuaLabel;
+  var sekretarisName = sekLabel;
   try {
-    var ketua = Database.findOne(TABS.USERS, { role: ROLES.KETUA, is_active: 'TRUE' });
+    var ketua = Database.findOne(TABS.USERS, { role: ROLES.KETUA, wilayah_id: wId, is_active: 'TRUE' });
+    if (!ketua && isPusat) ketua = Database.findOne(TABS.USERS, { role: ROLES.KETUA, is_active: 'TRUE' });
     if (ketua && ketua.full_name) ketuaName = ketua.full_name;
-    var sek = Database.findOne(TABS.USERS, { role: ROLES.SEKRETARIS, is_active: 'TRUE' });
+
+    var sek = Database.findOne(TABS.USERS, { role: ROLES.SEKRETARIS, wilayah_id: wId, is_active: 'TRUE' });
+    if (!sek && isPusat) sek = Database.findOne(TABS.USERS, { role: ROLES.SEKRETARIS, is_active: 'TRUE' });
     if (sek && sek.full_name) sekretarisName = sek.full_name;
   } catch (e) { /* pakai label default */ }
 
@@ -516,7 +556,8 @@ function reserveLetterNumber(ctx) {
     return { ok: false, data: null, message: 'Jenis surat wajib dipilih.' };
   }
   var tanggal = p.tanggal_surat || new Date().toISOString().slice(0, 10);
-  var letterNumber = buildLetterNumber(p.letter_type, tanggal);
+  var wilayahId = (ctx.user && ctx.user.wilayah_id) || (typeof KONFIG !== 'undefined' && KONFIG.DEFAULT_WILAYAH_ID) || 'DPW_JABODETABEK';
+  var letterNumber = buildLetterNumber(p.letter_type, tanggal, wilayahId);
   var now = new Date().toISOString();
 
   var created = Database.insert(TABS.SURAT, {
@@ -531,7 +572,8 @@ function reserveLetterNumber(ctx) {
     created_by_name: ctx.user.full_name || ctx.user.username,
     created_at: now,
     submitted_at: '', published_at: '', approved_by: '',
-    rejection_notes: '', sha256_hash: '', pdf_url: '', qr_verify_url: ''
+    rejection_notes: '', sha256_hash: '', pdf_url: '', qr_verify_url: '',
+    wilayah_id: wilayahId
   });
 
   audit(ctx.user.username, 'SURAT_RESERVED', 'Memesan nomor surat resmi ' + letterNumber, 'SURAT');

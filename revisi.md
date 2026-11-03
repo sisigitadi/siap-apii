@@ -1,6 +1,6 @@
 # REVISI.MD — Lembar Kerja & Rencana Eksekusi Sistem (RetroBOT Lifecycle)
 ================================================================================
-STATUS: SIAP UNTUK EKSEKUSI PARIPURNA (MENUNGGU PERINTAH "OKE TERAPKAN")
+STATUS: SEDANG BERJALAN (FASE 2 SELESAI, MENUJU FASE 3)
 SOP: PLAN -> APPROVAL ("OKE TERAPKAN") -> SURGICAL EXECUTION -> VERIFY & SYNC PRD
 ARSITEK: RetroBOT v3.0 by Sigit Adi (https://sigitadi.id)
 RUJUKAN UTAMA: rancangan_SIAP_APII.md (16 Bab Terpadu)
@@ -31,10 +31,11 @@ Setelah pengguna memberikan instruksi tegas **"OKE TERAPKAN"**, implementasi kod
 - [x] Penyiapan skrip migrasi data eksisting ke tenant awal `DPW_JABODETABEK`.
 
 ### Fase 2: Tata Naskah Dinas, KOP & Stempel Digital (gas/Surat.gs & portal/portal.js)
-- [ ] Komposer Virtual A4 (Split-Screen Live Preview).
-- [ ] 5 Klaster Surat: Umum/Dinas, Undangan/Tugas, SK Penetapan, Proposal/LPJ (Tri-Signature), Muallaf (Catur-Signature).
-- [ ] Rotasi stempel basah acak 3°–5° dengan latar transparan PNG.
-- [ ] Penegakan aturan CSS cetak `@media print { break-inside: avoid; }`.
+- [x] Komposer Virtual A4 (Split-Screen Live Preview & Dynamic DPP/DPW KOP).
+- [x] 5 Klaster Surat: Umum/Dinas, Undangan/Tugas, SK Penetapan, Proposal/LPJ (Tri-Signature), Muallaf (Catur-Signature).
+- [x] Rotasi stempel basah acak 3°–5° dengan latar transparan PNG & blend-mode multiply.
+- [x] Penegakan aturan CSS cetak `@media print { break-inside: avoid; }` pada blok tanda tangan (Benteng A-12).
+- [x] Pembukaan gembok status REJECTED (Rejection Loop Benteng A-08) pada backend & frontend.
 
 ### Fase 3: Keuangan Kas Syar'i & Kalkulator Digital (gas/Keuangan.gs & portal/portal.js)
 - [ ] Kalkulator simulasi kas masuk bersih (potongan TikTok Live, YouTube, QRIS).
