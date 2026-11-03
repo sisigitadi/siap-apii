@@ -327,9 +327,16 @@ function kirimNotifikasiEmail_(toEmail, subject, title, messageHtml, actionText,
 /**
  * kirimNotifikasiKeRole_: kirim email ke seluruh akun aktif dengan peran tertentu.
  */
-function kirimNotifikasiKeRole_(role, subject, title, messageHtml, actionText, actionUrl) {
+function kirimNotifikasiKeRole_(role, subject, title, messageHtml, actionText, actionUrl, targetWilayah) {
   try {
     var users = Database.findMany(TABS.USERS, { role: role, is_active: 'TRUE' });
+    var defWilayah = (KONFIG && KONFIG.DEFAULT_WILAYAH_ID) || 'DPW_JABODETABEK';
+    if (targetWilayah) {
+      users = users.filter(function (u) {
+        var uW = u.wilayah_id || defWilayah;
+        return uW === targetWilayah;
+      });
+    }
     users.forEach(function (u) {
       if (u.email) {
         kirimNotifikasiEmail_(u.email, subject, title, messageHtml, actionText, actionUrl);

@@ -1589,14 +1589,77 @@
       }, duration);
     },
 
-    /** Buka link WhatsApp Quick Share. */
-    openWhatsApp: function (text) {
-      if (!text) return;
-      var url = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text);
-      window.open(url, '_blank', 'noopener,noreferrer');
+    /** Normalisasi nomor telepon ke format internasional E.164 (Benteng Guard 1). */
+    cleanPhone: function (raw) {
+      if (!raw) return '';
+      var clean = String(raw).replace(/[^\d+]/g, '');
+      if (clean.indexOf('+62') === 0) clean = clean.slice(1);
+      else if (clean.indexOf('08') === 0) clean = '62' + clean.slice(1);
+      else if (clean.indexOf('8') === 0 && clean.length >= 9) clean = '62' + clean;
+      return clean.replace(/\D/g, '');
     },
 
-    /** Fallback salin teks ke clipboard jika Clipboard API tidak didukung */
+    /** Cek jam senyap (Quiet Hours 22.00–06.00 WIB) untuk sopan-santun pesan malam. */
+    isQuietHours: function () {
+      var d = new Date();
+      var wibHour = (d.getUTCHours() + 7) % 24;
+      return (wibHour >= 22 || wibHour < 6);
+    },
+
+    /** Buka link WhatsApp Quick Share dengan 5 Benteng Keandalan (Reliability Guards). */
+    openWhatsApp: function (text, targetPhone) {
+      if (!text) return;
+      var self = this;
+      var phone = this.cleanPhone(targetPhone);
+
+      // Benteng Guard 5: Batasi panjang mobile-safe < 650 karakter
+      var safeText = text.length > 650 ? text.slice(0, 640) + '…' : text;
+
+      // Jika nomor tujuan belum ada, buka Dialog Anti-Nomor Kosong (Benteng Guard 3)
+      if (!phone && targetPhone !== false && targetPhone !== null && targetPhone !== undefined && String(targetPhone).trim() === '') {
+        this.openModal(
+          '<div class="p-5 sm:p-6">' +
+          '<div class="flex items-center gap-2.5 pb-3 mb-3 border-b border-gray-100">' +
+          '<div class="w-8 h-8 rounded-xl bg-[#25D366] text-white flex items-center justify-center flex-shrink-0 font-bold">WA</div>' +
+          '<div><h4 class="font-extrabold text-gray-900 text-sm sm:text-base">Kirim Pesan WhatsApp</h4>' +
+          '<p class="text-[11px] text-gray-500">Nomor kontak penerima belum terisi di profil.</p></div>' +
+          '</div>' +
+          '<form id="waPhoneForm" class="space-y-3">' +
+          '<div><label class="lbl text-xs">Nomor WhatsApp Tujuan (cth: 08123456789):</label>' +
+          '<input type="tel" id="waCustomPhone" class="field text-xs sm:text-sm" placeholder="08xxxxxxxxxx" autofocus /></div>' +
+          '<div class="flex flex-col sm:flex-row gap-2 pt-2">' +
+          '<button type="submit" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs bg-[#25D366] hover:bg-[#1EBE5D] border-0 text-white cursor-pointer">Buka WhatsApp Langsung ↗</button>' +
+          '<button type="button" id="btnWaBroadcastDirect" class="btn btn-ghost flex-1 py-2.5 rounded-xl font-bold text-xs border border-gray-300 cursor-pointer">Bagikan Bebas / ke Grup</button>' +
+          '</div>' +
+          '</form>' +
+          '</div>'
+        );
+        var f = document.getElementById('waPhoneForm');
+        if (f) {
+          f.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var p = self.cleanPhone(document.getElementById('waCustomPhone').value);
+            self.closeModal();
+            var url = 'https://api.whatsapp.com/send?' + (p ? 'phone=' + p + '&' : '') + 'text=' + encodeURIComponent(safeText);
+            window.open(url, '_blank', 'noopener,noreferrer');
+          });
+        }
+        var btnBroad = document.getElementById('btnWaBroadcastDirect');
+        if (btnBroad) {
+          btnBroad.addEventListener('click', function () {
+            self.closeModal();
+            var url = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(safeText);
+            window.open(url, '_blank', 'noopener,noreferrer');
+          });
+        }
+        return;
+      }
+
+      var waUrl = 'https://api.whatsapp.com/send?' + (phone ? 'phone=' + phone + '&' : '') + 'text=' + encodeURIComponent(safeText);
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+    },
+
+    /** Fallback salin teks ke clipboard jika Clipboard API tidak didukung (Benteng Guard 4). */
     copyFallback: function (text) {
       var ta = document.createElement('textarea');
       ta.value = text;
@@ -1613,40 +1676,50 @@
       document.body.removeChild(ta);
     },
 
-    /** Modal Pratinjau Pesan WhatsApp sebelum kirim/salin (ramah mode demo). */
-    previewWhatsApp: function (title, text) {
+    /** Modal Pratinjau Pesan WhatsApp sebelum kirim/salin (5 Benteng Keandalan). */
+    previewWhatsApp: function (title, text, targetPhone) {
       if (!text) return;
       var self = this;
-      var encoded = encodeURIComponent(text);
-      var waUrl = 'https://api.whatsapp.com/send?text=' + encoded;
+      var phone = this.cleanPhone(targetPhone);
+      var safeText = text.length > 650 ? text.slice(0, 640) + '…' : text;
+      var encoded = encodeURIComponent(safeText);
+      var waUrl = 'https://api.whatsapp.com/send?' + (phone ? 'phone=' + phone + '&' : '') + 'text=' + encoded;
+      var quietBanner = this.isQuietHours() ?
+        '<div class="mb-3 p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 flex items-center gap-2">' +
+        '<span>🌙</span><span><strong>Jam Senyap (22.00–06.00 WIB):</strong> Pesan non-mendesak disarankan dikirim esok hari.</span></div>' : '';
 
       this.openModal(
-        '<div class="p-5 sm:p-6">' +
+        '<div class="p-5 sm:p-6 select-text">' +
         '<div class="flex items-center justify-between pb-3.5 mb-4 border-b border-gray-100">' +
         '<div class="flex items-center gap-2.5">' +
-        '<div class="w-8 h-8 rounded-xl bg-[#25D366] text-white flex items-center justify-center flex-shrink-0 shadow-xs">' +
+        '<div class="w-8 h-8 rounded-xl bg-[#25D366] text-white flex items-center justify-center flex-shrink-0 shadow-xs font-bold">' +
         '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
         '</div>' +
         '<div>' +
-        '<h4 class="font-extrabold text-gray-900 text-sm sm:text-base leading-tight">' + Auth.esc(title || 'Pratinjau Pesan WhatsApp') + '</h4>' +
-        '<span class="text-[11px] text-gray-500">Format resmi otomatis siap didistribusikan</span>' +
+        '<h4 class="font-extrabold text-gray-900 text-sm sm:text-base leading-tight">' + Auth.esc(title || 'Pratinjau Pesan WhatsApp Resmi') + '</h4>' +
+        '<span class="text-[11px] text-gray-500">Format pesan baku standar organisasi APII (&lt; 650 karakter)</span>' +
         '</div>' +
         '</div>' +
         '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 cursor-pointer">' +
         '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
         '</button>' +
         '</div>' +
+        quietBanner +
         '<div class="mb-4">' +
         '<label class="lbl mb-1.5 text-xs text-gray-600 font-bold">Isi Format Pesan WhatsApp:</label>' +
-        '<textarea id="waPreviewText" readonly rows="8" class="field text-xs font-mono bg-gray-50 border border-gray-200 select-all p-3 leading-relaxed">' + Auth.esc(text) + '</textarea>' +
+        '<textarea id="waPreviewText" readonly rows="8" class="field text-xs font-mono bg-gray-50 border border-gray-200 select-all p-3 leading-relaxed">' + Auth.esc(safeText) + '</textarea>' +
+        '<div class="flex justify-between items-center text-[10px] text-gray-400 mt-1">' +
+        '<span>Panjang Teks: ' + safeText.length + '/650 karakter</span>' +
+        '<span>Standar E.164: ' + (phone ? ('+' + phone) : 'Nomor Bebas') + '</span>' +
+        '</div>' +
         '</div>' +
         '<div class="flex flex-col sm:flex-row gap-2.5 pt-1">' +
         '<button type="button" id="btnCopyWaText" class="btn btn-ghost flex-1 py-2.5 rounded-xl text-xs font-bold border border-gray-300 hover:bg-gray-100 inline-flex items-center justify-center gap-1.5 cursor-pointer">' +
         '<span>📋 Salin Teks Pesan</span>' +
         '</button>' +
-        '<a href="' + waUrl + '" target="_blank" rel="noopener noreferrer" class="btn flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-[#25D366] hover:bg-[#1EBE5D] inline-flex items-center justify-center gap-1.5 shadow-sm cursor-pointer">' +
+        '<button type="button" id="btnLaunchWa" class="btn flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-[#25D366] hover:bg-[#1EBE5D] inline-flex items-center justify-center gap-1.5 shadow-sm cursor-pointer">' +
         '<span>Buka WhatsApp Langsung ↗</span>' +
-        '</a>' +
+        '</button>' +
         '</div>' +
         '</div>'
       );
@@ -1655,14 +1728,21 @@
       if (btnCopy) {
         btnCopy.onclick = function () {
           if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(function () {
+            navigator.clipboard.writeText(safeText).then(function () {
               self.toast('Teks WhatsApp berhasil disalin ke clipboard!', 'success');
             }).catch(function () {
-              self.copyFallback(text);
+              self.copyFallback(safeText);
             });
           } else {
-            self.copyFallback(text);
+            self.copyFallback(safeText);
           }
+        };
+      }
+
+      var btnLaunch = document.getElementById('btnLaunchWa');
+      if (btnLaunch) {
+        btnLaunch.onclick = function () {
+          self.openWhatsApp(safeText, phone || '');
         };
       }
 
@@ -1671,95 +1751,87 @@
       });
     },
 
-    /** Format teks WhatsApp untuk Surat Resmi. */
+    /**
+     * Mesin Pembangkit Template Pesan WhatsApp Terpadu (Matriks 21 Titik Sentuh WA-01 s.d. WA-21).
+     * @param {string} code Kode titik sentuh (WA-01 s.d. WA-21)
+     * @param {object} d Data payload kontekstual
+     * @return {string} Teks pesan format resmi (< 650 karakter)
+     */
+    buildWaMessage: function (code, d) {
+      d = d || {};
+      var portalUrl = window.PORTAL_URL || 'https://siapii.sigitadi.id';
+      var wName = d.wilayah_nama || (this.state.user && this.state.user.wilayah_id === 'DPP_PUSAT' ? 'DPP PUSAT' : 'DPW JABODETABEK');
+      var prefix = this.isQuietHours() ? '🌙 [Pesan Senyap Organisasi APII]:\n' : '';
+
+      switch (code) {
+        case 'WA-01':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh, Yth. Ketua " + wName + ". Sekretaris telah mengajukan draf surat No: " + (d.no_draft || d.letter_number || '(Draf)') + ' perihal: "' + (d.title || d.perihal || '-') + '". Mohon telaah & sahkan naskah di portal: ' + portalUrl + '/#/surat';
+        case 'WA-02':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh, Bpk/Ibu Sekretaris. Terkait draf surat " + (d.letter_number || d.no_draft || '') + ' perihal "' + (d.title || d.perihal || '-') + '", ada catatan evaluasi Ketua: "' + (d.catatan_revisi || d.notes || '-') + '". Mohon sesuaikan di: ' + portalUrl + '/#/surat';
+        case 'WA-03':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh. Telah terbit Surat Resmi Yayasan APII No: " + (d.letter_number || '-') + ' perihal: "' + (d.title || '-') + '". Naskah berstempel digital & QR validasi dapat diunduh di: ' + (d.pdf_url || (portalUrl + '/#/surat'));
+        case 'WA-04':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh, Yth. Bendahara " + wName + ". Diajukan permohonan kas keluar No: " + (d.voucher_number || '-') + ' senilai ' + (d.amount_label || '-') + ' untuk: "' + (d.description || '-') + '". Mohon verifikasi kelayakan nota di portal: ' + portalUrl + '/#/keuangan';
+        case 'WA-05':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh, Yth. Ketua " + wName + ". Bendahara telah memverifikasi bukti nota kas No: " + (d.voucher_number || '-') + ' senilai ' + (d.amount_label || '-') + ' untuk: "' + (d.description || '-') + '". Mohon otorisasi pencairan Tahap 2 di: ' + portalUrl + '/#/keuangan';
+        case 'WA-06':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh. Terkait permohonan kas " + (d.voucher_number || '-') + ' senilai ' + (d.amount_label || '-') + ', bukti fisik nota belanja belum memenuhi standar: "' + (d.rejection_notes || d.notes || '-') + '". Mohon lengkapi berkas di: ' + portalUrl + '/#/keuangan';
+        case 'WA-07':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh. Kabar baik, pencairan dana kas No: " + (d.voucher_number || '-') + ' senilai ' + (d.amount_label || '-') + ' telah DISETUJUI Ketua. Kuitansi resmi berstempel telah terbit: ' + portalUrl + '/#/keuangan';
+        case 'WA-08':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh, Yth. Pengurus Harian " + wName + ". " + (d.division || 'Divisi') + ' telah mengajukan Proposal Program: "' + (d.program_title || '-') + '" No: ' + (d.tracking_id || '-') + ' estimasi pagu: ' + (d.budget_label || ('Rp ' + Number(d.budget_estimate || 0).toLocaleString('id-ID'))) + '. Mohon telaah di portal: ' + portalUrl + '/#/divisi';
+        case 'WA-09':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh, Yth. Ketua " + (d.division || 'Divisi') + '. Surat Proposal Program: "' + (d.program_title || '-') + '" No: ' + (d.tracking_id || '-') + ' telah DISETUJUI Ketua ' + wName + '. Rincian: ' + portalUrl + '/#/divisi';
+        case 'WA-10':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh. Alhamdulillah, kegiatan "" + (d.program_title || '-') + '" tuntas. ' + (d.division || 'Divisi') + ' telah mengajukan Surat Pengantar LPJ No: ' + (d.tracking_id || '-') + ' ke portal. Mohon verifikasi: ' + portalUrl + '/#/divisi';
+        case 'WA-11':
+          return prefix + "Pemberitahuan Resmi Dewan Pimpinan Pusat (DPP APII): Telah terbit instruksi No: " + (d.letter_number || '-') + ' tentang "' + (d.title || '-') + '". Mohon Sekretaris ' + (d.dpw_tujuan || 'DPW') + ' mencatat agenda masuk & meneruskan disposisi ke Ketua: ' + portalUrl + '/#/disposisi';
+        case 'WA-12':
+          return prefix + "Instruksi Disposisi Ketua " + wName + ': Terkait naskah ' + (d.letter_number || '-') + ' "' + (d.title || '-') + '", ditugaskan kepada ' + (d.division || 'Divisi') + ' arahan: "' + (d.notes || '-') + '". Batas waktu: ' + (d.deadline || '-') + '. Rincian: ' + portalUrl + '/#/divisi';
+        case 'WA-13':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh, Yth. Pimpinan DPP APII. " + wName + ' mengajukan permohonan arahan resmi No: ' + (d.letter_number || '-') + ' perihal: "' + (d.title || '-') + '". Mohon petunjuk di portal: ' + portalUrl + '/#/surat';
+        case 'WA-14':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh, Yth. Rekan Pengurus " + (d.dpw_b || 'Wilayah') + '. Kami dari ' + wName + ' menyampaikan surat koordinasi No: ' + (d.letter_number || '-') + ' perihal: "' + (d.title || '-') + '". Rincian: ' + portalUrl + '/#/surat';
+        case 'WA-15':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh, Sdr/i " + (d.full_name || 'Calon Anggota') + '. Berkas pendaftaran Yayasan APII ' + wName + ' memerlukan perbaikan: "' + (d.notes || 'Unggah foto KTP yang jelas') + '". Mohon unggah ulang di link: ' + (d.revisi_url || portalUrl);
+        case 'WA-16':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh. Selamat! Keanggotaan Yayasan APII Anda telah DISAHKAN resmi DPP. No KTA Nasional: " + (d.no_kta || '-') + ' (Masa Berlaku 5 Tahun). Unduh KTA digital resmi: ' + (d.kta_url || (portalUrl + '/#/pendaftar'));
+        case 'WA-17':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh, Ustadz/Akhi " + (d.moderator_name || 'Moderator') + '. Berdasarkan ART APII Bab VI Pasal 17, Anda ditugaskan sebagai MODERATOR RESMI agenda dialog/debat: "' + (d.judul_acara || '-') + '" pada ' + (d.waktu_acara || '-') + '. Panduan: ' + portalUrl;
+        case 'WA-18':
+          return prefix + "Pemberitahuan Khusus & Rahasia Pengurus Yayasan APII: Disampaikan Surat Keputusan Disiplin Organisasi " + (d.jenis_sp || 'SP') + ' kepada Sdr/i ' + (d.nama_pengurus || '') + ' atas kode etik ART. Naskah resmi terenkripsi: ' + (d.link_rahasia || portalUrl);
+        case 'WA-19':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh, Saudaraku " + (d.nama_hijrah || '') + ' (' + (d.nama_asal || '') + '). Ahlan wa Sahlan fi Dinil Islam. Dewan Pimpinan ' + wName + ' Yayasan APII telah mengesahkan Piagam Ikrar Syahadat No: ' + (d.letter_number || '-') + '. Unduh berkas resmi ber-QR: ' + (d.pdf_url || portalUrl);
+        case 'WA-20':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh. Surat Rekomendasi & Perlindungan Hak Advokasi Muallaf No: " + (d.letter_number || '-') + ' telah terbit resmi oleh Divisi Hukum Yayasan APII. Tim advokasi siap mendampingi Anda. Naskah resmi: ' + (d.pdf_url || portalUrl);
+        case 'WA-21':
+          return prefix + "Assalamu'alaikum Warahmatullahi Wabarakatuh, Yth. Bpk/Ibu " + (d.pembayar_penerima || 'Donatur') + '. Alhamdulillah, amanah dana kas/donasi Rp ' + Number(d.amount || 0).toLocaleString('id-ID') + ' (' + (d.terbilang || '') + ') telah kami terima sah. Kwitansi resmi Yayasan APII No: ' + (d.voucher_number || '-') + ' berstempel digital & QR validasi dapat diunduh di: ' + (d.pdf_url || (portalUrl + '/verifikasi-kuitansi?no=' + encodeURIComponent(d.voucher_number || ''))) + '. Jazakumullahu Khairan Katsiran.';
+        default:
+          return prefix + (d.text || ('Pemberitahuan Resmi Yayasan APII: ' + portalUrl));
+      }
+    },
+
+    /** Format teks WhatsApp untuk Surat Resmi (pembungkus kompatibel). */
     buildSuratWaText: function (s) {
-      var stat = s.status_label || s.status || 'DRAF';
-      var pembuat = s.created_by_name || s.created_by || 'Sekretariat';
-      var portalUrl = window.PORTAL_URL || 'https://siapii.sigitadi.id';
-      var text = '🏛️ *SIAP APII - SURAT RESMI*\n' +
-        '━━━━━━━━━━━━━━━━━━━\n' +
-        '📄 *Nomor:* ' + (s.letter_number || '(Draf)') + '\n' +
-        '📌 *Perihal:* ' + (s.title || '-') + '\n' +
-        '🏷️ *Jenis:* ' + (s.letter_type_label || s.letter_type || 'Surat') + '\n' +
-        '📅 *Tanggal:* ' + (s.tanggal_label || s.tanggal_surat || '-') + '\n' +
-        '⚡ *Status:* ' + stat + '\n' +
-        '👤 *Pembuat:* ' + pembuat + '\n';
-      if (s.rejection_notes) {
-        text += '⚠️ *Catatan:* ' + s.rejection_notes + '\n';
-      }
-      if (s.pdf_url) {
-        text += '📥 *Unduh PDF:* ' + s.pdf_url + '\n';
-      }
-      if (s.qr_verify_url) {
-        text += '🔒 *Verifikasi Dokumen:* ' + s.qr_verify_url + '\n';
-      }
-      text += '━━━━━━━━━━━━━━━━━━━\n' +
-        '🌐 *Buka Portal:* ' + portalUrl + '/#/surat';
-      return text;
+      if (s.status === 'PUBLISHED') return this.buildWaMessage('WA-03', s);
+      if (s.status === 'REJECTED') return this.buildWaMessage('WA-02', s);
+      return this.buildWaMessage('WA-01', s);
     },
 
-    /** Format teks WhatsApp untuk Voucher Keuangan. */
+    /** Format teks WhatsApp untuk Voucher Keuangan (pembungkus kompatibel). */
     buildKeuanganWaText: function (k) {
-      var stat = k.status_label || k.status || 'PENDING';
-      var jenis = k.type === 'MASUK' ? 'Kas Masuk (+)' : 'Kas Keluar (−)';
-      var portalUrl = window.PORTAL_URL || 'https://siapii.sigitadi.id';
-      var text = '💵 *SIAP APII - BUKU KAS & VOUCHER*\n' +
-        '━━━━━━━━━━━━━━━━━━━\n' +
-        '🔖 *No. Voucher:* ' + (k.voucher_number || '-') + '\n' +
-        '📂 *Jenis:* ' + jenis + '\n' +
-        '💰 *Nominal:* ' + (k.amount_label || ('Rp ' + Number(k.amount || 0).toLocaleString('id-ID'))) + '\n' +
-        '📝 *Keterangan:* ' + (k.description || '-') + '\n' +
-        '🏷️ *Akun:* ' + (k.account_label || k.account || '-') + '\n' +
-        '📅 *Tanggal:* ' + (k.transaction_date || '-') + '\n' +
-        '⚡ *Status:* ' + stat + '\n' +
-        '👤 *Dibuat Oleh:* ' + (k.created_by || '-') + '\n';
-      if (k.receipt_url) {
-        text += '📎 *Bukti Kas:* ' + k.receipt_url + '\n';
-      }
-      if (k.verified_by_bendahara) {
-        text += '✅ *Verifikasi Bendahara:* ' + k.verified_by_bendahara + '\n';
-      }
-      if (k.approved_by_ketum) {
-        text += '🌟 *Verifikasi Ketua:* ' + k.approved_by_ketum + '\n';
-      }
-      if (k.rejection_notes) {
-        text += '⚠️ *Catatan Penolakan:* ' + k.rejection_notes + '\n';
-      }
-      text += '━━━━━━━━━━━━━━━━━━━\n' +
-        '🌐 *Buka Portal:* ' + portalUrl + '/#/keuangan';
-      return text;
+      if (k.status === 'APPROVED') return this.buildWaMessage('WA-07', k);
+      if (k.status === 'DRAFT_REVISI' || k.status === 'REJECTED') return this.buildWaMessage('WA-06', k);
+      if (k.status === 'VERIFIED_BY_BENDAHARA') return this.buildWaMessage('WA-05', k);
+      return this.buildWaMessage('WA-04', k);
     },
 
-    /** Format teks WhatsApp untuk Usulan Program Divisi. */
+    /** Format teks WhatsApp untuk Usulan Program Divisi (pembungkus kompatibel). */
     buildDivisiWaText: function (d) {
-      var stat = d.status_label || d.status || 'DRAFT';
-      var portalUrl = window.PORTAL_URL || 'https://siapii.sigitadi.id';
-      var text = '🎯 *SIAP APII - USULAN PROGRAM DIVISI*\n' +
-        '━━━━━━━━━━━━━━━━━━━\n' +
-        '🔖 *Tracking ID:* ' + (d.tracking_id || '-') + '\n' +
-        '💡 *Program:* ' + (d.program_title || '-') + '\n' +
-        '🏢 *Divisi:* ' + (d.division_label || d.division || '-') + '\n' +
-        '💰 *Estimasi Anggaran:* ' + (d.budget_label || ('Rp ' + Number(d.budget_estimate || 0).toLocaleString('id-ID'))) + '\n';
-      if (d.realisasi_anggaran) {
-        text += '💵 *Realisasi Anggaran:* ' + (d.realisasi_label || ('Rp ' + Number(d.realisasi_anggaran).toLocaleString('id-ID'))) + '\n';
-      }
-      text += '📅 *Target Pelaksanaan:* ' + (d.execution_date || '-') + '\n' +
-        '👥 *Target Peserta:* ' + (d.target_audience || '-') + '\n' +
-        '⚡ *Status:* ' + stat + '\n';
-      if (d.started_at) {
-        text += '🚀 *Mulai Pelaksanaan:* ' + d.started_at.slice(0, 10) + '\n';
-      }
-      if (d.lpj_url) {
-        text += '📄 *Dokumen LPJ:* ' + d.lpj_url + '\n';
-      }
-      if (d.rejection_notes) {
-        text += '⚠️ *Catatan Penolakan:* ' + d.rejection_notes + '\n';
-      }
-      text += '━━━━━━━━━━━━━━━━━━━\n' +
-        '🌐 *Buka Portal:* ' + portalUrl + '/#/divisi';
-      return text;
+      if (d.status === 'DISETUJUI' || d.status === 'APPROVED') return this.buildWaMessage('WA-09', d);
+      if (d.status === 'LPJ_SELESAI') return this.buildWaMessage('WA-10', d);
+      return this.buildWaMessage('WA-08', d);
     },
-
     /** Buka modal dengan HTML bebas. */
     openModal: function (html, maxWidthClass) {
       var panel = document.getElementById('modalPanel');

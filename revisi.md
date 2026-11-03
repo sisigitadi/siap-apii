@@ -1,6 +1,6 @@
 # REVISI.MD — Lembar Kerja & Rencana Eksekusi Sistem (RetroBOT Lifecycle)
 ================================================================================
-STATUS: SEDANG BERJALAN (FASE 3 SELESAI, MENUJU FASE 4)
+STATUS: SEDANG BERJALAN (FASE 4 SELESAI, MENUJU FASE 5)
 SOP: PLAN -> APPROVAL ("OKE TERAPKAN") -> SURGICAL EXECUTION -> VERIFY & SYNC PRD
 ARSITEK: RetroBOT v3.0 by Sigit Adi (https://sigitadi.id)
 RUJUKAN UTAMA: rancangan_SIAP_APII.md (16 Bab Terpadu)
@@ -45,9 +45,10 @@ Setelah pengguna memberikan instruksi tegas **"OKE TERAPKAN"**, implementasi kod
 - [x] Partisi counter nomor kwitansi/voucher per wilayah (`KW-M`, `VKK`, `BON`, `BA-KEU`) dan isolasi saldo multi-tenant (Benteng A-01 & Benteng A-02).
 
 ### Fase 4: Routing Disposisi & WhatsApp Engine (gas/Utils.gs & portal/portal.js)
-- [ ] 21 Titik Sentuh Notifikasi WhatsApp (WA-01 s.d. WA-21).
-- [ ] Dual-Mode WhatsApp: Manual Click-to-Chat (`wa.me`) dan Webhook API.
-- [ ] Jam senyap (*Quiet Hours* 22.00–06.00 WIB) dan proteksi teks < 650 karakter.
+- [x] 21 Titik Sentuh Notifikasi WhatsApp resmi (WA-01 s.d. WA-21) dalam mesin naskah terpadu `buildWaMessage`.
+- [x] 5 Benteng Keandalan (*Reliability Guards*): Sanitasi E.164, Safe URI encoding, Dialog Anti-Nomor Kosong, Clipboard Fallback, dan Proteksi Teks < 650 Karakter.
+- [x] Jam senyap (*Quiet Hours* 22.00–06.00 WIB) dengan penandaan otomatis pesan senyap organisasi.
+- [x] Lokalisasi notifikasi peran wilayah `kirimNotifikasiKeRole_(role, ..., targetWilayah)` untuk mencegah spam blast lintas cabang (Benteng A-03).
 
 ### Fase 5: Keanggotaan Nasional & KTA 5 Tahun (gas/Auth.gs & portal/portal.js)
 - [ ] Penegakan masa berlaku KTA terkunci mutlak 5 tahun (ART).
