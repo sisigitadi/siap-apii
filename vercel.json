@@ -49,17 +49,7 @@
       "has": [
         {
           "type": "host",
-          "value": "apii.sigitadi.id"
-        }
-      ],
-      "destination": "/public/index.html"
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.apii.sigitadi.id"
+          "value": "^(www\\.)?apii\\.sigitadi\\.id$"
         }
       ],
       "destination": "/public/index.html"
@@ -69,17 +59,7 @@
       "has": [
         {
           "type": "host",
-          "value": "apii.sigitadi.id"
-        }
-      ],
-      "destination": "/public/:path*"
-    },
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.apii.sigitadi.id"
+          "value": "^(www\\.)?apii\\.sigitadi\\.id$"
         }
       ],
       "destination": "/public/:path*"
