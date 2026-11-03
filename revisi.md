@@ -1,6 +1,6 @@
 # REVISI.MD — Lembar Kerja & Rencana Eksekusi Sistem (RetroBOT Lifecycle)
 ================================================================================
-STATUS: SEDANG BERJALAN (FASE 2 SELESAI, MENUJU FASE 3)
+STATUS: SEDANG BERJALAN (FASE 3 SELESAI, MENUJU FASE 4)
 SOP: PLAN -> APPROVAL ("OKE TERAPKAN") -> SURGICAL EXECUTION -> VERIFY & SYNC PRD
 ARSITEK: RetroBOT v3.0 by Sigit Adi (https://sigitadi.id)
 RUJUKAN UTAMA: rancangan_SIAP_APII.md (16 Bab Terpadu)
@@ -38,10 +38,11 @@ Setelah pengguna memberikan instruksi tegas **"OKE TERAPKAN"**, implementasi kod
 - [x] Pembukaan gembok status REJECTED (Rejection Loop Benteng A-08) pada backend & frontend.
 
 ### Fase 3: Keuangan Kas Syar'i & Kalkulator Digital (gas/Keuangan.gs & portal/portal.js)
-- [ ] Kalkulator simulasi kas masuk bersih (potongan TikTok Live, YouTube, QRIS).
-- [ ] Alur persetujuan kas bertingkat (*Dual-Approval*).
-- [ ] Kwitansi *Dual-Slip* (Lembar 1 Pembayar, Lembar 2 Arsip Kasir) dengan audit watermark `BATAL/VOID`.
-- [ ] Proteksi batas kas kecil (Rp 500rb) dan cadangan kas minimal (Rp 2jt).
+- [x] Kalkulator simulasi kas masuk bersih & pipa proyeksi inflow (TikTok Live 50%, YouTube 30%, QRIS 0.7%, Donatur Tetap) berfitur konversi 1-klik (Benteng A-10).
+- [x] Alur persetujuan kas bertingkat (*Dual-Approval System*) dengan rute status `DRAFT_REVISI` dan tombol perbaiki/ajukan ulang (Benteng A-08).
+- [x] Kwitansi *Dual-Slip* Landscape (Bonggol Arsip Kasir 30% & Lembar Utama Donatur 70%) berstempel basah transparan (3°–5° rotasi), QR validasi, dan watermark audit `BATAL/VOID` (Benteng A-09).
+- [x] Proteksi batas kas kecil mandiri Bendahara (Rp 500rb) dan peringatan cadangan kas aman operasional (Rp 2jt).
+- [x] Partisi counter nomor kwitansi/voucher per wilayah (`KW-M`, `VKK`, `BON`, `BA-KEU`) dan isolasi saldo multi-tenant (Benteng A-01 & Benteng A-02).
 
 ### Fase 4: Routing Disposisi & WhatsApp Engine (gas/Utils.gs & portal/portal.js)
 - [ ] 21 Titik Sentuh Notifikasi WhatsApp (WA-01 s.d. WA-21).

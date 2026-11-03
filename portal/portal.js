@@ -2773,33 +2773,42 @@
       var canWrite = ['SUPERADMIN', 'BENDAHARA'].indexOf(u.role) !== -1;
       var canApprove = ['SUPERADMIN', 'KETUA'].indexOf(u.role) !== -1;
 
-      var newBtn = canWrite ?
-        '<button id="btnVoucherBaru" class="btn btn-primary px-5 py-2.5 rounded-xl inline-flex items-center gap-2 font-bold text-sm">' +
-        '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>' +
-        'Buat Voucher</button>' : '';
+      var actionBtns = '<div class="flex items-center gap-2 flex-wrap">';
+      if (canWrite) {
+        actionBtns += '<button id="btnKasCalculator" class="btn btn-ghost px-3.5 py-2.5 rounded-xl inline-flex items-center gap-2 font-bold text-xs sm:text-sm border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 transition shadow-xs" title="Kalkulator Kas Pra-Transaksi & Proyeksi Inflow Digital">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>' +
+          'Kalkulator Kas &amp; Inflow</button>';
+        actionBtns += '<button id="btnVoucherBaru" class="btn btn-primary px-4 py-2.5 rounded-xl inline-flex items-center gap-2 font-bold text-xs sm:text-sm shadow-xs">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>' +
+          'Buat Voucher</button>';
+      }
+      actionBtns += '</div>';
 
       var bannerHtml = this.getDemoContextBanner('keuangan');
 
-      main.innerHTML = this.pageHead('Buku Kas &amp; Voucher',
-        'Verifikasi ganda: Bendahara → Ketua. Hanya voucher APPROVED yang masuk saldo.', newBtn) +
+      main.innerHTML = this.pageHead('Buku Kas &amp; Keuangan Syar\'i',
+        'Pengendalian kas dual-approval, kwitansi dual-slip resmi, dan kalkulator proyeksi digital.', actionBtns) +
         bannerHtml +
         '<div id="keuCards" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">' +
         '<div class="card bg-white rounded-2xl p-6 animate-pulse h-28"></div>'.repeat(3) +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 mb-6 flex flex-col sm:flex-row gap-3">' +
-        '<input id="keuQ" type="text" placeholder="Cari nomor voucher / keterangan…" class="field flex-1" />' +
-        '<select id="keuStatus" class="field sm:w-48">' +
-        '<option value="">Semua Status</option><option value="PENDING">Menunggu Verifikasi</option>' +
+        '<input id="keuQ" type="text" placeholder="Cari nomor voucher, keterangan, pembayar/penerima…" class="field flex-1 text-xs sm:text-sm" />' +
+        '<select id="keuStatus" class="field sm:w-48 text-xs sm:text-sm">' +
+        '<option value="">Semua Status</option>' +
+        '<option value="PENDING">Menunggu Verifikasi</option>' +
         '<option value="VERIFIED_BY_BENDAHARA">Diverifikasi Bendahara</option>' +
-        '<option value="APPROVED">Disetujui</option><option value="REJECTED">Ditolak</option>' +
+        '<option value="APPROVED">Disetujui (Sah)</option>' +
+        '<option value="DRAFT_REVISI">Perlu Revisi (Benteng A-08)</option>' +
+        '<option value="VOID">Dibatalkan (VOID)</option>' +
         '</select>' +
-        '<select id="keuType" class="field sm:w-40">' +
+        '<select id="keuType" class="field sm:w-40 text-xs sm:text-sm">' +
         '<option value="">Semua Jenis</option><option value="MASUK">Kas Masuk</option><option value="KELUAR">Kas Keluar</option>' +
         '</select>' +
         '</div>' +
         '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">' +
         '<div class="overflow-x-auto"><table class="tbl tbl-responsive"><thead><tr>' +
-        '<th>Nomor Voucher</th><th>Jenis</th><th>Jumlah</th><th>Akun</th><th>Status</th><th>Aksi</th>' +
+        '<th>Nomor Transaksi</th><th>Jenis &amp; Dokumen</th><th>Jumlah</th><th>Akun Kas</th><th>Status</th><th>Aksi</th>' +
         '</tr></thead><tbody id="keuRows">' + this.loadingRow(6) + '</tbody></table></div>' +
         '</div>';
 
@@ -2816,6 +2825,13 @@
             self.toast('Data simulasi telah di-reset ke kondisi awal.', 'success');
             self.router();
           });
+        });
+      }
+
+      var calcBtn = document.getElementById('btnKasCalculator');
+      if (calcBtn) {
+        calcBtn.addEventListener('click', function () {
+          self.openKasCalculatorModal();
         });
       }
 
@@ -2842,7 +2858,7 @@
         if (e.key === 'Enter') load();
       });
 
-      // Kartu saldo.
+      // Kartu saldo & indikator batas aman
       this.loadSaldoCards();
 
       load();
@@ -2851,14 +2867,23 @@
     loadSaldoCards: function () {
       Auth.getCached('getSaldo', null, function (data) {
         if (!data) return;
+        var box = document.getElementById('keuCards');
+        if (!box) return;
+
         var cards = [
-          { l: 'Total Saldo Kas', v: 'Rp ' + Number(data.saldo || 0).toLocaleString('id-ID'), c: 'text-emerald' },
+          { l: 'Total Saldo Kas Riil', v: 'Rp ' + Number(data.saldo || 0).toLocaleString('id-ID'), c: 'text-emerald' },
           { l: 'Total Kas Masuk', v: 'Rp ' + Number(data.total_masuk || 0).toLocaleString('id-ID'), c: 'text-emerald-dark' },
           { l: 'Total Kas Keluar', v: 'Rp ' + Number(data.total_keluar || 0).toLocaleString('id-ID'), c: 'text-red-600' }
         ];
-        var box = document.getElementById('keuCards');
-        if (!box) return;
-        box.innerHTML = cards.map(function (c) {
+
+        var warnHtml = '';
+        if (data.safety_buffer_warning) {
+          warnHtml = '<div class="col-span-1 sm:col-span-2 lg:col-span-3 p-3.5 bg-amber-50 border border-amber-300 rounded-2xl flex items-center gap-3 text-amber-900 text-xs font-semibold shadow-xs">' +
+            '<svg class="w-5 h-5 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>' +
+            '<div>' + Auth.esc(data.safety_buffer_warning) + '</div></div>';
+        }
+
+        box.innerHTML = warnHtml + cards.map(function (c) {
           return '<div class="card bg-white rounded-2xl shadow-sm border border-emerald-100 p-6">' +
             '<div class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">' + c.l + '</div>' +
             '<div class="text-2xl font-extrabold ' + c.c + ' leading-none">' + c.v + '</div></div>';
@@ -2877,6 +2902,10 @@
           var acts = '';
           acts += self.aBtn('view', 'Detail', 'Lihat detail voucher');
           acts += self.waBtn('Bagikan format voucher ke WhatsApp');
+
+          if (canWrite && (k.status === 'DRAFT_REVISI' || k.status === 'REJECTED')) {
+            acts += self.aBtn('revise', 'Perbaiki', 'Perbaiki & ajukan ulang voucher (Benteng A-08)');
+          }
           if (canWrite && k.status === 'PENDING') {
             acts += self.aBtn('verify-bend', 'Verifikasi', 'Verifikasi sebagai Bendahara');
           }
@@ -2884,7 +2913,10 @@
             acts += self.aBtn('approve', 'Setujui', 'Verifikasi final sebagai Ketua');
           }
           if (canApprove && (k.status === 'PENDING' || k.status === 'VERIFIED_BY_BENDAHARA')) {
-            acts += self.aBtn('danger reject', 'Tolak', 'Tolak voucher');
+            acts += self.aBtn('danger reject', 'Tolak / Revisi', 'Kembalikan untuk revisi');
+          }
+          if (k.status === 'APPROVED' && (canWrite || canApprove)) {
+            acts += self.aBtn('danger void', 'VOID', 'Batalkan transaksi (Benteng A-09)');
           }
           if (!acts) acts = '<span class="text-xs text-gray-300">-</span>';
 
@@ -2894,19 +2926,30 @@
 
           var amtStr = k.amount_label || ('Rp ' + Number(k.amount || 0).toLocaleString('id-ID'));
           var amtClean = amtStr.replace('Rp ', '');
+          var docTypeBadge = k.doc_type === 'KWITANSI_MASUK' ? '<span class="badge bg-emerald-100 text-emerald-800 text-[10px] ml-1">Kwitansi Masuk</span>' :
+                            k.doc_type === 'KAS_BON' ? '<span class="badge bg-amber-100 text-amber-800 text-[10px] ml-1">Kas Bon</span>' :
+                            k.doc_type === 'BA_REKONSILIASI' ? '<span class="badge bg-blue-100 text-blue-800 text-[10px] ml-1">BA Kas</span>' :
+                            '<span class="badge bg-purple-100 text-purple-800 text-[10px] ml-1">Voucher Keluar</span>';
+
+          var pembayarLine = k.pembayar_penerima ?
+            '<div class="text-[11px] text-gray-500 font-medium">Pihak: ' + Auth.esc(k.pembayar_penerima) + '</div>' : '';
+
+          var statusBadge = (k.status === 'VOID') ? '<span class="badge bg-red-100 text-red-800 line-through">VOID / DIBATALKAN</span>' :
+                            (k.status === 'DRAFT_REVISI') ? '<span class="badge bg-amber-100 text-amber-800">PERLU REVISI</span>' :
+                            self.badge(k.status, k.status_label || k.status);
 
           return '<tr data-id="' + k.id + '">' +
             '<td><div class="font-mono text-xs text-gray-500 font-bold">' + Auth.esc(k.voucher_number) + '</div>' +
-            '<div class="text-sm font-semibold text-gray-900 leading-snug">' + Auth.esc(k.description) + '</div>' + receiptLink + '</td>' +
-            '<td><span class="badge ' + (k.type === 'MASUK' ? 'badge-PUBLISHED' : 'badge-DRAFT') + '">' +
-            (k.type === 'MASUK' ? 'Kas Masuk' : 'Kas Keluar') + '</span></td>' +
-            '<td class="font-bold whitespace-nowrap ' + (k.type === 'MASUK' ? 'text-emerald' : 'text-red-600') + '">' +
+            '<div class="text-sm font-semibold text-gray-900 leading-snug">' + Auth.esc(k.description) + '</div>' + pembayarLine + receiptLink + '</td>' +
+            '<td><div class="flex flex-col gap-1"><span class="badge ' + (k.type === 'MASUK' ? 'badge-PUBLISHED' : 'badge-DRAFT') + '">' +
+            (k.type === 'MASUK' ? 'Kas Masuk' : 'Kas Keluar') + '</span>' + docTypeBadge + '</div></td>' +
+            '<td class="font-bold whitespace-nowrap ' + (k.status === 'VOID' ? 'text-gray-400 line-through' : (k.type === 'MASUK' ? 'text-emerald' : 'text-red-600')) + '">' +
             (k.type === 'MASUK' ? '+ ' : '− ') + Auth.esc(amtClean) + '</td>' +
-            '<td class="whitespace-nowrap text-gray-600 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Akun: </span>' + Auth.esc(k.account_label || k.account_code || 'Kas BSI') + '</td>' +
-            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + self.badge(k.status, k.status_label || k.status) + '</td>' +
+            '<td class="whitespace-nowrap text-gray-600 text-xs sm:text-sm"><span class="sm:hidden text-gray-400 font-medium">Akun: </span>' + Auth.esc(k.account_label || k.account || 'Kas BSI') + '</td>' +
+            '<td><span class="sm:hidden text-gray-400 font-medium text-xs">Status: </span>' + statusBadge + '</td>' +
             '<td class="tbl-actions"><div class="flex gap-1.5 flex-wrap min-w-[120px]">' + acts + '</div></td>' +
             '</tr>';
-        }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada voucher yang ditemukan.</td></tr>';
+        }).join('') : '<tr class="tbl-empty"><td colspan="6" class="text-center text-gray-400 py-10">Tidak ada transaksi kas yang ditemukan.</td></tr>';
 
         Array.prototype.forEach.call(tb.querySelectorAll('tr[data-id]'), function (tr) {
           var id = tr.getAttribute('data-id');
@@ -2917,11 +2960,13 @@
               if (!item) return;
               if (act === 'view') self.voucherDetail(item);
               else if (act === 'wa') self.previewWhatsApp('Voucher: ' + (item.voucher_number || item.description), self.buildKeuanganWaText(item));
+              else if (act === 'revise') self.voucherForm(item);
               else if (act === 'verify-bend') self.voucherVerify(item, 'verifyVoucherBendahara',
-                'Verifikasi Bendahara', 'diverifikasi Bendahara & menunggu verifikasi Ketua');
+                'Verifikasi Bendahara', 'diverifikasi Bendahara & disahkan / diteruskan ke Ketua');
               else if (act === 'approve') self.voucherVerify(item, 'verifyVoucherKetum',
                 'Verifikasi Final Ketua', 'disetujui penuh & masuk perhitungan saldo');
               else if (act === 'reject') self.voucherReject(item);
+              else if (act === 'void') self.voucherVoid(item);
             });
           });
         });
@@ -2944,18 +2989,61 @@
               self.openWhatsApp(self.buildKeuanganWaText(item));
             });
             self.refreshKeuangan();
-          }).catch(function () { });
+          }).catch(function (e) {
+            self.toast(e && e.message ? e.message : 'Gagal memproses voucher.', 'error');
+          });
         });
     },
 
     voucherReject: function (item) {
       var self = this;
-      this.rejectModal('Tolak Voucher',
-        'Voucher <span class="font-mono text-xs">' + Auth.esc(item.voucher_number) + '</span> akan ditolak dengan alasan di bawah ini.',
+      this.rejectModal('Tolak / Minta Revisi Voucher',
+        'Voucher <span class="font-mono text-xs">' + Auth.esc(item.voucher_number) + '</span> akan dikembalikan ke pemohon dengan status DRAFT_REVISI agar berkas nota dapat diperbaiki tanpa mengetik ulang.',
         'rejectVoucher', item.id, function () { self.refreshKeuangan(); });
     },
 
-    /** Modal detail voucher keuangan dengan aksi WhatsApp, otorisasi & cetak kwitansi. */
+    voucherVoid: function (item) {
+      var self = this;
+      this.voidModal('Batalkan Transaksi Kas (VOID)',
+        'Transaksi No: <strong>' + Auth.esc(item.voucher_number) + '</strong> (' + Auth.esc(item.amount_label) + ') akan dibatalkan permanen dan mutasi saldo akan dibalik. Masukkan alasan pembatalan wajib:',
+        item.id, function () { self.refreshKeuangan(); });
+    },
+
+    voidModal: function (title, descHtml, id, onDone) {
+      var self = this;
+      this.openModal(
+        '<div class="p-4 sm:p-6">' +
+        '<h3 class="text-base sm:text-lg font-extrabold text-red-700 mb-2 break-words">' + title + '</h3>' +
+        '<p class="text-xs sm:text-sm text-gray-600 mb-4 break-words">' + descHtml + '</p>' +
+        '<form id="voidFormEl">' +
+        '<label class="lbl">Alasan Pembatalan Transaksi (VOID) <span class="text-red-500">*</span></label>' +
+        '<textarea id="voidReason" required rows="3" class="field text-xs sm:text-sm" placeholder="Tulis alasan pembatalan transaksi sah…"></textarea>' +
+        '<p class="text-[11px] text-gray-400 mt-1">Pembatalan akan dicatat ke audit log, mutasi kas dibalik otomatis, dan bukti fisik diberi tanda VOID.</p>' +
+        '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-4">' +
+        '<button type="submit" class="btn btn-danger flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">Batalkan Transaksi (VOID)</button>' +
+        '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Tutup</button>' +
+        '</div>' +
+        '</form>' +
+        '</div>');
+      Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+        b.addEventListener('click', function () { self.closeModal(); });
+      });
+      document.getElementById('voidFormEl').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var reason = document.getElementById('voidReason').value.trim();
+        if (!reason) return;
+        Auth.fetch('voidVoucher', { id: id, reason: reason })
+          .then(function () {
+            self.closeModal();
+            self.toast('Transaksi kas telah dibatalkan (VOID).', 'success');
+            if (onDone) onDone();
+          }).catch(function (err) {
+            self.toast(err && err.message ? err.message : 'Gagal membatalkan transaksi.', 'error');
+          });
+      });
+    },
+
+    /** Modal detail voucher keuangan dengan aksi WhatsApp, otorisasi & cetak kwitansi dual-slip. */
     voucherDetail: function (k) {
       if (!k) return;
       var self = this;
@@ -2964,31 +3052,48 @@
       var canApprove = ['SUPERADMIN', 'KETUA'].indexOf(u.role) !== -1;
 
       var isMasuk = k.type === 'MASUK';
-      var amountColor = isMasuk ? 'text-emerald' : 'text-red-600';
-      var bgBanner = isMasuk ? 'from-emerald-50 to-emerald-100/60' : 'from-red-50 to-amber-50';
+      var isVoid = k.status === 'VOID';
+      var amountColor = isVoid ? 'text-gray-400 line-through' : (isMasuk ? 'text-emerald' : 'text-red-600');
+      var bgBanner = isVoid ? 'from-gray-100 to-gray-200' : (isMasuk ? 'from-emerald-50 to-emerald-100/60' : 'from-red-50 to-amber-50');
 
       var metaRows = [
-        ['Nomor Voucher', k.voucher_number, 'mono'],
+        ['Nomor Voucher / Kwitansi', k.voucher_number, 'mono'],
         ['Jenis Transaksi', isMasuk ? 'Kas Masuk (+)' : 'Kas Keluar (−)', ''],
+        ['Bentuk Dokumen', k.doc_type || (isMasuk ? 'KWITANSI_MASUK' : 'VOUCHER_KELUAR'), ''],
+        ['Pihak Pembayar / Penerima', k.pembayar_penerima || '-', ''],
         ['Akun Kas', k.account_label || k.account, ''],
         ['Kategori Transaksi', k.category || '-', ''],
         ['Tanggal Transaksi', k.transaction_date || '-', ''],
         ['Dibuat Oleh', k.created_by || '-', ''],
         ['Verifikasi Bendahara', k.verified_by_bendahara || 'Belum diverifikasi', ''],
-        ['Verifikasi Ketua', k.approved_by_ketum || 'Belum disetujui', '']
+        ['Verifikasi Ketua', k.verified_by_ketum || 'Belum disetujui', '']
       ];
-      if (k.rejection_notes) metaRows.push(['Alasan Penolakan', k.rejection_notes, 'warn']);
+      if (k.rejection_notes) metaRows.push(['Alasan Penolakan / Catatan Revisi', k.rejection_notes, 'warn']);
+      if (k.void_reason) metaRows.push(['Alasan Pembatalan (VOID)', k.void_reason + ' (oleh ' + (k.void_by || 'Pengurus') + ')', 'warn']);
+
+      var actionBtnsHtml = '';
+      if (canWrite && (k.status === 'DRAFT_REVISI' || k.status === 'REJECTED')) {
+        actionBtnsHtml += '<button type="button" id="btnDetailRevise" class="btn btn-primary text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 shadow-sm">' +
+          '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>' +
+          '<span>Perbaiki &amp; Ajukan Ulang</span></button>';
+      }
+      if (k.status === 'APPROVED' && (canWrite || canApprove)) {
+        actionBtnsHtml += '<button type="button" id="btnDetailVoid" class="btn btn-ghost text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 text-red-600 hover:bg-red-50 border border-red-200 shadow-xs">' +
+          '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>' +
+          '<span>Batalkan (VOID)</span></button>';
+      }
 
       var modalHtml = '<div class="p-4 sm:p-6">' +
         '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-100">' +
         '<div class="flex items-center gap-2 flex-wrap min-w-0">' +
         '<span class="font-mono text-xs font-bold text-gray-500 break-all">' + Auth.esc(k.voucher_number) + '</span>' +
-        self.badge(k.status, k.status_label) +
+        (isVoid ? '<span class="badge bg-red-100 text-red-800 line-through">DIBATALKAN / VOID</span>' : self.badge(k.status, k.status_label)) +
         '</div>' +
         '<div class="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end">' +
-        '<button type="button" id="btnPrintKwitansi" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-ghost shadow-sm" title="Cetak Kwitansi / Slip Pembayaran">' +
+        actionBtnsHtml +
+        '<button type="button" id="btnPrintKwitansi" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-ghost shadow-sm" title="Cetak Kwitansi / Slip Pembayaran Dual-Slip">' +
         '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
-        '<span>Cetak Kwitansi</span>' +
+        '<span>Cetak Kwitansi Dual-Slip</span>' +
         '</button>' +
         '<button type="button" id="btnWaShareVoucher" class="btn text-xs px-3 py-1.5 rounded-xl font-bold inline-flex items-center gap-1.5 btn-wa-ghost shadow-sm" title="Bagikan ke WhatsApp">' +
         '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>' +
@@ -3003,6 +3108,7 @@
         '<div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">' + (isMasuk ? 'Total Kas Masuk' : 'Total Pengeluaran Kas') + '</div>' +
         '<div class="text-2xl sm:text-3xl font-black ' + amountColor + ' tracking-tight break-words">' + (isMasuk ? '+ ' : '− ') + Auth.esc(k.amount_label) + '</div>' +
         '<div class="text-xs sm:text-sm font-semibold text-gray-800 mt-2 max-w-md mx-auto break-words">' + Auth.esc(k.description) + '</div>' +
+        '<div class="text-[11px] font-serif italic text-emerald-800 mt-1 max-w-lg mx-auto">Terbilang: &ldquo;' + Auth.esc(k.terbilang || self.terbilang(k.amount)) + '&rdquo;</div>' +
         '</div>' +
         (k.receipt_url ?
           '<div class="mb-5 p-3.5 sm:p-4 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">' +
@@ -3011,46 +3117,38 @@
           '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
           '</div>' +
           '<div><div class="text-xs font-bold text-emerald-950">Bukti Kas / Nota Transaksi</div>' +
-          '<div class="text-[11px] text-emerald-700">Tersimpan di Google Drive / Cloud</div></div>' +
+          '<div class="text-[11px] text-emerald-700">Tersimpan aman di Google Drive / Cloud</div></div>' +
           '</div>' +
           '<a href="' + Auth.esc(k.receipt_url) + '" target="_blank" rel="noopener noreferrer" class="btn text-xs bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm inline-flex items-center gap-1.5 transition self-start sm:self-center">Buka Bukti ↗</a>' +
           '</div>' : '') +
         '<div class="space-y-1 divide-y divide-gray-100">' +
         metaRows.map(function (r) {
-          var val = r[2] === 'mono' ? '<span class="font-mono text-xs text-gray-700 font-semibold">' + Auth.esc(r[1]) + '</span>'
-            : r[2] === 'warn' ? '<span class="text-sm text-red-600 bg-red-50 px-3 py-1.5 rounded-xl block border border-red-100 font-medium">' + Auth.esc(r[1]) + '</span>'
-              : '<span class="text-sm text-gray-800 font-medium">' + Auth.esc(r[1]) + '</span>';
-          return '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-2.5">' +
-            '<span class="text-xs font-bold text-gray-400 uppercase tracking-wide">' + r[0] + '</span>' +
-            '<div>' + val + '</div>' +
-            '</div>';
+          var val = r[2] === 'mono' ? '<span class="font-mono text-xs text-gray-700 font-semibold">' + Auth.esc(r[1]) + '</span>' :
+            r[2] === 'warn' ? '<span class="text-xs text-red-600 font-medium">' + Auth.esc(r[1]) + '</span>' :
+              '<span class="text-xs sm:text-sm text-gray-800">' + Auth.esc(r[1]) + '</span>';
+          return '<div class="flex justify-between py-2 text-xs sm:text-sm">' +
+            '<span class="text-gray-400 font-medium">' + r[0] + '</span>' + val + '</div>';
         }).join('') +
         '</div>' +
-        (canWrite ?
-          '<div class="mt-4 pt-3 border-t border-gray-100">' +
-          '<details class="text-xs text-gray-600 group">' +
-          '<summary class="font-semibold cursor-pointer text-emerald-700 hover:text-emerald-800 select-none flex items-center gap-1 py-1">' +
-          '<span>' + (k.receipt_url ? '✏️ Ganti Tautan Bukti Kas' : '➕ Tambah Tautan Bukti Kas Google Drive') + '</span>' +
-          '</summary>' +
-          '<div class="mt-2.5 flex gap-2">' +
-          '<input id="vDetailReceiptInput" type="url" class="field text-xs flex-1" placeholder="https://drive.google.com/..." value="' + Auth.esc(k.receipt_url || '') + '" />' +
-          '<button type="button" id="btnSaveVoucherReceipt" class="btn btn-primary text-xs px-3.5 py-2 rounded-xl font-bold">Simpan</button>' +
-          '</div>' +
-          '</details>' +
-          '</div>' : '') +
-        (canWrite && k.status === 'PENDING' ?
-          '<div class="mt-6 pt-4 border-t border-gray-100 flex gap-2">' +
-          '<button type="button" id="vDetailVerifyBend" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Verifikasi Bendahara</button>' +
-          '<button type="button" id="vDetailReject" class="btn btn-danger px-4 py-2.5 rounded-xl font-bold text-xs">Tolak</button>' +
-          '</div>' :
-          canApprove && k.status === 'VERIFIED_BY_BENDAHARA' ?
-            '<div class="mt-6 pt-4 border-t border-gray-100 flex gap-2">' +
-            '<button type="button" id="vDetailApproveKetum" class="btn btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs">Setujui Pengeluaran (Ketua)</button>' +
-            '<button type="button" id="vDetailReject" class="btn btn-danger px-4 py-2.5 rounded-xl font-bold text-xs">Tolak</button>' +
-            '</div>' : '') +
         '</div>';
 
-      this.openModal(modalHtml, 'max-w-xl');
+      this.openModal(modalHtml, 'max-w-2xl');
+
+      var reviseBtn = document.getElementById('btnDetailRevise');
+      if (reviseBtn) {
+        reviseBtn.addEventListener('click', function () {
+          self.closeModal();
+          self.voucherForm(k);
+        });
+      }
+
+      var voidBtn = document.getElementById('btnDetailVoid');
+      if (voidBtn) {
+        voidBtn.addEventListener('click', function () {
+          self.closeModal();
+          self.voucherVoid(k);
+        });
+      }
 
       var kwitansiBtn = document.getElementById('btnPrintKwitansi');
       if (kwitansiBtn) {
@@ -3062,48 +3160,7 @@
       var waBtn = document.getElementById('btnWaShareVoucher');
       if (waBtn) {
         waBtn.addEventListener('click', function () {
-          self.openWhatsApp(self.buildKeuanganWaText(k));
-        });
-      }
-
-      var btnSaveReceipt = document.getElementById('btnSaveVoucherReceipt');
-      if (btnSaveReceipt) {
-        btnSaveReceipt.addEventListener('click', function () {
-          var newUrl = (document.getElementById('vDetailReceiptInput').value || '').trim();
-          btnSaveReceipt.disabled = true;
-          btnSaveReceipt.textContent = 'Menyimpan...';
-          Auth.fetch('updateVoucherReceipt', { id: k.id, receipt_url: newUrl }).then(function () {
-            self.toast('Tautan bukti kas berhasil disimpan.', 'success');
-            self.closeModal();
-            self.refreshKeuangan();
-          }).catch(function () {
-            btnSaveReceipt.disabled = false;
-            btnSaveReceipt.textContent = 'Simpan';
-          });
-        });
-      }
-
-      var btnVerifyBend = document.getElementById('vDetailVerifyBend');
-      if (btnVerifyBend) {
-        btnVerifyBend.addEventListener('click', function () {
-          self.closeModal();
-          self.voucherVerify(k, 'verifyVoucherBendahara', 'Verifikasi Bendahara', 'diverifikasi Bendahara & menunggu verifikasi Ketua');
-        });
-      }
-
-      var btnApproveKetum = document.getElementById('vDetailApproveKetum');
-      if (btnApproveKetum) {
-        btnApproveKetum.addEventListener('click', function () {
-          self.closeModal();
-          self.voucherVerify(k, 'verifyVoucherKetum', 'Verifikasi Final Ketua', 'disetujui penuh & masuk perhitungan saldo');
-        });
-      }
-
-      var btnReject = document.getElementById('vDetailReject');
-      if (btnReject) {
-        btnReject.addEventListener('click', function () {
-          self.closeModal();
-          self.voucherReject(k);
+          self.previewWhatsApp('Voucher: ' + (k.voucher_number || k.description), self.buildKeuanganWaText(k));
         });
       }
 
@@ -3112,32 +3169,49 @@
       });
     },
 
-    /** Modal Cetak Bukti Kas / Kwitansi Resmi dengan Terbilang & Tanda Tangan. */
+    /**
+     * Modal Cetak Bukti Kas / Kwitansi Resmi Dual-Slip (Bonggol Arsip 30% & Lembar Donatur 70%).
+     * Format Landscape standar perbankan/akuntansi Indonesia dengan stempel basah transparan & QR validasi.
+     */
     printKwitansi: function (k) {
       var self = this;
       var isMasuk = k.type === 'MASUK';
-      var terbilangText = this.terbilang(k.amount);
+      var isVoid = k.status === 'VOID';
+      var terbilangText = k.terbilang || this.terbilang(k.amount);
+      var wId = k.wilayah_id || (this.state.user && this.state.user.wilayah_id) || 'DPW_JABODETABEK';
+      var isDpp = (wId === 'DPP_PUSAT');
+
       var kopHtml = (window._kopSettings && window._kopSettings.kop_mode === 'image' && window._kopSettings.kop_image_base64)
-        ? '<div class="mb-3 text-center"><img src="' + window._kopSettings.kop_image_base64 + '" alt="KOP APII" class="w-full max-h-28 object-contain mx-auto" /></div>'
+        ? '<div class="mb-3 text-center"><img src="' + window._kopSettings.kop_image_base64 + '" alt="KOP APII" class="w-full max-h-24 object-contain mx-auto" /></div>'
         : '<div class="flex items-center gap-3 sm:gap-4 mb-2 pb-2 border-b-2 border-emerald-900">' +
-        '<img src="logo.png" alt="Logo DPW APII" class="w-10 h-10 sm:w-14 sm:h-14 object-contain flex-shrink-0" />' +
+        '<img src="logo.png" alt="Logo APII" class="w-10 h-10 sm:w-12 sm:h-12 object-contain flex-shrink-0" />' +
         '<div class="flex-1 text-center font-serif leading-tight min-w-0">' +
-        '<div class="text-[9px] sm:text-[11px] font-bold text-[#1B5E20] uppercase tracking-wider">DEWAN PIMPINAN WILAYAH</div>' +
-        '<div class="text-xs sm:text-base font-black text-gray-900 tracking-tight break-words">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
-        '<div class="text-[10px] sm:text-xs font-bold text-gray-800">WILAYAH JABODETABEK</div>' +
-        '<div class="text-[8px] sm:text-[9px] text-gray-600 font-sans mt-0.5 break-words">' +
-        'Gedung Pusat Dakwah APII Wilayah Jabodetabek &bull; Telp: (021) 390-8812 &bull; Website: siapii.sigitadi.id' +
+        '<div class="text-[9px] sm:text-[10px] font-bold text-[#1B5E20] uppercase tracking-wider">' + (isDpp ? 'DEWAN PIMPINAN PUSAT' : 'DEWAN PIMPINAN WILAYAH') + '</div>' +
+        '<div class="text-xs sm:text-sm font-black text-gray-900 tracking-tight break-words">YAYASAN APOLOGET ISLAM INDONESIA (APII)</div>' +
+        '<div class="text-[10px] sm:text-xs font-bold text-gray-800">' + (isDpp ? 'PUSAT JAKARTA' : 'WILAYAH JABODETABEK') + '</div>' +
+        '<div class="text-[8px] text-gray-600 font-sans mt-0.5 break-words">' +
+        'Gedung Pusat Dakwah APII &bull; Telp: (021) 390-8812 &bull; Website: siapii.sigitadi.id' +
         '</div>' +
         '</div>' +
         '</div>';
 
-      var modalHtml = '<div class="p-3.5 sm:p-6">' +
-        '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-gray-100 no-print">' +
-        '<h3 class="text-xs sm:text-sm font-bold text-gray-700">Pratinjau Cetak Kwitansi Resmi</h3>' +
+      // Cap Stempel Basah Transparan Rotasi 3°–5°
+      var stempelRot = (3 + Math.random() * 2).toFixed(1);
+      var stempelImg = (window._kopSettings && window._kopSettings.stempel_image_base64) || 'stempel.png';
+
+      // QR Code Validation link
+      var qrUrl = (window.location.origin || 'https://siapii.sigitadi.id') + '/verifikasi-kuitansi?no=' + encodeURIComponent(k.voucher_number || '');
+
+      var modalHtml = '<div class="p-3 sm:p-5">' +
+        '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-3 border-b border-gray-100 no-print">' +
+        '<div class="flex items-center gap-2">' +
+        '<h3 class="text-xs sm:text-sm font-bold text-gray-700">Kwitansi Dual-Slip (Format Perbankan / Akuntansi)</h3>' +
+        (isVoid ? '<span class="badge bg-red-100 text-red-800 font-bold">STATUS VOID</span>' : '') +
+        '</div>' +
         '<div class="flex items-center gap-2 justify-end">' +
         '<button type="button" id="btnDoPrintKwitansi" class="btn btn-primary text-xs px-3 sm:px-4 py-2 rounded-xl font-bold inline-flex items-center gap-1.5 shadow-sm">' +
         '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
-        '<span>Cetak / PDF</span>' +
+        '<span>Cetak / Simpan PDF</span>' +
         '</button>' +
         '<button type="button" data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100">' +
         '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>' +
@@ -3145,59 +3219,99 @@
         '</div>' +
         '</div>' +
 
-        // Kertas Kwitansi Area
-        '<div id="printKwitansiArea" class="p-4 sm:p-8 bg-white border border-gray-300 rounded-2xl shadow-lg max-w-[700px] w-full mx-auto text-gray-900 select-text text-xs sm:text-sm font-sans overflow-x-hidden">' +
-        kopHtml +
-        '<div class="text-center my-3">' +
-        '<h2 class="text-xs sm:text-base font-extrabold uppercase tracking-wider underline decoration-2 underline-offset-4 break-words">' +
-        (isMasuk ? 'BUKTI PENERIMAAN KAS / KWITANSI' : 'BUKTI PENGELUARAN KAS / KWITANSI') +
-        '</h2>' +
-        '<div class="font-mono text-xs text-gray-600 mt-1 break-all">Nomor: ' + Auth.esc(k.voucher_number) + '</div>' +
+        // KERTAS DUAL-SLIP LANDSCAPE AREA
+        '<div id="printKwitansiArea" class="dual-slip-container bg-white border border-gray-300 rounded-2xl shadow-xl max-w-4xl w-full mx-auto text-gray-900 select-text text-xs font-sans relative overflow-hidden" style="page-break-inside: avoid !important;">' +
+
+        // Watermark VOID jika transaksi dibatalkan (Benteng A-09)
+        (isVoid ?
+          '<div class="absolute inset-0 flex items-center justify-center pointer-events-none z-20 select-none overflow-hidden">' +
+          '<div class="text-red-600/20 text-6xl sm:text-8xl font-black uppercase tracking-widest -rotate-25 border-8 border-red-600/20 px-8 py-4 rounded-3xl">' +
+          'DIBATALKAN / VOID' +
+          '</div></div>' : '') +
+
+        '<div class="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x-2 md:divide-dashed md:divide-gray-300">' +
+
+        // 1. BONGGOL ARSIP KAS (COUNTERFOIL - 30% LEBAR)
+        '<div class="w-full md:w-[32%] p-4 bg-emerald-50/30 flex flex-col justify-between text-[11px]">' +
+        '<div>' +
+        '<div class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">BONGGOL ARSIP KAS (COUNTERFOIL)</div>' +
+        '<div class="font-extrabold text-xs text-emerald-950 mb-3 border-b border-gray-200 pb-1.5">Arsip Buku Kas Bendahara</div>' +
+        '<div class="space-y-2">' +
+        '<div><span class="text-gray-400 text-[10px] block">No. Bukti:</span><span class="font-mono font-bold text-gray-900">' + Auth.esc(k.voucher_number) + '</span></div>' +
+        '<div><span class="text-gray-400 text-[10px] block">Tanggal:</span><span class="font-semibold text-gray-800">' + Auth.esc(k.transaction_date) + '</span></div>' +
+        '<div><span class="text-gray-400 text-[10px] block">' + (isMasuk ? 'Telah Terima Dari:' : 'Diserahkan Kepada:') + '</span><span class="font-bold text-gray-900 break-words">' + Auth.esc(k.pembayar_penerima || k.created_by || 'Donatur APII') + '</span></div>' +
+        '<div><span class="text-gray-400 text-[10px] block">Untuk Keperluan:</span><span class="text-gray-700 line-clamp-2">' + Auth.esc(k.description) + '</span></div>' +
+        '<div><span class="text-gray-400 text-[10px] block">Akun Kas:</span><span class="font-medium text-gray-800">' + Auth.esc(k.account_label || k.account) + '</span></div>' +
+        '<div><span class="text-gray-400 text-[10px] block">Jumlah Dana:</span><span class="font-black text-xs ' + (isMasuk ? 'text-emerald-800' : 'text-red-700') + '">' + Auth.esc(k.amount_label) + '</span></div>' +
         '</div>' +
-        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2 text-xs text-gray-600 mb-4 pb-2 border-b border-gray-200">' +
-        '<div>Tanggal Transaksi: <strong class="text-gray-900">' + Auth.esc(k.transaction_date) + '</strong></div>' +
-        '<div class="text-left sm:text-right">Akun Kas: <strong class="text-gray-900 break-words">' + Auth.esc(k.account_label || k.account) + '</strong></div>' +
         '</div>' +
-        '<div class="space-y-3 leading-relaxed">' +
-        '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">' + (isMasuk ? 'Telah Diterima Dari' : 'Diserahkan Kepada') + ' :</span>' +
-        '<span class="font-bold text-gray-900 break-words">' + Auth.esc(k.created_by || 'Bendahara DPW APII') + '</span></div>' +
-        '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">Jumlah Uang :</span>' +
-        '<span class="font-black text-emerald-800 text-base sm:text-lg break-words">' + Auth.esc(k.amount_label) + '</span></div>' +
-        '<div class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs sm:text-sm font-serif italic text-gray-800 break-words">' +
-        'Terbilang: &ldquo;<strong>' + Auth.esc(terbilangText) + '</strong>&rdquo;' +
+        '<div class="mt-6 pt-3 border-t border-gray-200">' +
+        '<div class="text-[10px] text-gray-500 text-center mb-1">Paraf Bendahara Penerima:</div>' +
+        '<div class="h-10 flex items-center justify-center font-serif text-[11px] font-bold text-emerald-900 italic">( ' + Auth.esc(k.verified_by_bendahara || 'Sri Wati') + ' )</div>' +
+        '<div class="text-[9px] text-gray-400 text-center font-mono mt-1">✂ [ Gunting di Sini ] &gt; &gt;</div>' +
         '</div>' +
-        '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3 pt-1"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">Kategori :</span>' +
-        '<span class="text-gray-800 break-words">' + Auth.esc(k.category || 'Operasional') + '</span></div>' +
-        '<div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3"><span class="w-auto sm:w-36 text-gray-500 font-semibold flex-shrink-0">Untuk Keperluan :</span>' +
-        '<span class="font-medium text-gray-900 flex-1 break-words">' + Auth.esc(k.description) + '</span></div>' +
         '</div>' +
 
-        // 3 Kolom Tanda Tangan: responsif mobile
-        '<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-2 mt-8 pt-4 border-t border-gray-200 text-center text-xs">' +
+        // 2. LEMBAR UTAMA DONATUR / PEMBAYAR (70% LEBAR)
+        '<div class="w-full md:w-[68%] p-4 sm:p-6 bg-white flex flex-col justify-between relative">' +
         '<div>' +
-        '<div class="text-gray-500 mb-1">' + (isMasuk ? 'Penyetor / Penerima' : 'Penerima Dana') + '</div>' +
-        '<div class="h-10 sm:h-16 flex items-center justify-center text-[10px] text-gray-300 italic">(Tanda Tangan)</div>' +
-        '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1 break-words">( ..................................... )</div>' +
+        kopHtml +
+        '<div class="text-center my-2">' +
+        '<h2 class="text-xs sm:text-sm font-extrabold uppercase tracking-wide underline decoration-2 underline-offset-4 text-emerald-950">' +
+        (isMasuk ? 'BUKTI PENERIMAAN KAS / KWITANSI RESMI' : 'BUKTI PENGELUARAN KAS / VOUCHER RESMI') +
+        '</h2>' +
+        '<div class="font-mono text-[11px] text-gray-600 mt-0.5 font-bold">Nomor: ' + Auth.esc(k.voucher_number) + '</div>' +
         '</div>' +
+        '<div class="mt-3 space-y-2 text-xs leading-relaxed">' +
+        '<div class="flex flex-col sm:flex-row sm:items-baseline gap-1"><span class="w-32 text-gray-500 font-semibold flex-shrink-0">' + (isMasuk ? 'Sudah Terima Dari' : 'Diserahkan Kepada') + ' :</span><span class="font-bold text-gray-900 text-xs sm:text-sm break-words">' + Auth.esc(k.pembayar_penerima || k.created_by || 'H. Abdurrahman Saleh') + '</span></div>' +
+        '<div class="flex flex-col sm:flex-row sm:items-baseline gap-1"><span class="w-32 text-gray-500 font-semibold flex-shrink-0">Banyaknya Uang :</span><span class="font-serif italic font-bold text-emerald-900 bg-emerald-50/70 px-2 py-1 rounded-lg border border-emerald-100 flex-1 break-words">=== ' + Auth.esc(terbilangText) + ' ===</span></div>' +
+        '<div class="flex flex-col sm:flex-row sm:items-baseline gap-1"><span class="w-32 text-gray-500 font-semibold flex-shrink-0">Untuk Pembayaran :</span><span class="text-gray-900 font-medium flex-1 break-words">' + Auth.esc(k.description) + '</span></div>' +
+        '<div class="flex flex-col sm:flex-row sm:items-baseline gap-1"><span class="w-32 text-gray-500 font-semibold flex-shrink-0">Diterima Melalui :</span><span class="text-gray-800 break-words">' + Auth.esc(k.account_label || k.account) + '</span></div>' +
+        '</div>' +
+
+        // Kotak Nominal & Status LUNAS
+        '<div class="mt-4 p-2.5 sm:p-3 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between gap-3">' +
+        '<div><span class="text-[10px] text-gray-500 uppercase tracking-wider block font-bold">Jumlah Pembayaran:</span>' +
+        '<span class="text-base sm:text-xl font-black ' + (isMasuk ? 'text-emerald-800' : 'text-red-700') + '">' + Auth.esc(k.amount_label) + '</span></div>' +
         '<div>' +
-        '<div class="text-gray-500 mb-1">Bendahara Umum DPW</div>' +
-        '<div class="h-10 sm:h-16 flex items-center justify-center font-serif text-emerald-900 font-semibold text-xs break-words">' + Auth.esc(k.verified_by_bendahara || 'Sri Wati') + '</div>' +
-        '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1 break-words">Sri Wati</div>' +
-        '</div>' +
-        '<div>' +
-        '<div class="text-gray-500 mb-1">Mengetahui, Ketua Umum DPW</div>' +
-        '<div class="h-10 sm:h-16 flex items-center justify-center font-serif text-emerald-900 font-semibold text-xs break-words">' + Auth.esc(k.approved_by_ketum || 'Ustadz Muhammad Hanafi') + '</div>' +
-        '<div class="font-bold text-gray-800 border-t border-gray-300 pt-1 mt-1 break-words">Ustadz Muhammad Hanafi</div>' +
+        (isVoid ? '<span class="px-3 py-1 rounded-lg bg-red-600 text-white font-black text-xs uppercase tracking-widest shadow-xs">VOID</span>' :
+          (k.status === 'APPROVED' ? '<span class="px-3 py-1 rounded-lg bg-emerald-700 text-white font-black text-xs uppercase tracking-widest shadow-xs">L U N A S</span>' :
+            '<span class="px-3 py-1 rounded-lg bg-amber-500 text-white font-bold text-xs uppercase tracking-wider shadow-xs">PROSES</span>')) +
         '</div>' +
         '</div>' +
-        '<div class="mt-6 pt-2 border-t border-gray-100 flex flex-col sm:flex-row justify-between gap-1 text-[10px] text-gray-400 font-mono">' +
-        '<span>SIAP APII DPW Jabodetabek</span>' +
-        '<span>Status: ' + Auth.esc(k.status) + '</span>' +
+        '<div class="text-[10px] text-gray-500 italic mt-2 text-center">' +
+        '&ldquo;Jazakumullahu khairan katsiran atas amanah dan dukungan yang diberikan. Semoga Allah SWT memberkahi rezeki Anda.&rdquo;' +
+        '</div>' +
+        '</div>' +
+
+        // Blok Tanda Tangan & QR Code Validasi (Anti-Orphan)
+        '<div class="mt-6 pt-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4" style="break-inside: avoid;">' +
+        '<div class="flex items-center gap-3 text-left">' +
+        '<div class="w-16 h-16 bg-gray-100 border border-gray-300 rounded-lg p-1 flex items-center justify-center flex-shrink-0">' +
+        '<img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent(qrUrl) + '" alt="QR Validasi" class="w-full h-full object-contain" />' +
+        '</div>' +
+        '<div class="text-[9px] text-gray-500 leading-tight">' +
+        '<strong class="text-gray-800 block font-bold">Scan QR Validasi Keaslian:</strong>' +
+        'Kuitansi resmi terdaftar pada database sistem SIAP APII.<br>Bebas bocor data pribadi (UU PDP).' +
+        '</div>' +
+        '</div>' +
+        '<div class="text-center relative min-w-[150px]">' +
+        '<div class="text-[10px] text-gray-600">Jakarta, ' + Auth.esc(k.tanggal_label || k.transaction_date) + '</div>' +
+        '<div class="text-[11px] font-bold text-gray-800 mb-1">Bendahara Penerima,</div>' +
+        '<div class="h-14 relative flex items-center justify-center">' +
+        '<img src="' + stempelImg + '" alt="Stempel Basah" class="absolute w-20 h-20 object-contain pointer-events-none opacity-85 mix-blend-multiply" style="transform: rotate(' + stempelRot + 'deg);" />' +
+        '<span class="font-serif text-xs font-black text-emerald-900 relative z-10 italic">' + Auth.esc(k.verified_by_bendahara || 'Sri Wati') + '</span>' +
+        '</div>' +
+        '<div class="font-bold text-xs text-gray-900 border-t border-gray-400 pt-0.5 mt-0.5">( ' + Auth.esc(k.verified_by_bendahara || 'Sri Wati') + ' )</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+
         '</div>' +
         '</div>' +
         '</div>';
 
-      this.openModal(modalHtml, 'max-w-2xl');
+      this.openModal(modalHtml, 'max-w-4xl');
 
       document.getElementById('btnDoPrintKwitansi').addEventListener('click', function () {
         window.print();
@@ -3208,11 +3322,14 @@
       });
     },
 
-    /** Modal buat voucher baru dengan master rekening dinamis & kategori kustom. */
-    voucherForm: function () {
+    /**
+     * Modal Buat Voucher Kas Baru / Perbaiki Voucher Revisi.
+     * Mendukung prefillData (dari tombol Perbaiki & Ajukan Ulang atau Scratchpad Kalkulator).
+     */
+    voucherForm: function (prefillData) {
       var self = this;
+      var isRevise = prefillData && (prefillData.status === 'DRAFT_REVISI' || prefillData.status === 'REJECTED');
 
-      // Ambil pengaturan keuangan dan master rekening secara paralel
       Promise.all([
         Auth.getCached('getAccounts', null),
         Auth.getCached('getSettings', null)
@@ -3223,18 +3340,21 @@
         var fCfg = s.finance_config || {};
 
         var catsMasuk = Array.isArray(fCfg.categories_masuk) && fCfg.categories_masuk.length ? fCfg.categories_masuk : [
-          'Infaq & Sedekah', 'Iuran Pengurus DPW', 'Donasi Wakaf', 'Hibah Khusus', 'Dana Sponsor Kegiatan'
+          'Infaq & Sedekah', 'Donasi Digital & Media', 'Iuran Pengurus', 'Wakaf Tunai', 'Hibah Khusus'
         ];
         var catsKeluar = Array.isArray(fCfg.categories_keluar) && fCfg.categories_keluar.length ? fCfg.categories_keluar : [
-          'Operasional Sekretariat', 'Honorarium & Ujrah', 'Transportasi & Perjalanan Dinas',
-          'Konsumsi Kegiatan', 'Pembelian Inventaris & Aset', 'Santunan Sosial & Kemanusiaan',
-          'Publikasi Media & Dokumentasi', 'Pemeliharaan Web & IT'
+          'Operasional Sekretariat', 'Honorarium & Ujrah', 'Transportasi Safari Dakwah',
+          'Konsumsi & Akomodasi', 'Inventaris & Perlengkapan Studio', 'Santunan Sosial & Muallaf',
+          'Publikasi & IT Server'
         ];
+
+        var defaultType = (prefillData && prefillData.type) || 'MASUK';
 
         var buildCatOptions = function (type) {
           var arr = type === 'MASUK' ? catsMasuk : catsKeluar;
           return arr.map(function (c) {
-            return '<option value="' + Auth.esc(c) + '">' + Auth.esc(c) + '</option>';
+            var sel = (prefillData && prefillData.category === c) ? ' selected' : '';
+            return '<option value="' + Auth.esc(c) + '"' + sel + '>' + Auth.esc(c) + '</option>';
           }).join('') + '<option value="CUSTOM">+ Kategori Baru (Ketik Manual)...</option>';
         };
 
@@ -3243,46 +3363,63 @@
           var name = a.name || a.nama_rekening || 'Akun Kas';
           var bank = a.bank_name || a.bank_vendor || name;
           var num = a.account_number || a.nomor_rekening || '-';
-          return '<option value="' + (a.code || a.id) + '">' + Auth.esc(name + ' (' + bank + ' - ' + num + ')') + '</option>';
+          var code = a.code || a.id;
+          var sel = (prefillData && (prefillData.account === code || prefillData.account === a.id)) ? ' selected' : '';
+          return '<option value="' + code + '"' + sel + '>' + Auth.esc(name + ' (' + bank + ' - ' + num + ')') + '</option>';
         }).join('') : Object.keys(window.ACCOUNTS || {}).map(function (k) {
           return '<option value="' + k + '">' + window.ACCOUNTS[k] + '</option>';
         }).join('');
 
+        var modalTitle = isRevise ? 'Perbaiki &amp; Ajukan Ulang Voucher (' + Auth.esc(prefillData.voucher_number) + ')' :
+                         prefillData ? 'Konversi Proyeksi ke Kas Masuk' : 'Buat Voucher Kas Baru';
+
         self.openModal(
           '<div class="p-4 sm:p-6">' +
-          '<div class="flex items-center justify-between gap-2 mb-5">' +
-          '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark">Buat Voucher Kas Baru</h3>' +
+          '<div class="flex items-center justify-between gap-2 mb-4 pb-2 border-b border-gray-100">' +
+          '<div>' +
+          '<h3 class="text-base sm:text-lg font-extrabold text-emerald-dark">' + modalTitle + '</h3>' +
+          (isRevise && prefillData.rejection_notes ?
+            '<div class="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 mt-2 font-medium">Catatan Evaluasi: ' + Auth.esc(prefillData.rejection_notes) + '</div>' : '') +
+          '</div>' +
           '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
           '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
           '</div>' +
           '<form id="voucherFormEl" class="space-y-4">' +
           '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">' +
-          '<div><label class="lbl">Jenis Transaksi</label><select id="vfType" class="field">' +
-          '<option value="MASUK">Kas Masuk (Penerimaan)</option><option value="KELUAR">Kas Keluar (Pengeluaran)</option></select></div>' +
-          '<div><label class="lbl">Akun Kas</label><select id="vfAccount" class="field">' + accOpts + '</select></div>' +
+          '<div><label class="lbl">Jenis Transaksi</label><select id="vfType" class="field text-xs sm:text-sm">' +
+          '<option value="MASUK"' + (defaultType === 'MASUK' ? ' selected' : '') + '>Kas Masuk (Penerimaan)</option>' +
+          '<option value="KELUAR"' + (defaultType === 'KELUAR' ? ' selected' : '') + '>Kas Keluar (Pengeluaran)</option></select></div>' +
+          '<div><label class="lbl">Akun Kas / Rekening Bank</label><select id="vfAccount" class="field text-xs sm:text-sm">' + accOpts + '</select></div>' +
           '</div>' +
+          '<div><label class="lbl">Nama Pihak Pembayar / Donatur / Penerima Dana <span class="text-red-500">*</span></label>' +
+          '<input id="vfPembayarPenerima" type="text" required class="field text-xs sm:text-sm" value="' + Auth.esc((prefillData && prefillData.pembayar_penerima) || '') + '" placeholder="cth: H. Abdurrahman Saleh / Toko Komputer Studio" /></div>' +
           '<div><label class="lbl">Jumlah (Rp) <span class="text-red-500">*</span></label>' +
-          '<input id="vfAmount" type="number" min="1" step="1" required class="field" placeholder="cth: 1500000" /></div>' +
-          '<div>' +
-          '<label class="lbl">Kategori Transaksi</label>' +
-          '<select id="vfCategorySelect" class="field">' + buildCatOptions('MASUK') + '</select>' +
-          '<input id="vfCategoryCustom" type="text" class="field mt-2 hidden" placeholder="Ketik nama kategori transaksi baru…" />' +
+          '<input id="vfAmount" type="number" min="1" step="1" required class="field font-bold text-sm sm:text-base text-gray-900" value="' + (prefillData && prefillData.amount ? prefillData.amount : '') + '" placeholder="cth: 1500000" />' +
+          '<div id="vfTerbilangDisplay" class="text-xs font-serif italic text-emerald-800 mt-1.5 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">Terbilang: Nol Rupiah</div>' +
           '</div>' +
-          '<div><label class="lbl">Keterangan Transaksi <span class="text-red-500">*</span></label>' +
-          '<textarea id="vfDesc" required rows="3" class="field" placeholder="Uraian peruntukan atau sumber dana…"></textarea></div>' +
+          '<div>' +
+          '<label class="lbl">Pos Anggaran / Kategori Transaksi</label>' +
+          '<select id="vfCategorySelect" class="field text-xs sm:text-sm">' + buildCatOptions(defaultType) + '</select>' +
+          '<input id="vfCategoryCustom" type="text" class="field mt-2 hidden text-xs sm:text-sm" placeholder="Ketik nama kategori transaksi baru…" />' +
+          '</div>' +
+          '<div><label class="lbl">Keterangan / Peruntukan Transaksi <span class="text-red-500">*</span></label>' +
+          '<textarea id="vfDesc" required rows="2" class="field text-xs sm:text-sm" placeholder="Uraian peruntukan atau sumber dana…">' + Auth.esc((prefillData && prefillData.description) || '') + '</textarea></div>' +
           '<div><label class="lbl">Tanggal Transaksi</label>' +
-          '<input id="vfTanggal" type="date" class="field" value="' + new Date().toISOString().slice(0, 10) + '" /></div>' +
+          '<input id="vfTanggal" type="date" class="field text-xs sm:text-sm" value="' + ((prefillData && prefillData.transaction_date) || new Date().toISOString().slice(0, 10)) + '" /></div>' +
           '<div>' +
-          '<label class="lbl">Unggah Bukti Nota / Kuitansi / Struk (Gambar/PDF)</label>' +
+          '<label class="lbl">Unggah Bukti Nota / Kuitansi Fisik (Gambar/PDF)</label>' +
           '<input id="vfReceiptFile" type="file" accept="image/*,application/pdf" class="field text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-light file:text-emerald-dark" />' +
-          '<p class="text-[11px] text-gray-400 mt-1">File akan diunggah otomatis ke Google Drive folder <code>/Keuangan_Bukti_Nota/</code>.</p>' +
+          '<p class="text-[11px] text-gray-400 mt-1">Tersimpan otomatis ke Google Drive <code>/Keuangan_Bukti_Nota/</code>.</p>' +
           '</div>' +
-          '<div><label class="lbl">Atau Tautan Google Drive / Cloud Eksternal (Opsional)</label>' +
-          '<input id="vfReceipt" type="url" class="field text-xs" placeholder="https://drive.google.com/file/d/.../view" />' +
+          '<div><label class="lbl">Atau Tautan Nota di Google Drive (Opsional)</label>' +
+          '<input id="vfReceipt" type="url" class="field text-xs" value="' + Auth.esc((prefillData && prefillData.receipt_url) || '') + '" placeholder="https://drive.google.com/file/d/.../view" />' +
           '</div>' +
-          '<p class="text-xs text-gray-400">Kas Masuk langsung disahkan Bendahara. Kas Keluar diverifikasi bertingkat oleh Bendahara &amp; disetujui Ketua DPW.</p>' +
+          '<div class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs text-gray-500">' +
+          'Dual-Control Rule: Kas Masuk &amp; Kas Keluar &le; Rp 500rb disahkan langsung Bendahara. Pengeluaran &gt; Rp 500rb wajib diverifikasi Ketua DPW.' +
+          '</div>' +
           '<div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">' +
-          '<button type="submit" id="btnSubmitVoucher" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">Simpan Voucher</button>' +
+          '<button type="submit" id="btnSubmitVoucher" class="btn btn-primary flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm">' +
+          (isRevise ? 'Ajukan Ulang Voucher (Revisi Selesai)' : 'Simpan Transaksi Kas') + '</button>' +
           '<button type="button" data-close class="btn btn-ghost px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm">Batal</button>' +
           '</div>' +
           '</form>' +
@@ -3291,6 +3428,15 @@
         var typeSel = document.getElementById('vfType');
         var catSel = document.getElementById('vfCategorySelect');
         var catCust = document.getElementById('vfCategoryCustom');
+        var amtInput = document.getElementById('vfAmount');
+        var tbBox = document.getElementById('vfTerbilangDisplay');
+
+        var updateTb = function () {
+          var val = Number(amtInput.value) || 0;
+          tbBox.textContent = 'Terbilang: ' + self.terbilang(val);
+        };
+        amtInput.addEventListener('input', updateTb);
+        if (amtInput.value) updateTb();
 
         // Ganti kategori saat jenis berubah
         typeSel.addEventListener('change', function () {
@@ -3315,27 +3461,31 @@
         document.getElementById('voucherFormEl').addEventListener('submit', function (e) {
           e.preventDefault();
           var btnSub = document.getElementById('btnSubmitVoucher');
-          if (btnSub) { btnSub.disabled = true; btnSub.textContent = 'Menyimpan...'; }
+          if (btnSub) { btnSub.disabled = true; btnSub.textContent = 'Memproses...'; }
 
           var finalCategory = catSel.value === 'CUSTOM' ? catCust.value.trim() : catSel.value;
           if (!finalCategory) finalCategory = 'Operasional';
 
           var payload = {
+            id: prefillData && isRevise ? prefillData.id : undefined,
             type: document.getElementById('vfType').value,
             account: document.getElementById('vfAccount').value,
             amount: Number(document.getElementById('vfAmount').value),
+            pembayar_penerima: document.getElementById('vfPembayarPenerima').value.trim(),
             category: finalCategory,
             description: document.getElementById('vfDesc').value.trim(),
             transaction_date: document.getElementById('vfTanggal').value,
             receipt_url: (document.getElementById('vfReceipt').value || '').trim()
           };
 
+          var actionName = isRevise ? 'resubmitVoucher' : 'createVoucher';
+
           var doSendVoucher = function () {
-            Auth.fetch('createVoucher', payload).then(function () {
+            Auth.fetch(actionName, payload).then(function () {
               self.closeModal();
-              self.toast('Voucher berhasil dibuat.', 'success', '📲 Kabari via WA', function () {
+              self.toast(isRevise ? 'Voucher berhasil diajukan ulang!' : 'Transaksi berhasil dicatat.', 'success', '📲 Kabari via WA', function () {
                 self.openWhatsApp(self.buildKeuanganWaText({
-                  voucher_number: '(Voucher Baru)',
+                  voucher_number: (prefillData && prefillData.voucher_number) || '(Voucher Baru)',
                   type: payload.type,
                   amount: payload.amount,
                   amount_label: 'Rp ' + Number(payload.amount).toLocaleString('id-ID'),
@@ -3350,8 +3500,9 @@
                 }));
               });
               self.refreshKeuangan();
-            }).catch(function () {
-              if (btnSub) { btnSub.disabled = false; btnSub.textContent = 'Simpan Voucher'; }
+            }).catch(function (err) {
+              if (btnSub) { btnSub.disabled = false; btnSub.textContent = isRevise ? 'Ajukan Ulang Voucher' : 'Simpan Transaksi Kas'; }
+              self.toast(err && err.message ? err.message : 'Gagal menyimpan transaksi.', 'error');
             });
           };
 
@@ -3373,6 +3524,297 @@
       });
     },
 
+    /**
+     * Modal Kalkulator Kas Pra-Transaksi & Simulasi Inflow Digital (Bendahara Suite).
+     * Mencegah salah input, risiko saldo tekor (< 2jt buffer), dan pipa konversi 1-klik.
+     */
+    openKasCalculatorModal: function () {
+      var self = this;
+
+      Auth.fetch('getKasSimulatorData', null).then(function (res) {
+        var d = (res && res.data) || {};
+        var saldoRiil = Number(d.saldo_riil || 0);
+        var safetyBuffer = Number(d.safety_buffer || 2000000);
+        var items = d.items || [];
+        var rates = d.default_rates || { TIKTOK: 50, YOUTUBE: 30, QRIS: 0.7, USD_TO_IDR: 16250 };
+
+        var modalHtml = '<div class="p-4 sm:p-6 select-text">' +
+          '<div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">' +
+          '<div>' +
+          '<h3 class="text-base sm:text-lg font-black text-emerald-950 flex items-center gap-2">' +
+          '<span>Kalkulator Kas &amp; Pipa Proyeksi Digital</span>' +
+          '</h3>' +
+          '<p class="text-xs text-gray-500">Simulasi dampak kas berjalan &amp; kalkulasi penerimaan live streaming dakwah.</p>' +
+          '</div>' +
+          '<button data-close class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>' +
+          '</div>' +
+
+          // Tab Selector
+          '<div class="flex gap-2 border-b border-gray-200 mb-4 pb-1 text-xs font-bold">' +
+          '<button type="button" id="tabBtnExpense" class="px-3.5 py-2 rounded-t-xl bg-emerald-50 text-emerald-900 border-b-2 border-emerald-600">Simulasi Pengeluaran &amp; Saldo Aman</button>' +
+          '<button type="button" id="tabBtnInflow" class="px-3.5 py-2 rounded-t-xl text-gray-500 hover:text-gray-700">Kalkulator Inflow (TikTok/YouTube/QRIS)</button>' +
+          '</div>' +
+
+          // TAB 1: SIMULASI PENGELUARAN & CASH RUN-RATE
+          '<div id="calcTabExpense" class="space-y-4">' +
+          '<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 bg-gray-50 rounded-2xl border border-gray-200 text-xs">' +
+          '<div><span class="text-gray-400 block font-medium">Saldo Kas Riil:</span><span class="font-extrabold text-sm text-emerald-900">Rp ' + saldoRiil.toLocaleString('id-ID') + '</span></div>' +
+          '<div><span class="text-gray-400 block font-medium">Total Rencana Belanja:</span><span id="calcTotalExpenseDisplay" class="font-extrabold text-sm text-red-600">Rp 0</span></div>' +
+          '<div><span class="text-gray-400 block font-medium">Proyeksi Saldo Akhir:</span><span id="calcProjectedSaldoDisplay" class="font-extrabold text-sm text-emerald-900">Rp ' + saldoRiil.toLocaleString('id-ID') + '</span></div>' +
+          '</div>' +
+
+          '<div id="calcBufferAlert" class="hidden p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 font-semibold flex items-center gap-2">' +
+          '<svg class="w-5 h-5 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>' +
+          '<span>PERINGATAN: Pengeluaran ini menyebabkan cadangan kas berada di bawah batas aman operasional (Rp 2.000.000,-)!</span>' +
+          '</div>' +
+
+          '<div class="border border-gray-200 rounded-2xl p-3.5 bg-white">' +
+          '<div class="flex items-center justify-between mb-2">' +
+          '<span class="text-xs font-bold text-gray-700">Rincian Multi-Item Belanja (Scratchpad):</span>' +
+          '<button type="button" id="btnAddCalcRow" class="btn btn-ghost text-xs px-2.5 py-1 text-emerald-800 border border-emerald-300 rounded-lg hover:bg-emerald-50">+ Tambah Baris</button>' +
+          '</div>' +
+          '<div class="space-y-2 max-h-48 overflow-y-auto pr-1" id="calcItemsList">' +
+          '<div class="calc-row grid grid-cols-12 gap-2 items-center">' +
+          '<input type="text" placeholder="Nama Barang / Uraian Belanja" class="field col-span-5 text-xs calc-desc" value="Beli Konsumsi Panitia Kajian" />' +
+          '<input type="number" placeholder="Qty" class="field col-span-2 text-xs calc-qty" value="1" min="1" />' +
+          '<input type="number" placeholder="Harga Satuan (Rp)" class="field col-span-4 text-xs calc-price" value="150000" />' +
+          '<button type="button" class="btn btn-ghost text-red-500 col-span-1 p-1 hover:bg-red-50 rounded calc-del">&times;</button>' +
+          '</div>' +
+          '</div>' +
+          '<div id="calcTerbilangExpense" class="text-xs font-serif italic text-emerald-800 mt-2 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">Terbilang: Seratus Lima Puluh Ribu Rupiah</div>' +
+          '</div>' +
+
+          '<div class="flex flex-col sm:flex-row gap-2.5 justify-end pt-2">' +
+          '<button type="button" id="btnTransferToVoucher" class="btn btn-primary text-xs px-4 py-2.5 rounded-xl font-bold inline-flex items-center gap-1.5 shadow-sm">' +
+          '<span>Transfer Angka ke Voucher Kas Keluar &rarr;</span></button>' +
+          '</div>' +
+          '</div>' +
+
+          // TAB 2: INFLOW CALCULATOR & PIPELINE
+          '<div id="calcTabInflow" class="space-y-4 hidden">' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 border border-gray-200 rounded-2xl p-4 bg-gray-50/50">' +
+          '<div>' +
+          '<label class="lbl">Platform Penerimaan Dakwah</label>' +
+          '<select id="inflowPlatform" class="field text-xs sm:text-sm">' +
+          '<option value="TIKTOK">Gift TikTok Live (Diamonds / Debat Komparasi)</option>' +
+          '<option value="YOUTUBE">YouTube Super Chat &amp; Super Thanks</option>' +
+          '<option value="QRIS">Payment Gateway / QRIS Dinamis</option>' +
+          '<option value="DONATUR_TETAP">Komitmen Donatur Rutin (Pledge)</option>' +
+          '</select>' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Nama Sumber / Donatur</label>' +
+          '<input id="inflowPembayar" type="text" class="field text-xs sm:text-sm" placeholder="cth: Jamaah Live Streaming TikTok / Bpk. Ahmad" />' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Penerimaan Kotor (Gross Rp / USD)</label>' +
+          '<input id="inflowGross" type="number" min="0" step="1" class="field text-xs sm:text-sm font-bold" placeholder="cth: 5000000" />' +
+          '</div>' +
+          '<div>' +
+          '<label class="lbl">Potongan Platform (% / MDR)</label>' +
+          '<input id="inflowFeePct" type="number" step="0.1" class="field text-xs sm:text-sm" value="50" />' +
+          '</div>' +
+          '<div class="col-span-1 sm:col-span-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">' +
+          '<div><span class="text-xs text-gray-500 font-medium block">Estimasi Dana Bersih Masuk Rekening (Net Payout):</span>' +
+          '<span id="inflowNetDisplay" class="text-base sm:text-xl font-black text-emerald-900">Rp 0</span></div>' +
+          '<button type="button" id="btnSaveInflowSim" class="btn btn-primary text-xs px-3.5 py-2 rounded-xl font-bold">Simpan ke Pipa Proyeksi</button>' +
+          '</div>' +
+          '</div>' +
+
+          // List Proyeksi Aktif Cabang
+          '<div>' +
+          '<div class="text-xs font-bold text-gray-700 mb-2">Pipa Proyeksi Pendapatan Digital Aktif (Berlaku 30 Hari):</div>' +
+          '<div class="border border-gray-200 rounded-2xl overflow-hidden">' +
+          '<table class="tbl text-xs w-full"><thead><tr>' +
+          '<th>Platform</th><th>Pihak / Keterangan</th><th>Estimasi Net</th><th>Status</th><th>Aksi Konversi</th>' +
+          '</tr></thead><tbody>' +
+          (items.length ? items.map(function (it) {
+            var isExpired = it.status === 'KADALUARSA';
+            var isCair = it.status === 'DANA_CAIR_MUTASI';
+            var canConvert = !isExpired && !isCair;
+            return '<tr>' +
+              '<td class="font-bold">' + Auth.esc(it.platform) + '</td>' +
+              '<td>' + Auth.esc(it.pembayar || it.keterangan) + '</td>' +
+              '<td class="font-extrabold text-emerald-800">Rp ' + Number(it.net_amount || 0).toLocaleString('id-ID') + '</td>' +
+              '<td>' + (isExpired ? '<span class="badge bg-gray-100 text-gray-600">Kadaluarsa</span>' :
+                       isCair ? '<span class="badge bg-emerald-100 text-emerald-800">Cair &amp; Kwitansi</span>' :
+                       '<span class="badge bg-amber-100 text-amber-800">Proyeksi Aktif</span>') + '</td>' +
+              '<td>' + (canConvert ? '<button type="button" class="btn btn-ghost text-xs px-2.5 py-1 text-emerald-800 border border-emerald-300 rounded-lg hover:bg-emerald-50 btn-convert-sim" data-sim-id="' + it.id + '">Konversi ke Kas &rarr;</button>' : '<span class="text-gray-300">-</span>') + '</td>' +
+              '</tr>';
+          }).join('') : '<tr><td colspan="5" class="text-center text-gray-400 py-4">Belum ada proyeksi inflow digital aktif.</td></tr>') +
+          '</tbody></table>' +
+          '</div>' +
+          '</div>' +
+          '</div>' +
+
+          '</div>';
+
+        self.openModal(modalHtml, 'max-w-3xl');
+
+        // Tab Switching
+        var tabExpense = document.getElementById('calcTabExpense');
+        var tabInflow = document.getElementById('calcTabInflow');
+        var btnTabExp = document.getElementById('tabBtnExpense');
+        var btnTabInf = document.getElementById('tabBtnInflow');
+
+        btnTabExp.addEventListener('click', function () {
+          tabExpense.classList.remove('hidden');
+          tabInflow.classList.add('hidden');
+          btnTabExp.className = 'px-3.5 py-2 rounded-t-xl bg-emerald-50 text-emerald-900 border-b-2 border-emerald-600';
+          btnTabInf.className = 'px-3.5 py-2 rounded-t-xl text-gray-500 hover:text-gray-700';
+        });
+
+        btnTabInf.addEventListener('click', function () {
+          tabInflow.classList.remove('hidden');
+          tabExpense.classList.add('hidden');
+          btnTabInf.className = 'px-3.5 py-2 rounded-t-xl bg-emerald-50 text-emerald-900 border-b-2 border-emerald-600';
+          btnTabExp.className = 'px-3.5 py-2 rounded-t-xl text-gray-500 hover:text-gray-700';
+        });
+
+        // Tab 1 Logic: Multi-item scratchpad
+        var itemsList = document.getElementById('calcItemsList');
+        var totalDisp = document.getElementById('calcTotalExpenseDisplay');
+        var projDisp = document.getElementById('calcProjectedSaldoDisplay');
+        var alertBox = document.getElementById('calcBufferAlert');
+        var tbExp = document.getElementById('calcTerbilangExpense');
+
+        var recalculateExpense = function () {
+          var rows = itemsList.querySelectorAll('.calc-row');
+          var total = 0;
+          rows.forEach(function (r) {
+            var qty = Number(r.querySelector('.calc-qty').value) || 0;
+            var price = Number(r.querySelector('.calc-price').value) || 0;
+            total += (qty * price);
+          });
+          totalDisp.textContent = 'Rp ' + total.toLocaleString('id-ID');
+          var finalSaldo = saldoRiil - total;
+          projDisp.textContent = 'Rp ' + finalSaldo.toLocaleString('id-ID');
+          tbExp.textContent = 'Terbilang: ' + self.terbilang(total);
+
+          if (finalSaldo < safetyBuffer) {
+            alertBox.classList.remove('hidden');
+            projDisp.className = 'font-extrabold text-sm text-red-600';
+          } else {
+            alertBox.classList.add('hidden');
+            projDisp.className = 'font-extrabold text-sm text-emerald-900';
+          }
+        };
+
+        itemsList.addEventListener('input', recalculateExpense);
+
+        document.getElementById('btnAddCalcRow').addEventListener('click', function () {
+          var newRow = document.createElement('div');
+          newRow.className = 'calc-row grid grid-cols-12 gap-2 items-center';
+          newRow.innerHTML = '<input type="text" placeholder="Nama Barang / Uraian Belanja" class="field col-span-5 text-xs calc-desc" />' +
+            '<input type="number" placeholder="Qty" class="field col-span-2 text-xs calc-qty" value="1" min="1" />' +
+            '<input type="number" placeholder="Harga Satuan (Rp)" class="field col-span-4 text-xs calc-price" value="0" />' +
+            '<button type="button" class="btn btn-ghost text-red-500 col-span-1 p-1 hover:bg-red-50 rounded calc-del">&times;</button>';
+          itemsList.appendChild(newRow);
+          recalculateExpense();
+        });
+
+        itemsList.addEventListener('click', function (e) {
+          if (e.target && e.target.classList.contains('calc-del')) {
+            var row = e.target.closest('.calc-row');
+            if (row && itemsList.querySelectorAll('.calc-row').length > 1) {
+              row.remove();
+              recalculateExpense();
+            }
+          }
+        });
+
+        recalculateExpense();
+
+        // Transfer to Kas Keluar Voucher Form
+        document.getElementById('btnTransferToVoucher').addEventListener('click', function () {
+          var rows = itemsList.querySelectorAll('.calc-row');
+          var total = 0;
+          var descriptions = [];
+          rows.forEach(function (r) {
+            var desc = r.querySelector('.calc-desc').value.trim();
+            var qty = Number(r.querySelector('.calc-qty').value) || 0;
+            var price = Number(r.querySelector('.calc-price').value) || 0;
+            if (desc && qty && price) {
+              total += (qty * price);
+              descriptions.push(desc + ' (' + qty + 'x @' + price.toLocaleString('id-ID') + ')');
+            }
+          });
+          self.closeModal();
+          self.voucherForm({
+            type: 'KELUAR',
+            amount: total,
+            description: descriptions.join(', ') || 'Pengeluaran operasional cabang'
+          });
+        });
+
+        // Tab 2 Logic: Inflow Calculator
+        var pSel = document.getElementById('inflowPlatform');
+        var fPct = document.getElementById('inflowFeePct');
+        var gInp = document.getElementById('inflowGross');
+        var netDisp = document.getElementById('inflowNetDisplay');
+
+        var updateInflowRate = function () {
+          var p = pSel.value;
+          fPct.value = rates[p] !== undefined ? rates[p] : 0;
+          calcNet();
+        };
+
+        var calcNet = function () {
+          var gross = Number(gInp.value) || 0;
+          var pct = Number(fPct.value) || 0;
+          var net = gross - Math.round((gross * pct) / 100);
+          netDisp.textContent = 'Rp ' + net.toLocaleString('id-ID');
+        };
+
+        pSel.addEventListener('change', updateInflowRate);
+        fPct.addEventListener('input', calcNet);
+        gInp.addEventListener('input', calcNet);
+
+        // Simpan Proyeksi
+        document.getElementById('btnSaveInflowSim').addEventListener('click', function () {
+          var gross = Number(gInp.value) || 0;
+          if (gross <= 0) {
+            self.toast('Penerimaan kotor harus lebih dari 0.', 'error');
+            return;
+          }
+          var payload = {
+            platform: pSel.value,
+            pembayar: document.getElementById('inflowPembayar').value.trim() || 'Donatur Media Digital',
+            gross_amount: gross,
+            fee_percentage: Number(fPct.value) || 0
+          };
+          Auth.fetch('saveKasSimulation', payload).then(function () {
+            self.toast('Proyeksi inflow berhasil disimpan (Berlaku 30 hari).', 'success');
+            self.openKasCalculatorModal();
+          }).catch(function (e) {
+            self.toast(e && e.message ? e.message : 'Gagal menyimpan proyeksi.', 'error');
+          });
+        });
+
+        // Konversi 1-Klik Proyeksi ke Kas Masuk
+        Array.prototype.forEach.call(document.querySelectorAll('.btn-convert-sim'), function (btn) {
+          btn.addEventListener('click', function () {
+            var sId = btn.getAttribute('data-sim-id');
+            self.confirm('Konversi ke Kas Masuk', 'Proyeksi digital ini akan dicatat menjadi Kwitansi Kas Masuk sah (APPROVED) dan masuk ke saldo buku kas. Lanjutkan?', function () {
+              Auth.fetch('convertSimulationToKas', { id: sId }).then(function (res) {
+                self.toast('Proyeksi berhasil dikonversi menjadi Kwitansi Masuk sah!', 'success');
+                self.closeModal();
+                self.refreshKeuangan();
+              }).catch(function (e) {
+                self.toast(e && e.message ? e.message : 'Gagal mengonversi proyeksi.', 'error');
+              });
+            });
+          });
+        });
+
+        Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
+          b.addEventListener('click', function () { self.closeModal(); });
+        });
+      }).catch(function (e) {
+        self.toast(e && e.message ? e.message : 'Gagal memuat kalkulator kas.', 'error');
+      });
+    },
     // ---------------------------------------------------------------
     // DIVISI KERJA
     // ---------------------------------------------------------------

@@ -39,7 +39,7 @@ SCHEMA[TABS.SURAT] = ['id', 'letter_number', 'title', 'letter_type', 'content', 
 SCHEMA[TABS.KEUANGAN] = ['id', 'voucher_number', 'type', 'account', 'amount', 'category',
   'description', 'transaction_date', 'status', 'verified_by_bendahara',
   'verified_by_bendahara_at', 'verified_by_ketum', 'verified_by_ketum_at',
-  'rejection_notes', 'created_by', 'created_at', 'receipt_url', 'wilayah_id'];
+  'rejection_notes', 'created_by', 'created_at', 'receipt_url', 'wilayah_id', 'doc_type', 'pembayar_penerima', 'terbilang', 'proposal_id', 'void_reason', 'void_by', 'void_at'];
 SCHEMA[TABS.DIVISI] = ['id', 'tracking_id', 'division', 'program_title', 'description',
   'budget_estimate', 'target_audience', 'execution_date', 'status', 'submitted_by',
   'submitted_by_name', 'submitted_at', 'reviewed_by', 'reviewed_at', 'approval_notes',
@@ -56,7 +56,7 @@ SCHEMA[TABS.SETTINGS] = ['key', 'value', 'description', 'updated_by', 'updated_a
 SCHEMA[TABS.WILAYAH] = ['id', 'nama', 'tingkat', 'kode_surat', 'alamat', 'email', 'hotline_wa', 'slug', 'is_active', 'created_at'];
 SCHEMA[TABS.KTA_NASIONAL] = ['no_kta', 'nik', 'full_name', 'wilayah_id', 'status', 'masa_berlaku', 'tgl_terbit', 'qr_token', 'created_at'];
 SCHEMA[TABS.SETTINGS_AUDIT] = ['id', 'wilayah_id', 'key', 'old_value', 'new_value', 'changed_by', 'timestamp'];
-SCHEMA[TABS.KAS_SIMULATOR] = ['id', 'wilayah_id', 'platform', 'gross_amount', 'fee_percentage', 'fee_amount', 'net_amount', 'pembayar', 'keterangan', 'status', 'created_by', 'created_at'];
+SCHEMA[TABS.KAS_SIMULATOR] = ['id', 'wilayah_id', 'platform', 'gross_amount', 'fee_percentage', 'fee_amount', 'net_amount', 'pembayar', 'keterangan', 'status', 'created_by', 'created_at', 'expires_at'];
 
 /**
  * Inisialisasi semua tab + header. Idempoten.
