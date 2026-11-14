@@ -172,6 +172,28 @@
       user-select: none;
       box-shadow: inset 0 0 0 2px currentColor;
     }
+
+    /* Display mode: dynamic viewport height so mobile browser chrome never crops full-height screens */
+    @supports (height: 100dvh) {
+      .min-h-screen { min-height: 100dvh; }
+    }
+    /* Display mode: notch / rounded-corner safe areas for fixed bars (landscape phones, iOS home indicator) */
+    #global-toast { bottom: max(1rem, env(safe-area-inset-bottom)) !important; }
+    header.fixed {
+      padding-left: max(0.75rem, env(safe-area-inset-left));
+      padding-right: max(0.75rem, env(safe-area-inset-right));
+    }
+    /* Display mode: touch targets of 44px on phones, tablets and any coarse pointer */
+    @media (max-width: 1023px), (pointer: coarse) {
+      button, select, summary, [role="button"] { min-height: 44px !important; min-width: 44px; }
+      input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]) { min-height: 44px; }
+      label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) { min-height: 44px; display: flex; align-items: center; gap: 0.5rem; }
+      input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; flex-shrink: 0; }
+    }
+    /* Display mode: micro labels stay legible on phones (11px floor) */
+    @media (max-width: 767px) {
+      .text-\[10px\] { font-size: 11px; }
+    }
   </style>
 </head>
 
@@ -190,8 +212,8 @@
               <img src="./logo_apii.png" alt="Logo Resmi APII" class="h-11 w-auto object-contain"/>
             </div>
             <div>
-              <div class="flex items-center gap-2">
-                <span class="font-display font-extrabold text-xl tracking-tight text-white">SIAP APII</span>
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span class="font-display font-extrabold text-xl tracking-tight text-white whitespace-nowrap">SIAP APII</span>
                 <span class="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/40 text-[10px] font-bold text-emerald-200 uppercase">Enterprise</span>
               </div>
               <span class="text-xs text-emerald-100 block mt-0.5">Portal Administrasi Internal Pengurus</span>
@@ -338,39 +360,39 @@
   <div id="portal-app-shell" class="hidden flex-1 flex flex-col">
 
   <!-- Topbar Header -->
-  <header class="fixed top-0 left-0 lg:left-[260px] right-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 h-16 flex items-center justify-between px-4 lg:px-6">
-    <div class="flex items-center gap-3">
-      <button type="button" onclick="App.openDrawer()" class="lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center rounded border border-slate-200 hover:bg-slate-100 text-slate-800 transition-colors" title="Buka Menu" aria-label="Buka Menu Navigasi">
+  <header class="fixed top-0 left-0 lg:left-[260px] right-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 h-16 flex items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
+    <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+      <button type="button" onclick="App.openDrawer()" class="lg:hidden shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded border border-slate-200 hover:bg-slate-100 text-slate-800 transition-colors" title="Buka Menu" aria-label="Buka Menu Navigasi">
         <span class="material-symbols-outlined text-[24px]">menu</span>
       </button>
 
-      <!-- Official Logo in crisp white badge (shown on mobile; desktop shows logo in permanent sidebar) -->
-      <div class="flex items-center gap-2 lg:hidden">
+      <!-- Official Logo in crisp white badge (shown below lg; desktop shows logo in permanent sidebar). Hidden under 380px so the right-hand controls always fit. -->
+      <div class="hidden min-[380px]:flex items-center gap-2 lg:hidden min-w-0">
         <div class="bg-white p-1 rounded border border-slate-200 flex items-center justify-center shrink-0">
           <img src="./logo_apii.png" alt="Logo Resmi APII" class="h-8 w-auto object-contain"/>
         </div>
-        <div class="flex flex-col">
+        <div class="hidden md:flex flex-col min-w-0">
           <div class="flex items-center gap-1.5">
-            <span class="font-display font-bold text-base text-slate-900 tracking-tight">SIAP APII</span>
+            <span class="font-display font-bold text-base text-slate-900 tracking-tight whitespace-nowrap">SIAP APII</span>
             <span class="text-[10px] uppercase font-extrabold px-1.5 py-0.5 rounded bg-emerald-900 text-white">v3.1</span>
           </div>
-          <span class="text-[10px] text-slate-600 -mt-0.5 font-medium">Yayasan Apologet Islam Indonesia</span>
+          <span class="text-[10px] text-slate-600 -mt-0.5 font-medium truncate">Yayasan Apologet Islam Indonesia</span>
         </div>
       </div>
 
-      <div class="hidden lg:flex flex-col">
-        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Sistem Informasi Administrasi &amp; Keuangan</span>
-        <span class="text-xs font-semibold text-slate-900">Yayasan Apologet Islam Indonesia (SK AHU-0014970.AH.01.04.2023)</span>
+      <div class="hidden lg:flex flex-col min-w-0">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-600 truncate">Sistem Informasi Administrasi &amp; Keuangan</span>
+        <span class="text-xs font-semibold text-slate-900 truncate">Yayasan Apologet Islam Indonesia (SK AHU-0014970.AH.01.04.2023)</span>
       </div>
     </div>
 
     <!-- Tenant & Role Quick Control -->
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
       <!-- Tenant Switcher Pill (Locked for DPW roles) -->
-      <button type="button" id="workspaceSwitchBtn" class="min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-200 bg-slate-100 hover:bg-slate-200 transition-colors text-xs font-semibold text-slate-900">
-        <span id="tenant-lock-indicator" class="w-2 h-2 rounded-full bg-emerald-700"></span>
-        <span id="header-current-tenant" class="truncate max-w-[120px] md:max-w-none">DPP Pusat (Nasional)</span>
-        <span id="tenant-lock-icon" class="material-symbols-outlined text-[16px]">unfold_more</span>
+      <button type="button" id="workspaceSwitchBtn" class="min-h-[44px] flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded border border-slate-200 bg-slate-100 hover:bg-slate-200 transition-colors text-xs font-semibold text-slate-900">
+        <span id="tenant-lock-indicator" class="w-2 h-2 rounded-full bg-emerald-700 shrink-0"></span>
+        <span id="header-current-tenant" class="truncate max-w-[88px] sm:max-w-[120px] md:max-w-none">DPP Pusat (Nasional)</span>
+        <span id="tenant-lock-icon" class="material-symbols-outlined text-[16px] shrink-0">unfold_more</span>
       </button>
 
       <!-- Urgent Counter -->
@@ -379,19 +401,19 @@
         <span id="dash-urgent-count" class="tabular-nums absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-700 text-white text-[10px] font-bold flex items-center justify-center">0</span>
       </button>
 
-      <!-- Authenticated User Identity Pill (Non-switcher) & Explicit Logout Button -->
-      <div id="header-user-pill" class="min-h-[44px] flex items-center gap-2 pl-2 pr-3 py-1 rounded bg-[#064E3B] text-white text-xs shadow-sm">
+      <!-- Authenticated User Identity Pill (Non-switcher) & Explicit Logout Button. Pill appears from 640px; name/role text from 1280px; below that the drawer carries identity. -->
+      <div id="header-user-pill" class="hidden sm:flex min-h-[44px] items-center gap-2 pl-2 pr-2 xl:pr-3 py-1 rounded bg-[#064E3B] text-white text-xs shadow-sm">
         <div class="w-7 h-7 rounded bg-white/15 text-white flex items-center justify-center font-bold text-xs shrink-0">
           <span class="material-symbols-outlined text-[16px]">account_circle</span>
         </div>
-        <div class="hidden sm:flex flex-col text-left">
+        <div class="hidden xl:flex flex-col text-left">
           <span id="header-user-name" class="font-bold text-[11px] leading-tight truncate max-w-[140px]">Pengurus APII</span>
           <span id="header-user-role" class="text-[10px] text-emerald-100 leading-tight truncate max-w-[140px]">Jabatan</span>
         </div>
       </div>
 
       <button type="button" id="btn-topbar-logout" onclick="Auth.logout()"
-        class="min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded bg-red-700 hover:bg-red-800 text-white transition-colors text-xs font-bold shadow-sm"
+        class="min-w-[44px] min-h-[44px] flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded bg-red-700 hover:bg-red-800 text-white transition-colors text-xs font-bold shadow-sm"
         title="Keluar dan kembali ke halaman Login" aria-label="Keluar dari Portal Pengurus">
         <span class="material-symbols-outlined text-[18px]">logout</span>
         <span class="hidden sm:inline">Keluar</span>
@@ -518,20 +540,20 @@
     <div id="workspace-dashboard" class="workspace-pane flex flex-col gap-6 py-4">
       <!-- Executive Banner -->
       <div class="relative overflow-hidden rounded-2xl bg-primary-container text-white p-6 shadow-md">
-        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div class="flex items-center gap-2 mb-2">
+        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
               <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/10 backdrop-blur-md text-primary-fixed">KONTROL PIMPINAN</span>
               <span class="text-xs text-primary-fixed">• Sesi Terverifikasi 7-Hari</span>
             </div>
-            <h1 class="font-display font-bold text-2xl md:text-3xl">Pusat Komando & Administrasi SIAP APII</h1>
+            <h1 class="font-display font-bold text-xl sm:text-2xl md:text-3xl">Pusat Komando & Administrasi SIAP APII</h1>
             <p class="text-sm text-primary-fixed mt-1">Tata kelola dakwah terpusat, persuratan dinas berstempel digital, dan transparansi 4 kantong kas syar'i.</p>
           </div>
-          <div class="flex items-center gap-3">
-            <button type="button" id="dash-btn-surat" onclick="App.switchWorkspace('surat')" class="px-4 py-2 rounded-xl bg-primary-fixed text-on-primary-fixed-variant font-bold text-sm hover:brightness-105 shadow transition-all">
+          <div class="flex flex-wrap items-center gap-3 shrink-0">
+            <button type="button" id="dash-btn-surat" onclick="App.switchWorkspace('surat')" class="min-h-[44px] px-4 py-2 rounded-xl bg-primary-fixed text-on-primary-fixed-variant font-bold text-sm whitespace-nowrap hover:brightness-105 shadow transition-all">
               + Buat Surat A4
             </button>
-            <button type="button" id="dash-btn-kas" onclick="App.switchWorkspace('kas')" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 font-semibold text-sm backdrop-blur-md transition-all">
+            <button type="button" id="dash-btn-kas" onclick="App.switchWorkspace('kas')" class="min-h-[44px] px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 font-semibold text-sm whitespace-nowrap backdrop-blur-md transition-all">
               Buka Kas Syar'i
             </button>
           </div>
@@ -554,7 +576,7 @@
       </div>
 
       <!-- Quick Stats Counters -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 min-[420px]:grid-cols-2 xl:grid-cols-4 gap-4">
         <div class="p-4 rounded-lg bg-white border border-slate-200 shadow-sm">
           <span class="text-xs text-slate-600 font-medium">Total Saldo 4 Kantong Kas</span>
           <h4 id="dash-total-kas" class="tabular-nums font-display font-extrabold text-xl text-slate-900 mt-1">Rp 336.150.000</h4>

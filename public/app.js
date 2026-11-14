@@ -1312,15 +1312,15 @@ const PublicApp = (() => {
       const mapsUrl = buildGoogleMapsPinUrl(t);
       const infoCard = isSel
         ? `<div style="margin-top:6px;min-width:210px;max-width:260px;background:rgba(255,255,255,0.97);border:1px solid #cbd5e1;border-radius:10px;padding:8px 10px;box-shadow:0 8px 20px rgba(0,0,0,0.22);text-align:left;">
-             <div style="font-size:10px;font-weight:800;color:#064e3b;text-transform:uppercase;">${escapeHtml(t.level || 'WILAYAH')}</div>
+              <div style="font-size:11px;font-weight:800;color:#064e3b;text-transform:uppercase;">${escapeHtml(t.level || 'WILAYAH')}</div>
              <div style="font-size:12px;font-weight:800;color:#0f172a;margin:2px 0;">${escapeHtml(t.name)}</div>
-             <div style="font-size:10px;color:#475569;line-height:1.35;margin-bottom:6px;">${escapeHtml(t.address || t.city || '')}</div>
-             <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;padding:3px 7px;border-radius:6px;text-decoration:none;">Rute Google Maps</a>
+             <div style="font-size:11px;color:#475569;line-height:1.35;margin-bottom:6px;">${escapeHtml(t.address || t.city || '')}</div>
+             <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:44px;font-size:11px;font-weight:700;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;padding:3px 12px;border-radius:6px;text-decoration:none;">Rute Google Maps</a>
            </div>`
         : '';
 
       return `<div style="position:absolute;left:${px}px;top:${py}px;transform:translate(-50%,-100%);z-index:${zIdx};display:flex;flex-direction:column;align-items:center;">
-        <button type="button" onclick="PublicApp.switchTenantManually('${escapeHtml(t.slug)}')" title="${escapeHtml(t.name)}" style="display:flex;align-items:center;gap:5px;background:none;border:none;padding:0;cursor:pointer;">
+        <button type="button" onclick="PublicApp.switchTenantManually('${escapeHtml(t.slug)}')" title="${escapeHtml(t.name)}" style="display:flex;align-items:center;gap:5px;background:none;border:none;padding:9px 6px;margin:-9px -6px;cursor:pointer;">
           <span style="width:26px;height:26px;border-radius:9999px 9999px 9999px 0;transform:rotate(-45deg);background:${pinBg};border:2.5px solid #ffffff;box-shadow:0 3px 10px rgba(0,0,0,0.4);display:inline-flex;align-items:center;justify-content:center;">
             <span style="width:9px;height:9px;border-radius:9999px;background:${ringClr};transform:rotate(45deg);display:block;"></span>
           </span>

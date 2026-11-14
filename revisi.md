@@ -61,3 +61,40 @@ Sesuai instruksi pengguna dan persetujuan **"OKE TERAPKAN"**, modul Pengaturan S
    - Menambahkan akun ke-18 `USR-018` (`anggota_jabo` / `Ust. Fajar Ramadhan, S.Sos.` - Da'i Lapangan DPW Jabodetabek).
 3. **Penyelarasan Modal User Form (`#modal-user-form`)**:
    - Menyelaraskan opsi peran ke 8 role ID baku dan menambahkan selektor otomatis 7 Divisi Kerja Resmi ART Yayasan APII Pasal 16.
+
+---
+
+## 4. Revisi v3.1.0: Pemisahan Publik/Pengurus, Dual-Layer Maps, Login Demo123, Otorisasi Ketua, & Display Mode All-Device
+*Status: SELESAI DITERAPKAN & TERVERIFIKASI PENUH (14-11-2026)*
+
+1. **Pembersihan Website Publik dari Akses Portal Pengurus**:
+   - Menghapus seluruh tautan, tombol, dan rujukan ke Portal Pengurus di seluruh halaman Website Publik (`/` dan `#/*`).
+   - Portal Publik difokuskan 100% untuk layanan umat: profil kelembagaan, pendaftaran KTA gratis, transparansi donasi QRIS, warta maklumat, agenda dakwah, konsultasi akidah, advokasi LBH, dan Unified Verification Hub.
+
+2. **Arsitektur Dual-Layer Geospatial Map Hub**:
+   - Mengatasi isu tile Google Maps lambat/stuck pada muatan awal peramban dengan arsitektur **Dual-Layer Render**:
+     - *Layer 0 (Underlay):* CARTO Voyager / Esri World Imagery + fallback OSM untuk render kilat (<150ms).
+     - *Layer 1 (Overlay):* Google Maps Tile (`mt0..mt3.google.com/vt/lyrs=m|y`) yang di-fade-in otomatis saat tile siap.
+   - Dilengkapi `ResizeObserver`, sinkronisasi viewport otomatis pada navigasi rute beranda, dan validasi koordinat aman (`lat !== 0 && lng !== 0`).
+
+3. **Gerbang Login Pengurus Mandiri & Password Seragam "Demo123"**:
+   - Halaman login mandiri `#portal-login-screen` di Portal Pengurus (`/portal/`).
+   - Standarisasi kata sandi demo seluruh akun pengurus menjadi `"Demo123"` dengan tombol pemilih cepat (quick selector).
+   - Fitur toggle sembunyikan/tampilkan kata sandi.
+   - Tombol pergantian akun langsung digantikan dengan tombol **Keluar (Logout)** resmi yang membersihkan sesi dan kembali ke layar login tanpa residu.
+   - Pergantian akun pengurus via login langsung memperbarui seluruh hak akses, workspace, dan state tanpa jeda/reload.
+
+4. **Penyederhanaan Fitur & Otorisasi Eksekutif Ketua**:
+   - Peran `ketua` (`Ketua Umum (DPP) / Ketua DPW`) disederhanakan murni untuk pengawasan eksekutif & otorisasi tingkat akhir.
+   - Hak akses workspace dibatasi strictly ke **6 workspace**: `dashboard`, `surat`, `disposisi`, `kas`, `proker`, `keanggotaan`.
+   - Modul operasional divisi teknis (`advokasi`, `muallaf`, `maktabah`, `sistem`) disembunyikan dari Ketua.
+   - Form pembuatan surat milik Sekretaris `#surat-composer-panel` disembunyikan untuk Ketua, panel pratinjau diperlebar (`lg:col-span-12`), dan judul berganti menjadi **Pengesahan Surat Dinas Resmi (Ketua)** lengkap dengan banner instruksi otorisasi eksekutif.
+   - Tombol aksi utama Dashboard disesuaikan menjadi **Pengesahan Surat** dan **Otorisasi Kas Tahap 2**.
+
+5. **Audit & Optimasi Display Mode All-Device (13 Viewport)**:
+   - Pengujian live otomatis via Headless Chrome CDP melintasi 13 variasi layar (320px, 360px, 390px, 430px, 844px landscape, 600px, 768px, 820px, 1024px landscape, 1280px, 1366px, 1920px, 2560px) mencakup seluruh 8 rute publik dan 10 workspace portal (247 kombinasi).
+   - **Zero Horizontal Overflow:** `H_OVERFLOW_PAGES = 0` (seluruh overflow horizontal pada mobile tereliminasi).
+   - **Dynamic Viewport & Safe-Area Insets:** Menggunakan `100dvh` dan `env(safe-area-inset-*)` untuk kenyamanan perangkat berlekuk (notch) atau bilah navigasi gestur.
+   - **Standarisasi Touch Target 44×44px:** Seluruh tombol navigasi, select, link footer, form checkbox/radio, dan pin peta memenuhi standar ergonomi sentuh mobile/tablet.
+   - **Reflow Responsif 3-State:** Grid ringkasan dashboard, hero CTA, dan topbar drawer bertransisi mulus dari layar ponsel terkecil hingga monitor ultrawide.
+
