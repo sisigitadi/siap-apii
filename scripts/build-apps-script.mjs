@@ -1,100 +1,95 @@
-// ============================================================================
-// build-apps-script.mjs (Cross-Platform Node.js Builder)
-// ============================================================================
-// Menggabungkan seluruh berkas gas/*.gs menjadi apps-script/Backend.gs
-// dengan transformasi namespace otomatis (Modul.fn -> fn) yang bekerja di
-// semua sistem operasi (Windows, Linux, macOS).
-//
-// Pakai: node scripts/build-apps-script.mjs
-// ============================================================================
+/**
+ * SIAP APII v3.0.0 Enterprise - build-apps-script.mjs
+ * Validasi Sintaks Otomatis & Bundler Multi-Modul Apps Script ke build/dist_Code.gs
+ * 
+ * Pengembang: Sigit Adi Irianto (https://sigitadi.id | 0813-5857-5678)
+ * Hak Cipta: Yayasan Apologet Islam Indonesia (APII) - SK Kemenkumham: AHU-0014970.AH.01.04.Tahun 2023
+ */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
 
-const SRC_DIR = 'gas';
-const OUT_DIR = 'apps-script';
+const srcDir = path.resolve('apps-script');
+const buildDir = path.resolve('build');
+const distFile = path.join(buildDir, 'dist_Code.gs');
 
-if (!existsSync(OUT_DIR)) {
-  mkdirSync(OUT_DIR, { recursive: true });
+if (!fs.existsSync(buildDir)) {
+  fs.mkdirSync(buildDir, { recursive: true });
 }
 
-// ---------------------------------------------------------------------------
-// 0) Pra-pemeriksaan routes whitelist
-// ---------------------------------------------------------------------------
-try {
-  execFileSync('node', ['scripts/validate-routes-whitelist.mjs'], { stdio: 'inherit' });
-} catch (err) {
-  console.error('\x1b[31mPRA-PERIKSAAN ROUTES GAGAL: perbaiki daftar putih sebelum build.\x1b[0m');
+// Urutan penggabungan modul yang aman (Database & Auth terlebih dahulu)
+const order = [
+  'Database.gs',
+  'Auth.gs',
+  'HijriEngine.gs',
+  'TemplateSuratDocs.gs',
+  'Surat.gs',
+  'SuratMasuk.gs',
+  'Disposisi.gs',
+  'ShariaGuard.gs',
+  'KwitansiEngine.gs',
+  'Keuangan.gs',
+  'Divisi.gs',
+  'Keanggotaan.gs',
+  'InovasiDakwah.gs',
+  'NotificationDispatcher.gs',
+  'DriveVault.gs',
+  'Setup.gs',
+  'Code.gs'
+];
+
+console.log('=== MEMULAI VALIDASI & BUILD BACKEND GOOGLE APPS SCRIPT ===\n');
+
+let combinedCode = `/**
+ * SIAP APII v3.0.0 Enterprise - dist_Code.gs (Bundled Distribution)
+ * Single-File Distribution untuk Google Apps Script Web App
+ * 
+ * Tanggal Kompilasi: ${new Date().toISOString()}
+ * Pengembang: Sigit Adi Irianto (https://sigitadi.id | 0813-5857-5678)
+ * Yayasan Apologet Islam Indonesia (APII) - SK Kemenkumham: AHU-0014970.AH.01.04.Tahun 2023
+ */
+
+`;
+
+let hasError = false;
+let totalLines = 0;
+
+for (const filename of order) {
+  const filePath = path.join(srcDir, filename);
+  if (!fs.existsSync(filePath)) {
+    console.warn(`[SKIP] Berkas tidak ditemukan: ${filename}`);
+    continue;
+  }
+
+  const content = fs.readFileSync(filePath, 'utf8');
+  const lines = content.split('\n').length;
+  totalLines += lines;
+
+  // Uji Sintaks via Node.js vm
+  try {
+    // Wrap di function untuk memvalidasi syntax tanpa mengeksekusi
+    new vm.Script(`function __syntaxTest_${filename.replace(/\W/g, '_')}() {\n${content}\n}`);
+    console.log(`[PASS] ${filename.padEnd(26)} : ${lines} baris (${content.length} bytes)`);
+  } catch (err) {
+    console.error(`[FAIL] ${filename} - Sintaks Error:`, err.message);
+    hasError = true;
+  }
+
+  combinedCode += `\n// ============================================================================\n`;
+  combinedCode += `// BERKAS: ${filename}\n`;
+  combinedCode += `// ============================================================================\n\n`;
+  combinedCode += content + `\n`;
+}
+
+if (hasError) {
+  console.error('\n[GAGAL] Terdapat kesalahan sintaks pada berkas modul Apps Script. Build dibatalkan.');
   process.exit(1);
 }
 
-// ---------------------------------------------------------------------------
-// 1) Kompilasi Backend.gs
-// ---------------------------------------------------------------------------
-const ORDER = ['00-Konfig', 'Utils', 'Database', 'Auth', 'Surat', 'Keuangan', 'Divisi', 'Code', '99-TemplateSurat'];
+fs.writeFileSync(distFile, combinedCode, 'utf8');
+console.log(`\n[SUKSES] Seluruh modul berhasil divalidasi dan digabungkan!`);
+console.log(`Berkas Output : ${distFile}`);
+console.log(`Total Baris   : ${totalLines} baris`);
+console.log(`Ukuran Berkas : ${(combinedCode.length / 1024).toFixed(2)} KB\n`);
 
-const FN_NAMES = [
-  'hashPassword','login','loginWithGoogle','logout','verifySession','me','getListPengguna',
-  'createPengguna','updatePengguna','getAuditLogs',
-  'registerAnggota','getListPendaftar','verifyPendaftarSekretaris','approvePendaftarKetum','rejectPendaftar',
-  'exportPendaftar','getKtaNasionalList','verifyKtaPublic','generateLegacyClaimToken','claimLegacyKta','saveUploadToDrive_',
-  'initSchema','readAll','findOne','findMany','insert','updateRow','deleteRow',
-  'nextSequence','getPartitionedSequenceKey','seedDefaultAccounts_','seedDefaultSettings_',
-  'uuid','audit','formatRupiah','formatTanggal','toRoman','sanitizeUser','getDashboard',
-  'terbilang','getSettingValue_','setSettingValue_','getSettings','saveSettings','getPublicSettings','getPublicWilayahList','uploadKopImage','testDriveStorage',
-  'getEditorialContent','saveEditorialContent',
-  'createDriveFolder','moveDriveFolder','resetDriveStorage','initHierarchyFolders','getDriveStorageStatus','getListVaultFiles','softDeleteVaultFile','restoreVaultFile','purgeTrashVault','resolveStorageFolder_',
-  'getListSurat','createSurat','updateSurat','submitSurat','approveSurat',
-  'rejectSurat','verifySurat','getPublishedSurat','reserveLetterNumber','getLetterTypesMap_',
-  'getSaldo','getListKeuangan','createVoucher','updateVoucherReceipt','verifyVoucherBendahara',
-  'verifyVoucherKetum','rejectVoucher','resubmitVoucher','voidVoucher','getVoucherDetail','getKasSimulatorData','saveKasSimulation','convertSimulationToKas','buildVoucherNumber','getBranchShortCode_','getAccountLabels_','getAccounts','saveAccount','deleteAccount','getPublicAccounts','verifyKwitansiPublic',
-  'getListDivisi','createSubmission','updateSubmission','ajukanSubmission',
-  'approveSubmission','rejectSubmission','startExecution','submitLPJ','buildTrackingId',
-  'getFormasiPengurus','savePejabatFormasi','createPltDelegasi','getListPltDelegasi','revokePltDelegasi','generateSkPengurus',
-  'siapkanFolderPdf_','siapkanTemplateSurat_','generateTemplateSurat',
-  'getLogoBlob_','getStempelBlob_','urlVerifikasiSurat_','parSurat_'
-];
-
-const fnPattern = FN_NAMES.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-const nsRegex = new RegExp(`(?<![\\w.])(?:Auth|Database|Utils|Surat|Keuangan|Divisi)\\.(${fnPattern})(?![\\w])`, 'g');
-
-const chunks = [];
-let totalReplaced = 0;
-
-for (const name of ORDER) {
-  const path = join(SRC_DIR, `${name}.gs`);
-  if (!existsSync(path)) {
-    throw new Error(`File tidak ditemukan: ${path}`);
-  }
-  let content = readFileSync(path, 'utf8');
-  const matches = content.match(nsRegex);
-  if (matches) {
-    totalReplaced += matches.length;
-  }
-  content = content.replace(nsRegex, '$1');
-
-  chunks.push(
-    '/' + '*'.repeat(76) + '\n' +
-    ` * ${name}.gs\n` +
-    ' ' + '*'.repeat(77) + '/\n' +
-    content.trimEnd() + '\n\n'
-  );
-}
-
-const backend = chunks.join('');
-
-// Verifikasi tidak ada namespace tertinggal (kecuali referensi file *.gs)
-const danglingRegex = /(?<![\w.])(?:Auth|Database|Utils|Surat|Keuangan|Divisi)\.(?!gs\b)[a-zA-Z0-9_]+/g;
-const unreplaced = backend.match(danglingRegex);
-if (unreplaced && unreplaced.length > 0) {
-  const bad = Array.from(new Set(unreplaced)).join(', ');
-  throw new Error(`Ditemukan referensi namespace yang belum diganti di Backend.gs: ${bad}`);
-}
-
-const outBackend = join(OUT_DIR, 'Backend.gs');
-writeFileSync(outBackend, backend, 'utf8');
-
-console.log(`Namespace terganti: ${totalReplaced} referensi (semua bersih, 0 namespace tertinggal)`);
-console.log(`Backend.gs        : ${backend.length} karakter`);
-console.log(`Selesai -> ${outBackend}`);

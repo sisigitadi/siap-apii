@@ -1,0 +1,23 @@
+{
+  "name": "Yayasan Apologet Islam Indonesia",
+  "short_name": "APII Pusat",
+  "description": "Portal Resmi Dakwah, Transparansi Infaq & Layanan Keanggotaan Yayasan Apologet Islam Indonesia",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#003527",
+  "theme_color": "#003527",
+  "icons": [
+    {
+      "src": "./logo_apii.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./logo_apii.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,494 +1,310 @@
-﻿/****************************************************************************
- * Keuangan.gs - dibangkitkan otomatis; JANGAN diedit manual.
- * Sumber: gas/Keuangan.gs (scripts/build-apps-script.ps1)
- *****************************************************************************/
 /**
- * ============================================================================
- * Keuangan.gs — Modul Buku Kas & Voucher (Dual Approval)
- * ============================================================================
- * State machine:
- *   PENDING --verify(BENDAHARA)--> VERIFIED_BY_BENDAHARA --verify(KETUA)--> APPROVED
- *   setiap tahap bisa --reject--> REJECTED (catatan wajib)
- * Hanya voucher APPROVED yang masuk perhitungan saldo.
- *
- * Nomor voucher otomatis: {urut}/KEU-APII/JABO/{romawi bulan}/{tahun}
- * ==========================================================================*/
+ * SIAP APII v3.0.0 Enterprise - Keuangan.gs
+ * Pembukuan Kas Syar'i 4 Kantong, Alur Dual-Approval, Batas Kas Tunai & Rekonsiliasi Bulanan
+ * 
+ * Pengembang: Sigit Adi Irianto (https://sigitadi.id | 0813-5857-5678)
+ * Hak Cipta: Yayasan Apologet Islam Indonesia (APII) - SK Kemenkumham: AHU-0014970.AH.01.04.Tahun 2023
+ */
 
-var ACCOUNT_LABELS = {
-  KAS_BSI: 'Kas BSI', BRANKAS: 'Brankas', MANDIRI_WAKAF: 'Bank Mandiri Wakaf'
-};
+/**
+ * Mengambil Mutasi Buku Kas & Ringkasan Saldo 4 Kantong Syariah
+ */
+function handleGetKeuanganList_(session, payload) {
+  var reqWilayah = payload && payload.wilayah_id ? payload.wilayah_id : session.wilayahId;
+  var targetWilayah = resolveAuthorizedWilayah_(session, reqWilayah);
 
-/** Ambil label akun kas dinamis dari Sheet_Accounts. */
-function getAccountLabels_() {
-  try {
-    var rows = readAll(TABS.ACCOUNTS);
-    if (rows && rows.length > 0) {
-      var map = {};
-      rows.forEach(function (r) {
-        if (r.is_active === 'TRUE' || r.is_active === true) {
-          map[r.code] = r.name || r.bank_name || r.code;
-        }
-      });
-      if (Object.keys(map).length > 0) return map;
+  var filter = targetWilayah === 'ALL' ? null : { wilayah_id: targetWilayah };
+  var rawList = dbFind('Sheet_Keuangan', filter, 300);
+
+  var saldo = {
+    total: 0,
+    zakat: 0,
+    infaqDakwah: 0,
+    wakaf: 0,
+    amilOperasional: 0
+  };
+
+  var list = rawList.map(function(row) {
+    var nominal = Number(row[COL_KEUANGAN.NOMINAL]) || 0;
+    var tipe = row[COL_KEUANGAN.TIPE]; // MASUK atau KELUAR
+    var status = row[COL_KEUANGAN.STATUS_APPROVAL];
+    var kantong = row[COL_KEUANGAN.KANTONG_SYARIAH] || 'INFAQ_DAKWAH';
+
+    // Saldo hanya dipengaruhi transaksi yang APPROVED
+    if (status === 'APPROVED') {
+      var multiplier = (tipe === 'MASUK') ? 1 : -1;
+      var net = nominal * multiplier;
+
+      saldo.total += net;
+      if (kantong === 'ZAKAT') saldo.zakat += net;
+      else if (kantong === 'WAKAF') saldo.wakaf += net;
+      else if (kantong === 'AMIL_OPERASIONAL') saldo.amilOperasional += net;
+      else saldo.infaqDakwah += net;
     }
-  } catch (e) {}
-  return ACCOUNT_LABELS;
-}
 
-/** Bangun nomor voucher baru (increment counter per tahun). */
-function buildVoucherNumber(transactionDate) {
-  var d = new Date(transactionDate || new Date());
-  var tahun = d.getFullYear();
-  var bulan = toRoman(d.getMonth() + 1);
-  var urut = nextSequence('KEU:' + tahun);
-  var urutStr = String(urut);
-  while (urutStr.length < 3) urutStr = '0' + urutStr;
-
-  var finCfg = getSettingValue_('finance_config', {
-    voucher_pattern: '{urut}/KEU-APII/JABO/{bulanRomawi}/{tahun}'
-  });
-  var pat = (finCfg && finCfg.voucher_pattern) || '{urut}/KEU-APII/JABO/{bulanRomawi}/{tahun}';
-  return pat
-    .replace('{urut}', urutStr)
-    .replace('{bulanRomawi}', bulan)
-    .replace('{tahun}', String(tahun));
-}
-
-/**
- * getSaldo: total saldo kas dari voucher APPROVED (MASUK - KELUANGAN).
- * KEUANGAN_READ_ROLES.
- */
-function getSaldo(ctx) {
-  var rows = readAll(TABS.KEUANGAN).filter(function (k) {
-    return k.status === 'APPROVED';
-  });
-  var masuk = 0, keluar = 0;
-  rows.forEach(function (k) {
-    var amt = Number(k.amount) || 0;
-    if (k.type === 'MASUK') masuk += amt; else keluar += amt;
-  });
-  // Rincian per akun dinamis.
-  var accMap = getAccountLabels_();
-  var perAccount = {};
-  for (var acc in accMap) {
-    var m = 0, k2 = 0;
-    rows.forEach(function (r) {
-      if (r.account !== acc) return;
-      var amt = Number(r.amount) || 0;
-      if (r.type === 'MASUK') m += amt; else k2 += amt;
-    });
-    perAccount[acc] = { label: accMap[acc], masuk: m, keluar: k2, saldo: m - k2 };
-  }
-  return { ok: true,
-    data: { saldo: masuk - keluar, total_masuk: masuk, total_keluar: keluar,
-            per_account: perAccount },
-    message: 'Saldo kas berhasil dimuat.' };
-}
-
-/**
- * getListKeuangan: daftar voucher + filter + paginasi. KEUANGAN_READ_ROLES.
- * @param {object} ctx.payload { status?, type?, q?, limit?, page? }
- */
-function getListKeuangan(ctx) {
-  var p = ctx.payload || {};
-  var limit = Math.min(Number(p.limit) || 20, 100);
-  var page = Math.max(Number(p.page) || 1, 1);
-  var q = String(p.q || '').toLowerCase();
-
-  var rows = readAll(TABS.KEUANGAN);
-  if (q) {
-    rows = rows.filter(function (k) {
-      return (k.voucher_number || '').toLowerCase().indexOf(q) !== -1 ||
-             (k.description || '').toLowerCase().indexOf(q) !== -1 ||
-             (k.category || '').toLowerCase().indexOf(q) !== -1;
-    });
-  }
-  if (p.status) rows = rows.filter(function (k) { return k.status === p.status; });
-  if (p.type) rows = rows.filter(function (k) { return k.type === p.type; });
-
-  rows.sort(function (a, b) {
-    return (b.transaction_date || '').localeCompare(a.transaction_date || '');
-  });
-
-  var total = rows.length;
-  var start = (page - 1) * limit;
-  var accLabels = getAccountLabels_();
-  var items = rows.slice(start, start + limit).map(function (k) {
     return {
-      id: k.id, voucher_number: k.voucher_number, type: k.type,
-      account: k.account, account_label: accLabels[k.account] || k.account,
-      amount: Number(k.amount) || 0, amount_label: formatRupiah(k.amount),
-      category: k.category, description: k.description,
-      transaction_date: k.transaction_date,
-      tanggal_label: formatTanggal(k.transaction_date),
-      status: k.status, status_label: STATUS_LABELS[k.status] || k.status,
-      receipt_url: k.receipt_url || '',
-      verified_by_bendahara: k.verified_by_bendahara,
-      verified_by_bendahara_at: k.verified_by_bendahara_at,
-      verified_by_ketum: k.verified_by_ketum, verified_by_ketum_at: k.verified_by_ketum_at,
-      rejection_notes: k.rejection_notes, created_by: k.created_by
+      id: row[COL_KEUANGAN.ID],
+      wilayahId: row[COL_KEUANGAN.WILAYAH_ID],
+      noVoucher: row[COL_KEUANGAN.NO_VOUCHER],
+      tipe: tipe,
+      kantongSyariah: kantong,
+      kategori: row[COL_KEUANGAN.KATEGORI],
+      nominal: nominal,
+      tanggal: row[COL_KEUANGAN.TANGGAL],
+      keterangan: row[COL_KEUANGAN.KETERANGAN],
+      buktiUrl: row[COL_KEUANGAN.BUKTI_URL],
+      status: status,
+      statusApproval: status,
+      verifiedBendahara: row[COL_KEUANGAN.VERIFIED_BENDAHARA_BY],
+      approvedKetua: row[COL_KEUANGAN.APPROVED_KETUA_BY],
+      noKwitansi: row[COL_KEUANGAN.NO_KWITANSI],
+      createdAt: row[COL_KEUANGAN.CREATED_AT]
     };
   });
 
-  return { ok: true, data: { items: items, total: total, page: page, limit: limit },
-    message: 'Daftar voucher berhasil dimuat.' };
+  return { ok: true, saldo: saldo, list: list };
 }
 
 /**
- * createVoucher: buat voucher baru berstatus PENDING. SUPERADMIN, BENDAHARA.
- * @param {object} ctx.payload { type, account, amount, category, description,
- *                                transaction_date, receipt_url }
+ * Helper Internal Pembukuan Kas Masuk (BKM) untuk Auto-Refund LPJ Divisi & Sistem Internal
  */
-function createVoucher(ctx) {
-  var p = ctx.payload || {};
-  if (!p.type || (p.type !== 'MASUK' && p.type !== 'KELUAR')) {
-    return { ok: false, data: null, message: 'Jenis transaksi harus MASUK atau KELUAR.' };
-  }
-  var accMap = getAccountLabels_();
-  if (!accMap[p.account]) {
-    return { ok: false, data: null, message: 'Akun kas tidak valid.' };
-  }
-  var amount = Number(p.amount);
-  if (!amount || amount <= 0) {
-    return { ok: false, data: null, message: 'Nilai transaksi harus lebih dari 0.' };
-  }
-  if (!p.description || !String(p.description).trim()) {
-    return { ok: false, data: null, message: 'Keterangan transaksi wajib diisi.' };
-  }
+function recordInternalKasMasuk_(wilayahId, nominal, kantong, kategori, keterangan, actorUsername, actorUserId, tanggal, buktiUrl) {
+  return withScriptLock_(function() {
+    var now = new Date();
+    var numNominal = Number(nominal) || 0;
+    if (numNominal <= 0) {
+      return { ok: false, error: 'Nominal kas masuk harus lebih besar dari 0.' };
+    }
 
-  var tanggal = p.transaction_date || new Date().toISOString().slice(0, 10);
-  var vNumber = buildVoucherNumber(tanggal);
-  var receiptUrl = String(p.receipt_url || '').trim();
+    var seqBkm = getNextSequence(wilayahId, 'KAS_BKM');
+    var padSeq = ('000' + seqBkm).slice(-3);
+    var ym = Utilities.formatDate(now, 'Asia/Jakarta', 'yyyyMM');
+    var noVoucher = 'BKM-' + ym + '-' + padSeq;
+    var noKwitansi = 'KW-IN-' + ym + '-' + padSeq;
+    var id = 'KEU-' + Utilities.formatDate(now, 'Asia/Jakarta', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 1000);
 
-  // Unggah berkas nota/kuitansi ke Drive jika ada
-  if (p.receipt_base64) {
-    var safeName = (p.receipt_name || ('Nota_' + vNumber.replace(/[^a-zA-Z0-9]/g, '_') + '.jpg'));
-    receiptUrl = saveUploadToDrive_(p.receipt_base64, safeName, 'Keuangan_Bukti_Nota') || receiptUrl;
-  }
+    var rowArray = [
+      id,
+      wilayahId,
+      noVoucher,
+      'MASUK',
+      kantong || 'INFAQ_DAKWAH',
+      kategori || 'Infaq Dakwah Umum',
+      numNominal,
+      tanggal || Utilities.formatDate(now, 'Asia/Jakarta', 'dd-MM-yyyy'),
+      keterangan || 'Penerimaan Infaq / Donasi Dakwah',
+      buktiUrl || '',
+      'APPROVED',
+      actorUsername || 'SYSTEM',
+      actorUsername || 'SYSTEM',
+      noKwitansi,
+      Utilities.formatDate(now, 'Asia/Jakarta', 'dd-MM-yyyy HH:mm:ss')
+    ];
 
-  var now = new Date().toISOString();
-  var isBendaharaOrAdmin = ctx.user && (ctx.user.role === ROLES.BENDAHARA || ctx.user.role === ROLES.SUPERADMIN);
-  // Kas MASUK yang diinput Bendahara langsung disahkan (APPROVED); selain itu PENDING
-  var initialStatus = (p.type === 'MASUK' && isBendaharaOrAdmin) ? 'APPROVED' : 'PENDING';
+    dbInsert('Sheet_Keuangan', rowArray);
+    logAudit(actorUserId || 'SYSTEM', wilayahId, 'KAS_MASUK', 'Keuangan', id, { noVoucher: noVoucher, nominal: numNominal, kantong: kantong || 'INFAQ_DAKWAH' });
 
-  var created = insert(TABS.KEUANGAN, {
-    id: uuid(), voucher_number: vNumber,
-    type: p.type, account: p.account, amount: amount,
-    category: p.category || '', description: String(p.description).trim(),
-    transaction_date: tanggal, status: initialStatus,
-    receipt_url: receiptUrl,
-    verified_by_bendahara: (initialStatus === 'APPROVED' ? ctx.user.username : ''),
-    verified_by_bendahara_at: (initialStatus === 'APPROVED' ? now : ''),
-    verified_by_ketum: '', verified_by_ketum_at: '',
-    rejection_notes: '', created_by: ctx.user.username,
-    created_at: now
-  });
-
-  if (initialStatus === 'PENDING') {
-    // Notifikasi email ke Bendahara
-    kirimNotifikasiKeRole_(ROLES.BENDAHARA,
-      'Voucher Kas Baru: ' + created.voucher_number,
-      'Pemberitahuan Voucher Kas Menunggu Verifikasi',
-      'Voucher kas baru <strong>' + created.voucher_number + '</strong> bernilai <strong>' + formatRupiah(amount) + '</strong> (' + (p.type === 'MASUK' ? 'Kas Masuk' : 'Kas Keluar') + ') telah dibuat oleh <strong>' + (ctx.user.full_name || ctx.user.username) + '</strong> dan menunggu verifikasi Anda.',
-      'Verifikasi Voucher Kas',
-      (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/keuangan');
-  }
-
-  return { ok: true, data: { id: created.id, voucher_number: created.voucher_number, receipt_url: receiptUrl, status: initialStatus },
-    message: 'Voucher ' + created.voucher_number + ' berhasil dibuat.' + (initialStatus === 'APPROVED' ? ' (Langsung disahkan)' : '') };
-}
-
-/**
- * verifyVoucherBendahara: verifikasi tahap 1. SUPERADMIN, BENDAHARA.
- * Jika MASUK -> langsung APPROVED.
- * Jika KELUAR -> VERIFIED_BY_BENDAHARA (menunggu Ketua).
- */
-function verifyVoucherBendahara(ctx) {
-  var p = ctx.payload || {};
-  if (!p.id) return { ok: false, data: null, message: 'ID voucher wajib diisi.' };
-  var k = findOne(TABS.KEUANGAN, { id: p.id });
-  if (!k) return { ok: false, data: null, message: 'Voucher tidak ditemukan.' };
-  if (k.status !== 'PENDING') {
-    return { ok: false, data: null,
-      message: 'Voucher ini tidak dapat diverifikasi (status: ' +
-               (STATUS_LABELS[k.status] || k.status) + ').' };
-  }
-  var now = new Date().toISOString();
-
-  // Kas MASUK otomatis disahkan oleh Bendahara (APPROVED). Kas KELUAR wajib 2 tahap (menunggu Ketua).
-  var isMasuk = (k.type === 'MASUK');
-  var nextStatus = isMasuk ? 'APPROVED' : 'VERIFIED_BY_BENDAHARA';
-
-  updateRow(TABS.KEUANGAN, k._row, {
-    status: nextStatus,
-    verified_by_bendahara: ctx.user.username, verified_by_bendahara_at: now
-  });
-  audit(ctx.user.username, 'KEU_VERIFY_BENDAHARA', 'Voucher ' + k.voucher_number + ' -> ' + nextStatus);
-
-  if (isMasuk) {
-    return { ok: true, data: null,
-      message: 'Voucher kas masuk ' + k.voucher_number + ' berhasil disahkan oleh Bendahara dan masuk saldo.' };
-  }
-
-  // Notifikasi email ke Ketua DPW untuk persetujuan final kas KELUAR
-  kirimNotifikasiKeRole_(ROLES.KETUA,
-    'Persetujuan Final Kas: ' + k.voucher_number,
-    'Voucher Kas Menunggu Persetujuan Ketua',
-    'Voucher kas keluar <strong>' + k.voucher_number + '</strong> senilai <strong>' + formatRupiah(k.amount) + '</strong> (' + k.description + ') telah diverifikasi oleh Bendahara dan kini menunggu persetujuan final Anda.',
-    'Tinjau & Setujui Kas',
-    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/keuangan');
-
-  return { ok: true, data: null,
-    message: 'Voucher ' + k.voucher_number + ' diverifikasi Bendahara. Menunggu persetujuan final Ketua DPW.' };
-}
-
-/**
- * verifyVoucherKetum: verifikasi final. SUPERADMIN, KETUA.
- * VERIFIED_BY_BENDAHARA -> APPROVED (kedua tanda tangan lengkap).
- */
-function verifyVoucherKetum(ctx) {
-  var p = ctx.payload || {};
-  if (!p.id) return { ok: false, data: null, message: 'ID voucher wajib diisi.' };
-  var k = findOne(TABS.KEUANGAN, { id: p.id });
-  if (!k) return { ok: false, data: null, message: 'Voucher tidak ditemukan.' };
-  if (k.status !== 'VERIFIED_BY_BENDAHARA') {
-    return { ok: false, data: null,
-      message: 'Voucher harus diverifikasi Bendahara terlebih dahulu (status: ' +
-               (STATUS_LABELS[k.status] || k.status) + ').' };
-  }
-  var now = new Date().toISOString();
-  updateRow(TABS.KEUANGAN, k._row, {
-    status: 'APPROVED', verified_by_ketum: ctx.user.username, verified_by_ketum_at: now
-  });
-  audit(ctx.user.username, 'KEU_VERIFY_KETUM', 'Voucher ' + k.voucher_number + ' APPROVED');
-
-  // Notifikasi email ke pembuat voucher
-  kirimNotifikasiKeUser_(k.created_by,
-    'Voucher Kas Disetujui: ' + k.voucher_number,
-    'Voucher Kas Telah Disetujui Penuh',
-    'Voucher kas <strong>' + k.voucher_number + '</strong> bernilai <strong>' + formatRupiah(k.amount) + '</strong> (' + k.description + ') telah disetujui penuh oleh Ketua DPW dan resmi dicatatkan ke saldo buku kas yayasan.',
-    'Lihat Buku Kas',
-    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/keuangan');
-
-  return { ok: true, data: null,
-    message: 'Voucher ' + k.voucher_number + ' disetujui penuh & masuk perhitungan saldo.' };
-}
-
-/**
- * rejectVoucher: tolak voucher. SUPERADMIN, KETUA. Catatan WAJIB.
- * Bisa dari PENDING atau VERIFIED_BY_BENDAHARA.
- */
-function rejectVoucher(ctx) {
-  var p = ctx.payload || {};
-  if (!p.id) return { ok: false, data: null, message: 'ID voucher wajib diisi.' };
-  if (!p.notes || !String(p.notes).trim()) {
-    return { ok: false, data: null, message: 'Alasan penolakan wajib diisi.' };
-  }
-  var k = findOne(TABS.KEUANGAN, { id: p.id });
-  if (!k) return { ok: false, data: null, message: 'Voucher tidak ditemukan.' };
-  if (k.status === 'APPROVED') {
-    return { ok: false, data: null, message: 'Voucher yang sudah disetujui tidak dapat ditolak.' };
-  }
-  if (k.status === 'REJECTED') {
-    return { ok: false, data: null, message: 'Voucher ini sudah berstatus ditolak.' };
-  }
-  updateRow(TABS.KEUANGAN, k._row, {
-    status: 'REJECTED', rejection_notes: String(p.notes).trim()
-  });
-  audit(ctx.user.username, 'KEU_REJECTED', 'Voucher ' + k.voucher_number + ': ' + p.notes);
-
-  // Notifikasi email ke pembuat voucher
-  kirimNotifikasiKeUser_(k.created_by,
-    'Voucher Kas Ditolak: ' + k.voucher_number,
-    'Pemberitahuan Penolakan Voucher Kas',
-    'Voucher kas <strong>' + k.voucher_number + '</strong> bernilai <strong>' + formatRupiah(k.amount) + '</strong> telah ditolak dengan catatan:<br/><blockquote style="background:#fee2e2;padding:10px 14px;border-left:4px solid #ef4444;margin:12px 0;color:#991b1b;border-radius:4px;">' + String(p.notes).trim() + '</blockquote>',
-    'Buka Portal Keuangan',
-    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/keuangan');
-
-  return { ok: true, data: null, message: 'Voucher ' + k.voucher_number + ' telah ditolak.' };
-}
-
-/**
- * updateVoucherReceipt: perbarui tautan bukti transaksi / nota di Google Drive.
- * SUPERADMIN, BENDAHARA, atau pembuat voucher.
- */
-function updateVoucherReceipt(ctx) {
-  var p = ctx.payload || {};
-  if (!p.id) return { ok: false, data: null, message: 'ID voucher wajib diisi.' };
-  var k = findOne(TABS.KEUANGAN, { id: p.id });
-  if (!k) return { ok: false, data: null, message: 'Voucher tidak ditemukan.' };
-  var receiptUrl = String(p.receipt_url || '').trim();
-  updateRow(TABS.KEUANGAN, k._row, { receipt_url: receiptUrl });
-  audit(ctx.user.username, 'KEU_UPDATE_RECEIPT', 'Voucher ' + k.voucher_number);
-  return { ok: true, data: { receipt_url: receiptUrl },
-    message: 'Bukti transaksi berhasil diperbarui.' };
-}
-
-/**
- * getAccounts: ambil daftar seluruh rekening kas master + saldo riil saat ini.
- * SUPERADMIN, KETUA, BENDAHARA.
- */
-function getAccounts(ctx) {
-  var accounts = readAll(TABS.ACCOUNTS);
-  var vouchers = readAll(TABS.KEUANGAN).filter(function (k) {
-    return k.status === 'APPROVED';
-  });
-
-  var items = accounts.map(function (a) {
-    var masuk = 0, keluar = 0;
-    vouchers.forEach(function (v) {
-      if (v.account === a.code || v.account === a.id) {
-        var amt = Number(v.amount) || 0;
-        if (v.type === 'MASUK') masuk += amt; else keluar += amt;
-      }
-    });
     return {
-      id: a.id,
-      code: a.code,
-      name: a.name,
-      nama_rekening: a.name,
-      bank_name: a.bank_name || a.name,
-      bank_vendor: a.bank_name || a.name,
-      account_number: a.account_number || '-',
-      nomor_rekening: a.account_number || '-',
-      holder_name: a.holder_name || '',
-      atas_nama: a.holder_name || '',
-      category: a.category || 'Operasional DPW',
-      jenis: (a.account_number && a.account_number !== '-') ? 'BANK' : 'KAS',
-      is_active: a.is_active === 'TRUE' || a.is_active === true,
-      show_on_public: a.show_on_public === 'TRUE' || a.show_on_public === true,
-      saldo: masuk - keluar,
-      total_masuk: masuk,
-      total_keluar: keluar,
-      created_at: a.created_at,
-      updated_at: a.updated_at
+      ok: true,
+      id: id,
+      noVoucher: noVoucher,
+      noKwitansi: noKwitansi,
+      message: 'Kas masuk berhasil dibukukan dan kwitansi resmi siap dicetak.'
     };
-  });
-
-  return { ok: true, data: items, accounts: items, message: 'Daftar rekening berhasil dimuat.' };
+  }, 10000);
 }
 
 /**
- * saveAccount: buat atau perbarui rekening kas.
- * SUPERADMIN, KETUA, BENDAHARA.
+ * Pembukuan Kas Masuk (Infaq, Donasi, Zakat) - Langsung Sah oleh Bendahara
  */
-function saveAccount(ctx) {
-  var p = ctx.payload || {};
-  var name = p.name || p.nama_rekening;
-  if (!name) {
-    return { ok: false, data: null, message: 'Nama akun rekening wajib diisi.' };
-  }
-  var bankName = p.bank_name || p.bank_vendor || name;
-  var code = p.code || ('ACC_' + String(bankName || name).trim().toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 15));
-  code = String(code).trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');
-  var accountNumber = p.account_number || p.nomor_rekening || '-';
-  var holderName = p.holder_name || p.atas_nama || 'YAYASAN APII DPW JABODETABEK';
-  var category = p.category || (accountNumber !== '-' ? 'Operasional DPW' : 'Kas Kecil');
-  var now = new Date().toISOString();
+function handleSaveKasMasuk_(session, payload) {
+  var roleGuard = assertAllowedRoles_(session, ['superadmin', 'bendahara', 'ketua']);
+  if (!roleGuard.ok) return roleGuard;
 
-  var isPublic = (p.show_on_public === true || p.show_on_public === 'TRUE' || p.show_on_public === 'true' || p.show_on_public === 1);
-  var isActive = (p.is_active !== false && p.is_active !== 'FALSE' && p.is_active !== 'false' && p.is_active !== 0);
-
-  if (p.id) {
-    // Edit mode
-    var target = findOne(TABS.ACCOUNTS, { id: p.id }) || findOne(TABS.ACCOUNTS, { code: p.id });
-    if (!target) return { ok: false, data: null, message: 'Rekening tidak ditemukan.' };
-    if (p.qris_image_base64) {
-      p.qris_image_url = saveUploadToDrive_(p.qris_image_base64, 'QRIS_' + code + '.jpg', 'Keuangan_QRIS') || p.qris_image_url;
-    }
-
-    updateRow(TABS.ACCOUNTS, target._row, {
-      name: name,
-      bank_name: bankName,
-      account_number: accountNumber,
-      holder_name: holderName,
-      category: category,
-      is_active: isActive ? 'TRUE' : 'FALSE',
-      show_on_public: isPublic ? 'TRUE' : 'FALSE',
-      qris_image_url: p.qris_image_url || target.qris_image_url || '',
-      show_qris_on_public: ((p.show_qris_on_public === true || p.show_qris_on_public === 'TRUE' || p.show_qris_on_public === 'true' || p.show_qris_on_public === 1) ? 'TRUE' : 'FALSE'),
-      updated_at: now
-    });
-    audit(ctx.user.username, 'ACCOUNT_UPDATED', 'Memperbarui rekening ' + code + ' (' + name + ')', 'KEUANGAN');
-    return { ok: true, data: { id: target.id, code: code, name: name }, message: 'Rekening berhasil diperbarui.' };
-  } else {
-    // Tambah baru
-    var existing = findOne(TABS.ACCOUNTS, { code: code });
-    if (existing) {
-      code = code + '_' + Math.floor(Math.random() * 899 + 100);
-    }
-    if (p.qris_image_base64) {
-      p.qris_image_url = saveUploadToDrive_(p.qris_image_base64, 'QRIS_' + code + '.jpg', 'Keuangan_QRIS') || p.qris_image_url;
-    }
-
-    var newAcc = insert(TABS.ACCOUNTS, {
-      id: uuid(),
-      code: code,
-      name: name,
-      bank_name: bankName,
-      account_number: accountNumber,
-      holder_name: holderName,
-      category: category,
-      is_active: isActive ? 'TRUE' : 'FALSE',
-      show_on_public: isPublic ? 'TRUE' : 'FALSE',
-      qris_image_url: p.qris_image_url || '',
-      show_qris_on_public: ((p.show_qris_on_public === true || p.show_qris_on_public === 'TRUE' || p.show_qris_on_public === 'true' || p.show_qris_on_public === 1) ? 'TRUE' : 'FALSE'),
-      created_at: now,
-      updated_at: now
-    });
-    audit(ctx.user.username, 'ACCOUNT_CREATED', 'Menambah rekening baru ' + code + ' (' + name + ')', 'KEUANGAN');
-    return { ok: true, data: { id: newAcc.id, code: code, name: name }, message: 'Rekening baru berhasil ditambahkan.' };
-  }
+  var wilayahId = resolveAuthorizedWilayah_(session, payload.wilayah_id);
+  return recordInternalKasMasuk_(
+    wilayahId,
+    payload.nominal,
+    payload.kantong_syariah || 'INFAQ_DAKWAH',
+    payload.kategori || 'Infaq Dakwah Umum',
+    payload.keterangan || 'Penerimaan Infaq / Donasi Dakwah',
+    session.username,
+    session.userId,
+    payload.tanggal,
+    payload.bukti_url
+  );
 }
 
 /**
- * deleteAccount: nonaktifkan atau hapus rekening kas.
- * SUPERADMIN, KETUA, BENDAHARA.
+ * Pengajuan Voucher Kas Keluar oleh Pengurus / Divisi (Draf Awal)
  */
-function deleteAccount(ctx) {
-  var p = ctx.payload || {};
-  if (!p.id) return { ok: false, data: null, message: 'ID rekening wajib diisi.' };
-  var acc = findOne(TABS.ACCOUNTS, { id: p.id }) || findOne(TABS.ACCOUNTS, { code: p.id });
-  if (!acc) return { ok: false, data: null, message: 'Rekening tidak ditemukan.' };
+function handleAjukanKasKeluar_(session, payload) {
+  var roleGuard = assertAllowedRoles_(session, ['superadmin', 'bendahara', 'ketua', 'sekretaris', 'ketua_divisi']);
+  if (!roleGuard.ok) return roleGuard;
 
-  // Cek apakah ada voucher yang menggunakan rekening ini
-  var hasVoucher = findOne(TABS.KEUANGAN, { account: acc.code }) || findOne(TABS.KEUANGAN, { account: acc.id });
-  if (hasVoucher) {
-    updateRow(TABS.ACCOUNTS, acc._row, { is_active: 'FALSE', show_on_public: 'FALSE', updated_at: new Date().toISOString() });
-    audit(ctx.user.username, 'ACCOUNT_DEACTIVATED', 'Menonaktifkan rekening ' + acc.code + ' (memiliki riwayat transaksi)', 'KEUANGAN');
-    return { ok: true, data: { deactivated: true }, message: 'Rekening dinonaktifkan karena telah memiliki riwayat transaksi kas.' };
+  var wilayahId = resolveAuthorizedWilayah_(session, payload.wilayah_id);
+  var now = new Date();
+  var nominal = Number(payload.nominal) || 0;
+  if (nominal <= 0) {
+    return { ok: false, error: 'Nominal pengeluaran kas harus lebih besar dari 0.' };
   }
 
-  deleteRow(TABS.ACCOUNTS, acc._row);
-  audit(ctx.user.username, 'ACCOUNT_DELETED', 'Menghapus rekening ' + acc.code, 'KEUANGAN');
-  return { ok: true, data: { deleted: true }, message: 'Rekening kas berhasil dihapus.' };
+  var kantong = payload.kantong_syariah || 'INFAQ_DAKWAH';
+  var kategori = payload.kategori || 'Operasional Kegiatan';
+  var keterangan = payload.keterangan || '';
+
+  // Validasi Sharia Guard
+  var shariaCheck = validateShariaDisbursement(kantong, kategori, keterangan);
+  if (!shariaCheck.valid) {
+    return { ok: false, error: shariaCheck.error };
+  }
+
+  var id = 'KEU-' + Utilities.formatDate(now, 'Asia/Jakarta', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 1000);
+  var draftVoucher = 'DRAFT-BKK-' + Math.floor(1000 + Math.random() * 9000);
+
+  var rowArray = [
+    id,
+    wilayahId,
+    draftVoucher,
+    'KELUAR',
+    kantong,
+    kategori,
+    nominal,
+    payload.tanggal || Utilities.formatDate(now, 'Asia/Jakarta', 'dd-MM-yyyy'),
+    keterangan,
+    payload.bukti_url || '',
+    'VERIFIKASI_BENDAHARA', // Tahap 1
+    '',
+    '',
+    '',
+    Utilities.formatDate(now, 'Asia/Jakarta', 'dd-MM-yyyy HH:mm:ss')
+  ];
+
+  dbInsert('Sheet_Keuangan', rowArray);
+  logAudit(session.userId, wilayahId, 'AJUKAN_KAS_KELUAR', 'Keuangan', id, { nominal: nominal, kantong: kantong });
+
+  return {
+    ok: true,
+    id: id,
+    status: 'VERIFIKASI_BENDAHARA',
+    message: 'Permohonan kas keluar berhasil diajukan untuk verifikasi nota oleh Bendahara.'
+  };
 }
 
 /**
- * getPublicAccounts: daftar rekening donasi aktif untuk publik.
- * Publik (tanpa token).
+ * Dual-Approval Tahap 1: Verifikasi Kelayakan Nota oleh Bendahara
  */
-function getPublicAccounts(ctx) {
-  var rows = readAll(TABS.ACCOUNTS).filter(function (a) {
-    return (a.is_active === 'TRUE' || a.is_active === true) &&
-           (a.show_on_public === 'TRUE' || a.show_on_public === true);
-  });
-  var items = rows.map(function (a) {
+function handleVerifyKasBendahara_(session, payload) {
+  var roleGuard = assertAllowedRoles_(session, ['superadmin', 'bendahara']);
+  if (!roleGuard.ok) return roleGuard;
+
+  var keuId = payload.keuangan_id;
+  if (!keuId) return { ok: false, error: 'ID transaksi kas wajib diisi.' };
+
+  var row = dbFindOne('Sheet_Keuangan', { id: keuId });
+  if (!row) return { ok: false, error: 'Voucher kas tidak ditemukan.' };
+
+  var tenantGuard = assertRecordTenantAccess_(session, row[COL_KEUANGAN.WILAYAH_ID]);
+  if (!tenantGuard.ok) return tenantGuard;
+
+  var currentStatus = row[COL_KEUANGAN.STATUS_APPROVAL];
+  if (currentStatus !== 'VERIFIKASI_BENDAHARA' && currentStatus !== 'VERIFIED_BENDAHARA') {
+    return { ok: false, error: 'Status voucher saat ini (' + currentStatus + ') tidak berada pada antrean verifikasi Bendahara.' };
+  }
+
+  var isVerified = payload.is_verified !== false;
+  var catatan = payload.catatan || '';
+  var status = isVerified ? 'VERIFIKASI_KETUM' : 'REJECTED';
+
+  var updateMap = {};
+  updateMap[COL_KEUANGAN.STATUS_APPROVAL] = status;
+  updateMap[COL_KEUANGAN.VERIFIED_BENDAHARA_BY] = session.username;
+  dbUpdate('Sheet_Keuangan', COL_KEUANGAN.ID, keuId, updateMap);
+
+  logAudit(session.userId, row[COL_KEUANGAN.WILAYAH_ID], 'VERIFY_KAS_BENDAHARA', 'Keuangan', keuId, { status: status, catatan: catatan });
+  return { ok: true, status: status, message: isVerified ? 'Voucher lolos verifikasi Bendahara, diteruskan ke Ketua.' : 'Pengajuan kas keluar ditolak Bendahara.' };
+}
+
+/**
+ * Dual-Approval Tahap 2: Pengesahan Pencairan Kas oleh Ketua Umum / Wilayah
+ * Memotong saldo kas secara resmi & menerbitkan nomor BKK sekuensial
+ */
+function handleApproveKasKetua_(session, payload) {
+  var roleGuard = assertAllowedRoles_(session, ['superadmin', 'ketua']);
+  if (!roleGuard.ok) return roleGuard;
+
+  var keuId = payload.keuangan_id;
+  if (!keuId) return { ok: false, error: 'ID transaksi kas wajib diisi.' };
+
+  return withScriptLock_(function() {
+    var row = dbFindOne('Sheet_Keuangan', { id: keuId });
+    if (!row) return { ok: false, error: 'Voucher kas tidak ditemukan.' };
+
+    var wilayahId = row[COL_KEUANGAN.WILAYAH_ID];
+    var tenantGuard = assertRecordTenantAccess_(session, wilayahId);
+    if (!tenantGuard.ok) return tenantGuard;
+
+    if (row[COL_KEUANGAN.STATUS_APPROVAL] === 'APPROVED') {
+      return { ok: false, error: 'Voucher kas ini sudah berstatus APPROVED sebelumnya.' };
+    }
+
+    var isApproved = payload.is_approved !== false;
+    var now = new Date();
+
+    if (!isApproved) {
+      var rejectMap = {};
+      rejectMap[COL_KEUANGAN.STATUS_APPROVAL] = 'REJECTED';
+      rejectMap[COL_KEUANGAN.APPROVED_KETUA_BY] = session.username;
+      dbUpdate('Sheet_Keuangan', COL_KEUANGAN.ID, keuId, rejectMap);
+      logAudit(session.userId, wilayahId, 'REJECT_KAS_KETUA', 'Keuangan', keuId, { reason: payload.catatan || '' });
+      return { ok: true, status: 'REJECTED', message: 'Pencairan kas ditolak oleh Ketua.' };
+    }
+
+    // Jika Disahkan: Terbitkan Nomor Resmi BKK Sekuensial
+    var seqBkk = getNextSequence(wilayahId, 'KAS_BKK');
+    var padSeq = ('000' + seqBkk).slice(-3);
+    var ym = Utilities.formatDate(now, 'Asia/Jakarta', 'yyyyMM');
+    var noVoucherResmi = 'BKK-' + ym + '-' + padSeq; // BKK-202611-001
+    var noKwitansi = 'KW-OUT-' + ym + '-' + padSeq;
+
+    var approveMap = {};
+    approveMap[COL_KEUANGAN.NO_VOUCHER] = noVoucherResmi;
+    approveMap[COL_KEUANGAN.STATUS_APPROVAL] = 'APPROVED';
+    approveMap[COL_KEUANGAN.APPROVED_KETUA_BY] = session.username;
+    approveMap[COL_KEUANGAN.NO_KWITANSI] = noKwitansi;
+    dbUpdate('Sheet_Keuangan', COL_KEUANGAN.ID, keuId, approveMap);
+
+    logAudit(session.userId, wilayahId, 'APPROVE_KAS_KETUA', 'Keuangan', keuId, { noVoucher: noVoucherResmi, noKwitansi: noKwitansi });
     return {
-      code: a.code,
-      name: a.name,
-      nama_rekening: a.name,
-      bank_name: a.bank_name || a.name,
-      bank_vendor: a.bank_name || a.name,
-      account_number: a.account_number || '-',
-      nomor_rekening: a.account_number || '-',
-      holder_name: a.holder_name || 'YAYASAN APII DPW JABODETABEK',
-      atas_nama: a.holder_name || 'YAYASAN APII DPW JABODETABEK',
-      category: a.category || 'Operasional DPW',
-      qris_image_url: a.qris_image_url || '',
-      show_qris_on_public: (a.show_qris_on_public === 'TRUE' || a.show_qris_on_public === true)
+      ok: true,
+      status: 'APPROVED',
+      noVoucher: noVoucherResmi,
+      noKwitansi: noKwitansi,
+      message: 'Pengeluaran kas telah disahkan resmi oleh Ketua. Saldo buku kas terpotong dan kwitansi dual-slip siap dicetak.'
     };
-  });
-  return { ok: true, data: items, message: 'Rekening resmi publik berhasil dimuat.' };
+  }, 10000);
+}
+
+/**
+ * Rekonsiliasi Kas Bulanan Otomatis (Tiap Tanggal 30/31)
+ */
+function handleGenerateMonthlyClosing_(session, payload) {
+  var roleGuard = assertAllowedRoles_(session, ['superadmin', 'bendahara', 'ketua']);
+  if (!roleGuard.ok) return roleGuard;
+
+  var wilayahId = resolveAuthorizedWilayah_(session, payload && payload.wilayah_id);
+  var data = handleGetKeuanganList_(session, { wilayah_id: wilayahId });
+
+  var closingReport = {
+    wilayahId: wilayahId,
+    periodeBulan: Utilities.formatDate(new Date(), 'Asia/Jakarta', 'MMMM yyyy'),
+    saldoAkhir: data.saldo,
+    totalMutasi: data.list.length,
+    generatedAt: Utilities.formatDate(new Date(), 'Asia/Jakarta', 'dd-MM-yyyy HH:mm:ss'),
+    generatedBy: session.username
+  };
+
+  logAudit(session.userId, wilayahId, 'MONTHLY_CLOSING_GENERATED', 'Keuangan', 'CLOSING-' + Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyyMM'), closingReport);
+  return { ok: true, closingReport: closingReport, message: 'Laporan rekonsiliasi kas bulanan berhasil digenerate untuk Dewan Pengawas.' };
 }
 

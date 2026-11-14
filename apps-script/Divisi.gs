@@ -1,360 +1,286 @@
-﻿/****************************************************************************
- * Divisi.gs - dibangkitkan otomatis; JANGAN diedit manual.
- * Sumber: gas/Divisi.gs (scripts/build-apps-script.ps1)
- *****************************************************************************/
 /**
- * ============================================================================
- * Divisi.gs — Modul Usulan Program Divisi Kerja
- * ============================================================================
- * Aturan KETAT:
- *   1. Divisi hanya melihat & mengusulkan divisinya SENDIRI (diambil dari
- *      ctx.user.division, TIDAK PERNAH dari payload frontend).
- *   2. Workflow: DRAFT -> AJUKAN -> DISETUJUI / DITOLAK.
- *      NOL publikasi langsung — divisi hanya Simpan Draf / Ajukan.
- *   3. approve/reject HANYA via Approval Board KETUA (atau SUPERADMIN).
- *
- * Tracking ID otomatis: #REQ-{tahun}-{urut 3 digit}
- * ==========================================================================*/
-
-/** Bangun tracking ID baru (#REQ-2026-089). */
-function buildTrackingId() {
-  var tahun = new Date().getFullYear();
-  var urut = nextSequence('DIVISI:' + tahun);
-  var urutStr = String(urut);
-  while (urutStr.length < 3) urutStr = '0' + urutStr;
-  return '#REQ-' + tahun + '-' + urutStr;
-}
-
-/**
- * getListDivisi: daftar usulan dengan ISOLASI DIVISI otomatis.
- * - SUPERADMIN/KETUA/pengurus internal: lihat semua divisi.
- * - KETUA_DIVISI/ANGGOTA_DIVISI: hanya divisi sendiri.
- * - Lainnya: daftar kosong.
- * @param {object} ctx.payload { status?, q?, limit?, page? }
+ * SIAP APII v3.0.0 Enterprise - Divisi.gs
+ * Pengelolaan Program Kerja 7 Divisi Resmi (ART Pasal 16), RAB, & Pelaporan LPJ
+ * 
+ * Pengembang: Sigit Adi Irianto (https://sigitadi.id | 0813-5857-5678)
+ * Hak Cipta: Yayasan Apologet Islam Indonesia (APII) - SK Kemenkumham: AHU-0014970.AH.01.04.Tahun 2023
  */
-function getListDivisi(ctx) {
-  var p = ctx.payload || {};
-  var limit = Math.min(Number(p.limit) || 20, 100);
-  var page = Math.max(Number(p.page) || 1, 1);
-  var q = String(p.q || '').toLowerCase();
 
-  var rows = readAll(TABS.DIVISI);
+var KODE_7_DIVISI = ['humas', 'litbang', 'sosmed', 'dakwah', 'bisnis', 'hukum', 'umum'];
 
-  // --- ISOLASI DIVISI (dari token, bukan payload) ---
-  var user = ctx.user;
-  var isDivisionRole = user.role === ROLES.KETUA_DIVISI ||
-                       user.role === ROLES.ANGGOTA_DIVISI;
-  if (isDivisionRole) {
-    rows = rows.filter(function (d) { return d.division === user.division; });
-  }
+/**
+ * Mengambil Daftar Usulan Program Kerja Divisi
+ */
+function handleGetDivisiPrograms_(session, payload) {
+  var reqWilayah = payload && payload.wilayah_id ? payload.wilayah_id : session.wilayahId;
+  var targetWilayah = resolveAuthorizedWilayah_(session, reqWilayah);
 
-  if (q) {
-    rows = rows.filter(function (d) {
-      return (d.program_title || '').toLowerCase().indexOf(q) !== -1 ||
-             (d.tracking_id || '').toLowerCase().indexOf(q) !== -1 ||
-             (d.description || '').toLowerCase().indexOf(q) !== -1;
-    });
-  }
-  if (p.status) rows = rows.filter(function (d) { return d.status === p.status; });
+  var filter = targetWilayah === 'ALL' ? null : { wilayah_id: targetWilayah };
+  var rawList = dbFind('Sheet_Divisi', filter, 200);
 
-  rows.sort(function (a, b) { return (b.created_at || '').localeCompare(a.created_at || ''); });
-
-  var total = rows.length;
-  var start = (page - 1) * limit;
-  var items = rows.slice(start, start + limit).map(function (d) {
+  var list = rawList.map(function(row) {
     return {
-      id: d.id, tracking_id: d.tracking_id, division: d.division,
-      division_label: DIVISION_LABELS[d.division] || d.division,
-      program_title: d.program_title, description: d.description,
-      budget_estimate: Number(d.budget_estimate) || 0,
-      budget_label: formatRupiah(d.budget_estimate),
-      target_audience: d.target_audience, execution_date: d.execution_date,
-      tanggal_label: formatTanggal(d.execution_date),
-      status: d.status, status_label: STATUS_LABELS[d.status] || d.status,
-      submitted_by: d.submitted_by, submitted_by_name: d.submitted_by_name,
-      submitted_at: d.submitted_at, reviewed_by: d.reviewed_by,
-      reviewed_at: d.reviewed_at, approval_notes: d.approval_notes,
-      started_at: d.started_at || '',
-      lpj_url: d.lpj_url || '',
-      lpj_notes: d.lpj_notes || '',
-      realisasi_anggaran: Number(d.realisasi_anggaran) || 0,
-      realisasi_label: formatRupiah(d.realisasi_anggaran || 0),
-      lpj_submitted_at: d.lpj_submitted_at || '',
-      can_edit: (d.status === 'DRAFT' || d.status === 'DITOLAK') && (isDivisionRole || user.role === ROLES.SUPERADMIN),
-      can_submit: (d.status === 'DRAFT' || d.status === 'DITOLAK') && (isDivisionRole || user.role === ROLES.SUPERADMIN),
-      can_start: d.status === 'DISETUJUI' && (isDivisionRole || user.role === ROLES.SUPERADMIN),
-      can_lpj: (d.status === 'PELAKSANAAN' || d.status === 'DISETUJUI') && (isDivisionRole || user.role === ROLES.SUPERADMIN)
+      id: row[COL_DIVISI.ID],
+      wilayahId: row[COL_DIVISI.WILAYAH_ID],
+      divisiKode: row[COL_DIVISI.DIVISI_KODE],
+      namaProgram: row[COL_DIVISI.NAMA_PROGRAM],
+      latarBelakang: row[COL_DIVISI.LATAR_BELAKANG],
+      targetSasaran: row[COL_DIVISI.TARGET_SASARAN],
+      rabNominal: Number(row[COL_DIVISI.RAB_NOMINAL]) || 0,
+      tglPelaksanaan: row[COL_DIVISI.TGL_PELAKSANAAN],
+      status: row[COL_DIVISI.STATUS], // DRAFT, AJUKAN, DISETUJUI, PELAKSANAAN, LPJ_SELESAI, REJECTED
+      catatanKetua: row[COL_DIVISI.CATATAN_KETUA],
+      lpjDriveUrl: row[COL_DIVISI.LPJ_DRIVE_URL],
+      realisasiDana: Number(row[COL_DIVISI.REALISASI_DANA]) || 0,
+      createdBy: row[COL_DIVISI.CREATED_BY],
+      updatedAt: row[COL_DIVISI.UPDATED_AT],
+      kantongSyariah: row[COL_DIVISI.KANTONG_SYARIAH] || 'INFAQ_DAKWAH'
     };
   });
 
-  return { ok: true, data: { items: items, total: total, page: page, limit: limit,
-                             my_division: user.division || '' },
-    message: 'Daftar usulan divisi berhasil dimuat.' };
+  return { ok: true, list: list };
 }
 
 /**
- * createSubmission: buat usulan program divisi. DIVISI_SUBMIT_ROLES.
- * Divisi SELALU dari token user (frontend tidak bisa memilih divisi lain).
- * @param {object} ctx.payload { program_title, description, budget_estimate,
- *                                target_audience, execution_date }
+ * Simpan / Ajukan Usulan Program Kerja Divisi
  */
-function createSubmission(ctx) {
-  var p = ctx.payload || {};
-  var user = ctx.user;
+function handleSaveDivisiProgram_(session, payload) {
+  var roleGuard = assertAllowedRoles_(session, ['superadmin', 'ketua_divisi', 'sekretaris', 'ketua']);
+  if (!roleGuard.ok) return roleGuard;
 
-  if (user.role === ROLES.KETUA_DIVISI || user.role === ROLES.ANGGOTA_DIVISI) {
-    if (!user.division) {
-      return { ok: false, data: null,
-        message: 'Akun Anda tidak terdaftar pada divisi manapun. Hubungi administrator.' };
+  var wilayahId = resolveAuthorizedWilayah_(session, payload.wilayah_id);
+  var programId = payload.id || ('PRG-' + Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 1000));
+  var nowStr = Utilities.formatDate(new Date(), 'Asia/Jakarta', 'dd-MM-yyyy HH:mm:ss');
+  var divisiKode = String(payload.divisi_kode || session.divisi || 'dakwah').toLowerCase();
+  var kantongSyariah = payload.kantong_syariah || 'INFAQ_DAKWAH';
+
+  if (session.role === 'ketua_divisi' && session.divisi && divisiKode !== String(session.divisi).toLowerCase()) {
+    return { ok: false, code: 'DIVISION_FORBIDDEN', error: 'Ketua Divisi hanya dapat mengajukan program kerja untuk divisinya sendiri (' + session.divisi + ').' };
+  }
+
+  var existing = dbFindOne('Sheet_Divisi', { id: programId });
+  if (existing) {
+    var tenantGuard = assertRecordTenantAccess_(session, existing[COL_DIVISI.WILAYAH_ID]);
+    if (!tenantGuard.ok) return tenantGuard;
+
+    if (session.role === 'ketua_divisi' && session.divisi && String(existing[COL_DIVISI.DIVISI_KODE]).toLowerCase() !== String(session.divisi).toLowerCase()) {
+      return { ok: false, code: 'DIVISION_FORBIDDEN', error: 'Anda tidak berwenang mengubah program kerja divisi lain.' };
     }
-  }
-  if (!p.program_title || !String(p.program_title).trim()) {
-    return { ok: false, data: null, message: 'Judul program wajib diisi.' };
-  }
-  if (!p.description || !String(p.description).trim()) {
-    return { ok: false, data: null, message: 'Deskripsi program wajib diisi.' };
-  }
 
-  // Division: SUPERADMIN boleh pilih via payload; peran divisi dipaksa dari token.
-  var division;
-  if (user.role === ROLES.SUPERADMIN && p.division && DIVISION_LABELS[p.division]) {
-    division = p.division;
+    var updateMap = {};
+    updateMap[COL_DIVISI.DIVISI_KODE] = divisiKode;
+    if (payload.nama_program !== undefined) updateMap[COL_DIVISI.NAMA_PROGRAM] = payload.nama_program;
+    if (payload.latar_belakang !== undefined) updateMap[COL_DIVISI.LATAR_BELAKANG] = payload.latar_belakang;
+    if (payload.target_sasaran !== undefined) updateMap[COL_DIVISI.TARGET_SASARAN] = payload.target_sasaran;
+    if (payload.rab_nominal !== undefined) updateMap[COL_DIVISI.RAB_NOMINAL] = Number(payload.rab_nominal) || 0;
+    if (payload.tgl_pelaksanaan !== undefined) updateMap[COL_DIVISI.TGL_PELAKSANAAN] = payload.tgl_pelaksanaan;
+    updateMap[COL_DIVISI.STATUS] = payload.status || 'AJUKAN';
+    if (payload.catatan_ketua !== undefined) updateMap[COL_DIVISI.CATATAN_KETUA] = payload.catatan_ketua || '';
+    updateMap[COL_DIVISI.UPDATED_AT] = nowStr;
+    updateMap[COL_DIVISI.KANTONG_SYARIAH] = kantongSyariah;
+    dbUpdate('Sheet_Divisi', COL_DIVISI.ID, programId, updateMap);
   } else {
-    division = user.division;
-  }
-  if (!division || !DIVISION_LABELS[division]) {
-    return { ok: false, data: null, message: 'Divisi tidak valid.' };
+    var rowArray = [
+      programId,
+      wilayahId,
+      divisiKode,
+      payload.nama_program || 'Program Kerja Baru',
+      payload.latar_belakang || '',
+      payload.target_sasaran || '',
+      Number(payload.rab_nominal) || 0,
+      payload.tgl_pelaksanaan || Utilities.formatDate(new Date(), 'Asia/Jakarta', 'dd-MM-yyyy'),
+      payload.status || 'AJUKAN',
+      '',
+      '',
+      0,
+      session.username,
+      nowStr,
+      kantongSyariah
+    ];
+    dbInsert('Sheet_Divisi', rowArray);
   }
 
-  var created = insert(TABS.DIVISI, {
-    id: uuid(), tracking_id: buildTrackingId(), division: division,
-    program_title: String(p.program_title).trim(),
-    description: String(p.description).trim(),
-    budget_estimate: Number(p.budget_estimate) || 0,
-    target_audience: p.target_audience || '',
-    execution_date: p.execution_date || '',
-    status: 'DRAFT',
-    submitted_by: user.username, submitted_by_name: user.full_name || user.username,
-    submitted_at: '', reviewed_by: '', reviewed_at: '', approval_notes: '',
-    started_at: '', lpj_url: '', lpj_notes: '', realisasi_anggaran: 0, lpj_submitted_at: '',
-    created_at: new Date().toISOString()
-  });
-
-  return { ok: true, data: { id: created.id, tracking_id: created.tracking_id },
-    message: 'Usulan divisi ' + created.tracking_id + ' berhasil disimpan sebagai draf.' };
+  logAudit(session.userId, wilayahId, 'SAVE_PROGRAM_DIVISI', 'Divisi', programId, { divisi: divisiKode, kantong: kantongSyariah });
+  return { ok: true, programId: programId, message: 'Usulan program kerja divisi berhasil disimpan.' };
 }
 
 /**
- * Cari usulan + validasi kepemilikan divisi (isolation). Lempar appError bila gagal.
- * @return {object} baris usulan
+ * Pengesahan / Penolakan Pagu Program Kerja Divisi oleh Ketua
  */
-function assertOwnDivision_(ctx, id, requireDraft) {
-  var d = findOne(TABS.DIVISI, { id: id });
-  if (!d) appError('Usulan tidak ditemukan.');
-  var user = ctx.user;
-  if (user.role === ROLES.KETUA_DIVISI || user.role === ROLES.ANGGOTA_DIVISI) {
-    if (d.division !== user.division) {
-      audit(user.username, 'FORBIDDEN',
-        'Akses usulan ' + d.tracking_id + ' divisi ' + d.division + ' (user: ' + user.division + ')');
-      appError('Anda hanya dapat mengakses usulan divisi Anda sendiri.');
+function handleApproveDivisiProgram_(session, payload) {
+  var roleGuard = assertAllowedRoles_(session, ['superadmin', 'ketua']);
+  if (!roleGuard.ok) return roleGuard;
+
+  var programId = payload.program_id || payload.id;
+  if (!programId) return { ok: false, error: 'ID program kerja wajib disertakan.' };
+
+  var row = dbFindOne('Sheet_Divisi', { id: programId });
+  if (!row) return { ok: false, error: 'Program kerja tidak ditemukan.' };
+
+  var tenantGuard = assertRecordTenantAccess_(session, row[COL_DIVISI.WILAYAH_ID]);
+  if (!tenantGuard.ok) return tenantGuard;
+
+  var isApproved = payload.is_approved !== false;
+  var newStatus = isApproved ? 'DISETUJUI' : 'REJECTED';
+  var nowStr = Utilities.formatDate(new Date(), 'Asia/Jakarta', 'dd-MM-yyyy HH:mm:ss');
+
+  var updateMap = {};
+  updateMap[COL_DIVISI.STATUS] = newStatus;
+  updateMap[COL_DIVISI.CATATAN_KETUA] = payload.catatan_ketua || (isApproved ? 'Disetujui Ketua' : 'Perlu penyesuaian RAB');
+  if (payload.rab_nominal !== undefined && Number(payload.rab_nominal) > 0) {
+    updateMap[COL_DIVISI.RAB_NOMINAL] = Number(payload.rab_nominal);
+  }
+  updateMap[COL_DIVISI.UPDATED_AT] = nowStr;
+  dbUpdate('Sheet_Divisi', COL_DIVISI.ID, programId, updateMap);
+
+  logAudit(session.userId, row[COL_DIVISI.WILAYAH_ID], 'APPROVE_PROGRAM_DIVISI', 'Divisi', programId, { status: newStatus });
+  return {
+    ok: true,
+    programId: programId,
+    status: newStatus,
+    message: isApproved ? 'Program kerja dan pagu RAB telah disetujui Ketua.' : 'Program kerja dikembalikan dengan catatan Ketua.'
+  };
+}
+
+/**
+ * Pengajuan Pencairan Dana Program Kerja ke Kas Syar'i (BKK Tahap 1)
+ * Tidak menambah realisasi_dana sebelum BKK disahkan Ketua
+ */
+function handleRequestProkerDisbursement_(session, payload) {
+  var roleGuard = assertAllowedRoles_(session, ['superadmin', 'ketua_divisi', 'ketua']);
+  if (!roleGuard.ok) return roleGuard;
+
+  var programId = payload.program_id || payload.id;
+  if (!programId) return { ok: false, error: 'ID program kerja wajib disertakan.' };
+
+  var row = dbFindOne('Sheet_Divisi', { id: programId });
+  if (!row) return { ok: false, error: 'Program kerja tidak ditemukan.' };
+
+  var wilayahId = row[COL_DIVISI.WILAYAH_ID];
+  var tenantGuard = assertRecordTenantAccess_(session, wilayahId);
+  if (!tenantGuard.ok) return tenantGuard;
+
+  if (session.role === 'ketua_divisi' && session.divisi && String(row[COL_DIVISI.DIVISI_KODE]).toLowerCase() !== String(session.divisi).toLowerCase()) {
+    return { ok: false, code: 'DIVISION_FORBIDDEN', error: 'Anda tidak berwenang mencairkan anggaran divisi lain.' };
+  }
+
+  var statusProker = row[COL_DIVISI.STATUS];
+  if (statusProker !== 'DISETUJUI' && statusProker !== 'PELAKSANAAN') {
+    return { ok: false, error: 'Pencairan hanya dapat diajukan untuk program kerja berstatus DISETUJUI (Status saat ini: ' + statusProker + ').' };
+  }
+
+  var nominal = Number(payload.nominal) || Number(row[COL_DIVISI.RAB_NOMINAL]) || 0;
+  var kantong = payload.kantong_syariah || row[COL_DIVISI.KANTONG_SYARIAH] || 'INFAQ_DAKWAH';
+  var kategori = payload.kategori || ('Pencairan Proker: ' + row[COL_DIVISI.NAMA_PROGRAM]);
+  var keterangan = payload.keterangan || ('Realisasi program kerja ' + row[COL_DIVISI.NAMA_PROGRAM] + ' [' + programId + ']');
+
+  var shariaCheck = validateShariaDisbursement(kantong, kategori, keterangan);
+  if (!shariaCheck.valid) {
+    return { ok: false, error: shariaCheck.error };
+  }
+
+  var now = new Date();
+  var keuId = 'KEU-' + Utilities.formatDate(now, 'Asia/Jakarta', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 1000);
+  var draftVoucher = 'DRAFT-BKK-' + Math.floor(1000 + Math.random() * 9000);
+
+  dbInsert('Sheet_Keuangan', [
+    keuId,
+    wilayahId,
+    draftVoucher,
+    'KELUAR',
+    kantong,
+    kategori,
+    nominal,
+    Utilities.formatDate(now, 'Asia/Jakarta', 'dd-MM-yyyy'),
+    keterangan,
+    payload.bukti_url || '',
+    'VERIFIKASI_BENDAHARA',
+    '',
+    '',
+    '',
+    Utilities.formatDate(now, 'Asia/Jakarta', 'dd-MM-yyyy HH:mm:ss')
+  ]);
+
+  if (statusProker === 'DISETUJUI') {
+    var progUpdate = {};
+    progUpdate[COL_DIVISI.STATUS] = 'PELAKSANAAN';
+    progUpdate[COL_DIVISI.UPDATED_AT] = Utilities.formatDate(now, 'Asia/Jakarta', 'dd-MM-yyyy HH:mm:ss');
+    dbUpdate('Sheet_Divisi', COL_DIVISI.ID, programId, progUpdate);
+  }
+
+  logAudit(session.userId, wilayahId, 'REQUEST_PROKER_DISBURSEMENT', 'Divisi', programId, { keuId: keuId, nominal: nominal, kantong: kantong });
+  return {
+    ok: true,
+    programId: programId,
+    keuanganId: keuId,
+    status: 'VERIFIKASI_BENDAHARA',
+    message: 'Permohonan pencairan dana program kerja telah dikirim ke antrean verifikasi Bendahara.'
+  };
+}
+
+/**
+ * Pengunggahan LPJ Program Kerja & Rekonsiliasi Anggaran (Auto-Refund BKM Internal Aman)
+ */
+function handleSubmitDivisiLPJ_(session, payload) {
+  var roleGuard = assertAllowedRoles_(session, ['superadmin', 'ketua_divisi']);
+  if (!roleGuard.ok) return roleGuard;
+
+  var programId = payload.program_id;
+  if (!programId) return { ok: false, error: 'ID program kerja wajib disertakan.' };
+
+  return withScriptLock_(function() {
+    var row = dbFindOne('Sheet_Divisi', { id: programId });
+    if (!row) return { ok: false, error: 'Program kerja tidak ditemukan.' };
+
+    var wilayahId = row[COL_DIVISI.WILAYAH_ID];
+    var tenantGuard = assertRecordTenantAccess_(session, wilayahId);
+    if (!tenantGuard.ok) return tenantGuard;
+
+    if (session.role === 'ketua_divisi' && session.divisi && String(row[COL_DIVISI.DIVISI_KODE]).toLowerCase() !== String(session.divisi).toLowerCase()) {
+      return { ok: false, code: 'DIVISION_FORBIDDEN', error: 'Anda hanya dapat mengunggah LPJ untuk divisi sendiri.' };
     }
-  }
-  if (requireDraft && d.status !== 'DRAFT' && d.status !== 'DITOLAK') {
-    appError('Usulan yang sedang diproses tidak dapat diubah (status: ' +
-             (STATUS_LABELS[d.status] || d.status) + ').');
-  }
-  return d;
-}
 
-/**
- * updateSubmission: ubah usulan (DRAFT / DITOLAK + divisi sendiri).
- */
-function updateSubmission(ctx) {
-  var p = ctx.payload || {};
-  if (!p.id) return { ok: false, data: null, message: 'ID usulan wajib diisi.' };
-  var d = assertOwnDivision_(ctx, p.id, true);
+    var lpjDriveUrl = payload.lpj_drive_url || '';
+    var realisasiDana = Number(payload.realisasi_dana) || 0;
+    var nowStr = Utilities.formatDate(new Date(), 'Asia/Jakarta', 'dd-MM-yyyy HH:mm:ss');
 
-  var values = {};
-  if (p.program_title) values.program_title = String(p.program_title).trim();
-  if (p.description) values.description = String(p.description).trim();
-  if (p.budget_estimate !== undefined) values.budget_estimate = Number(p.budget_estimate) || 0;
-  if (p.target_audience !== undefined) values.target_audience = p.target_audience;
-  if (p.execution_date !== undefined) values.execution_date = p.execution_date;
-  if (!Object.keys(values).length) {
-    return { ok: false, data: null, message: 'Tidak ada perubahan yang dikirim.' };
-  }
+    var rabNominal = Number(row[COL_DIVISI.RAB_NOMINAL]) || 0;
+    var sisaAnggaran = rabNominal - realisasiDana;
 
-  updateRow(TABS.DIVISI, d._row, values);
-  return { ok: true, data: null, message: 'Usulan ' + d.tracking_id + ' berhasil diperbarui.' };
-}
+    var updateMap = {};
+    updateMap[COL_DIVISI.STATUS] = 'LPJ_SELESAI';
+    updateMap[COL_DIVISI.LPJ_DRIVE_URL] = lpjDriveUrl;
+    updateMap[COL_DIVISI.REALISASI_DANA] = realisasiDana;
+    updateMap[COL_DIVISI.UPDATED_AT] = nowStr;
+    dbUpdate('Sheet_Divisi', COL_DIVISI.ID, programId, updateMap);
 
-/**
- * ajukanSubmission: DRAFT / DITOLAK -> AJUKAN (kirim ke Approval Board Ketua).
- * Aturan ketat: divisi TIDAK BISA mempublikasi/approve sendiri.
- */
-function ajukanSubmission(ctx) {
-  var p = ctx.payload || {};
-  if (!p.id) return { ok: false, data: null, message: 'ID usulan wajib diisi.' };
-  var d = assertOwnDivision_(ctx, p.id, true);
+    // Jika ada sisa anggaran lebih dari 0, otomatis bukukan BKM pengembalian kas via helper internal
+    var refundRes = null;
+    if (sisaAnggaran > 0) {
+      var kantongAsal = row[COL_DIVISI.KANTONG_SYARIAH] || 'INFAQ_DAKWAH';
+      refundRes = recordInternalKasMasuk_(
+        wilayahId,
+        sisaAnggaran,
+        kantongAsal,
+        'Pengembalian Sisa Anggaran Divisi',
+        'Pengembalian sisa dana kegiatan ' + row[COL_DIVISI.NAMA_PROGRAM],
+        session.username,
+        session.userId
+      );
+    }
 
-  updateRow(TABS.DIVISI, d._row, {
-    status: 'AJUKAN',
-    submitted_at: new Date().toISOString(),
-    approval_notes: ''
-  });
-  audit(ctx.user.username, 'DIVISI_AJUKAN', 'Usulan ' + d.tracking_id);
+    logAudit(session.userId, wilayahId, 'SUBMIT_LPJ', 'Divisi', programId, {
+      realisasiDana: realisasiDana,
+      sisaAnggaran: sisaAnggaran,
+      refundVoucher: refundRes ? refundRes.noVoucher : null
+    });
 
-  // Notifikasi email ke Ketua DPW (Approval Board)
-  kirimNotifikasiKeRole_(ROLES.KETUA,
-    'Usulan Program Baru: ' + d.tracking_id,
-    'Usulan Program Divisi Menunggu Persetujuan',
-    'Usulan program <strong>' + d.program_title + '</strong> (ID: <code>' + d.tracking_id + '</code>) dari <strong>' + (DIVISION_LABELS[d.division] || d.division) + '</strong> telah diajukan oleh <strong>' + (d.submitted_by_name || d.submitted_by) + '</strong> dengan estimasi anggaran <strong>' + formatRupiah(d.budget_estimate) + '</strong>.',
-    'Tinjau Usulan Program',
-    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/divisi');
-
-  return { ok: true, data: null,
-    message: 'Usulan ' + d.tracking_id + ' diajukan ke Ketua (Approval Board).' };
-}
-
-/**
- * approveSubmission: setujui usulan. HANYA Approval Board (KETUA/SUPERADMIN).
- */
-function approveSubmission(ctx) {
-  var p = ctx.payload || {};
-  if (!p.id) return { ok: false, data: null, message: 'ID usulan wajib diisi.' };
-  var d = findOne(TABS.DIVISI, { id: p.id });
-  if (!d) return { ok: false, data: null, message: 'Usulan tidak ditemukan.' };
-  if (d.status !== 'AJUKAN') {
-    return { ok: false, data: null,
-      message: 'Hanya usulan yang sedang diajukan yang dapat disetujui (status: ' +
-               (STATUS_LABELS[d.status] || d.status) + ').' };
-  }
-  updateRow(TABS.DIVISI, d._row, {
-    status: 'DISETUJUI', reviewed_by: ctx.user.username,
-    reviewed_at: new Date().toISOString(),
-    approval_notes: (p.notes || '').trim()
-  });
-  audit(ctx.user.username, 'DIVISI_SETUJU', 'Usulan ' + d.tracking_id);
-
-  // Notifikasi email ke Pengusul Divisi
-  kirimNotifikasiKeUser_(d.submitted_by,
-    'Usulan Program Disetujui: ' + d.tracking_id,
-    'Usulan Program Divisi Disetujui',
-    'Usulan program <strong>' + d.program_title + '</strong> (ID: <code>' + d.tracking_id + '</code>) telah disetujui oleh Ketua DPW untuk pelaksanaan program kerja.' + (p.notes ? '<br/><strong>Catatan Ketua:</strong> ' + escHtml_(p.notes) : ''),
-    'Buka Portal Divisi',
-    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/divisi');
-
-  return { ok: true, data: null, message: 'Usulan ' + d.tracking_id + ' disetujui.' };
-}
-
-/**
- * rejectSubmission: tolak usulan. HANYA KETUA/SUPERADMIN. Catatan WAJIB.
- */
-function rejectSubmission(ctx) {
-  var p = ctx.payload || {};
-  if (!p.id) return { ok: false, data: null, message: 'ID usulan wajib diisi.' };
-  if (!p.notes || !String(p.notes).trim()) {
-    return { ok: false, data: null, message: 'Alasan penolakan wajib diisi.' };
-  }
-  var d = findOne(TABS.DIVISI, { id: p.id });
-  if (!d) return { ok: false, data: null, message: 'Usulan tidak ditemukan.' };
-  if (d.status !== 'AJUKAN') {
-    return { ok: false, data: null,
-      message: 'Hanya usulan yang sedang diajukan yang dapat ditolak (status: ' +
-               (STATUS_LABELS[d.status] || d.status) + ').' };
-  }
-  updateRow(TABS.DIVISI, d._row, {
-    status: 'DITOLAK', reviewed_by: ctx.user.username,
-    reviewed_at: new Date().toISOString(),
-    approval_notes: String(p.notes).trim()
-  });
-  audit(ctx.user.username, 'DIVISI_TOLAK', 'Usulan ' + d.tracking_id + ': ' + p.notes);
-
-  // Notifikasi email ke Pengusul Divisi
-  kirimNotifikasiKeUser_(d.submitted_by,
-    'Usulan Program Perlu Perbaikan: ' + d.tracking_id,
-    'Usulan Program Dikembalikan untuk Perbaikan',
-    'Usulan program <strong>' + d.program_title + '</strong> (ID: <code>' + d.tracking_id + '</code>) telah dikembalikan oleh Ketua DPW dengan catatan perbaikan:<br/><blockquote style="background:#fee2e2;padding:10px 14px;border-left:4px solid #ef4444;margin:12px 0;color:#991b1b;border-radius:4px;">' + String(p.notes).trim() + '</blockquote>',
-    'Perbaiki Usulan Program',
-    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/divisi');
-
-  return { ok: true, data: null, message: 'Usulan ' + d.tracking_id + ' ditolak.' };
-}
-
-/**
- * startExecution: transisi DISETUJUI -> PELAKSANAAN.
- * Dilakukan oleh Divisi terkait atau SUPERADMIN ketika program mulai berjalan.
- */
-function startExecution(ctx) {
-  var p = ctx.payload || {};
-  if (!p.id) return { ok: false, data: null, message: 'ID usulan wajib diisi.' };
-  var d = assertOwnDivision_(ctx, p.id, false);
-
-  if (d.status !== 'DISETUJUI') {
-    return { ok: false, data: null,
-      message: 'Hanya usulan berstatus Disetujui yang dapat dimulai pelaksanaannya (status: ' +
-               (STATUS_LABELS[d.status] || d.status) + ').' };
-  }
-
-  updateRow(TABS.DIVISI, d._row, {
-    status: 'PELAKSANAAN',
-    started_at: new Date().toISOString()
-  });
-  audit(ctx.user.username, 'DIVISI_MULAI', 'Usulan ' + d.tracking_id);
-
-  return { ok: true, data: null,
-    message: 'Program ' + d.tracking_id + ' telah masuk tahap Pelaksanaan.' };
-}
-
-/**
- * submitLPJ: serahkan Laporan Pertanggungjawaban (LPJ).
- * Status berubah menjadi LPJ_SELESAI.
- * Menyimpan lpj_url (tautan Google Drive / dokumen), lpj_notes, dan realisasi_anggaran.
- */
-function submitLPJ(ctx) {
-  var p = ctx.payload || {};
-  if (!p.id) return { ok: false, data: null, message: 'ID usulan wajib diisi.' };
-  var d = assertOwnDivision_(ctx, p.id, false);
-
-  if (d.status !== 'PELAKSANAAN' && d.status !== 'DISETUJUI') {
-    return { ok: false, data: null,
-      message: 'Hanya usulan berstatus Pelaksanaan atau Disetujui yang dapat menyerahkan LPJ (status: ' +
-               (STATUS_LABELS[d.status] || d.status) + ').' };
-  }
-
-  var lpjUrl = String(p.lpj_url || '').trim();
-  if (!lpjUrl) {
-    return { ok: false, data: null, message: 'Tautan dokumen LPJ (Google Drive / Cloud) wajib diisi.' };
-  }
-
-  var realisasi = Number(p.realisasi_anggaran);
-  if (isNaN(realisasi) || realisasi < 0) {
-    realisasi = Number(d.budget_estimate) || 0;
-  }
-
-  var lpjNotes = String(p.lpj_notes || '').trim();
-
-  updateRow(TABS.DIVISI, d._row, {
-    status: 'LPJ_SELESAI',
-    lpj_url: lpjUrl,
-    lpj_notes: lpjNotes,
-    realisasi_anggaran: realisasi,
-    lpj_submitted_at: new Date().toISOString()
-  });
-  audit(ctx.user.username, 'DIVISI_LPJ', 'LPJ ' + d.tracking_id + ' (Realisasi: ' + formatRupiah(realisasi) + ')');
-
-  // Notifikasi email ke Ketua DPW
-  kirimNotifikasiKeRole_(ROLES.KETUA,
-    'LPJ Program Kerja Selesai: ' + d.tracking_id,
-    'Laporan Pertanggungjawaban (LPJ) Program Telah Diserahkan',
-    'Divisi <strong>' + (DIVISION_LABELS[d.division] || d.division) + '</strong> telah menyelesaikan pelaksanaan program <strong>' + d.program_title + '</strong> (ID: <code>' + d.tracking_id + '</code>) dan menyerahkan LPJ.<br/>' +
-    '<strong>Realisasi Anggaran:</strong> ' + formatRupiah(realisasi) + ' (Estimasi awal: ' + formatRupiah(d.budget_estimate) + ')<br/>' +
-    (lpjNotes ? '<strong>Catatan LPJ:</strong> ' + escHtml_(lpjNotes) + '<br/>' : '') +
-    '<strong>Tautan LPJ:</strong> <a href="' + lpjUrl + '" target="_blank">' + lpjUrl + '</a>',
-    'Tinjau Laporan di Portal',
-    (KONFIG.PUBLIC_URL || 'https://siapii.sigitadi.id') + '/#/divisi');
-
-  return { ok: true, data: null,
-    message: 'LPJ Program ' + d.tracking_id + ' berhasil diserahkan. Siklus program selesai!' };
+    return {
+      ok: true,
+      sisaAnggaran: sisaAnggaran,
+      refundVoucher: refundRes ? refundRes.noVoucher : null,
+      message: 'LPJ program kerja berhasil diserahkan dan diverifikasi.' + (sisaAnggaran > 0 ? ' Sisa anggaran Rp ' + sisaAnggaran + ' otomatis dibukukan kembali ke kas yayasan.' : '')
+    };
+  }, 10000);
 }
 

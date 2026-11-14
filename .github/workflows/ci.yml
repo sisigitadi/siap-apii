@@ -24,19 +24,21 @@ jobs:
         with:
           node-version: 22.x
 
-      - name: Validate Frontend JavaScript Syntax
+      - name: Validate Frontend & Tooling JavaScript Syntax
         run: |
-          node -c portal/portal.js
-          node -c portal/auth.js
-          node -c portal/config.js
-          node -c public/app.js
-          node -c public/config.js
+          node --check portal/config.js
+          node --check portal/auth.js
+          node --check portal/state.js
+          node --check portal/app.js
+          node --check public/config.js
+          node --check public/app.js
+          node --check scripts/dev-server.mjs
+          node --check scripts/build-apps-script.mjs
+          node --check scripts/generate-html.mjs
 
-      - name: Build Apps Script Backend
-        run: node scripts/build-apps-script.mjs
+      - name: Build Apps Script & Docs
+        run: npm run build
 
       - name: Run Automated Test Suites
         run: npm test
 
-      - name: Verify Build Ready
-        run: npm run build

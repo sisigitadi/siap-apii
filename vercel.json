@@ -1,4 +1,5 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "framework": null,
   "buildCommand": null,
@@ -26,22 +27,34 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/portal",
+      "destination": "/portal/",
+      "permanent": false
+    },
+    {
+      "source": "/public",
+      "destination": "/public/",
+      "permanent": false
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/portal/",
+      "destination": "/portal/index.html"
+    },
     {
       "source": "/portal/(.*)",
       "destination": "/portal/$1"
     },
     {
-      "source": "/portal",
-      "destination": "/portal/index.html"
+      "source": "/public/",
+      "destination": "/public/index.html"
     },
     {
       "source": "/public/(.*)",
       "destination": "/public/$1"
-    },
-    {
-      "source": "/public",
-      "destination": "/public/index.html"
     },
     {
       "source": "/verifikasi(.*)",
@@ -52,28 +65,29 @@
       "has": [
         {
           "type": "host",
-          "value": "^(www\\.)?apii\\.sigitadi\\.id$"
+          "value": "^(www\\.)?siapii\\.sigitadi\\.id$"
         }
       ],
-      "destination": "/public/index.html"
+      "destination": "/portal/index.html"
     },
     {
       "source": "/:path*",
       "has": [
         {
           "type": "host",
-          "value": "^(www\\.)?apii\\.sigitadi\\.id$"
+          "value": "^(www\\.)?siapii\\.sigitadi\\.id$"
         }
       ],
-      "destination": "/public/:path*"
+      "destination": "/portal/:path*"
     },
     {
       "source": "/",
-      "destination": "/portal/index.html"
+      "destination": "/public/index.html"
     },
     {
       "source": "/:path*",
-      "destination": "/portal/:path*"
+      "destination": "/public/:path*"
     }
   ]
 }
+

@@ -1,2022 +1,2772 @@
 /**
- * ============================================================================
- * app.js - Logika Frontend Portal Publik (apii.sigitadi.id)
- * ============================================================================
- * Pola Module (IIFE). Semua logika publik di sini: mobile nav, verifikasi
- * surat, daftar dokumen resmi, daftar divisi. Tidak ada autentikasi.
- * ==========================================================================*/
-(function () {
-  'use strict';
+ * SIAP APII Enterprise v3.1 - Public Portal Application Controller
+ * Yayasan Apologet Islam Indonesia (SK Kemenkumham: AHU-0014970.AH.01.04.Tahun 2023)
+ * Pengembang: Sigit Adi Irianto (https://wa.me/6281358575678 | sigitadi.id)
+ * Shared State Live Sync, National Ticker, Smart Fallback, Infaq 4-Kantong QRIS, Strict Verification Hub
+ */
 
-  var Public = {
-    state: {
-      ktpBase64: '',
-      selfieBase64: '',
-      registration: null,
-      currentWilayah: 'DPW_JABODETABEK',
-      wilayahList: [],
-      nationalTicker: null,
-      activeVerifyTab: 'surat'
-    },
-
-    init: function () {
-      this.initTheme();
-      this.initRegionalLens();
-      this.initUnifiedVerification();
-      this.bindMobileNav();
-      this.bindRegistrationForm();
-      this.bindRegistrationModal();
-      this.loadPublicConfig();
-      this.loadPublicSurat();
-      this.loadPublicAccounts();
-    },
-
-    initTheme: function () {
-      var self = this;
-      var saved = null;
-      try { saved = localStorage.getItem('apii_theme'); } catch (e) {}
-      var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      var isDark = saved === 'dark' || (!saved && prefersDark);
-      self.applyTheme(isDark);
-
-      var btn = document.getElementById('themeToggleBtn');
-      if (btn) {
-        btn.onclick = function () {
-          var nowDark = document.documentElement.classList.contains('dark');
-          self.applyTheme(!nowDark);
-        };
+const PublicApp = (() => {
+  // =========================================================================
+  // 1. PURE JS CRYPTO (FIPS 180-4 SHA-256) & HELPERS
+  // =========================================================================
+  function sha256Hex(input) {
+    const str = String(input == null ? '' : input);
+    let bytes;
+    if (typeof TextEncoder !== 'undefined') {
+      bytes = Array.from(new TextEncoder().encode(str));
+    } else {
+      const utf8 = unescape(encodeURIComponent(str));
+      bytes = [];
+      for (let i = 0; i < utf8.length; i++) {
+        bytes.push(utf8.charCodeAt(i));
       }
-    },
+    }
 
-    applyTheme: function (isDark) {
-      if (isDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
+    const K = [
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    ];
+
+    const H = [
+      0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+      0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+    ];
+
+    const bitLen = bytes.length * 8;
+    bytes.push(0x80);
+    while ((bytes.length % 64) !== 56) {
+      bytes.push(0x00);
+    }
+
+    const highBits = Math.floor(bitLen / 0x100000000);
+    const lowBits = bitLen >>> 0;
+    bytes.push((highBits >>> 24) & 0xff, (highBits >>> 16) & 0xff, (highBits >>> 8) & 0xff, highBits & 0xff);
+    bytes.push((lowBits >>> 24) & 0xff, (lowBits >>> 16) & 0xff, (lowBits >>> 8) & 0xff, lowBits & 0xff);
+
+    const w = new Array(64);
+    for (let i = 0; i < bytes.length; i += 64) {
+      for (let t = 0; t < 16; t++) {
+        const j = i + t * 4;
+        w[t] = ((bytes[j] << 24) | (bytes[j + 1] << 16) | (bytes[j + 2] << 8) | bytes[j + 3]) >>> 0;
       }
-      try { localStorage.setItem('apii_theme', isDark ? 'dark' : 'light'); } catch (e) {}
+      for (let t = 16; t < 64; t++) {
+        const s0 = (((w[t - 15] >>> 7) | (w[t - 15] << 25)) ^ ((w[t - 15] >>> 18) | (w[t - 15] << 14)) ^ (w[t - 15] >>> 3)) >>> 0;
+        const s1 = (((w[t - 2] >>> 17) | (w[t - 2] << 15)) ^ ((w[t - 2] >>> 19) | (w[t - 2] << 13)) ^ (w[t - 2] >>> 10)) >>> 0;
+        w[t] = (w[t - 16] + s0 + w[t - 7] + s1) >>> 0;
+      }
 
-      var sun = document.getElementById('themeIconSun');
-      var moon = document.getElementById('themeIconMoon');
-      var btn = document.getElementById('themeToggleBtn');
-      if (sun && moon) {
-        if (isDark) {
-          sun.classList.remove('hidden');
-          moon.classList.add('hidden');
-        } else {
-          sun.classList.add('hidden');
-          moon.classList.remove('hidden');
+      let [a, b, c, d, e, f, g, h] = H;
+      for (let t = 0; t < 64; t++) {
+        const S1 = (((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7))) >>> 0;
+        const ch = ((e & f) ^ ((~e) & g)) >>> 0;
+        const temp1 = (h + S1 + ch + K[t] + w[t]) >>> 0;
+        const S0 = (((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10))) >>> 0;
+        const maj = ((a & b) ^ (a & c) ^ (b & c)) >>> 0;
+        const temp2 = (S0 + maj) >>> 0;
+
+        h = g;
+        g = f;
+        f = e;
+        e = (d + temp1) >>> 0;
+        d = c;
+        c = b;
+        b = a;
+        a = (temp1 + temp2) >>> 0;
+      }
+
+      H[0] = (H[0] + a) >>> 0;
+      H[1] = (H[1] + b) >>> 0;
+      H[2] = (H[2] + c) >>> 0;
+      H[3] = (H[3] + d) >>> 0;
+      H[4] = (H[4] + e) >>> 0;
+      H[5] = (H[5] + f) >>> 0;
+      H[6] = (H[6] + g) >>> 0;
+      H[7] = (H[7] + h) >>> 0;
+    }
+
+    return H.map(v => v.toString(16).padStart(8, '0')).join('');
+  }
+
+  function hashConsultToken(token) {
+    return sha256Hex(String(token || '') + ':APII_CONSULT');
+  }
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function maskNik(nik) {
+    const raw = String(nik || '').trim();
+    if (!raw) return '****************';
+    if (raw.includes('*')) return raw;
+    if (raw.length <= 8) return raw.substring(0, 2) + '****';
+    return raw.substring(0, 4) + '********' + raw.substring(raw.length - 4);
+  }
+
+  function createMonogramAvatar(name, seedStr = '') {
+    const clean = String(name || 'APII').replace(/^(Ust\.?|H\.?|Hj\.?|Drs\.?|Prof\.?|Dr\.?|Adv\.?)\s+/gi, '').trim();
+    const parts = clean.split(/\s+/).filter(Boolean);
+    const initials = parts.length >= 2
+      ? (parts[0][0] + parts[1][0]).toUpperCase()
+      : (clean.substring(0, 2).toUpperCase() || 'AP');
+    const palette = ['#003527', '#064e3b', '#047857', '#1e3a8a', '#7c2d12'];
+    let sum = 0;
+    const key = String(name || '') + String(seedStr || '');
+    for (let i = 0; i < key.length; i++) sum += key.charCodeAt(i);
+    const bg = palette[sum % palette.length];
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" rx="24" fill="${bg}"/><circle cx="100" cy="100" r="82" fill="none" stroke="#b0f0d6" stroke-width="2" opacity="0.35"/><text x="100" y="114" text-anchor="middle" font-family="Manrope, Inter, sans-serif" font-size="68" font-weight="800" fill="#ffffff">${escapeHtml(initials)}</text></svg>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  }
+
+  function generateQrSvg(payloadStr, size = 210) {
+    const hash = sha256Hex(payloadStr || 'QRIS-APII');
+    const modules = 25;
+    const pad = 2;
+    const cell = 8;
+    const total = (modules + pad * 2) * cell;
+
+    function isFinder(r, c) {
+      return (r < 7 && c < 7) || (r < 7 && c >= modules - 7) || (r >= modules - 7 && c < 7);
+    }
+
+    function isReserved(r, c) {
+      if (isFinder(r, c)) return true;
+      if (r === 7 && (c <= 7 || c >= modules - 8)) return true;
+      if (c === 7 && (r <= 7 || r >= modules - 8)) return true;
+      if (r === 6 || c === 6) return true;
+      if (r >= 10 && r <= 14 && c >= 10 && c <= 14) return true;
+      return false;
+    }
+
+    let rects = '';
+    // Finder patterns
+    const finders = [
+      { r: 0, c: 0 },
+      { r: 0, c: modules - 7 },
+      { r: modules - 7, c: 0 }
+    ];
+    finders.forEach(f => {
+      const x = (f.c + pad) * cell;
+      const y = (f.r + pad) * cell;
+      rects += `<rect x="${x}" y="${y}" width="${7 * cell}" height="${7 * cell}" rx="4" fill="#003527"/>`;
+      rects += `<rect x="${x + cell}" y="${y + cell}" width="${5 * cell}" height="${5 * cell}" rx="2" fill="#ffffff"/>`;
+      rects += `<rect x="${x + 2 * cell}" y="${y + 2 * cell}" width="${3 * cell}" height="${3 * cell}" rx="1.5" fill="#003527"/>`;
+    });
+
+    // Timing lines
+    for (let i = 8; i < modules - 8; i++) {
+      if (i % 2 === 0) {
+        rects += `<rect x="${(i + pad) * cell}" y="${(6 + pad) * cell}" width="${cell}" height="${cell}" fill="#003527"/>`;
+        rects += `<rect x="${(6 + pad) * cell}" y="${(i + pad) * cell}" width="${cell}" height="${cell}" fill="#003527"/>`;
+      }
+    }
+
+    // Deterministic data modules from SHA-256
+    let bitIdx = 0;
+    for (let r = 0; r < modules; r++) {
+      for (let c = 0; c < modules; c++) {
+        if (isReserved(r, c)) continue;
+        const hexChar = hash[bitIdx % hash.length];
+        const nibble = parseInt(hexChar, 16);
+        const bit = (nibble >> (bitIdx % 4)) & 1;
+        bitIdx++;
+        if (bit === 1 || ((r + c + nibble) % 5 === 0)) {
+          rects += `<rect x="${(c + pad) * cell}" y="${(r + pad) * cell}" width="${cell}" height="${cell}" fill="#003527"/>`;
         }
       }
-      if (btn) {
-        btn.setAttribute('aria-label', isDark ? 'Ubah ke mode terang' : 'Ubah ke mode gelap');
-        btn.title = isDark ? 'Ubah ke mode terang' : 'Ubah ke mode gelap';
-      }
+    }
+
+    // Center APII Shield
+    const mid = total / 2;
+    const emblem = `<rect x="${mid - 18}" y="${mid - 18}" width="36" height="36" rx="6" fill="#ffffff" stroke="#003527" stroke-width="1.5"/><polygon points="${mid},${mid - 13} ${mid + 11},${mid - 6} ${mid + 11},${mid + 6} ${mid},${mid + 13} ${mid - 11},${mid + 6} ${mid - 11},${mid - 6}" fill="#064e3b"/><text x="${mid}" y="${mid + 3.5}" text-anchor="middle" font-family="Manrope, sans-serif" font-size="8.5" font-weight="800" fill="#ffffff">APII</text>`;
+
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${total} ${total}" role="img" aria-label="Kode QRIS Resmi APII"><rect width="${total}" height="${total}" fill="#ffffff"/>${rects}${emblem}</svg>`;
+  }
+
+  function parseDate(str) {
+    if (!str) return new Date();
+    if (str instanceof Date) return str;
+    const s = String(str).trim();
+    const m = s.match(/^(\d{2})-(\d{2})-(\d{4})(.*)$/);
+    if (m) {
+      return new Date(`${m[3]}-${m[2]}-${m[1]}${m[4] ? m[4].replace(' ', 'T') : 'T00:00:00'}`);
+    }
+    return new Date(s);
+  }
+
+  function formatTanggal(d = new Date()) {
+    const date = (d instanceof Date) ? d : parseDate(d);
+    if (isNaN(date.getTime())) return String(d);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  function formatWaktu(d = new Date()) {
+    const date = (d instanceof Date) ? d : parseDate(d);
+    if (isNaN(date.getTime())) return String(d);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const mins = String(date.getMinutes()).padStart(2, '0');
+    const secs = String(date.getSeconds()).padStart(2, '0');
+    return `${day}-${month}-${year} ${hours}:${mins}:${secs}`;
+  }
+
+  // =========================================================================
+  // 2. CANONICAL SHARED DATABASE SELF-SEEDING (Matching portal/state.js)
+  // =========================================================================
+  const CANONICAL_SEED_SURAT = {
+    'SRT-001': {
+      nomorSurat: '005/SM-DPP-APII/XI/2026',
+      perihal: 'Surat Mandat Delegasi Dialog Teologi & Kristologi Nasional 2026',
+      isiSurat: 'Memberikan mandat penuh kepada nama tertera di atas untuk mewakili Dewan Pengurus Pusat Yayasan Apologet Islam Indonesia dalam forum Dialog Teologi dan Kristologi Komparatif Nasional 2026 di Jakarta Islamic Centre.',
+      legacyHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
     },
-
-    // ---------------------------------------------------------------
-    // SMART REGIONAL LENS ENGINE (BAB 9)
-    // ---------------------------------------------------------------
-    initRegionalLens: function () {
-      var self = this;
-      var qWil = null;
-      try {
-        var urlParams = new URLSearchParams(window.location.search);
-        qWil = urlParams.get('w') || urlParams.get('wilayah');
-      } catch (_) {}
-
-      var savedWil = null;
-      try { savedWil = localStorage.getItem('apii_regional_lens'); } catch (_) {}
-
-      // Subdomain check (misal: pusat.apii.or.id atau jabo.apii.or.id)
-      var host = window.location.hostname || '';
-      var subMatch = host.match(/^([a-z0-9-]+)\./i);
-      var subSlug = subMatch ? subMatch[1].toLowerCase() : '';
-
-      var initialWil = 'DPW_JABODETABEK';
-      if (qWil) {
-        initialWil = (qWil.toLowerCase() === 'pusat' || qWil.toUpperCase() === 'DPP_PUSAT') ? 'DPP_PUSAT' : 'DPW_JABODETABEK';
-      } else if (subSlug === 'pusat') {
-        initialWil = 'DPP_PUSAT';
-      } else if (savedWil) {
-        initialWil = savedWil;
-      }
-
-      self.state.currentWilayah = initialWil;
-
-      var selectDesk = document.getElementById('regionalLensSelect');
-      var selectMob = document.getElementById('mobileRegionalLensSelect');
-      var selectReg = document.getElementById('regWilayah');
-
-      var onWilayahChange = function (val) {
-        self.applyRegionalLens(val, true);
-      };
-
-      if (selectDesk) {
-        selectDesk.value = initialWil;
-        selectDesk.addEventListener('change', function () { onWilayahChange(this.value); });
-      }
-      if (selectMob) {
-        selectMob.value = initialWil;
-        selectMob.addEventListener('change', function () { onWilayahChange(this.value); });
-      }
-      if (selectReg) {
-        selectReg.value = initialWil;
-        selectReg.addEventListener('change', function () {
-          self.state.currentWilayah = this.value;
-          if (selectDesk) selectDesk.value = this.value;
-          if (selectMob) selectMob.value = this.value;
-        });
-      }
-    },
-
-    populateWilayahSelectors: function (list, currentId) {
-      if (!Array.isArray(list) || list.length === 0) return;
-      var selectDesk = document.getElementById('regionalLensSelect');
-      var selectMob = document.getElementById('mobileRegionalLensSelect');
-      var selectReg = document.getElementById('regWilayah');
-
-      var buildOptions = function () {
-        return list.map(function (w) {
-          var sel = (w.id === currentId) ? ' selected' : '';
-          var label = (w.tingkat === 'PUSAT') ? 'DPP APII (Pusat)' : (w.nama || w.id);
-          return '<option value="' + w.id + '"' + sel + '>' + label + '</option>';
-        }).join('');
-      };
-
-      var opts = buildOptions();
-      if (selectDesk) selectDesk.innerHTML = opts;
-      if (selectMob) selectMob.innerHTML = opts;
-      if (selectReg) selectReg.innerHTML = opts;
-    },
-
-    applyRegionalLens: function (wilayahId, updateUrl) {
-      var self = this;
-      self.state.currentWilayah = wilayahId;
-      try { localStorage.setItem('apii_regional_lens', wilayahId); } catch (_) {}
-
-      var selectDesk = document.getElementById('regionalLensSelect');
-      var selectMob = document.getElementById('mobileRegionalLensSelect');
-      var selectReg = document.getElementById('regWilayah');
-      if (selectDesk && selectDesk.value !== wilayahId) selectDesk.value = wilayahId;
-      if (selectMob && selectMob.value !== wilayahId) selectMob.value = wilayahId;
-      if (selectReg && selectReg.value !== wilayahId) selectReg.value = wilayahId;
-
-      var wList = self.state.wilayahList || [];
-      var wObj = wList.find(function (w) { return w.id === wilayahId; }) || {
-        id: wilayahId,
-        nama: (wilayahId === 'DPP_PUSAT') ? 'Dewan Pimpinan Pusat (DPP) APII' : 'DPW APII Jabodetabek',
-        tingkat: (wilayahId === 'DPP_PUSAT') ? 'PUSAT' : 'WILAYAH',
-        slug: (wilayahId === 'DPP_PUSAT') ? 'pusat' : 'jabo',
-        alamat: (wilayahId === 'DPP_PUSAT') ? 'Sekretariat DPP APII, DKI Jakarta, Indonesia' : 'Sekretariat DPW APII Jabodetabek, DKI Jakarta',
-        email: (wilayahId === 'DPP_PUSAT') ? 'sekretariat@apii.sigitadi.id' : 'info@apii-jabo.or.id',
-        hotline_wa: (wilayahId === 'DPP_PUSAT') ? '6281288882026' : '6281299887711'
-      };
-
-      if (updateUrl && window.history && window.history.replaceState) {
-        try {
-          var u = new URL(window.location);
-          u.searchParams.set('w', wObj.slug || wilayahId.toLowerCase());
-          window.history.replaceState({}, '', u);
-        } catch (_) {}
-      }
-
-      self.applyWilayahBranding(wObj);
-
-      // Refresh data publik spesifik wilayah
-      self.loadPublicSurat({ wilayah: wilayahId });
-      self.loadPublicAccounts({ wilayah: wilayahId });
-    },
-
-    applyWilayahBranding: function (w) {
-      if (!w) return;
-      var brandSub = document.getElementById('brandSubtitle');
-      if (brandSub) {
-        brandSub.textContent = (w.tingkat === 'PUSAT') ? 'Dewan Pimpinan Pusat' : (w.nama || 'DPW Jabodetabek');
-      }
-
-      var addr = document.getElementById('contactAddressVal');
-      if (addr && w.alamat) { addr.textContent = w.alamat; }
-
-      var email = document.getElementById('contactEmailVal');
-      if (email && w.email) { email.textContent = w.email; }
-
-      var waVal = document.getElementById('contactWaVal');
-      var waCard = document.getElementById('contactWaCard');
-      if (waVal && w.hotline_wa) {
-        waVal.textContent = w.hotline_wa;
-        if (waCard) {
-          waCard.classList.remove('hidden');
-          var digits = String(w.hotline_wa).replace(/\D/g, '').replace(/^0/, '62');
-          waCard.onclick = function () {
-            window.open('https://wa.me/' + digits + '?text=' + encodeURIComponent('Halo Sekretariat APII, saya ingin bertanya terkait portal publik.'), '_blank', 'noopener');
-          };
-        }
-      }
-    },
-
-    // ---------------------------------------------------------------
-    // UNIFIED VERIFICATION HUB (SURAT, KTA & KWITANSI)
-    // ---------------------------------------------------------------
-    initUnifiedVerification: function () {
-      var self = this;
-      var tabSurat = document.getElementById('tabVerifySurat');
-      var tabKta = document.getElementById('tabVerifyKta');
-      var tabKwitansi = document.getElementById('tabVerifyKwitansi');
-      var input = document.getElementById('verifyInputQuery');
-      var hint = document.getElementById('verifyHintText');
-      var form = document.getElementById('unifiedVerifyForm');
-      var resBox = document.getElementById('verifyResultContainer');
-
-      if (!form || !input) return;
-
-      var setTab = function (tab) {
-        self.state.activeVerifyTab = tab;
-        var activeCls = ['bg-white', 'dark:bg-emerald-900', 'text-emerald-dark', 'dark:text-white', 'shadow-xs', 'font-extrabold'];
-        var inactiveCls = ['text-gray-500', 'dark:text-gray-400', 'font-bold'];
-
-        [tabSurat, tabKta, tabKwitansi].forEach(function (btn) {
-          if (!btn) return;
-          activeCls.forEach(function (c) { btn.classList.remove(c); });
-          inactiveCls.forEach(function (c) { btn.classList.add(c); });
-        });
-
-        if (tab === 'surat' && tabSurat) {
-          inactiveCls.forEach(function (c) { tabSurat.classList.remove(c); });
-          activeCls.forEach(function (c) { tabSurat.classList.add(c); });
-          input.placeholder = 'Masukkan nomor surat atau hash SHA-256...';
-          if (hint) hint.textContent = 'Contoh: 042/SK-DPW/XI/2026 atau tempel kode hash SHA-256.';
-        } else if (tab === 'kta' && tabKta) {
-          inactiveCls.forEach(function (c) { tabKta.classList.remove(c); });
-          activeCls.forEach(function (c) { tabKta.classList.add(c); });
-          input.placeholder = 'Masukkan nomor KTA (contoh: 2026-JABO-00142) atau QR token...';
-          if (hint) hint.textContent = 'Sistem memverifikasi status keanggotaan aktif & masa berlaku 5 tahun secara UU PDP compliant.';
-        } else if (tab === 'kwitansi' && tabKwitansi) {
-          inactiveCls.forEach(function (c) { tabKwitansi.classList.remove(c); });
-          activeCls.forEach(function (c) { tabKwitansi.classList.add(c); });
-          input.placeholder = 'Masukkan nomor kwitansi/voucher kas (contoh: 001/KW-M-JABO/XI/2026)...';
-          if (hint) hint.textContent = 'Validasi bukti penerimaan infaq/donasi kas resmi terdaftar.';
-        }
-      };
-
-      if (tabSurat) tabSurat.addEventListener('click', function () { setTab('surat'); });
-      if (tabKta) tabKta.addEventListener('click', function () { setTab('kta'); });
-      if (tabKwitansi) tabKwitansi.addEventListener('click', function () { setTab('kwitansi'); });
-
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        var q = String(input.value || '').trim();
-        if (!q) return;
-        self.executeUnifiedVerification(self.state.activeVerifyTab || 'surat', q);
-      });
-
-      // Auto check query params on page load
-      var qSurat = null, qKta = null, qKwitansi = null;
-      try {
-        var urlParams = new URLSearchParams(window.location.search);
-        qSurat = urlParams.get('verifikasi') || urlParams.get('verifikasi-surat') || urlParams.get('hash');
-        qKta = urlParams.get('verifikasi-kta') || urlParams.get('kta') || urlParams.get('token');
-        qKwitansi = urlParams.get('verifikasi-kuitansi') || urlParams.get('kwitansi') || urlParams.get('no');
-      } catch (_) {}
-
-      if (qSurat) {
-        setTab('surat');
-        input.value = qSurat;
-        self.executeUnifiedVerification('surat', qSurat);
-      } else if (qKta) {
-        setTab('kta');
-        input.value = qKta;
-        self.executeUnifiedVerification('kta', qKta);
-      } else if (qKwitansi) {
-        setTab('kwitansi');
-        input.value = qKwitansi;
-        self.executeUnifiedVerification('kwitansi', qKwitansi);
-      }
-    },
-
-    executeUnifiedVerification: function (type, query) {
-      var self = this;
-      var spinner = document.getElementById('btnVerifySpinner');
-      var btn = document.getElementById('btnRunVerify');
-      var resBox = document.getElementById('verifyResultContainer');
-      if (!resBox) return;
-
-      if (spinner) spinner.classList.remove('hidden');
-      if (btn) btn.disabled = true;
-      resBox.classList.remove('hidden');
-      resBox.innerHTML = '<div class="p-6 text-center text-sm font-semibold text-gray-500 animate-pulse">Memeriksa keabsahan data di pangkalan data resmi APII...</div>';
-
-      var action = 'verifySurat';
-      var params = { query: query, hash: query, letter_number: query };
-      if (type === 'kta') {
-        action = 'verifyKtaPublic';
-        params = { token: query, no_kta: query };
-      } else if (type === 'kwitansi') {
-        action = 'verifyKwitansi';
-        params = { no: query, voucher_number: query, id: query };
-      }
-
-      this.get(action, params).then(function (res) {
-        if (spinner) spinner.classList.add('hidden');
-        if (btn) btn.disabled = false;
-        self.renderVerificationResult(type, query, res);
-      }).catch(function (err) {
-        if (spinner) spinner.classList.add('hidden');
-        if (btn) btn.disabled = false;
-        resBox.innerHTML = '' +
-          '<div class="p-6 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-900 dark:text-rose-200">' +
-            '<div class="flex items-center gap-2 font-bold mb-1">' +
-              '<span>⚠️</span> <span>Gagal Memeriksa Data</span>' +
-            '</div>' +
-            '<p class="text-xs">Terjadi kendala jaringan saat menghubungi server APII. Silakan coba kembali.</p>' +
-          '</div>';
-      });
-    },
-
-    renderVerificationResult: function (type, query, res) {
-      var self = this;
-      var resBox = document.getElementById('verifyResultContainer');
-      if (!resBox) return;
-
-      var ok = res && res.success && res.data;
-      var d = (res && res.data) || {};
-
-      if (!ok) {
-        resBox.innerHTML = '' +
-          '<div class="p-6 sm:p-7 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-900 dark:text-rose-200">' +
-            '<div class="flex items-start gap-3">' +
-              '<div class="h-10 w-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl flex-shrink-0">❌</div>' +
-              '<div>' +
-                '<h4 class="font-extrabold text-sm sm:text-base mb-1">Data Tidak Terdaftar / Tidak Valid</h4>' +
-                '<p class="text-xs sm:text-sm text-rose-800 dark:text-rose-300 leading-relaxed">' + self.esc((res && res.message) || 'Kode atau nomor referensi tidak ditemukan dalam pangkalan data resmi Yayasan APII.') + '</p>' +
-                '<div class="mt-3 text-[11px] font-mono text-rose-700/80 bg-white/70 dark:bg-black/40 px-3 py-1.5 rounded-lg border border-rose-200/60 inline-block">' +
-                  'Query: ' + self.esc(query) +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-          '</div>';
-        return;
-      }
-
-      if (type === 'surat') {
-        resBox.innerHTML = '' +
-          '<div class="p-6 sm:p-7 rounded-3xl bg-emerald-50/70 dark:bg-emerald-950/40 border-2 border-emerald-500/50 shadow-md">' +
-            '<div class="flex items-center justify-between gap-3 pb-4 mb-4 border-b border-emerald-200 dark:border-emerald-800 flex-wrap">' +
-              '<div class="flex items-center gap-2">' +
-                '<span class="h-3 w-3 rounded-full bg-emerald-600 animate-pulse"></span>' +
-                '<span class="text-xs font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">DOKUMEN RESMI SAH &amp; TERVERIFIKASI</span>' +
-              '</div>' +
-              '<span class="text-xs font-bold bg-emerald-200/70 dark:bg-emerald-900 text-emerald-950 dark:text-emerald-100 px-3 py-1 rounded-full">' + self.esc(d.status_label || d.status) + '</span>' +
-            '</div>' +
-            '<div class="space-y-3 text-xs sm:text-sm">' +
-              '<div>' +
-                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Judul Surat / Perihal:</div>' +
-                '<div class="font-black text-gray-950 dark:text-white text-base">' + self.esc(d.title) + '</div>' +
-              '</div>' +
-              '<div class="grid sm:grid-cols-2 gap-3 pt-1">' +
-                '<div>' +
-                  '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Nomor Naskah Dinas:</div>' +
-                  '<div class="font-mono font-bold text-emerald-900 dark:text-emerald-200 break-all">' + self.esc(d.letter_number) + '</div>' +
-                '</div>' +
-                '<div>' +
-                  '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Penerbit:</div>' +
-                  '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.wilayah_nama || 'Yayasan APII') + '</div>' +
-                '</div>' +
-                '<div>' +
-                  '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Tanggal Terbit:</div>' +
-                  '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.tanggal_label || d.published_at || '-') + '</div>' +
-                '</div>' +
-                '<div>' +
-                  '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Klasifikasi:</div>' +
-                  '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.letter_type_label || d.letter_type) + '</div>' +
-                '</div>' +
-              '</div>' +
-              (d.sha256_hash ?
-                '<div class="pt-2">' +
-                  '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Hash Integritas Digital (SHA-256):</div>' +
-                  '<div class="font-mono text-[11px] text-gray-600 dark:text-gray-400 break-all bg-white/70 dark:bg-black/30 p-2 rounded-xl border border-emerald-100 dark:border-emerald-900/60">' + self.esc(d.sha256_hash) + '</div>' +
-                '</div>' : '') +
-              (d.pdf_url ?
-                '<div class="pt-3">' +
-                  '<a href="' + self.esc(d.pdf_url) + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 bg-emerald hover:bg-emerald-dark text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow transition">' +
-                    '<span>📥 Unduh Salinan Resmi Dokumen (PDF)</span>' +
-                  '</a>' +
-                '</div>' : '') +
-            '</div>' +
-          '</div>';
-      } else if (type === 'kta') {
-        var isValidKta = d.is_valid && d.status === 'AKTIF';
-        var borderCls = isValidKta ? 'border-emerald-500/50 bg-emerald-50/70 dark:bg-emerald-950/40' : 'border-amber-400 bg-amber-50 dark:bg-amber-950/40';
-        var badgeCls = isValidKta ? 'bg-emerald-200/70 text-emerald-950' : 'bg-amber-200/70 text-amber-950';
-
-        resBox.innerHTML = '' +
-          '<div class="p-6 sm:p-7 rounded-3xl border-2 ' + borderCls + ' shadow-md">' +
-            '<div class="flex items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-200 dark:border-emerald-800 flex-wrap">' +
-              '<div class="flex items-center gap-2">' +
-                '<span class="text-xl">🪪</span>' +
-                '<span class="text-xs font-black uppercase tracking-wider text-emerald-900 dark:text-emerald-300">KARTU TANDA ANGGOTA NASIONAL APII</span>' +
-              '</div>' +
-              '<span class="text-xs font-black ' + badgeCls + ' px-3 py-1 rounded-full">' + self.esc(d.status) + '</span>' +
-            '</div>' +
-            '<div class="grid sm:grid-cols-2 gap-4 text-xs sm:text-sm">' +
-              '<div>' +
-                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Nama Anggota:</div>' +
-                '<div class="font-black text-gray-950 dark:text-white text-base">' + self.esc(d.full_name) + '</div>' +
-              '</div>' +
-              '<div>' +
-                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Nomor KTA Nasional (ART Bab II):</div>' +
-                '<div class="font-mono font-bold text-emerald-900 dark:text-emerald-200 text-base">' + self.esc(d.no_kta) + '</div>' +
-              '</div>' +
-              '<div>' +
-                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Afiliasi Wilayah:</div>' +
-                '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.wilayah_nama || d.wilayah_id) + '</div>' +
-              '</div>' +
-              '<div>' +
-                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Masa Berlaku (5 Tahun Terkunci):</div>' +
-                '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.tgl_terbit || '-') + ' s.d. ' + self.esc(d.masa_berlaku || '-') + '</div>' +
-              '</div>' +
-            '</div>' +
-            '<div class="mt-4 pt-3 border-t border-gray-200 dark:border-emerald-900 text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">' +
-              '<span>🔒</span> <span>Verifikasi terlindungi UU PDP No. 27/2022 (Data NIK &amp; privasi pribadi disamarkan).</span>' +
-            '</div>' +
-          '</div>';
-      } else if (type === 'kwitansi') {
-        var isVoid = d.is_void;
-        var isValidKwt = d.is_valid && !isVoid;
-        var kwtBorder = isValidKwt ? 'border-emerald-500/50 bg-emerald-50/70 dark:bg-emerald-950/40' : (isVoid ? 'border-rose-400 bg-rose-50 dark:bg-rose-950/40' : 'border-amber-400 bg-amber-50 dark:bg-amber-950/40');
-        var kwtStatusText = isValidKwt ? 'LUNAS &amp; SAH' : (isVoid ? 'DIBATALKAN / VOID' : self.esc(d.status));
-        var kwtBadgeCls = isValidKwt ? 'bg-emerald-600 text-white' : (isVoid ? 'bg-rose-600 text-white' : 'bg-amber-600 text-white');
-
-        resBox.innerHTML = '' +
-          '<div class="p-6 sm:p-7 rounded-3xl border-2 ' + kwtBorder + ' shadow-md">' +
-            '<div class="flex items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-200 dark:border-emerald-800 flex-wrap">' +
-              '<div class="flex items-center gap-2">' +
-                '<span class="text-xl">🧾</span>' +
-                '<span class="text-xs font-black uppercase tracking-wider text-emerald-900 dark:text-emerald-300">BUKTI PENERIMAAN KAS RESMI (KWITANSI)</span>' +
-              '</div>' +
-              '<span class="text-xs font-black ' + kwtBadgeCls + ' px-3.5 py-1 rounded-full">' + kwtStatusText + '</span>' +
-            '</div>' +
-            '<div class="grid sm:grid-cols-2 gap-4 text-xs sm:text-sm">' +
-              '<div>' +
-                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Nomor Kwitansi:</div>' +
-                '<div class="font-mono font-bold text-gray-950 dark:text-white text-base break-all">' + self.esc(d.voucher_number) + '</div>' +
-              '</div>' +
-              '<div>' +
-                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Nominal Infaq / Donasi:</div>' +
-                '<div class="font-mono font-black text-emerald-900 dark:text-emerald-200 text-lg">Rp ' + (Number(d.amount) || 0).toLocaleString('id-ID') + ',-</div>' +
-              '</div>' +
-              '<div class="sm:col-span-2">' +
-                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Terbilang:</div>' +
-                '<div class="font-semibold italic text-gray-800 dark:text-gray-200">' + self.esc(d.terbilang || '-') + '</div>' +
-              '</div>' +
-              '<div>' +
-                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Sudah Terima Dari:</div>' +
-                '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.pembayar_masked || '-') + '</div>' +
-              '</div>' +
-              '<div>' +
-                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Tanggal Transaksi:</div>' +
-                '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.transaction_date || '-') + '</div>' +
-              '</div>' +
-              '<div>' +
-                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Pos Anggaran / Program:</div>' +
-                '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.category || '-') + '</div>' +
-              '</div>' +
-              '<div>' +
-                '<div class="text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase">Entitas Penerima:</div>' +
-                '<div class="font-bold text-gray-800 dark:text-gray-200">' + self.esc(d.wilayah_nama || 'Yayasan APII') + '</div>' +
-              '</div>' +
-            '</div>' +
-            (isVoid ?
-              '<div class="mt-4 p-3 rounded-xl bg-rose-100 text-rose-900 text-xs font-bold flex items-center gap-2">' +
-                '<span>⚠️</span> <span>Kwitansi ini telah dibatalkan (VOID): ' + self.esc(d.void_reason || 'Alasan pembatalan internal') + '</span>' +
-              '</div>' : '') +
-          '</div>';
-      }
-    },
-
-    getDefaultEditorial: function () {
-      return {
-        hero: {
-          badge: 'Penerimaan Anggota Baru 2026',
-          headline: 'Keanggotaan & Kolaborasi Yayasan APII DPW Jabodetabek',
-          subheadline: 'Wadah sinergi para ahli, akademisi, dan praktisi pengkaji Islam di Indonesia untuk riset, pemberdayaan, dan kemaslahatan umat.',
-          cta_text: 'Info Dokumen & Keuangan Kas',
-          cta_link: '#informasi'
-        },
-        profile: {
-          show_section: true,
-          ketua_name: 'Ustadz Muhammad Hanafi',
-          ketua_title: 'Ketua DPW APII Jabodetabek',
-          greeting: "Assalamu'alaikum Warahmatullahi Wabarakatuh. Selamat datang di portal resmi Dewan Pimpinan Wilayah Yayasan Apologet Islam Indonesia (APII) Jabodetabek. Sebagai organisasi yang bergerak di bidang sosial, kemasyarakatan, dan keagamaan, kami berkomitmen mengimplementasikan nilai Islam yang moderat, mentransfer ilmu pengetahuan, serta mempererat ukhuwah islamiah demi kemaslahatan bersama.",
-          vision: 'Mengimplementasikan Islam sebagai Agama Rahmatan Lil Alamin',
-          missions: [
-            'Transfer Ilmu Pengetahuan bagi sesama umat.',
-            'Mengoptimalkan digital dan internet sebagai sarana Dakwah.',
-            'Dialog perbandingan agama secara online maupun offline.',
-            'Bersinergi dengan Individu, Organisasi Islam, dan Instansi Pemerintah/Swasta guna mengukuhkan Ukhuwah Islamiah.'
-          ]
-        }
-      };
-    },
-
-    bindMobileNav: function () {
-      var btn = document.getElementById('mobileToggle');
-      var menu = document.getElementById('mobileMenu');
-      if (!btn || !menu) return;
-      btn.addEventListener('click', function () {
-        menu.classList.toggle('hidden');
-      });
-      var links = document.querySelectorAll('.mobile-link');
-      for (var i = 0; i < links.length; i++) {
-        links[i].addEventListener('click', function () {
-          menu.classList.add('hidden');
-        });
-      }
-    },
-
-    get: function (action, params) {
-      var base = window.API_BASE || '';
-      var url = new URL(base);
-      url.searchParams.set('action', action);
-      if (params) {
-        Object.keys(params).forEach(function (k) {
-          url.searchParams.set(k, params[k]);
-        });
-      }
-      url.searchParams.set('_t', Date.now().toString());
-      return fetch(url.toString(), { redirect: 'follow', cache: 'no-store' })
-        .then(function (r) { return r.json(); });
-    },
-
-    post: function (action, payload) {
-      var base = window.API_BASE || '';
-      return fetch(base, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: action, payload: payload || {} }),
-        redirect: 'follow'
-      }).then(function (r) { return r.json(); });
-    },
-
-    // ---------------------------------------------------------------
-    // MODAL FORMULIR PENDAFTARAN & STATUS HEADER
-    // ---------------------------------------------------------------
-    openRegModal: function () {
-      var regCfg = this.state.registration || {};
-      var rawStatus = regCfg.status || (regCfg.is_open === false ? 'DITUTUP' : 'BUKA');
-      if (rawStatus !== 'BUKA' || regCfg.is_open === false) {
-        alert(regCfg.closed_message || 'Pendaftaran anggota saat ini sedang tidak dibuka.');
-        return;
-      }
-      var modal = document.getElementById('regModal');
-      if (modal) {
-        modal.classList.remove('hidden');
-        document.body.classList.add('overflow-hidden');
-      }
-    },
-
-    closeRegModal: function () {
-      var modal = document.getElementById('regModal');
-      if (modal) {
-        modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
-      }
-    },
-
-    bindRegistrationModal: function () {
-      var self = this;
-      var closeBtn = document.getElementById('closeRegModalBtn');
-      var cancelBtn = document.getElementById('cancelRegModalBtn');
-      var regModal = document.getElementById('regModal');
-      var receiptModal = document.getElementById('regReceiptModal');
-      var closeReceiptBtn = document.getElementById('closeReceiptBtn');
-
-      var bindOpenClick = function (btnId) {
-        var el = document.getElementById(btnId);
-        if (el) {
-          el.addEventListener('click', function () {
-            var menu = document.getElementById('mobileMenu');
-            if (menu) menu.classList.add('hidden');
-            self.openRegModal();
-          });
-        }
-      };
-
-      // Ikat tombol pendaftaran langsung dari markup statis awal
-      bindOpenClick('headerRegBtnDesktop');
-      bindOpenClick('headerRegBtnMobile');
-      bindOpenClick('headerRegBtnDrawer');
-      bindOpenClick('heroRegBtnMain');
-      bindOpenClick('heroCardRegBtn');
-
-      if (closeBtn) {
-        closeBtn.addEventListener('click', function () {
-          self.closeRegModal();
-        });
-      }
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', function () {
-          self.closeRegModal();
-        });
-      }
-      if (regModal) {
-        regModal.addEventListener('click', function (e) {
-          if (e.target === regModal) {
-            self.closeRegModal();
-          }
-        });
-      }
-      if (closeReceiptBtn && receiptModal) {
-        closeReceiptBtn.addEventListener('click', function () {
-          receiptModal.classList.add('hidden');
-          document.body.classList.remove('overflow-hidden');
-        });
-      }
-      if (receiptModal) {
-        receiptModal.addEventListener('click', function (e) {
-          if (e.target === receiptModal) {
-            receiptModal.classList.add('hidden');
-            document.body.classList.remove('overflow-hidden');
-          }
-        });
-      }
-
-      // Tombol Esc menutup semua modal aktif
-      document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' || e.key === 'Esc') {
-          self.closeRegModal();
-          if (receiptModal && !receiptModal.classList.contains('hidden')) {
-            receiptModal.classList.add('hidden');
-            document.body.classList.remove('overflow-hidden');
-          }
-        }
-      });
-    },
-
-    updateHeaderRegStatus: function (status, reg) {
-      var self = this;
-      var deskBox = document.getElementById('headerRegDesktop');
-      var mobBox = document.getElementById('headerRegMobile');
-      var drawerBox = document.getElementById('mobileMenuRegContainer');
-      var heroBtn = document.getElementById('heroRegBtnMain');
-      var heroCardBtn = document.getElementById('heroCardRegBtn');
-      if (!deskBox && !mobBox && !drawerBox && !heroBtn && !heroCardBtn) return;
-
-      var isOpen = (status === 'BUKA' && (!reg || reg.is_open !== false));
-
-      if (isOpen) {
-        var deskHtml = '' +
-          '<button type="button" id="headerRegBtnDesktop" class="inline-flex items-center gap-2 bg-gold hover:bg-gold-light text-emerald-dark px-4 sm:px-5 py-2.5 rounded-xl font-extrabold text-sm shadow-md hover:shadow-lg transition cursor-pointer">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>' +
-            '<span>Daftar Anggota DPW</span>' +
-          '</button>';
-
-        var mobHtml = '' +
-          '<button type="button" id="headerRegBtnMobile" class="inline-flex items-center gap-1.5 bg-gold hover:bg-gold-light text-emerald-dark px-3 py-1.5 rounded-lg font-extrabold text-xs shadow transition cursor-pointer">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>' +
-            '<span>Daftar</span>' +
-          '</button>';
-
-        var drawerHtml = '' +
-          '<button type="button" id="headerRegBtnDrawer" class="w-full inline-flex items-center justify-center gap-2 bg-gold hover:bg-gold-light text-emerald-dark py-3 rounded-xl font-bold text-sm shadow transition cursor-pointer">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>' +
-            '<span>Daftar Anggota Sekarang</span>' +
-          '</button>';
-
-        if (deskBox) {
-          deskBox.innerHTML = deskHtml;
-          var btnD = document.getElementById('headerRegBtnDesktop');
-          if (btnD) btnD.addEventListener('click', function () { self.openRegModal(); });
-        }
-        if (mobBox) {
-          mobBox.innerHTML = mobHtml;
-          var btnM = document.getElementById('headerRegBtnMobile');
-          if (btnM) btnM.addEventListener('click', function () { self.openRegModal(); });
-        }
-        if (drawerBox) {
-          drawerBox.innerHTML = drawerHtml;
-          var btnDr = document.getElementById('headerRegBtnDrawer');
-          if (btnDr) btnDr.addEventListener('click', function () {
-            var menu = document.getElementById('mobileMenu');
-            if (menu) menu.classList.add('hidden');
-            self.openRegModal();
-          });
-        }
-        if (heroBtn) {
-          heroBtn.classList.remove('hidden');
-          heroBtn.onclick = function () { self.openRegModal(); };
-        }
-        if (heroCardBtn) {
-          heroCardBtn.classList.remove('hidden');
-          heroCardBtn.onclick = function () { self.openRegModal(); };
-        }
-      } else {
-        // SELAIN BUKA: Tampilkan Informasi Status yang Tidak Bisa Diklik
-        var badgeLabelDesk = 'Pendaftaran Ditutup';
-        var badgeLabelMob = 'Ditutup';
-        var badgeDrawer = '🔒 Pendaftaran Ditutup Sementara';
-        var icon = '🔒';
-        var badgeDeskClass = 'bg-amber-50 text-amber-800 border-amber-300';
-        var badgeMobClass = 'bg-amber-50 text-amber-800 border-amber-300';
-        var badgeDrawerClass = 'bg-amber-50 text-amber-800 border-amber-200';
-
-        if (status === 'PENUH') {
-          badgeLabelDesk = 'Kuota Penuh';
-          badgeLabelMob = 'Penuh';
-          badgeDrawer = '⛔ Kuota Pendaftaran Penuh';
-          icon = '⛔';
-          badgeDeskClass = 'bg-red-50 text-red-800 border-red-300';
-          badgeMobClass = 'bg-red-50 text-red-800 border-red-300';
-          badgeDrawerClass = 'bg-red-50 text-red-800 border-red-200';
-        } else if (status === 'SELEKSI') {
-          badgeLabelDesk = 'Tahap Seleksi';
-          badgeLabelMob = 'Seleksi';
-          badgeDrawer = '🔍 Tahap Seleksi & Verifikasi';
-          icon = '🔍';
-          badgeDeskClass = 'bg-blue-50 text-blue-800 border-blue-300';
-          badgeMobClass = 'bg-blue-50 text-blue-800 border-blue-300';
-          badgeDrawerClass = 'bg-blue-50 text-blue-800 border-blue-200';
-        }
-
-        var disabledDeskHtml = '' +
-          '<div class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border ' + badgeDeskClass + ' select-none cursor-not-allowed shadow-xs" title="' + self.esc(badgeLabelDesk) + '">' +
-            '<span>' + icon + '</span>' +
-            '<span>' + self.esc(badgeLabelDesk) + '</span>' +
-          '</div>';
-
-        var disabledMobHtml = '' +
-          '<div class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border ' + badgeMobClass + ' select-none cursor-not-allowed" title="' + self.esc(badgeLabelDesk) + '">' +
-            '<span>' + icon + '</span>' +
-            '<span>' + self.esc(badgeLabelMob) + '</span>' +
-          '</div>';
-
-        var disabledDrawerHtml = '' +
-          '<div class="w-full text-center py-2.5 px-3 rounded-xl text-xs font-bold border ' + badgeDrawerClass + ' select-none cursor-not-allowed">' +
-            self.esc(badgeDrawer) +
-          '</div>';
-
-        if (deskBox) deskBox.innerHTML = disabledDeskHtml;
-        if (mobBox) mobBox.innerHTML = disabledMobHtml;
-        if (drawerBox) drawerBox.innerHTML = disabledDrawerHtml;
-        if (heroBtn) heroBtn.classList.add('hidden');
-        if (heroCardBtn) heroCardBtn.classList.add('hidden');
-      }
-    },
-
-    // ---------------------------------------------------------------
-    // PENDAFTARAN ANGGOTA & WATERMARK KTP CANVAS
-    // ---------------------------------------------------------------
-    bindRegistrationForm: function () {
-      var self = this;
-      var form = document.getElementById('regMemberForm');
-      var ktpInput = document.getElementById('regKtpInput');
-      var selfieInput = document.getElementById('regSelfieInput');
-      var btnHapusKtp = document.getElementById('btnHapusKtp');
-      var btnHapusSelfie = document.getElementById('btnHapusSelfie');
-      var closeReceiptBtn = document.getElementById('closeReceiptBtn');
-      var receiptModal = document.getElementById('regReceiptModal');
-
-      if (!form) return;
-
-      if (closeReceiptBtn && receiptModal) {
-        closeReceiptBtn.addEventListener('click', function () {
-          receiptModal.classList.add('hidden');
-        });
-      }
-
-      // KTP Handler with HTML5 Canvas auto-watermark
-      if (ktpInput) {
-        ktpInput.addEventListener('change', function (e) {
-          var file = e.target.files && e.target.files[0];
-          if (!file) return;
-          self.processKtpWatermark(file);
-        });
-      }
-
-      if (btnHapusKtp) {
-        btnHapusKtp.addEventListener('click', function () {
-          self.state.ktpBase64 = '';
-          if (ktpInput) ktpInput.value = '';
-          var box = document.getElementById('ktpPreviewBox');
-          if (box) box.classList.add('hidden');
-          var img = document.getElementById('ktpPreviewImg');
-          if (img) img.src = '';
-        });
-      }
-
-      // Selfie Handler
-      if (selfieInput) {
-        selfieInput.addEventListener('change', function (e) {
-          var file = e.target.files && e.target.files[0];
-          if (!file) return;
-          self.processSelfie(file);
-        });
-      }
-
-      if (btnHapusSelfie) {
-        btnHapusSelfie.addEventListener('click', function () {
-          self.state.selfieBase64 = '';
-          if (selfieInput) selfieInput.value = '';
-          var box = document.getElementById('selfiePreviewBox');
-          if (box) box.classList.add('hidden');
-          var img = document.getElementById('selfiePreviewImg');
-          if (img) img.src = '';
-        });
-      }
-
-      // Submit Form
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        self.submitRegistration();
-      });
-    },
-
-    processKtpWatermark: function (file) {
-      var self = this;
-      var reader = new FileReader();
-      reader.onload = function (evt) {
-        var img = new Image();
-        img.onload = function () {
-          // Scale to max width 1280px maintaining aspect ratio
-          var maxW = 1280;
-          var w = img.width;
-          var h = img.height;
-          if (w > maxW) {
-            h = Math.round((h * maxW) / w);
-            w = maxW;
-          }
-          var canvas = document.getElementById('ktpCanvas') || document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          var ctx = canvas.getContext('2d');
-
-          // Draw original image
-          ctx.drawImage(img, 0, 0, w, h);
-
-          // Semi-transparent diagonal watermarking
-          ctx.save();
-          var dateStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-          var wmLine1 = 'ARSIP PENDAFTARAN APII DPW JABODETABEK - ' + dateStr;
-          var wmLine2 = 'HANYA UNTUK VERIFIKASI KEANGGOTAAN RESMI (UU PDP NO. 27/2022)';
-
-          // Rotate canvas for diagonal pattern
-          var fontSize = Math.max(16, Math.round(w / 30));
-          ctx.font = 'bold ' + fontSize + 'px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-
-          var diagDist = Math.sqrt(w * w + h * h);
-          var step = fontSize * 4.2;
-
-          // Draw multiple diagonal stripes
-          ctx.translate(w / 2, h / 2);
-          ctx.rotate(-28 * Math.PI / 180);
-
-          for (var y = -diagDist; y <= diagDist; y += step) {
-            ctx.fillStyle = 'rgba(220, 38, 38, 0.42)'; // Stamped red security watermark
-            ctx.fillText(wmLine1, 0, y);
-            ctx.font = 'bold ' + Math.round(fontSize * 0.72) + 'px sans-serif';
-            ctx.fillStyle = 'rgba(2, 44, 34, 0.40)';
-            ctx.fillText(wmLine2, 0, y + fontSize * 1.1);
-            ctx.font = 'bold ' + fontSize + 'px sans-serif';
-          }
-          ctx.restore();
-
-          // Bottom protection banner
-          var bannerH = Math.max(32, Math.round(h * 0.075));
-          ctx.fillStyle = 'rgba(4, 120, 87, 0.88)';
-          ctx.fillRect(0, h - bannerH, w, bannerH);
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold ' + Math.max(12, Math.round(bannerH * 0.45)) + 'px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('APII DPW JABODETABEK • TERPROTEKSI WATERMARK DIGITAL • ' + dateStr, w / 2, h - (bannerH / 2));
-
-          // Export compressed WebP dengan fallback ke JPEG (< 250 KB)
-          var dataUrl = canvas.toDataURL('image/webp', 0.82);
-          if (!dataUrl || dataUrl.indexOf('data:image/webp') === -1) {
-            dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-          }
-          self.state.ktpBase64 = dataUrl;
-
-          var previewImg = document.getElementById('ktpPreviewImg');
-          var previewBox = document.getElementById('ktpPreviewBox');
-          if (previewImg) previewImg.src = dataUrl;
-          if (previewBox) previewBox.classList.remove('hidden');
-        };
-        img.src = evt.target.result;
-      };
-      reader.readAsDataURL(file);
-    },
-
-    processSelfie: function (file) {
-      var self = this;
-      var reader = new FileReader();
-      reader.onload = function (evt) {
-        var img = new Image();
-        img.onload = function () {
-          var maxDim = 800;
-          var w = img.width;
-          var h = img.height;
-          if (w > maxDim || h > maxDim) {
-            if (w > h) {
-              h = Math.round((h * maxDim) / w);
-              w = maxDim;
-            } else {
-              w = Math.round((w * maxDim) / h);
-              h = maxDim;
-            }
-          }
-          var canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          var ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, w, h);
-
-          var dataUrl = canvas.toDataURL('image/webp', 0.82);
-          if (!dataUrl || dataUrl.indexOf('data:image/webp') === -1) {
-            dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-          }
-          self.state.selfieBase64 = dataUrl;
-
-          var previewImg = document.getElementById('selfiePreviewImg');
-          var previewBox = document.getElementById('selfiePreviewBox');
-          if (previewImg) previewImg.src = dataUrl;
-          if (previewBox) previewBox.classList.remove('hidden');
-        };
-        img.src = evt.target.result;
-      };
-      reader.readAsDataURL(file);
-    },
-
-    submitRegistration: function () {
-      var self = this;
-      var alertBox = document.getElementById('regAlertBox');
-      var submitBtn = document.getElementById('regSubmitBtn');
-
-      var fullName = (document.getElementById('regFullName').value || '').trim();
-      var nik = (document.getElementById('regNik').value || '').trim();
-      var genderElem = document.querySelector('input[name="regGender"]:checked');
-      var gender = genderElem ? genderElem.value : 'L';
-      var birthPlace = (document.getElementById('regBirthPlace').value || '').trim();
-      var birthDate = (document.getElementById('regBirthDate').value || '').trim();
-      var phone = (document.getElementById('regPhone').value || '').trim();
-      var email = (document.getElementById('regEmail').value || '').trim();
-      var job = (document.getElementById('regJob').value || '').trim();
-      var division = (document.getElementById('regDivision').value || '').trim();
-      var address = (document.getElementById('regAddress').value || '').trim();
-      var agreement = document.getElementById('regAgreement').checked;
-
-      function showAlert(msg, isErr) {
-        if (!alertBox) return;
-        alertBox.className = 'mt-4 p-4 rounded-xl text-sm font-semibold ' +
-          (isErr ? 'bg-red-50 dark:bg-[#2D0F0F] text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800' : 'bg-emerald-50 dark:bg-[#062818] text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800');
-        alertBox.innerHTML = msg;
-        alertBox.classList.remove('hidden');
-      }
-
-      var regCfg = self.state.registration || {};
-      var rawStatus = regCfg.status || (regCfg.is_open === false ? 'DITUTUP' : 'BUKA');
-      if (rawStatus !== 'BUKA' || regCfg.is_open === false) {
-        return showAlert(regCfg.closed_message || 'Pengiriman formulir pendaftaran saat ini sedang dinonaktifkan.', true);
-      }
-
-      var requireKtp = regCfg.require_ktp !== false;
-      var requireSelfie = regCfg.require_selfie !== false;
-
-      if (!fullName) return showAlert('Mohon isi Nama Lengkap sesuai KTP.', true);
-      if (!nik || nik.length !== 16 || !/^\d+$/.test(nik)) return showAlert('Nomor NIK KTP harus terdiri dari 16 digit angka.', true);
-      if (!phone) return showAlert('Nomor WhatsApp aktif wajib diisi.', true);
-      if (requireKtp && !self.state.ktpBase64) return showAlert('Foto KTP wajib diunggah untuk verifikasi identitas resmi.', true);
-      if (requireSelfie && !self.state.selfieBase64) return showAlert('Pas Foto / Selfie wajib diunggah untuk pencocokan wajah.', true);
-      if (!agreement) return showAlert('Anda harus menyetujui pernyataan keabsahan data dan AD/ART.', true);
-
-      if (alertBox) alertBox.classList.add('hidden');
-
-      var originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span>Mengirim berkas pendaftaran...</span>';
-      }
-
-      var fullPhone = phone.startsWith('0') ? '62' + phone.slice(1) : (phone.startsWith('+62') ? phone.slice(1) : (phone.startsWith('62') ? phone : '62' + phone));
-
-      var wilEl = document.getElementById('regWilayah');
-      var regWilayahId = (wilEl && wilEl.value) || self.state.currentWilayah || 'DPW_JABODETABEK';
-
-      var payload = {
-        full_name: fullName,
-        nik: nik,
-        gender: gender,
-        birth_place: birthPlace,
-        birth_date: birthDate,
-        phone: fullPhone,
-        email: email,
-        job: job,
-        wilayah_id: regWilayahId,
-        division_interest: division,
-        address: address,
-        ktp_base64: self.state.ktpBase64,
-        selfie_base64: self.state.selfieBase64
-      };
-
-      self.post('registerAnggota', payload).then(function (res) {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = originalBtnHtml;
-        }
-        if (res && res.success) {
-          var receiptData = {};
-          for (var k in payload) receiptData[k] = payload[k];
-          if (res.data) { for (var k2 in res.data) receiptData[k2] = res.data[k2]; }
-          self.closeRegModal();
-          self.showRegistrationReceipt(receiptData);
-          document.getElementById('regMemberForm').reset();
-          self.state.ktpBase64 = '';
-          self.state.selfieBase64 = '';
-          var ktpBox = document.getElementById('ktpPreviewBox');
-          if (ktpBox) ktpBox.classList.add('hidden');
-          var selfieBox = document.getElementById('selfiePreviewBox');
-          if (selfieBox) selfieBox.classList.add('hidden');
-        } else {
-          showAlert((res && res.message) || 'Gagal mengirim pendaftaran. Coba beberapa saat lagi.', true);
-        }
-      }).catch(function (err) {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = originalBtnHtml;
-        }
-        showAlert('Terjadi kesalahan jaringan: ' + (err && err.message ? err.message : 'Silakan coba lagi.'), true);
-      });
-    },
-
-    showRegistrationReceipt: function (data) {
-      var modal = document.getElementById('regReceiptModal');
-      var content = document.getElementById('receiptContent');
-      var waBtn = document.getElementById('receiptWaBtn');
-      if (!modal || !content) return;
-
-      var regNum = data.reg_number || 'REG-' + new Date().getFullYear() + '-0000';
-      var maskedNik = data.nik ? data.nik.slice(0, 4) + '********' + data.nik.slice(12) : '3171********0001';
-      var dateStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-
-      content.innerHTML = '' +
-        '<div class="text-center pb-4 border-b border-gray-100 dark:border-[#1E3D30]">' +
-          '<div class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Nomor Registrasi Anda</div>' +
-          '<div class="text-xl sm:text-2xl font-black text-emerald dark:text-emerald-400 font-mono bg-emerald-light/40 dark:bg-[#10241B] py-2 px-3 sm:px-4 rounded-xl inline-block border border-emerald/20 dark:border-[#1E3D30] break-all max-w-full">' + this.esc(regNum) + '</div>' +
-          '<div class="mt-2 inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 px-3 py-1 rounded-full text-center flex-wrap justify-center">' +
-            '<span class="h-2 w-2 rounded-full bg-amber-500 animate-ping"></span>' +
-            'MENUNGGU VERIFIKASI SEKRETARIAT' +
-          '</div>' +
-        '</div>' +
-        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">' +
-          '<div><div class="text-gray-400 dark:text-gray-400 font-bold uppercase">Nama Pendaftar</div><div class="font-extrabold text-gray-800 dark:text-white text-sm mt-0.5 break-words">' + this.esc(data.full_name) + '</div></div>' +
-          '<div><div class="text-gray-400 dark:text-gray-400 font-bold uppercase">NIK Terlindungi</div><div class="font-bold text-gray-700 dark:text-gray-200 text-sm font-mono mt-0.5 break-all">' + this.esc(maskedNik) + '</div></div>' +
-          '<div><div class="text-gray-400 dark:text-gray-400 font-bold uppercase">Minat Divisi</div><div class="font-bold text-gray-700 dark:text-gray-200 mt-0.5 break-words">' + this.esc(data.division_interest || 'Umum') + '</div></div>' +
-          '<div><div class="text-gray-400 dark:text-gray-400 font-bold uppercase">Waktu Pengajuan</div><div class="font-medium text-gray-600 dark:text-gray-300 mt-0.5">' + this.esc(dateStr) + ' WIB</div></div>' +
-        '</div>' +
-        '<div class="bg-gray-50 dark:bg-[#10241B] rounded-2xl p-4 text-xs text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#1E3D30] leading-relaxed">' +
-          '<strong class="text-gray-800 dark:text-white">Langkah Selanjutnya:</strong><br>' +
-          '1. Berkas KTP ber-watermark Anda sedang ditinjau oleh Sekretariat DPW.<br>' +
-          '2. Klik tombol di bawah untuk konfirmasi ke WhatsApp Pengurus agar proses verifikasi lebih cepat.' +
-        '</div>';
-
-      var regCfg = this.state.registration || {};
-      var rawWa = String(regCfg.contact_wa || '081288882026').replace(/[^0-9]/g, '');
-      var waPhone = rawWa.startsWith('0') ? '62' + rawWa.slice(1) : (rawWa.startsWith('62') ? rawWa : '62' + rawWa);
-      var tmpl = regCfg.wa_template || 'Assalamu’alaikum / Halo Sekretariat APII DPW Jabodetabek,\n\nSaya telah mendaftar sebagai calon anggota baru:\n• No. Registrasi: {reg_number}\n• Nama: {full_name}\n• Divisi: {division}\n\nMohon konfirmasi dan verifikasi berkas pendaftaran saya. Terima kasih.';
-
-      var waText = tmpl
-        .replace(/\{reg_number\}/g, regNum)
-        .replace(/\{full_name\}/g, data.full_name || '')
-        .replace(/\{division\}/g, data.division_interest || 'Umum');
-
-      if (waBtn) {
-        waBtn.href = 'https://wa.me/' + waPhone + '?text=' + encodeURIComponent(waText);
-      }
-
-      modal.classList.remove('hidden');
-    },
-
-    /**
-     * Sinkronisasi konfigurasi bersama lintas port (localhost:3000 <-> localhost:3001)
-     * dan lintas subdomain (*.sigitadi.id) menggunakan RFC 6265 cookie + localStorage.
-     */
-    setSharedConfig: function (key, value) {
-      var valStr = typeof value === 'string' ? value : JSON.stringify(value);
-      try { localStorage.setItem(key, valStr); } catch (_) {}
-      try {
-        var enc = encodeURIComponent(valStr);
-        var host = (window.location && window.location.hostname) || '';
-        var isSigit = host.indexOf('sigitadi.id') !== -1;
-        var domainPart = isSigit ? '; domain=.sigitadi.id' : '';
-        document.cookie = key + '=' + enc + '; path=/' + domainPart + '; max-age=31536000; SameSite=Lax';
-      } catch (_) {}
-    },
-
-    getSharedConfig: function (key) {
-      try {
-        var nameEQ = key + '=';
-        var ca = document.cookie.split(';');
-        for (var i = 0; i < ca.length; i++) {
-          var c = ca[i].trim();
-          if (c.indexOf(nameEQ) === 0) {
-            var raw = decodeURIComponent(c.substring(nameEQ.length));
-            try { return JSON.parse(raw); } catch (_) { return raw; }
-          }
-        }
-      } catch (_) {}
-      try {
-        var ls = localStorage.getItem(key);
-        if (ls) {
-          try { return JSON.parse(ls); } catch (_) { return ls; }
-        }
-      } catch (_) {}
-      return null;
-    },
-
-    // ---------------------------------------------------------------
-    // KONFIGURASI PUBLIK & PENDAFTARAN DINAMIS
-    // ---------------------------------------------------------------
-    loadPublicConfig: function () {
-      var self = this;
-
-      var applyConfig = function (d) {
-        if (!d) return;
-        var reg = d.registration || {};
-        self.state.registration = reg;
-        try {
-          localStorage.setItem('apii_registration_config', JSON.stringify(reg));
-        } catch (_) {}
-
-        // 1. Banner Pengumuman Resmi Portal Publik
-        var bannerBox = document.getElementById('announcementBannerContainer');
-        if (bannerBox) {
-          if (d.announcement_banner_active && d.announcement_banner) {
-            var bType = d.announcement_banner_type || 'info';
-            var bBg = 'bg-blue-600 text-white';
-            var bIcon = '📢';
-            if (bType === 'warning') {
-              bBg = 'bg-amber-600 text-white';
-              bIcon = '⚠️';
-            } else if (bType === 'success') {
-              bBg = 'bg-emerald-700 text-white';
-              bIcon = '🌟';
-            }
-            bannerBox.className = bBg + ' px-4 py-2.5 text-xs sm:text-sm font-bold text-center flex items-center justify-center gap-2 shadow-xs';
-            bannerBox.innerHTML = '<span>' + bIcon + '</span> <span>' + self.esc(d.announcement_banner) + '</span>';
-          } else {
-            bannerBox.className = 'hidden';
-            bannerBox.innerHTML = '';
-          }
-        }
-
-        // 1b. Ticker Maklumat Nasional DPP (Sindikasi Lintas Cabang)
-        var tickerBar = document.getElementById('nationalTickerBar');
-        var tickerBadge = document.getElementById('tickerBadgeText');
-        var tickerText = document.getElementById('tickerContentText');
-        var tickerLink = document.getElementById('tickerLinkBtn');
-        var nt = d.national_ticker;
-        if (tickerBar) {
-          if (nt && nt.active !== false) {
-            tickerBar.classList.remove('hidden');
-            if (tickerBadge && nt.badge) tickerBadge.textContent = nt.badge;
-            if (tickerText && nt.title) tickerText.textContent = nt.title;
-            if (tickerLink && nt.link) tickerLink.href = nt.link;
-          } else {
-            tickerBar.classList.add('hidden');
-          }
-        }
-
-        // 1c. Populate Wilayah List & Lensa Wilayah
-        if (Array.isArray(d.wilayah_list) && d.wilayah_list.length > 0) {
-          self.state.wilayahList = d.wilayah_list;
-          self.populateWilayahSelectors(d.wilayah_list, self.state.currentWilayah);
-        }
-        if (d.active_wilayah) {
-          self.applyWilayahBranding(d.active_wilayah);
-        }
-
-        // 1d. Redaksi Konten Dinamis Portal Publik (Mini-CMS)
-        var ed = d.editorial || self.getDefaultEditorial();
-        var defEd = self.getDefaultEditorial();
-        if (ed && ed.profile) {
-          if (!ed.profile.vision || ed.profile.vision.indexOf('Mengimplementasikan Islam') === -1) {
-            ed.profile.vision = defEd.profile.vision;
-            ed.profile.missions = defEd.profile.missions;
-            ed.profile.greeting = defEd.profile.greeting;
-            ed.profile.ketua_name = defEd.profile.ketua_name;
-            ed.profile.ketua_title = defEd.profile.ketua_title;
-          }
-        }
-        try { self.renderEditorial(ed); } catch (e) { console.error('Redaksi gagal dirender:', e); }
-
-        // 2. Visibilitas Menu Pendaftaran Publik (RBAC) & Status Header Tunggal
-        var rawStatus = reg.status || (reg.is_open === false ? 'DITUTUP' : 'BUKA');
-        var deskBox = document.getElementById('headerRegDesktop');
-        var mobBox = document.getElementById('headerRegMobile');
-        var drawerBox = document.getElementById('mobileMenuRegContainer');
-        var heroBtn = document.getElementById('heroRegBtnMain');
-        var heroCardBtn = document.getElementById('heroCardRegBtn');
-        var heroBadge = document.getElementById('heroRegBadge');
-
-        if (d.config && d.config.show_registration === false) {
-          if (deskBox) deskBox.classList.add('hidden');
-          if (mobBox) mobBox.classList.add('hidden');
-          if (drawerBox) drawerBox.classList.add('hidden');
-          if (heroBtn) heroBtn.classList.add('hidden');
-          if (heroCardBtn) heroCardBtn.classList.add('hidden');
-          if (heroBadge) heroBadge.classList.add('hidden');
-          return;
-        } else {
-          if (deskBox) deskBox.classList.remove('hidden');
-          if (mobBox) mobBox.classList.remove('hidden');
-          if (drawerBox) drawerBox.classList.remove('hidden');
-          if (heroBadge) heroBadge.classList.remove('hidden');
-        }
-
-        // Render Status Header Tunggal & Tombol Hero
-        self.updateHeaderRegStatus(rawStatus, reg);
-
-        // 3. Status Pendaftaran 4 Opsi (BUKA, DITUTUP, PENUH, SELEKSI)
-        var form = document.getElementById('regMemberForm');
-        var closedBox = document.getElementById('regClosedStateBox');
-        var heroBadge = document.getElementById('heroRegBadge');
-        var actionSec = document.getElementById('regActionSection');
-        var agreeWrapper = document.getElementById('regAgreementWrapper');
-        var agreeInput = document.getElementById('regAgreement');
-        var submitRow = document.getElementById('regSubmitBtnRow');
-        var submitBtn = document.getElementById('regSubmitBtn');
-        var inlineNotice = document.getElementById('regClosedInlineNotice');
-
-        if (rawStatus === 'BUKA' && reg.is_open !== false) {
-          if (heroBadge) {
-            heroBadge.textContent = 'PENERIMAAN ANGGOTA BARU DIBUKA';
-            heroBadge.className = 'absolute -top-4 -right-4 bg-gold text-emerald-dark text-xs font-black px-3.5 py-1.5 rounded-xl shadow-lg';
-          }
-          if (form) form.classList.remove('hidden');
-          if (closedBox) closedBox.classList.add('hidden');
-
-          if (actionSec) actionSec.classList.remove('hidden');
-          if (agreeWrapper) agreeWrapper.classList.remove('hidden');
-          if (agreeInput) agreeInput.required = true;
-          if (submitRow) submitRow.classList.remove('hidden');
-          if (submitBtn) submitBtn.classList.remove('hidden');
-          if (inlineNotice) inlineNotice.classList.add('hidden');
-        } else {
-          if (actionSec) actionSec.classList.add('hidden');
-          if (agreeWrapper) agreeWrapper.classList.add('hidden');
-          if (agreeInput) {
-            agreeInput.required = false;
-            agreeInput.checked = false;
-          }
-          if (submitRow) submitRow.classList.add('hidden');
-          if (submitBtn) submitBtn.classList.add('hidden');
-
-          if (closedBox) {
-            closedBox.classList.remove('hidden');
-            var cTitle = closedBox.querySelector('.closed-title');
-            var cMsg = closedBox.querySelector('.closed-msg');
-            var badgeText = 'PENDAFTARAN DITUTUP SEMENTARA';
-            var badgeClass = 'absolute -top-4 -right-4 bg-amber-500 text-white text-xs font-black px-3.5 py-1.5 rounded-xl shadow-lg';
-
-            if (rawStatus === 'PENUH') {
-              badgeText = 'KUOTA PENDAFTARAN PENUH';
-              badgeClass = 'absolute -top-4 -right-4 bg-red-600 text-white text-xs font-black px-3.5 py-1.5 rounded-xl shadow-lg';
-              if (cTitle) cTitle.textContent = reg.closed_title || 'Kuota Pendaftaran Telah Terpenuhi';
-              if (cMsg) cMsg.textContent = reg.closed_message || 'Batas kuota target penerimaan anggota baru DPW Jabodetabek telah terpenuhi. Pantau pembukaan gelombang berikutnya.';
-            } else if (rawStatus === 'SELEKSI') {
-              badgeText = 'TAHAP SELEKSI & VERIFIKASI';
-              badgeClass = 'absolute -top-4 -right-4 bg-blue-600 text-white text-xs font-black px-3.5 py-1.5 rounded-xl shadow-lg';
-              if (cTitle) cTitle.textContent = reg.closed_title || 'Tahap Seleksi & Verifikasi Berkas';
-              if (cMsg) cMsg.textContent = reg.closed_message || 'Saat ini panitia dan sekretariat sedang melakukan proses verifikasi serta seleksi administrasi berkas pendaftar.';
-            } else {
-              if (cTitle) cTitle.textContent = reg.closed_title || 'Pendaftaran Anggota Sementara Ditutup';
-              if (cMsg) cMsg.textContent = reg.closed_message || 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.';
-            }
-
-            if (heroBadge) {
-              heroBadge.textContent = badgeText;
-              heroBadge.className = badgeClass;
-            }
-          }
-
-          if (inlineNotice) {
-            inlineNotice.classList.remove('hidden');
-            var inTitle = inlineNotice.querySelector('.inline-notice-title');
-            var inDesc = inlineNotice.querySelector('.inline-notice-desc');
-            if (rawStatus === 'PENUH') {
-              if (inTitle) inTitle.textContent = 'Kuota Pendaftaran Telah Terpenuhi';
-              if (inDesc) inDesc.textContent = reg.closed_message || 'Batas kuota target penerimaan anggota baru DPW Jabodetabek telah terpenuhi. Pengiriman formulir dinonaktifkan.';
-            } else if (rawStatus === 'SELEKSI') {
-              if (inTitle) inTitle.textContent = 'Tahap Seleksi & Verifikasi Berkas';
-              if (inDesc) inDesc.textContent = reg.closed_message || 'Saat ini panitia sedang melakukan proses verifikasi dan seleksi berkas. Pengiriman formulir dinonaktifkan.';
-            } else {
-              if (inTitle) inTitle.textContent = 'Pendaftaran Sementara Ditutup';
-              if (inDesc) inDesc.textContent = reg.closed_message || 'Pendaftaran saat ini sedang tidak dibuka. Pengiriman formulir pendaftaran dinonaktifkan.';
-            }
-          }
-
-          if (form) form.classList.add('hidden');
-        }
-
-        // 4. Filter Pilihan Divisi yang Membuka Rekrutmen
-        var selDiv = document.getElementById('regDivision');
-        if (selDiv && Array.isArray(reg.open_divisions) && reg.open_divisions.length > 0) {
-          var divisionsMap = {
-            'DIV_DAKWAH': 'Divisi Dakwah & Pembinaan',
-            'DIV_HUKUM': 'Divisi Advokasi & Hukum',
-            'DIV_HUMAS': 'Divisi Humas & Kemitraan',
-            'DIV_MEDIA': 'Divisi Media, IT & Publikasi',
-            'DIV_SOSIAL': 'Divisi Sosial & Kemanusiaan',
-            'DIV_LITBANG': 'Divisi Litbang & Diklat',
-            'DIV_EKONOMI': 'Divisi Pemberdayaan Ekonomi & Logistik'
-          };
-          var optHtml = '<option value="">-- Pilih Minat Divisi Kerja --</option>';
-          reg.open_divisions.forEach(function (code) {
-            var label = divisionsMap[code] || code;
-            optHtml += '<option value="' + self.esc(label) + '">' + self.esc(label) + '</option>';
-          });
-          selDiv.innerHTML = optHtml;
-        }
-
-        // 5. Petunjuk & Pengantar
-        if (reg.instructions) {
-          var pDesc = document.querySelector('#regModal p.text-gray-600');
-          if (pDesc) pDesc.textContent = reg.instructions;
-        }
-      };
-
-      // Konfigurasi awal bawaan (Fail-safe mandiri)
-      var defaultSettings = {
-        config: { show_registration: true },
-        registration: {
-          status: 'BUKA',
-          is_open: true,
-          quota_limit: 0,
-          closed_title: 'Pendaftaran Anggota Sementara Ditutup',
-          closed_message: 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses verifikasi kuota. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
-          instructions: 'Silakan isi formulir pendaftaran anggota Yayasan APII DPW Jabodetabek dengan data yang valid sesuai identitas KTP resmi.',
-          require_ktp: true,
-          require_selfie: true,
-          max_file_size_mb: 3,
-          open_divisions: ['DIV_DAKWAH', 'DIV_HUKUM', 'DIV_HUMAS', 'DIV_MEDIA', 'DIV_SOSIAL', 'DIV_LITBANG', 'DIV_EKONOMI'],
-          contact_wa: '081288882026',
-          notify_email: 'sekretariat@apii.sigitadi.id',
-          wa_template: 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
-          agreement_text: 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
-        },
-        editorial: self.getDefaultEditorial()
-      };
-
-      // Periksa sinkronisasi bersama lintas port & domain (RFC 6265 Cookie + LocalStorage)
-      var sharedReg = self.getSharedConfig('apii_registration_config') || self.getSharedConfig('siapii_registration_config');
-      if (sharedReg && typeof sharedReg === 'object') {
-        defaultSettings.registration = Object.assign(defaultSettings.registration, sharedReg);
-      }
-      var sharedStatus = self.getSharedConfig('apii_reg_status');
-      if (sharedStatus && typeof sharedStatus === 'string') {
-        defaultSettings.registration.status = sharedStatus;
-        defaultSettings.registration.is_open = (sharedStatus === 'BUKA');
-      }
-      var sharedIsOpen = self.getSharedConfig('apii_reg_is_open');
-      if (sharedIsOpen !== null && sharedIsOpen !== undefined) {
-        defaultSettings.registration.is_open = (sharedIsOpen === '1' || sharedIsOpen === 1 || sharedIsOpen === true);
-        if (!defaultSettings.registration.is_open && defaultSettings.registration.status === 'BUKA') {
-          defaultSettings.registration.status = 'DITUTUP';
-        }
-      }
-      var sharedPubConfig = self.getSharedConfig('apii_public_config');
-      if (sharedPubConfig && typeof sharedPubConfig === 'object') {
-        defaultSettings.config = Object.assign(defaultSettings.config, sharedPubConfig);
-      }
-      var sharedShowReg = self.getSharedConfig('apii_show_registration');
-      if (sharedShowReg !== null && sharedShowReg !== undefined) {
-        defaultSettings.config.show_registration = (sharedShowReg === '1' || sharedShowReg === 1 || sharedShowReg === true);
-      }
-      var sharedEdit = self.getSharedConfig('apii_editorial') || self.getSharedConfig('siapii_editorial');
-      if (sharedEdit && typeof sharedEdit === 'object') {
-        defaultSettings.editorial = Object.assign(defaultSettings.editorial, sharedEdit);
-      }
-
-      // Terapkan konfigurasi tersinkronisasi terlebih dahulu secara instan (0 delay)
-      applyConfig(defaultSettings);
-
-      // Kemudian update dengan data otentik live dari server
-      var qWil = { wilayah: self.state.currentWilayah || 'DPW_JABODETABEK' };
-      this.get('getPublicSettings', qWil).then(function (res) {
-        if (res && res.success && res.data) {
-          var liveReg = res.data.registration || {};
-          var liveConf = res.data.config || {};
-
-          // Sinkronkan cache lokal perangkat dengan data otentik live backend
-          if (liveReg.status) {
-            self.setSharedConfig('apii_reg_status', liveReg.status);
-            self.setSharedConfig('apii_reg_is_open', liveReg.status === 'BUKA' ? '1' : '0');
-          }
-          if (liveConf.show_registration !== undefined) {
-            self.setSharedConfig('apii_show_registration', liveConf.show_registration ? '1' : '0');
-          }
-          self.setSharedConfig('apii_registration_config', liveReg);
-          self.setSharedConfig('apii_public_config', liveConf);
-
-          // Terapkan data live server langsung ke tampilan publik tanpa ditimpa cookie lokal
-          res.data.registration = liveReg;
-          res.data.config = liveConf;
-          applyConfig(res.data);
-        }
-      }).catch(function (err) {
-        console.warn('Gagal memuat konfigurasi publik dari live backend (menggunakan konfigurasi tersinkronisasi):', err);
-      });
-
-      // Auto-sinkronisasi saat pengguna berpindah tab atau jendela mendapatkan fokus
-      if (!this._syncListenersAttached) {
-        this._syncListenersAttached = true;
-        window.addEventListener('visibilitychange', function () {
-          if (document.visibilityState === 'visible') {
-            self.loadPublicConfig();
-          }
-        });
-        window.addEventListener('focus', function () {
-          self.loadPublicConfig();
-        });
-        window.addEventListener('storage', function (e) {
-          if (e && e.key && (e.key.indexOf('registration') !== -1 || e.key.indexOf('apii_') !== -1)) {
-            self.loadPublicConfig();
-          }
-        });
-        // Polling ringan lintas port (1.5 detik) memastikan pembaruan langsung terdeteksi
-        setInterval(function () {
-          var curSt = self.getSharedConfig('apii_reg_status') || 'BUKA';
-          var curShow = self.getSharedConfig('apii_show_registration');
-          var sig = curSt + ':' + curShow;
-          if (self._lastSyncedSig !== undefined && self._lastSyncedSig !== sig) {
-            self._lastSyncedSig = sig;
-            self.loadPublicConfig();
-          } else {
-            self._lastSyncedSig = sig;
-          }
-        }, 1500);
-
-        // Polling live server berkala (setiap 20 detik) untuk sinkronisasi otomatis lintas perangkat
-        setInterval(function () {
-          self.get('getPublicSettings').then(function (res) {
-            if (res && res.success && res.data) {
-              var liveReg = res.data.registration || {};
-              var liveConf = res.data.config || {};
-              if (liveReg.status) {
-                self.setSharedConfig('apii_reg_status', liveReg.status);
-                self.setSharedConfig('apii_reg_is_open', liveReg.status === 'BUKA' ? '1' : '0');
-              }
-              if (liveConf.show_registration !== undefined) {
-                self.setSharedConfig('apii_show_registration', liveConf.show_registration ? '1' : '0');
-              }
-              self.setSharedConfig('apii_registration_config', liveReg);
-              self.setSharedConfig('apii_public_config', liveConf);
-              applyConfig(res.data);
-            }
-          }).catch(function () {});
-        }, 20000);
-      }
-    },
-
-    // ---------------------------------------------------------------
-    // REDAKSI KONTEN DINAMIS PORTAL PUBLIK (MINI-CMS)
-    // Semua string di-escape via this.esc(); paragraf dipisah per baris
-    // (parsing aman anti-XSS). Jika data kosong, fallback statis HTML
-    // (skeleton/teks bawaan) tetap ditampilkan tanpa merusak halaman.
-    // ---------------------------------------------------------------
-
-    /** Pemetaah render 6 domain redaksi ke kontainer masing-masing. */
-    renderEditorial: function (ed) {
-      if (!ed || typeof ed !== 'object') return;
-      this.renderEditorialHero(ed.hero);
-      this.renderEditorialProfile(ed.profile);
-      this.renderEditorialWarta(ed.bulletins_events);
-      this.renderEditorialFaq(ed.faqs);
-      this.renderEditorialContact(ed.contact, ed.social);
-    },
-
-    /** Bagi teks multi-baris menjadi paragraf <p> aman (anti-XSS). */
-    editorialParas: function (text) {
-      var self = this;
-      if (!text) return '';
-      return String(text).split(/\r?\n/).map(function (line) {
-        var t = line.trim();
-        return t ? '<p>' + self.esc(t) + '</p>' : '';
-      }).join('');
-    },
-
-    /** Format tanggal ISO (YYYY-MM-DD) → "1 Mar 2026"; fallback string asli. */
-    fmtEditorialDate: function (iso) {
-      if (!iso) return '';
-      var parts = String(iso).split('-');
-      if (parts.length !== 3) return String(iso);
-      var months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-      var d = parseInt(parts[2], 10), m = parseInt(parts[1], 10) - 1, y = parseInt(parts[0], 10);
-      if (isNaN(d) || isNaN(m) || isNaN(y)) return String(iso);
-      return d + ' ' + (months[m] || '') + ' ' + y;
-    },
-
-    renderEditorialHero: function (h) {
-      if (!h || typeof h !== 'object') return;
-      var badge = document.getElementById('heroBadge');
-      var badgeText = document.getElementById('heroBadgeText');
-      if (badge && badgeText) {
-        if (h.badge) { badgeText.textContent = h.badge; badge.classList.remove('hidden'); }
-        else { badge.classList.add('hidden'); }
-      }
-      var headline = document.getElementById('heroHeadline');
-      if (headline && h.headline) headline.textContent = h.headline;
-      var sub = document.getElementById('heroSubHeadline');
-      if (sub && h.subheadline) sub.textContent = h.subheadline;
-      var ctaBtn = document.getElementById('heroCtaBtn');
-      var ctaText = document.getElementById('heroCtaText');
-      if (ctaText && h.cta_text) ctaText.textContent = h.cta_text;
-      if (ctaBtn && h.cta_link) ctaBtn.setAttribute('href', h.cta_link);
-    },
-
-    renderEditorialProfile: function (p) {
-      var sec = document.getElementById('profileSection');
-      if (!sec) return;
-      var parentSec = sec.parentElement || sec.parentNode || sec;
-      if (!p || p.show_section === false) {
-        if (parentSec && parentSec.style) parentSec.style.display = 'none';
-        return;
-      }
-      if (parentSec && parentSec.style && parentSec.style.display === 'none') {
-        parentSec.style.display = '';
-      }
-      var box = document.getElementById('profileContent');
-      if (!box) return;
-
-      var defP = this.getDefaultEditorial().profile;
-      if (p.vision && (p.vision.indexOf('Menjadi pusat pengkajian') !== -1 || p.vision === '')) {
-        p.vision = defP.vision;
-        p.missions = defP.missions;
-        p.greeting = defP.greeting;
-        p.ketua_name = defP.ketua_name;
-        p.ketua_title = defP.ketua_title;
-      }
-
-      var self = this;
-      var missions = (Array.isArray(p.missions) ? p.missions : []).map(function (m) {
-        return '<li class="flex items-start gap-2.5">' +
-          '<span class="h-5 w-5 rounded-full bg-gold text-emerald-dark text-[10px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">✓</span>' +
-          '<span>' + self.esc(m) + '</span></li>';
-      }).join('');
-      box.innerHTML =
-        '<div class="lg:col-span-3 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-emerald-900/20 rounded-3xl p-8 border border-emerald-100 dark:border-emerald-900/60 flex flex-col justify-between">' +
-          '<div>' +
-            '<div class="flex items-center gap-4 mb-5">' +
-              '<div class="h-14 w-14 bg-emerald-light dark:bg-emerald-900/60 rounded-2xl flex items-center justify-center flex-shrink-0">' +
-                '<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-emerald dark:text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>' +
-              '</div>' +
-              '<div><div class="font-extrabold text-emerald-dark dark:text-emerald-100 text-lg">' + this.esc(p.ketua_name || 'Ustadz Muhammad Hanafi') + '</div>' +
-              '<div class="text-xs text-gray-500 dark:text-gray-400 font-medium">' + this.esc(p.ketua_title || 'Ketua DPW APII Jabodetabek') + '</div></div>' +
-            '</div>' +
-            '<div class="space-y-3 text-sm sm:text-base text-gray-600 dark:text-gray-300 leading-relaxed">' + this.editorialParas(p.greeting) + '</div>' +
-          '</div>' +
-          '<div class="mt-6 pt-5 border-t border-emerald-100 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-2">' +
-            '<span>🏛️</span>' +
-            '<span>Dewan Pimpinan Wilayah Jabodetabek</span>' +
-          '</div>' +
-        '</div>' +
-        '<div class="lg:col-span-2 bg-emerald-dark rounded-3xl p-8 text-white flex flex-col justify-between">' +
-          '<div>' +
-            '<div class="font-extrabold text-gold-light text-xl mb-3">Visi Lembaga</div>' +
-            '<div class="bg-white/10 rounded-2xl p-4 mb-5 border border-white/10">' +
-              '<p class="text-sm text-emerald-light/95 leading-relaxed font-medium">&ldquo;' + this.esc(p.vision || '') + '&rdquo;</p>' +
-            '</div>' +
-            '<div class="font-extrabold text-gold-light text-base mb-3">Misi Utama</div>' +
-            '<ul class="space-y-2.5 text-xs sm:text-sm text-emerald-light/90 leading-relaxed">' + missions + '</ul>' +
-          '</div>' +
-          '<div class="mt-6 pt-5 border-t border-white/20 text-xs text-emerald-200">' +
-            'Nilai dasar: Moderat, Ilmiah, Santun, dan Rahmatan Lil Alamin.' +
-          '</div>' +
-        '</div>';
-    },
-
-
-
-
-    renderEditorialWarta: function (be) {
-      var self = this;
-      var sec = document.getElementById('wartaSection');
-      if (!sec) return;
-      var parentSec = sec.parentElement || sec.parentNode || sec;
-      if (!be || be.show_section === false) {
-        if (parentSec && parentSec.style) parentSec.style.display = 'none';
-        return;
-      }
-      if (parentSec && parentSec.style && parentSec.style.display === 'none') {
-        parentSec.style.display = '';
-      }
-
-      var t = document.getElementById('wartaTitle');
-      if (t && be.section_title) t.textContent = be.section_title;
-      var st = document.getElementById('wartaSubtitle');
-      if (st && be.section_subtitle) st.textContent = be.section_subtitle;
-
-      // Maklumat / siaran pers
-      self.state.bulletins = (Array.isArray(be.bulletins) ? be.bulletins : []);
-      self.state.bulletinCount = 6;
-      self.renderBulletins();
-      var moreBtn = document.getElementById('bulletinMoreBtn');
-      if (moreBtn && !moreBtn.dataset.bound) {
-        moreBtn.dataset.bound = '1';
-        moreBtn.addEventListener('click', function () {
-          self.state.bulletinCount += 6;
-          self.renderBulletins();
-        });
-      }
-
-      // Agenda: MENDATANG di atas, SELESAI (arsip) di bawah
-      var events = (Array.isArray(be.events) ? be.events.slice() : []);
-      events.sort(function (a, b) {
-        var ai = (a.status === 'SELESAI') ? 1 : 0, bi = (b.status === 'SELESAI') ? 1 : 0;
-        return ai - bi;
-      });
-      self.state.events = events;
-      self.state.eventCount = 6;
-      self.renderEvents();
-      var moreEvtBtn = document.getElementById('eventMoreBtn');
-      if (moreEvtBtn && !moreEvtBtn.dataset.bound) {
-        moreEvtBtn.dataset.bound = '1';
-        moreEvtBtn.addEventListener('click', function () {
-          self.state.eventCount += 6;
-          self.renderEvents();
-        });
-      }
-
-      // Tab switcher Warta 4 Kategori (Maklumat, Agenda, Live Impact LPJ, Khazanah Riset)
-      var tabB = document.getElementById('wartaTabBulletins');
-      var tabE = document.getElementById('wartaTabEvents');
-      var tabI = document.getElementById('tabLiveImpactBtn') || document.getElementById('wartaTabImpact');
-      var tabK = document.getElementById('tabKhazanahBtn') || document.getElementById('wartaTabKhazanah');
-      var paneB = document.getElementById('wartaBulletinsPane');
-      var paneE = document.getElementById('wartaEventsPane');
-      var paneI = document.getElementById('wartaTabLiveImpact') || document.getElementById('wartaImpactPane');
-      var paneK = document.getElementById('wartaTabKhazanah') || document.getElementById('wartaKhazanahPane');
-
-      var setTab = function (mode) {
-        var onCls = ['active', 'bg-white', 'text-emerald-dark', 'shadow-sm'];
-        var offCls = ['text-gray-500', 'dark:text-gray-400'];
-        var allPanes = [paneB, paneE, paneI, paneK].filter(Boolean);
-        var allTabs = [tabB, tabE, tabI, tabK].filter(Boolean);
-
-        allPanes.forEach(function (p) { p.classList.add('hidden'); });
-        allTabs.forEach(function (t) {
-          t.classList.remove.apply(t.classList, onCls);
-          offCls.forEach(function (c) { t.classList.add(c); });
-          t.setAttribute('aria-selected', 'false');
-        });
-
-        if (mode === true || mode === 'events') {
-          if (paneE) paneE.classList.remove('hidden');
-          if (tabE) {
-            tabE.classList.add.apply(tabE.classList, onCls);
-            offCls.forEach(function (c) { tabE.classList.remove(c); });
-            tabE.setAttribute('aria-selected', 'true');
-          }
-        } else if (mode === 'impact') {
-          if (paneI) paneI.classList.remove('hidden');
-          if (tabI) {
-            tabI.classList.add.apply(tabI.classList, onCls);
-            offCls.forEach(function (c) { tabI.classList.remove(c); });
-            tabI.setAttribute('aria-selected', 'true');
-          }
-        } else if (mode === 'khazanah') {
-          if (paneK) paneK.classList.remove('hidden');
-          if (tabK) {
-            tabK.classList.add.apply(tabK.classList, onCls);
-            offCls.forEach(function (c) { tabK.classList.remove(c); });
-            tabK.setAttribute('aria-selected', 'true');
-          }
-        } else {
-          // Default: Bulletins / Maklumat
-          if (paneB) paneB.classList.remove('hidden');
-          if (tabB) {
-            tabB.classList.add.apply(tabB.classList, onCls);
-            offCls.forEach(function (c) { tabB.classList.remove(c); });
-            tabB.setAttribute('aria-selected', 'true');
-          }
-        }
-      };
-
-      if (tabB && !tabB.dataset.bound) { tabB.dataset.bound = '1'; tabB.addEventListener('click', function () { setTab(false); }); }
-      if (tabE && !tabE.dataset.bound) { tabE.dataset.bound = '1'; tabE.addEventListener('click', function () { setTab(true); }); }
-      if (tabI && !tabI.dataset.bound) { tabI.dataset.bound = '1'; tabI.addEventListener('click', function () { setTab('impact'); }); }
-      if (tabK && !tabK.dataset.bound) { tabK.dataset.bound = '1'; tabK.addEventListener('click', function () { setTab('khazanah'); }); }
-    },
-
-    renderBulletins: function () {
-      var self = this;
-      var list = document.getElementById('bulletinList');
-      if (!list) return;
-      var all = Array.isArray(this.state.bulletins) ? this.state.bulletins : [];
-      var shown = all.slice(0, this.state.bulletinCount || 6);
-      var empty = document.getElementById('bulletinEmpty');
-      if (!all.length) {
-        list.innerHTML = '';
-        if (empty) empty.classList.remove('hidden');
-      } else {
-        if (empty) empty.classList.add('hidden');
-        list.innerHTML = shown.map(function (b) {
-          var dateStr = self.fmtEditorialDate(b.date);
-          return '<div class="bg-white rounded-2xl border border-emerald-100 p-6 flex flex-col hover:shadow-lg hover:border-emerald/30 transition doc-card">' +
-            '<div class="flex items-center gap-2 mb-3 flex-wrap">' +
-              (b.category ? '<span class="badge badge-published">' + self.esc(b.category) + '</span>' : '') +
-              (dateStr ? '<span class="text-[11px] text-gray-400 font-semibold">' + self.esc(dateStr) + '</span>' : '') +
-            '</div>' +
-            '<h3 class="font-extrabold text-emerald-dark text-base sm:text-lg mb-2 leading-snug">' + self.esc(b.title) + '</h3>' +
-            '<div class="text-sm text-gray-600 leading-relaxed space-y-2 flex-1">' + self.editorialParas(b.summary) + '</div>' +
-            (b.link ? '<a href="' + self.esc(b.link) + '" target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex items-center gap-1.5 text-emerald font-bold text-sm hover:underline self-start">Baca selengkapnya →</a>' : '') +
-          '</div>';
-        }).join('');
-      }
-      var moreWrap = document.getElementById('bulletinMoreWrap');
-      if (moreWrap) moreWrap.classList.toggle('hidden', all.length <= (this.state.bulletinCount || 6));
-    },
-
-    renderEvents: function () {
-      var self = this;
-      var list = document.getElementById('eventList');
-      if (!list) return;
-      var all = Array.isArray(this.state.events) ? this.state.events : [];
-      var shown = all.slice(0, this.state.eventCount || 6);
-      var empty = document.getElementById('eventEmpty');
-      if (!all.length) {
-        list.innerHTML = '';
-        if (empty) empty.classList.remove('hidden');
-      } else {
-        if (empty) empty.classList.add('hidden');
-        list.innerHTML = shown.map(function (e) {
-          var done = (e.status === 'SELESAI');
-          var badge = done
-            ? '<span class="badge badge-draft">Selesai (Arsip Kegiatan)</span>'
-            : '<span class="badge badge-published">Mendatang</span>';
-          return '<div class="rounded-2xl border p-6 flex flex-col hover:shadow-lg transition doc-card ' +
-            (done ? 'border-gray-200 bg-gray-50/60 opacity-70' : 'border-emerald-100 bg-white hover:border-emerald/30') + '">' +
-            '<div class="flex items-center gap-2 mb-3 flex-wrap">' +
-              (e.category ? '<span class="badge badge-pending">' + self.esc(e.category) + '</span>' : '') + badge +
-            '</div>' +
-            '<h3 class="font-extrabold text-base sm:text-lg mb-3 leading-snug ' + (done ? 'text-gray-500' : 'text-emerald-dark') + '">' + self.esc(e.title) + '</h3>' +
-            '<div class="space-y-1.5 text-sm text-gray-600 dark:text-gray-300 mb-3">' +
-              (e.date_str ? '<div class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>' + self.esc(e.date_str) + (e.time_str ? ' · ' + self.esc(e.time_str) : '') + '</span></div>' : '') +
-              (e.location ? '<div class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>' + self.esc(e.location) + '</span></div>' : '') +
-              (e.speaker ? '<div class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg><span>' + self.esc(e.speaker) + '</span></div>' : '') +
-            '</div>' +
-            ((e.link && !done) ? '<a href="' + self.esc(e.link) + '" target="_blank" rel="noopener noreferrer" class="mt-auto inline-flex items-center gap-1.5 text-emerald font-bold text-sm hover:underline self-start">Detail &amp; pendaftaran &rarr;</a>' : '') +
-          '</div>';
-        }).join('');
-      }
-      var moreWrap = document.getElementById('eventMoreWrap');
-      if (moreWrap) moreWrap.classList.toggle('hidden', all.length <= (this.state.eventCount || 6));
-    },
-
-    renderEditorialFaq: function (faqs) {
-      var self = this;
-      var list = document.getElementById('faqList');
-      var sec = document.getElementById('faqSection');
-      if (!list) return;
-      var parentSec = sec ? (sec.parentElement || sec.parentNode || sec) : null;
-      var arr = (Array.isArray(faqs) ? faqs : []).filter(function (f) { return f && f.q; });
-      if (!arr.length) {
-        if (parentSec && parentSec.style) parentSec.style.display = 'none';
-        return;
-      }
-      if (parentSec && parentSec.style && parentSec.style.display === 'none') {
-        parentSec.style.display = '';
-      }
-      list.innerHTML = arr.map(function (f) {
-        return '<div class="faq-item bg-white rounded-2xl border border-emerald-100 overflow-hidden">' +
-          '<button type="button" class="faq-trigger w-full flex items-center justify-between gap-4 p-5 text-left font-bold text-emerald-dark text-sm sm:text-base hover:bg-emerald-50/50 transition">' +
-            '<span>' + self.esc(f.q) + '</span>' +
-            '<svg class="faq-chevron h-5 w-5 text-emerald flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" /></svg>' +
-          '</button>' +
-          '<div class="faq-answer"><div class="px-5 pb-5 pt-4 text-sm text-gray-600 leading-relaxed space-y-2 border-t border-gray-100">' + self.editorialParas(f.a) + '</div></div>' +
-        '</div>';
-      }).join('');
-      // Akordion: hanya satu item terbuka pada satu waktu
-      Array.prototype.forEach.call(list.querySelectorAll('.faq-trigger'), function (btn) {
-        btn.addEventListener('click', function () {
-          var item = btn.closest('.faq-item');
-          var isOpen = item.classList.contains('open');
-          Array.prototype.forEach.call(list.querySelectorAll('.faq-item.open'), function (o) { o.classList.remove('open'); });
-          if (!isOpen) item.classList.add('open');
-        });
-      });
-      // Buka pertanyaan pertama secara default
-      var first = list.querySelector('.faq-item');
-      if (first) first.classList.add('open');
-    },
-
-    renderEditorialContact: function (c, s) {
-      if (c && typeof c === 'object') {
-        var addr = document.getElementById('contactAddressVal');
-        if (addr && c.address) { addr.textContent = c.address; addr.classList.add('whitespace-pre-line'); }
-        var email = document.getElementById('contactEmailVal');
-        if (email && c.email) email.textContent = c.email;
-        var hours = document.getElementById('contactHoursVal');
-        if (hours && c.service_hours) hours.textContent = c.service_hours;
-        var waCard = document.getElementById('contactWaCard');
-        var waVal = document.getElementById('contactWaVal');
-        if (waCard && waVal && c.whatsapp_helpdesk) {
-          var digits = String(c.whatsapp_helpdesk).replace(/\D/g, '').replace(/^0/, '62');
-          waVal.textContent = c.whatsapp_helpdesk;
-          waCard.classList.remove('hidden');
-          if (digits) {
-            waCard.style.cursor = 'pointer';
-            waCard.title = 'Chat WhatsApp Helpdesk';
-            waCard.addEventListener('click', function () {
-              window.open('https://wa.me/' + digits + '?text=' + encodeURIComponent('Halo Sekretariat APII DPW Jabodetabek, saya ingin bertanya terkait informasi portal.'), '_blank', 'noopener');
-            });
-          }
-        }
-      }
-      this.renderEditorialSocial(s);
-    },
-
-    renderEditorialSocial: function (s) {
-      var self = this;
-      var row = document.getElementById('socialLinksRow');
-      if (!row || !s || typeof s !== 'object') return;
-      var defs = [
-        { url: s.youtube, label: 'YouTube', icon: '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" /></svg>' },
-        { url: s.instagram, label: 'Instagram', icon: '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z" /></svg>' },
-        { url: s.whatsapp_channel, label: 'WhatsApp Channel', icon: '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163a11.867 11.867 0 0 1-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 0 1 8.413 3.488 11.824 11.824 0 0 1 3.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 0 1-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 0 0 1.51 5.26l-.999 3.648 3.978-1.207zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" /></svg>' },
-        { url: s.facebook, label: 'Facebook', icon: '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>' },
-        { url: s.tiktok, label: 'TikTok', icon: '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.14-5.91 3.18-1.86.04-3.69-.68-5.04-1.92-1.99-1.83-2.85-4.73-2.16-7.36.69-2.62 2.94-4.72 5.6-5.25.32-.06.65-.1.98-.11v4.04c-1.66.38-2.98 1.96-2.98 3.7 0 1.72 1.31 3.31 2.98 3.69 1.69.4 3.56-.45 4.29-2.03.26-.53.4-1.12.41-1.71.02-3.13.01-6.25.01-9.38.01-1.08-.01-2.16.02-3.24.08-1.13.34-2.22.79-3.24.31-.72.75-1.39 1.28-1.97-.01 0 .01 0 .02.01z" /></svg>' }
-      ];
-      var links = defs.filter(function (d) { return d.url; });
-      if (!links.length) return;
-      row.innerHTML = links.map(function (d) {
-        return '<a href="' + self.esc(d.url) + '" target="_blank" rel="noopener noreferrer" aria-label="' + self.esc(d.label) + '" class="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/10 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition">' + d.icon + '<span>' + self.esc(d.label) + '</span></a>';
-      }).join('');
-      row.classList.remove('hidden');
-    },
-
-    // ---------------------------------------------------------------
-    // ARSIP SURAT & DOKUMEN RESMI PUBLIK
-    // ---------------------------------------------------------------
-    loadPublicSurat: function (params) {
-      var self = this;
-      var loadingEl = document.getElementById('loadingSurat');
-      var listEl = document.getElementById('publicSuratList');
-      var emptyEl = document.getElementById('emptySurat');
-      if (!listEl) return;
-
-      var targetWil = (params && params.wilayah) || this.state.currentWilayah || 'DPW_JABODETABEK';
-      this.get('getPublishedSurat', { limit: 8, wilayah: targetWil }).then(function (res) {
-        if (loadingEl) loadingEl.classList.add('hidden');
-        if (res && res.success && res.data && res.data.items && res.data.items.length) {
-          listEl.innerHTML = res.data.items.map(function (s) {
-            return '' +
-              '<div class="public-surat-card p-4 rounded-2xl bg-gray-50/80 hover:bg-emerald-50/50 border border-gray-200/90 hover:border-emerald-300 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">' +
-                '<div class="flex-1 min-w-0">' +
-                  '<div class="flex items-center gap-2 mb-1 flex-wrap">' +
-                    '<span class="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full">' + self.esc(s.letter_type_label || s.letter_type) + '</span>' +
-                    '<span class="text-xs text-gray-400 font-medium">' + self.esc(s.tanggal_label || '') + '</span>' +
-                  '</div>' +
-                  '<h4 class="font-bold text-gray-900 text-sm leading-snug break-words">' + self.esc(s.title) + '</h4>' +
-                  '<div class="text-xs text-gray-500 font-mono mt-0.5 break-all">' + self.esc(s.letter_number) + '</div>' +
-                '</div>' +
-                '<div class="sm:flex-shrink-0">' +
-                  (s.pdf_url ?
-                    '<a href="' + self.esc(s.pdf_url) + '" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald hover:bg-emerald-dark text-white px-3.5 py-2 rounded-xl shadow-xs transition">' +
-                      '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
-                      '<span>Unduh PDF</span>' +
-                    '</a>' :
-                    '<span class="text-[11px] font-semibold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-lg">Arsip Fisik</span>') +
-                '</div>' +
-              '</div>';
-          }).join('');
-          listEl.classList.remove('hidden');
-        } else {
-          if (emptyEl) emptyEl.classList.remove('hidden');
-        }
-      }).catch(function () {
-        if (loadingEl) loadingEl.classList.add('hidden');
-        if (emptyEl) emptyEl.classList.remove('hidden');
-      });
-    },
-
-    // ---------------------------------------------------------------
-    // REKENING KEUANGAN RESMI YAYASAN
-    // ---------------------------------------------------------------
-    loadPublicAccounts: function (params) {
-      var self = this;
-      var loadingEl = document.getElementById('loadingAccount');
-      var container = document.getElementById('publicAccountList');
-      var emptyEl = document.getElementById('emptyAccount');
-      if (!container) return;
-
-      var targetWil = (params && params.wilayah) || this.state.currentWilayah || 'DPW_JABODETABEK';
-      this.get('getPublicAccounts', { wilayah: targetWil }).then(function (res) {
-        if (loadingEl) loadingEl.classList.add('hidden');
-        if (res && res.success && res.data && res.data.length) {
-          container.innerHTML = res.data.map(function (acc, idx) {
-            var bankName = acc.bank_name || acc.bank_vendor || acc.name || 'Bank Yayasan';
-            var accNum = acc.account_number || acc.nomor_rekening || '-';
-            var holder = acc.holder_name || acc.atas_nama || 'YAYASAN APII DPW JABODETABEK';
-            var category = acc.category || 'Operasional DPW';
-
-            var isBsi = /BSI|Syariah|Muamalat/i.test(bankName);
-            var isMandiri = /Mandiri/i.test(bankName);
-            var isBca = /BCA|BNI|BRI|CIMB/i.test(bankName);
-
-            var colorBg = 'from-gray-50 via-slate-50 to-gray-100 border-gray-300';
-            var colorBadge = 'text-gray-700 bg-gray-200/80 border-gray-300';
-            var colorBtn = 'text-gray-800 border-gray-300 hover:bg-gray-100';
-
-            if (isBsi) {
-              colorBg = 'from-emerald-500/10 via-emerald-50 to-teal-50/50 border-emerald-300/80';
-              colorBadge = 'text-emerald-800 bg-emerald-100/90 border-emerald-200/80';
-              colorBtn = 'text-emerald-800 border-emerald-300 hover:bg-emerald-100';
-            } else if (isMandiri) {
-              colorBg = 'from-amber-500/10 via-amber-50 to-orange-50/50 border-amber-300/80';
-              colorBadge = 'text-amber-900 bg-amber-100/90 border-amber-200/80';
-              colorBtn = 'text-amber-900 border-amber-300 hover:bg-amber-100';
-            } else if (isBca) {
-              colorBg = 'from-sky-500/10 via-sky-50 to-blue-50/50 border-sky-300/80';
-              colorBadge = 'text-sky-900 bg-sky-100/90 border-sky-200/80';
-              colorBtn = 'text-sky-900 border-sky-300 hover:bg-sky-100';
-            }
-
-            var btnId = 'copyBtn_' + idx;
-
-            return '' +
-              '<div class="public-account-card p-4 sm:p-5 rounded-2xl bg-gradient-to-br ' + colorBg + ' border shadow-xs transition hover:shadow-md">' +
-                '<div class="flex items-center justify-between mb-2.5 flex-wrap gap-2">' +
-                  '<div class="flex items-center gap-2">' +
-                    '<span class="text-xs font-black text-gray-950 uppercase tracking-wide">' + self.esc(bankName) + '</span>' +
-                  '</div>' +
-                  '<span class="text-[10px] font-bold ' + colorBadge + ' px-2.5 py-0.5 rounded-full border shadow-2xs">' + self.esc(category) + '</span>' +
-                '</div>' +
-                '<div class="public-account-num-box flex items-center justify-between gap-3 mt-1.5 flex-wrap sm:flex-nowrap bg-white/70 p-3 rounded-xl border border-white/60">' +
-                  '<div class="text-base sm:text-xl font-black font-mono text-gray-900 tracking-wider break-all min-w-0 select-all">' + self.esc(accNum) + '</div>' +
-                  (accNum !== '-' ?
-                    '<button type="button" id="' + btnId + '" ' +
-                            'onclick="(function(btn){ ' +
-                              'navigator.clipboard.writeText(\'' + self.esc(accNum) + '\'); ' +
-                              'var origText = btn.innerHTML; ' +
-                              'btn.innerHTML = \'Tersalin ✓\'; ' +
-                              'btn.classList.add(\'bg-emerald-600\', \'text-white\'); ' +
-                              'setTimeout(function(){ btn.innerHTML = origText; btn.classList.remove(\'bg-emerald-600\', \'text-white\'); }, 2000); ' +
-                              'window.Public && window.Public.showToast(\'Nomor rekening ' + self.esc(bankName) + ' berhasil disalin!\'); ' +
-                            '})(this);" ' +
-                            'class="inline-flex items-center gap-1.5 text-xs font-bold bg-white ' + colorBtn + ' px-3.5 py-1.5 rounded-xl border shadow-xs transition active:scale-95 flex-shrink-0 cursor-pointer">' +
-                      '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>' +
-                      '<span>Salin</span>' +
-                    '</button>' : '') +
-                '</div>' +
-                '<div class="text-xs text-gray-600 mt-2.5 font-medium break-words flex items-center gap-1.5">' +
-                  '<span class="text-gray-400">a.n.</span> ' +
-                  '<strong class="text-gray-900 font-extrabold">' + self.esc(holder) + '</strong>' +
-                '</div>' +
-              '</div>';
-          }).join('');
-          container.classList.remove('hidden');
-          if (emptyEl) emptyEl.classList.add('hidden');
-        } else {
-          container.classList.add('hidden');
-          if (emptyEl) emptyEl.classList.remove('hidden');
-        }
-      }).catch(function () {
-        if (loadingEl) loadingEl.classList.add('hidden');
-        container.classList.add('hidden');
-        if (emptyEl) emptyEl.classList.remove('hidden');
-      });
-    },
-
-    // ---------------------------------------------------------------
-    // FLOATING TOAST NOTIFIKASI
-    // ---------------------------------------------------------------
-    showToast: function (msg) {
-      var toast = document.getElementById('publicToast');
-      if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'publicToast';
-        toast.className = 'fixed bottom-6 right-6 z-50 bg-emerald-dark text-white px-5 py-3 rounded-2xl shadow-2xl text-xs font-bold flex items-center gap-2 border border-emerald/30 transition-all duration-300 transform translate-y-12 opacity-0 pointer-events-none';
-        document.body.appendChild(toast);
-      }
-      toast.innerHTML = '<svg class="h-4 w-4 text-gold-light" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> ' + this.esc(msg);
-      toast.classList.remove('translate-y-12', 'opacity-0', 'pointer-events-none');
-      setTimeout(function () {
-        toast.classList.add('translate-y-12', 'opacity-0', 'pointer-events-none');
-      }, 3000);
-    },
-
-    /** Escape HTML untuk mencegah XSS dari data backend. */
-    esc: function (str) {
-      if (str === null || str === undefined) return '';
-      return String(str)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-    },
+    'SRT-003': {
+      nomorSurat: '002/UND-DPW-JABO/XI/2026',
+      perihal: 'Undangan Silaturahmi Akbar dan Pembinaan Muallaf se-Jabodetabek',
+      isiSurat: 'Mengharap kehadiran seluruh kader dan relawan dalam rangka koordinasi bulanan dan santunan berkala binaan muallaf se-Jabodetabek.',
+      legacyHash: 'f2d4c6e8101214161820abcdefabcdef1234567890abcdef1234567890abcdef'
+    }
   };
 
-  window.Public = Public;
-  document.addEventListener('DOMContentLoaded', function () { Public.init(); });
+  function buildInitialSharedDb() {
+    const srt1No = '005/SM-DPP-APII/XI/2026';
+    const srt1Perihal = 'Surat Mandat Delegasi Dialog Teologi & Kristologi Nasional 2026';
+    const srt1Isi = 'Memberikan mandat penuh kepada nama tertera di atas untuk mewakili Dewan Pengurus Pusat Yayasan Apologet Islam Indonesia dalam forum Dialog Teologi dan Kristologi Komparatif Nasional 2026 di Jakarta Islamic Centre.';
+
+    const srt2No = '006/SK-DPP-APII/XI/2026';
+    const srt2Perihal = 'Surat Keputusan Pengesahan Susunan Pengurus DPW APII Jabodetabek 2026-2031';
+    const srt2Isi = 'Menimbang, Mengingat AD/ART APII 16 Bab, dan Memutuskan: Mengesahkan secara definitif susunan personalia DPW Yayasan APII Jabodetabek.';
+
+    const srt3No = '002/UND-DPW-JABO/XI/2026';
+    const srt3Perihal = 'Undangan Silaturahmi Akbar dan Pembinaan Muallaf se-Jabodetabek';
+    const srt3Isi = 'Mengharap kehadiran seluruh kader dan relawan dalam rangka koordinasi bulanan dan santunan berkala binaan muallaf se-Jabodetabek.';
+
+    return {
+      surat: [
+        {
+          id: 'SRT-001',
+          tenantId: 'DPP_PUSAT',
+          nomorSurat: srt1No,
+          tipe: 'SURAT_MANDAT',
+          kodePerihal: 'SM',
+          perihal: srt1Perihal,
+          tujuan: 'Ust. Dani Ramadhan, M.Ag. (Kadiv Litbang APII)',
+          tanggalMasehi: '09-11-2026',
+          tanggalHijriah: '29 Jumadil Ula 1448 H',
+          klasifikasi: 'Penting',
+          tingkatKeamanan: 'Biasa',
+          lampiran: '1 Berkas TOR',
+          isiSurat: srt1Isi,
+          status: 'APPROVED',
+          statusSignature: 'APPROVED',
+          signedBy: 'Ust. H. Ahmad Fauzi, Lc., M.A. (Ketua Umum DPP)',
+          signedAt: '09-11-2026 09:30',
+          hashSha256: sha256Hex(srt1No + srt1Perihal + srt1Isi),
+          pdfDriveUrl: 'https://drive.google.com/apii/01_SURAT_KELUAR/SRT-001.pdf',
+          createdBy: 'Ust. M. Ridwan, S.Pd.I.'
+        },
+        {
+          id: 'SRT-002',
+          tenantId: 'DPP_PUSAT',
+          nomorSurat: srt2No,
+          tipe: 'SK_KEPENGURUSAN',
+          kodePerihal: 'SK',
+          perihal: srt2Perihal,
+          tujuan: 'Dewan Pengurus Wilayah APII Jabodetabek',
+          tanggalMasehi: '08-11-2026',
+          tanggalHijriah: '28 Jumadil Ula 1448 H',
+          klasifikasi: 'Sangat Penting',
+          tingkatKeamanan: 'Biasa',
+          lampiran: '1 Lembar Tabel Susunan Pengurus',
+          isiSurat: srt2Isi,
+          status: 'AJUKAN',
+          statusSignature: 'PENDING_KETUA',
+          signedBy: 'Diajukan oleh Sekretaris Umum',
+          signedAt: null,
+          hashSha256: sha256Hex(srt2No + srt2Perihal + srt2Isi),
+          pdfDriveUrl: '#',
+          createdBy: 'Ust. M. Ridwan, S.Pd.I.'
+        },
+        {
+          id: 'SRT-003',
+          tenantId: 'DPW_JABO',
+          nomorSurat: srt3No,
+          tipe: 'SURAT_UNDANGAN',
+          kodePerihal: 'UND',
+          perihal: srt3Perihal,
+          tujuan: 'Seluruh Pembina & Relawan Muallaf APII Jabodetabek',
+          tanggalMasehi: '07-11-2026',
+          tanggalHijriah: '27 Jumadil Ula 1448 H',
+          klasifikasi: 'Biasa',
+          tingkatKeamanan: 'Biasa',
+          lampiran: '-',
+          isiSurat: srt3Isi,
+          status: 'APPROVED',
+          statusSignature: 'APPROVED',
+          signedBy: 'Ust. Bambang Hidayat, M.Si. (Ketua DPW Jabodetabek)',
+          signedAt: '07-11-2026 14:15',
+          hashSha256: sha256Hex(srt3No + srt3Perihal + srt3Isi),
+          pdfDriveUrl: 'https://drive.google.com/apii/01_SURAT_KELUAR/SRT-003.pdf',
+          createdBy: 'Ust. Irwan Setiawan'
+        }
+      ],
+      suratMasuk: [
+        {
+          id: 'SMK-001',
+          tenantId: 'DPP_PUSAT',
+          noAgenda: 'AGD/2026/XI/018',
+          asalSurat: 'Kementerian Agama RI - Ditjen Bimas Islam',
+          noSuratAsli: 'B-421/Setjen/BimasIslam/XI/2026',
+          tglSurat: '08-11-2026',
+          tglTerima: '09-11-2026',
+          perihal: 'Permohonan Narasumber Dialog Literasi Apologetika & Kerukunan',
+          ringkasan: 'Permohonan kehadiran narasumber pakar teologi komparatif dalam dialog antar-tokoh agama.',
+          pdfFileUrl: '#',
+          statusDisposisi: 'PENDING_KETUA',
+          drafRekomendasiSekretaris: 'Rekomendasi Sekretaris: Hadiri dan tugaskan Kadiv Litbang serta siapkan bahan naskah kajian dalil.',
+          targetDivisi: ['litbang', 'humas'],
+          tingkatUrgensi: 'SEGERA',
+          instruksiKetua: '',
+          batasWaktu: '14-11-2026',
+          catatanTambahan: '',
+          parafKetua: null,
+          laporanTindakLanjut: '',
+          laporanPerDivisi: {}
+        }
+      ],
+      kas: {
+        balances: {
+          DPP_PUSAT: {
+            AMIL_OPERASIONAL: 42850000,
+            ZAKAT: 85200000,
+            INFAQ_DAKWAH: 63100000,
+            WAKAF: 145000000
+          },
+          DPW_JABO: {
+            AMIL_OPERASIONAL: 12500000,
+            ZAKAT: 24000000,
+            INFAQ_DAKWAH: 18500000,
+            WAKAF: 35000000
+          }
+        },
+        transactions: [
+          {
+            id: 'TRX-001',
+            tenantId: 'DPP_PUSAT',
+            tanggal: '09-11-2026',
+            tipe: 'MASUK',
+            kantongSyariah: 'INFAQ_DAKWAH',
+            kategori: 'Infaq Dakwah Tematik',
+            nominal: 15000000,
+            noVoucher: 'BKM-202611-001',
+            noKwitansi: 'KWT-BKM-202611-001',
+            keterangan: 'Infaq Program Safari Dakwah Kristologi Komparatif',
+            pihakTerkait: 'Hamba Allah (Transfer BSI Kas Pusat)',
+            metode: 'TRANSFER_BANK',
+            statusApproval: 'APPROVED',
+            verifiedBendaharaBy: 'H. Syamsuddin, S.E., Ak.',
+            approvedKetuaBy: 'Ust. H. Ahmad Fauzi, Lc., M.A.',
+            buktiUrl: '#'
+          },
+          {
+            id: 'TRX-002',
+            tenantId: 'DPP_PUSAT',
+            tanggal: '08-11-2026',
+            tipe: 'KELUAR',
+            kantongSyariah: 'AMIL_OPERASIONAL',
+            kategori: 'Operasional Server & Digitalisasi',
+            nominal: 3500000,
+            noVoucher: 'BKK-202611-001',
+            noKwitansi: 'KWT-BKK-202611-001',
+            keterangan: 'Biaya Sewa Server Cloud, Domain & Zoom Pro Dakwah Nov 2026',
+            pihakTerkait: 'Divisi Sosmed & Digital',
+            metode: 'TRANSFER_BANK',
+            statusApproval: 'APPROVED',
+            verifiedBendaharaBy: 'H. Syamsuddin, S.E., Ak.',
+            approvedKetuaBy: 'Ust. H. Ahmad Fauzi, Lc., M.A.',
+            buktiUrl: '#'
+          },
+          {
+            id: 'TRX-003',
+            tenantId: 'DPP_PUSAT',
+            tanggal: '09-11-2026',
+            tipe: 'KELUAR',
+            kantongSyariah: 'ZAKAT',
+            kategori: 'Santunan Muallaf & Fisabilillah',
+            nominal: 7500000,
+            noVoucher: 'DRAFT-KEU-003',
+            noKwitansi: 'PENDING',
+            keterangan: 'Bantuan Darurat Biaya Hidup & Hukum Muallaf Terancam Pengusiran (Ashnaf Muallaf & Fisabilillah)',
+            pihakTerkait: 'Divisi Hukum & Advokasi (LBH APII)',
+            metode: 'TUNAI',
+            statusApproval: 'VERIFIKASI_BENDAHARA',
+            verifiedBendaharaBy: 'H. Syamsuddin, S.E., Ak.',
+            approvedKetuaBy: null,
+            buktiUrl: '#'
+          }
+        ],
+        closings: []
+      },
+      proker: [],
+      anggota: [
+        {
+          id: 'MBR-001',
+          tenantId: 'DPP_PUSAT',
+          nia: 'APII-PUSAT-2026-00125',
+          namaLengkap: 'Ust. Dani Ramadhan, M.Ag.',
+          nik: '3171********0001',
+          kota: 'Jakarta Pusat',
+          wilayah: 'DPP Pusat (Nasional)',
+          divisiMinat: 'litbang',
+          tingkatLisensi: 3,
+          keahlian: 'Kristologi Komparatif, Bahasa Ibrani & Manuskrip Kuno',
+          status: 'APPROVED',
+          tglTerbit: '15-01-2026',
+          tglKedaluwarsa: '15-01-2031',
+          telepon: '6281234567802',
+          fotoUrl: createMonogramAvatar('Ust. Dani Ramadhan, M.Ag.', 'litbang'),
+          ktpWatermarkUrl: '#',
+          verifiedSekretarisAt: '14-01-2026 10:00',
+          approvedKetuaAt: '15-01-2026 08:30',
+          kodeEtikVersi: 'APII-ETIK-2026-V1'
+        },
+        {
+          id: 'MBR-002',
+          tenantId: 'DPP_PUSAT',
+          nia: 'APII-PUSAT-2026-00126',
+          namaLengkap: 'Ilham Kurniawan, S.I.Kom.',
+          nik: '3275********0002',
+          kota: 'Bekasi',
+          wilayah: 'DPP Pusat (Nasional)',
+          divisiMinat: 'humas',
+          tingkatLisensi: 2,
+          keahlian: 'Humas, Komunikasi Publik & Siaran Pers',
+          status: 'APPROVED',
+          tglTerbit: '10-02-2026',
+          tglKedaluwarsa: '10-02-2031',
+          telepon: '6281234567801',
+          fotoUrl: createMonogramAvatar('Ilham Kurniawan, S.I.Kom.', 'humas'),
+          ktpWatermarkUrl: '#',
+          verifiedSekretarisAt: '09-02-2026 11:00',
+          approvedKetuaAt: '10-02-2026 09:15',
+          kodeEtikVersi: 'APII-ETIK-2026-V1'
+        },
+        {
+          id: 'MBR-003',
+          tenantId: 'DPW_JABO',
+          nia: 'APII-JABO-2026-00042',
+          namaLengkap: 'Ust. Zulkifli, S.Th.I.',
+          nik: '3674********0003',
+          kota: 'Tangerang Selatan',
+          wilayah: 'DPW Jabodetabek',
+          divisiMinat: 'dakwah',
+          tingkatLisensi: 1,
+          keahlian: 'Kajian Tauhid & Bimbingan Muallaf Pemula',
+          status: 'VERIFIED_SEKRETARIS',
+          tglTerbit: '08-11-2026',
+          tglKedaluwarsa: '08-11-2031',
+          telepon: '6281234567899',
+          fotoUrl: createMonogramAvatar('Ust. Zulkifli, S.Th.I.', 'dakwah'),
+          ktpWatermarkUrl: '#',
+          verifiedSekretarisAt: '08-11-2026 16:00',
+          approvedKetuaAt: null,
+          kodeEtikVersi: 'APII-ETIK-2026-V1'
+        }
+      ],
+      advokasi: [
+        {
+          id: 'ADV-001',
+          tenantId: 'DPP_PUSAT',
+          tiketNo: 'TIKET-LBH-202611-001',
+          namaDai: 'Ust. Dani Ramadhan, M.Ag.',
+          kontak: '6281234567802',
+          lokasi: 'Bekasi Timur, Jawa Barat',
+          kronologi: 'Menerima surat somasi terkait kutipan perbandingan ayat dalam kajian ilmiah tertutup.',
+          urgensi: 'KILAT_DARURAT',
+          buktiUrl: '#',
+          status: 'TERBIT_SURAT_TUGAS',
+          catatanLbh: 'Telah diterbitkan Surat Tugas Advokat No. 012/ST-LBH-APII/XI/2026.',
+          updatedAt: '09-11-2026 11:30'
+        },
+        {
+          id: 'ADV-002',
+          tenantId: 'DPW_JABO',
+          tiketNo: 'TIKET-LBH-202611-002',
+          namaDai: 'Ust. Bambang Hidayat, M.Si.',
+          kontak: '6281234567891',
+          lokasi: 'Cilandak, Jakarta Selatan',
+          kronologi: 'Permintaan pendampingan perlindungan saksi untuk muallaf baru.',
+          urgensi: 'PENTING',
+          buktiUrl: '#',
+          status: 'MENUNGGU_TELAAH',
+          catatanLbh: 'Berkas kronologi masuk dan sedang ditelaah oleh tim LBH APII Jabodetabek.',
+          updatedAt: '09-11-2026 14:00'
+        }
+      ],
+      tabayyun: [],
+      muallaf: [
+        {
+          id: 'MLF-001',
+          tenantId: 'DPP_PUSAT',
+          regNo: 'APII-SYH-2026-0045',
+          namaAsli: 'Christian Robertus Sihombing',
+          namaHijrah: 'Muhammad Zayd Abdullah',
+          tglSyahadat: '25-10-2026',
+          tempatSyahadat: 'Markaz Dakwah Pusat APII, Jakarta',
+          pembimbing: 'Ust. Yohanes Fachruddin (Kadiv Dakwah)',
+          saksi1: 'Ust. Dani Ramadhan, M.Ag.',
+          saksi2: 'H. Syamsuddin, S.E.',
+          sertifikatUrl: 'https://drive.google.com/apii/08_MUALLAF_CARE/Piagam_Syahadat_Zayd.pdf',
+          statusZakat: 'TERIMA_SANTUNAN_ZAKAT',
+          nominalSantunan: 5000000,
+          createdAt: '25-10-2026 15:30'
+        },
+        {
+          id: 'MLF-002',
+          tenantId: 'DPW_JABO',
+          regNo: 'APII-SYH-2026-0046',
+          namaAsli: 'Maria Fransisca Natalia',
+          namaHijrah: 'Siti Maryam Shalihah',
+          tglSyahadat: '02-11-2026',
+          tempatSyahadat: 'Sekretariat DPW APII Jabodetabek',
+          pembimbing: 'Ust. Bambang Hidayat, M.Si.',
+          saksi1: 'Ust. Irwan Setiawan',
+          saksi2: 'Fathur Rahman, S.Pd.',
+          sertifikatUrl: 'https://drive.google.com/apii/08_MUALLAF_CARE/Piagam_Syahadat_Maryam.pdf',
+          statusZakat: 'PROSES_PENGAJUAN',
+          nominalSantunan: 3500000,
+          createdAt: '02-11-2026 11:00'
+        }
+      ],
+      attendance: [],
+      assets: [],
+      assetLoans: [],
+      consultations: [
+        {
+          id: 'CSL-001',
+          tenantId: 'DPP_PUSAT',
+          tokenHash: hashConsultToken('tok_9a8b7c6d5e4f3a2b1c'),
+          tiketNo: 'TKT-AQD-202611-001',
+          topik: 'Ketuhanan Yesus & Naskah Yohanes 1:1',
+          pertanyaan: 'Bagaimana bantahan ilmiah terhadap klaim bahwa Firman itu adalah Allah dalam Injil Yohanes 1:1 menurut kajian bahasa Yunani asli?',
+          jawaban: 'Dalam teks Yunani kuno, kata "Theos" kedua tidak menggunakan artikel penentu (anarthrous), yang menunjukkan sifat/kualitas ilahi (divine quality) bukan identitas mutlak Dzat Allah.',
+          status: 'TERJAWAB',
+          createdAt: '08-11-2026 20:15',
+          answeredAt: '09-11-2026 10:30',
+          curatedBy: 'Divisi Litbang APII'
+        },
+        {
+          id: 'CSL-002',
+          tenantId: 'DPP_PUSAT',
+          tokenHash: hashConsultToken('tok_112233445566778899'),
+          tiketNo: 'TKT-AQD-202611-002',
+          topik: 'Keraguan Syubhat Penyaliban',
+          pertanyaan: 'Saya seorang mahasiswa yang sering diajak debat teologi mengenai QS An-Nisa 157. Mohon referensi kitab komparatif yang tepat.',
+          jawaban: '',
+          status: 'MENUNGGU_JAWABAN',
+          createdAt: '09-11-2026 13:45',
+          answeredAt: null,
+          curatedBy: null
+        }
+      ],
+      knowledgeBase: [],
+      meetings: [],
+      cms: [
+        {
+          id: 'CMS-001',
+          tenantId: 'DPP_PUSAT',
+          judul: 'Maklumat Dewan Pengurus Pusat APII tentang Standar Verifikasi Syariah & Legalitas Dakwah',
+          kategori: 'Maklumat',
+          penulis: 'Sekretariat DPP APII',
+          tanggal: '09-11-2026',
+          ringkasan: 'Penegasan integritas kelembagaan Yayasan Apologet Islam Indonesia dengan landasan SK Kemenkumham RI AHU-0014970.AH.01.04.Tahun 2023.',
+          konten: 'Segala bentuk kegiatan penggalangan donasi, advokasi kristologi, dan penerbitan KTA hanya sah apabila terdaftar dalam sistem verifikasi terpusat SIAP APII. Masyarakat dapat memeriksa nomor surat dinas, KTA anggota, kwitansi kas, dan piagam syahadat melalui Pusat Verifikasi Resmi.',
+          status: 'PUBLISHED',
+          views: 1420
+        },
+        {
+          id: 'CMS-002',
+          tenantId: 'DPP_PUSAT',
+          judul: 'Kajian Komparatif: Membedah Otentisitas Manuskrip Kuno & Argumentasi Teologis Islam',
+          kategori: 'Kristologi',
+          penulis: 'Ust. Dani Ramadhan, M.Ag.',
+          tanggal: '05-11-2026',
+          ringkasan: 'Telaah kritis terhadap naskah Sinaiticus, Vaticanus, dan papirus awal dibandingkan tradisi mutawatir Al-Quran.',
+          konten: 'Dalam diskursus teks suci, integritas transmisi lisan (hafalan mutawatir bersanad) dan tulisan menjadi batu uji keilmuan yang membedakan Al-Quran dari manuskrip kuno lain yang mengalami variasi penyalinan.',
+          status: 'PUBLISHED',
+          views: 3890
+        },
+        {
+          id: 'CMS-003',
+          tenantId: 'DPW_JABO',
+          judul: 'Silaturahmi Akbar & Penyaluran Santunan Muallaf Binaan se-Jabodetabek',
+          kategori: 'Program Wilayah',
+          penulis: 'Humas DPW Jabodetabek',
+          tanggal: '07-11-2026',
+          ringkasan: 'DPW Jabodetabek menyalurkan paket kemandirian ekonomi dan pendampingan akidah bagi muallaf binaan.',
+          konten: 'Melalui Kantong Kas Zakat Ashnaf Muallaf, DPW APII Jabodetabek menyelenggarakan pembinaan tauhid dasar serta dukungan advokasi keluarga bagi muallaf binaan di kawasan Jabodetabek.',
+          status: 'PUBLISHED',
+          views: 640
+        }
+      ],
+      agenda: [
+        {
+          id: 'AGD-001',
+          tenantId: 'DPP_PUSAT',
+          day: '15',
+          month: 'NOV',
+          category: 'SAFARI NASIONAL',
+          title: 'Dialog Teologi & Kristologi Komparatif Nasional 2026',
+          speaker: 'Ust. Dani Ramadhan, M.Ag. & Tim Asatidz DPP',
+          location: 'Auditorium Jakarta Islamic Centre (JIC), Koja'
+        },
+        {
+          id: 'AGD-002',
+          tenantId: 'DPP_PUSAT',
+          day: '28',
+          month: 'NOV',
+          category: 'RAKORNAS',
+          title: 'Rapat Kerja Nasional (Rakornas) I APII se-Indonesia',
+          speaker: 'Dewan Pembina, Pengawas & Seluruh Ketua DPW',
+          location: 'Grand Asrilia Hotel, Jakarta Pusat'
+        },
+        {
+          id: 'AGD-003',
+          tenantId: 'DPW_JABO',
+          day: '20',
+          month: 'NOV',
+          category: 'KAJIAN PERKANTORAN',
+          title: 'Kupas Tuntas Syubhat Akidah Modern & Teologi Rasional',
+          speaker: 'Ust. Bambang Hidayat, M.Si.',
+          location: 'Masjid Nurul Hidayah, SCBD Sudirman, Jakarta Selatan'
+        }
+      ],
+      causes: [
+        {
+          id: 'CAU-001',
+          tenantId: 'DPP_PUSAT',
+          title: 'Pembangunan Studio Multimedia Dakwah & Pusat Riset Manuskrip Kuno APII',
+          target: 250000000,
+          current: 178450000,
+          donorsCount: 1420,
+          kantongSyariah: 'INFAQ_DAKWAH'
+        },
+        {
+          id: 'CAU-002',
+          tenantId: 'DPW_JABO',
+          title: 'Operasional Shelter Darurat & Pembinaan 50 Muallaf Urban Jabodetabek',
+          target: 120000000,
+          current: 84500000,
+          donorsCount: 890,
+          kantongSyariah: 'ZAKAT'
+        }
+      ],
+      drive: [],
+      auditLogs: [],
+      wilayah: [
+        {
+          code: 'DPP_PUSAT',
+          name: 'DPP Pusat (Nasional)',
+          slug: 'pusat',
+          level: 'DPP',
+          phone: '6281358575678',
+          city: 'Jakarta Pusat',
+          address: 'Gedung Pusat Dakwah APII, Jl. Kramat Raya No. 45, Senen, Jakarta Pusat 10450',
+          lat: -6.1856,
+          lng: 106.8456,
+          zoom: 14,
+          isActive: true
+        },
+        {
+          code: 'DPW_JABO',
+          name: 'DPW Jabodetabek',
+          slug: 'jabodetabek',
+          level: 'DPW',
+          phone: '6281234567891',
+          city: 'Jakarta Selatan',
+          address: 'Graha Dakwah DPW Jabodetabek, Jl. TB Simatupang No. 18, Jakarta Selatan 12560',
+          lat: -6.2905,
+          lng: 106.7949,
+          zoom: 13,
+          isActive: true
+        }
+      ]
+    };
+  }
+
+  let activeTenant = null;
+  let watermarkedKtpBlob = null;
+  let watermarkedKtpDataUrl = null;
+  let currentQrisDraft = null;
+  let currentModalWarta = [];
+
+  function init() {
+    ensureSharedDb();
+    detectCurrentTenant();
+    setupTenantSelectorDropdown();
+    setupMobileNavDrawer();
+    setupModalKeyboardHandlers();
+    setupHashRouter();
+    setupKtpWatermarker();
+    setupInfaqCalculator();
+    setupVerificationHub();
+    renderActiveTenantView();
+  }
+
+  function getSharedDb() {
+    const key = CONFIG.SHARED_STORAGE_KEY || 'siap_apii_shared_db_v3';
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return ensureDbCollections(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal membaca shared db, melakukan seed ulang:', e);
+    }
+    const seed = buildInitialSharedDb();
+    saveSharedDb(seed);
+    return seed;
+  }
+
+  function ensureDbCollections(db) {
+    const seed = buildInitialSharedDb();
+    let changed = false;
+
+    const requiredArrays = ['wilayah', 'surat', 'anggota', 'muallaf', 'cms', 'agenda', 'causes', 'consultations', 'advokasi'];
+    requiredArrays.forEach(k => {
+      if (!Array.isArray(db[k]) || db[k].length === 0) {
+        db[k] = seed[k];
+        changed = true;
+      }
+    });
+
+    if (!db.kas || !db.kas.balances || !Array.isArray(db.kas.transactions)) {
+      db.kas = seed.kas;
+      changed = true;
+    }
+
+    if (Array.isArray(db.wilayah)) {
+      db.wilayah.forEach(w => {
+        const seedW = seed.wilayah.find(sw => sw.code === w.code);
+        const rawLat = w.lat === '' || w.lat === null || typeof w.lat === 'undefined' ? NaN : Number(w.lat);
+        const rawLng = w.lng === '' || w.lng === null || typeof w.lng === 'undefined' ? NaN : Number(w.lng);
+        if (seedW && (!Number.isFinite(rawLat) || !Number.isFinite(rawLng) || rawLat === 0 || rawLng === 0)) {
+          w.lat = seedW.lat;
+          w.lng = seedW.lng;
+          w.zoom = seedW.zoom;
+          changed = true;
+        }
+      });
+    }
+
+    if (changed) saveSharedDb(db);
+    return db;
+  }
+
+  function ensureSharedDb() {
+    return getSharedDb();
+  }
+
+  function saveSharedDb(db) {
+    try {
+      localStorage.setItem(CONFIG.SHARED_STORAGE_KEY || 'siap_apii_shared_db_v3', JSON.stringify(db));
+    } catch (e) {
+      console.error('Gagal menyimpan shared db:', e);
+    }
+  }
+
+  // =========================================================================
+  // 3. TENANT RESOLUTION, WILDCARD HOSTNAME SNIFFER & DROPDOWN SYNC
+  // =========================================================================
+  function getAllActiveTenants() {
+    const db = getSharedDb();
+    const configMap = {};
+    (CONFIG.TENANTS || []).forEach(t => {
+      configMap[t.code] = t;
+    });
+
+    const pusatBase = configMap.DPP_PUSAT || CONFIG.TENANTS[0];
+    const wilayahList = (db.wilayah || []).filter(w => w.isActive !== false);
+
+    return wilayahList.map(w => {
+      const cfg = configMap[w.code] || {};
+      const shortSlug = w.slug || w.code.toLowerCase().replace(/^dp[pw]_/, '');
+      const settingsTenant = db.settings && db.settings.tenants ? db.settings.tenants[w.code] : null;
+
+      return {
+        code: w.code,
+        name: w.name || cfg.name || w.code,
+        slug: shortSlug,
+        shortCodeSlug: w.code.toLowerCase().replace(/^dp[pw]_/, ''),
+        level: w.level || cfg.level || (w.code === 'DPP_PUSAT' ? 'DPP' : 'DPW'),
+        badge: cfg.badge || (w.code === 'DPP_PUSAT' ? 'MARKAZ DAKWAH NASIONAL' : `WILAYAH OPERASIONAL ${String(w.name || '').toUpperCase()}`),
+        headline: cfg.headline || `Portal Resmi ${w.name} Yayasan Apologet Islam Indonesia`,
+        subheadline: cfg.subheadline || `Dewan Pengurus Wilayah ${w.name} Yayasan Apologet Islam Indonesia`,
+        mission: cfg.mission || pusatBase.mission,
+        phone: w.phone || cfg.phone || pusatBase.phone,
+        email: cfg.email || `sekretariat.${shortSlug}@apologetislamindonesia.or.id`,
+        city: w.city || cfg.city || 'Indonesia',
+        address: w.address || cfg.address || pusatBase.address,
+        lat: Number.isFinite(Number(w.lat)) ? Number(w.lat) : (Number.isFinite(Number(cfg.lat)) ? Number(cfg.lat) : null),
+        lng: Number.isFinite(Number(w.lng)) ? Number(w.lng) : (Number.isFinite(Number(cfg.lng)) ? Number(cfg.lng) : null),
+        zoom: Number.isFinite(Number(w.zoom)) ? Number(w.zoom) : (Number.isFinite(Number(cfg.zoom)) ? Number(cfg.zoom) : 13),
+        pimpinan: cfg.pimpinan || (settingsTenant ? {
+          ketua: settingsTenant.ketuaNama + ' (' + (settingsTenant.ketuaJabatan || 'Ketua Wilayah') + ')',
+          sekretaris: settingsTenant.sekretarisNama + ' (' + (settingsTenant.sekretarisJabatan || 'Sekretaris Wilayah') + ')',
+          bendahara: 'Bendahara ' + w.name
+        } : {
+          ketua: 'Ketua ' + w.name,
+          sekretaris: 'Sekretaris ' + w.name,
+          bendahara: 'Bendahara ' + w.name
+        }),
+        bank: cfg.bank || null,
+        crowdfunding: cfg.crowdfunding || null,
+        warta: cfg.warta || null,
+        agenda: cfg.agenda || null
+      };
+    });
+  }
+
+  function matchTenantSlug(tenants, queryStr) {
+    if (!queryStr) return null;
+    const q = String(queryStr).trim().toLowerCase();
+    return tenants.find(t =>
+      t.slug.toLowerCase() === q ||
+      t.shortCodeSlug === q ||
+      t.code.toLowerCase() === q
+    ) || null;
+  }
+
+  function detectCurrentTenant() {
+    const tenants = getAllActiveTenants();
+    const db = getSharedDb();
+    const host = window.location.hostname.toLowerCase();
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryDpw = urlParams.get('dpw');
+
+    // Prioritas 1: Query param ?dpw=...
+    if (queryDpw) {
+      const match = matchTenantSlug(tenants, queryDpw);
+      if (match) {
+        activeTenant = match;
+        return activeTenant;
+      }
+      // Check if slug belongs to inactive wilayah or unknown
+      setTimeout(() => {
+        showDpwNotFoundModal(queryDpw);
+      }, 250);
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('dpw');
+      window.history.replaceState({}, '', newUrl.toString());
+    }
+
+    // Prioritas 2: Wildcard Subdomain ({slug}.apologetislamindonesia.or.id atau {slug}.localhost)
+    const isWildcardDomain = host.includes('.apologetislamindonesia.or.id') || (host.endsWith('.localhost') && host.split('.').length >= 2);
+    if (isWildcardDomain) {
+      const sub = host.split('.')[0];
+      if (sub && !['www', 'siap', 'portal', 'public'].includes(sub)) {
+        const subMatch = matchTenantSlug(tenants, sub);
+        if (subMatch) {
+          activeTenant = subMatch;
+          return activeTenant;
+        }
+        // Inactive or unknown subdomain
+        const inactiveMatch = (db.wilayah || []).find(w =>
+          w.slug === sub || w.code.toLowerCase() === sub || w.code.toLowerCase().replace(/^dp[pw]_/, '') === sub
+        );
+        setTimeout(() => {
+          showDpwNotFoundModal(inactiveMatch ? inactiveMatch.name : sub);
+        }, 350);
+      }
+    }
+
+    activeTenant = tenants.find(t => t.code === 'DPP_PUSAT') || tenants[0] || CONFIG.TENANTS[0];
+    return activeTenant;
+  }
+
+  function getActiveTenant() {
+    return activeTenant || getAllActiveTenants()[0] || CONFIG.TENANTS[0];
+  }
+
+  function switchTenantManually(slugOrCode) {
+    const tenants = getAllActiveTenants();
+    const match = matchTenantSlug(tenants, slugOrCode);
+    if (match) {
+      activeTenant = match;
+      renderActiveTenantView();
+
+      const newUrl = new URL(window.location.href);
+      if (match.slug === 'pusat') {
+        newUrl.searchParams.delete('dpw');
+      } else {
+        newUrl.searchParams.set('dpw', match.slug);
+      }
+      window.history.pushState({}, '', newUrl.toString());
+      showToast(`Wilayah beralih ke: ${match.name}`);
+    } else {
+      showDpwNotFoundModal(slugOrCode);
+    }
+  }
+
+  function populateTenantDropdowns() {
+    const tenants = getAllActiveTenants();
+    const active = getActiveTenant();
+
+    const desktopSelect = document.getElementById('public-tenant-select');
+    const mobileSelect = document.getElementById('mobile-tenant-select');
+    const regWilayahSelect = document.getElementById('reg-wilayah');
+
+    const slugOptionsHtml = tenants.map(t => `<option value="${escapeHtml(t.slug)}">${escapeHtml(t.name)}</option>`).join('');
+    if (desktopSelect) {
+      desktopSelect.innerHTML = slugOptionsHtml;
+      desktopSelect.value = active.slug;
+    }
+    if (mobileSelect) {
+      mobileSelect.innerHTML = slugOptionsHtml;
+      mobileSelect.value = active.slug;
+    }
+    if (regWilayahSelect) {
+      const currentRegVal = regWilayahSelect.value;
+      regWilayahSelect.innerHTML = tenants.map(t => `<option value="${escapeHtml(t.code)}">${escapeHtml(t.name)}</option>`).join('');
+      if (tenants.some(t => t.code === currentRegVal)) {
+        regWilayahSelect.value = currentRegVal;
+      } else {
+        regWilayahSelect.value = active.code;
+      }
+    }
+  }
+
+  function setupTenantSelectorDropdown() {
+    populateTenantDropdowns();
+
+    document.getElementById('public-tenant-select')?.addEventListener('change', (e) => {
+      switchTenantManually(e.target.value);
+    });
+    document.getElementById('mobile-tenant-select')?.addEventListener('change', (e) => {
+      switchTenantManually(e.target.value);
+      closeMobileMenu();
+    });
+  }
+
+  // =========================================================================
+  // 4. MOBILE NAVIGATION DRAWER & ACCESSIBLE MODALS
+  // =========================================================================
+  function openMobileMenu() {
+    const drawer = document.getElementById('mobile-nav-drawer');
+    const btn = document.getElementById('btn-mobile-menu');
+    if (drawer) {
+      drawer.classList.remove('hidden');
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+      document.getElementById('btn-close-mobile-menu')?.focus();
+    }
+  }
+
+  function closeMobileMenu() {
+    const drawer = document.getElementById('mobile-nav-drawer');
+    const btn = document.getElementById('btn-mobile-menu');
+    if (drawer && !drawer.classList.contains('hidden')) {
+      drawer.classList.add('hidden');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function setupMobileNavDrawer() {
+    document.getElementById('btn-mobile-menu')?.addEventListener('click', openMobileMenu);
+    document.getElementById('btn-close-mobile-menu')?.addEventListener('click', closeMobileMenu);
+    document.getElementById('mobile-nav-backdrop')?.addEventListener('click', closeMobileMenu);
+    document.querySelectorAll('.mobile-nav-link').forEach(link => {
+      link.addEventListener('click', () => closeMobileMenu());
+    });
+  }
+
+  function closeAllModals() {
+    document.querySelectorAll('.public-modal').forEach(m => m.classList.add('hidden'));
+  }
+
+  function setupModalKeyboardHandlers() {
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeAllModals();
+        closeMobileMenu();
+      }
+    });
+    document.querySelectorAll('.public-modal').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeAllModals();
+      });
+    });
+  }
+
+  // =========================================================================
+  // 5. RENDER TENANT VIEW, NATIONAL TICKER, GEO-DAKWAH & SMART FALLBACK
+  // =========================================================================
+  function renderActiveTenantView() {
+    const t = getActiveTenant();
+    populateTenantDropdowns();
+
+    // Navbar & Hero
+    const elPill = document.getElementById('public-tenant-pill');
+    if (elPill) elPill.textContent = t.name;
+
+    const elBadge = document.getElementById('hero-tenant-badge');
+    if (elBadge) elBadge.textContent = t.badge;
+
+    const elSub = document.getElementById('hero-tenant-subtitle');
+    if (elSub) elSub.textContent = t.subheadline;
+
+    const elHeadline = document.getElementById('hero-tenant-headline');
+    if (elHeadline) elHeadline.textContent = t.headline;
+
+    const elMission = document.getElementById('hero-tenant-mission');
+    if (elMission) elMission.textContent = t.mission;
+
+    // Pimpinan Card
+    const pimpinanContainer = document.getElementById('regional-pimpinan-container');
+    if (pimpinanContainer && t.pimpinan) {
+      pimpinanContainer.innerHTML = `
+        <div class="p-6 rounded-xl bg-surface-container-lowest border border-surface-container-high shadow-lg">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-4 border-b border-surface-container">
+            <span class="text-xs uppercase font-bold text-primary flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px]" aria-hidden="true">account_balance</span>
+              <span>SUSUNAN STRUKTUR PENGURUS ${escapeHtml(t.name.toUpperCase())}</span>
+            </span>
+            <span class="text-[11px] text-on-surface-variant font-mono">Yurisdiksi Resmi</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="p-3.5 rounded-lg bg-surface-container-low flex flex-col gap-1 border border-surface-container-high">
+              <span class="text-[11px] uppercase font-bold text-secondary">Ketua / Pimpinan Wilayah</span>
+              <h3 class="font-bold text-sm text-primary">${escapeHtml(t.pimpinan.ketua)}</h3>
+            </div>
+            <div class="p-3.5 rounded-lg bg-surface-container-low flex flex-col gap-1 border border-surface-container-high">
+              <span class="text-[11px] uppercase font-bold text-secondary">Sekretaris Wilayah</span>
+              <h3 class="font-bold text-sm text-primary">${escapeHtml(t.pimpinan.sekretaris)}</h3>
+            </div>
+            <div class="p-3.5 rounded-lg bg-surface-container-low flex flex-col gap-1 border border-surface-container-high">
+              <span class="text-[11px] uppercase font-bold text-secondary">Bendahara Wilayah</span>
+              <h3 class="font-bold text-sm text-primary">${escapeHtml(t.pimpinan.bendahara)}</h3>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Footer & Ticker Hotline
+    const elFootAddr = document.getElementById('footer-address');
+    const elFootContact = document.getElementById('footer-contact');
+    const elTickerHotline = document.getElementById('ticker-hotline');
+    if (elFootAddr) elFootAddr.textContent = t.address;
+    if (elFootContact) elFootContact.textContent = `Telp/WA: +${t.phone} | Email: ${t.email}`;
+    if (elTickerHotline) elTickerHotline.textContent = `Hotline: +${t.phone}`;
+
+    renderNationalTicker();
+    renderGeoDakwah();
+    renderCrowdfunding();
+    renderInfaqView();
+    renderRegionalWartaAndAgenda();
+  }
+
+  function renderNationalTicker() {
+    const track = document.getElementById('national-ticker-track');
+    if (!track) return;
+    const db = getSharedDb();
+    const nationalCms = (db.cms || []).filter(c => c.tenantId === 'DPP_PUSAT' && (c.status || 'PUBLISHED') === 'PUBLISHED');
+
+    const segments = [
+      `SK Kemenkumham RI: <strong class="tabular-nums">${escapeHtml(CONFIG.LEGAL_SK || 'AHU-0014970.AH.01.04.Tahun 2023')}</strong>`
+    ];
+    nationalCms.slice(0, 3).forEach(item => {
+      segments.push(`<strong>${escapeHtml((item.kategori || 'MAKLUMAT').toUpperCase())}:</strong> ${escapeHtml(item.judul)}`);
+    });
+    segments.push('Pendaftaran KTA APII 100% Gratis');
+    segments.push('Transparansi 4 Kantong Kas Syar\'i');
+
+    track.innerHTML = `<span>${segments.join(' &nbsp;|&nbsp; ')}</span>`;
+  }
+
+  let geoActiveLayerKey = 'roadmap';
+  let geoCenterState = { lat: -6.1856, lng: 106.8456, zoom: 14 };
+  let geoPanListenersBound = false;
+
+  const CITY_GEO_FALLBACKS = {
+    'jakarta pusat': { lat: -6.1856, lng: 106.8456, zoom: 14 },
+    'jakarta selatan': { lat: -6.2905, lng: 106.7949, zoom: 13 },
+    'jabodetabek': { lat: -6.2905, lng: 106.7949, zoom: 13 },
+    'bandung': { lat: -6.9175, lng: 107.6191, zoom: 12 },
+    'jawa barat': { lat: -6.9175, lng: 107.6191, zoom: 11 },
+    'surabaya': { lat: -7.2575, lng: 112.7521, zoom: 12 },
+    'jawa timur': { lat: -7.2575, lng: 112.7521, zoom: 10 },
+    'semarang': { lat: -6.9667, lng: 110.4167, zoom: 12 },
+    'yogyakarta': { lat: -7.7956, lng: 110.3695, zoom: 12 },
+    'medan': { lat: 3.5952, lng: 98.6722, zoom: 12 },
+    'pekanbaru': { lat: 0.5071, lng: 101.4478, zoom: 12 },
+    'makassar': { lat: -5.1477, lng: 119.4327, zoom: 12 },
+    'balikpapan': { lat: -1.2379, lng: 116.8529, zoom: 12 },
+    'denpasar': { lat: -8.6705, lng: 115.2126, zoom: 12 }
+  };
+
+  function resolveTenantCoordinates(tenant) {
+    if (tenant && Number.isFinite(Number(tenant.lat)) && Number.isFinite(Number(tenant.lng))) {
+      return { lat: Number(tenant.lat), lng: Number(tenant.lng), zoom: Number(tenant.zoom) || 14 };
+    }
+    const cityKey = String(tenant?.city || tenant?.name || '').toLowerCase();
+    for (const key of Object.keys(CITY_GEO_FALLBACKS)) {
+      if (cityKey.includes(key)) return CITY_GEO_FALLBACKS[key];
+    }
+    return { lat: -6.1856, lng: 106.8456, zoom: 12 };
+  }
+
+  function buildGoogleMapsPinUrl(tenant) {
+    const coords = resolveTenantCoordinates(tenant);
+    const query = `${coords.lat},${coords.lng}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+
+  function latLngToWorldPx(lat, lng, zoom) {
+    const scale = 256 * Math.pow(2, zoom);
+    const clampedLat = Math.max(-85.05112878, Math.min(85.05112878, lat));
+    const sinLat = Math.sin((clampedLat * Math.PI) / 180);
+    const x = ((lng + 180) / 360) * scale;
+    const y = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * scale;
+    return { x, y };
+  }
+
+  function worldPxToLatLng(px, py, zoom) {
+    const scale = 256 * Math.pow(2, zoom);
+    const lng = (px / scale) * 360 - 180;
+    const n = Math.PI - (2 * Math.PI * py) / scale;
+    const lat = (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+    return { lat, lng };
+  }
+
+  function buildGoogleTileUrl(tx, ty, zoom, layerKey) {
+    const sub = Math.abs(tx + ty) % 4;
+    const lyrs = layerKey === 'hybrid' ? 'y' : 'm';
+    return `https://mt${sub}.google.com/vt/lyrs=${lyrs}&hl=id&x=${tx}&y=${ty}&z=${zoom}`;
+  }
+
+  function buildFallbackTileUrl(tx, ty, zoom, layerKey) {
+    const subs = ['a', 'b', 'c'];
+    const s = subs[Math.abs(tx + ty) % subs.length];
+    if (layerKey === 'hybrid') {
+      return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
+    }
+    return `https://${s}.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${tx}/${ty}.png`;
+  }
+
+  function buildTertiaryTileUrl(tx, ty, zoom) {
+    const subs = ['a', 'b', 'c'];
+    const s = subs[Math.abs(tx + ty) % subs.length];
+    return `https://${s}.tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`;
+  }
+
+  function updateGeoLayerButtons() {
+    const btnRoad = document.getElementById('btn-map-roadmap');
+    const btnHyb = document.getElementById('btn-map-hybrid');
+    const activeCls = 'min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-primary shadow-sm transition-colors';
+    const idleCls = 'min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-800 hover:bg-emerald-700 text-white border border-emerald-700 transition-colors';
+    if (btnRoad) btnRoad.className = geoActiveLayerKey === 'roadmap' ? activeCls : idleCls;
+    if (btnHyb) btnHyb.className = geoActiveLayerKey === 'hybrid' ? activeCls : idleCls;
+  }
+
+  function bindGeoMapInteractions(mapContainer) {
+    if (geoPanListenersBound || !mapContainer || typeof mapContainer.addEventListener !== 'function') return;
+    geoPanListenersBound = true;
+
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startWorld = null;
+
+    mapContainer.addEventListener('mousedown', (e) => {
+      if (e.target && e.target.closest && e.target.closest('button, a')) return;
+      dragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      startWorld = latLngToWorldPx(geoCenterState.lat, geoCenterState.lng, geoCenterState.zoom);
+      if (mapContainer.style) mapContainer.style.cursor = 'grabbing';
+    });
+
+    if (typeof ResizeObserver === 'function') {
+      try {
+        const ro = new ResizeObserver(() => {
+          syncGeoMapViewport();
+        });
+        ro.observe(mapContainer);
+      } catch (e) {}
+    }
+
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('mousemove', (e) => {
+        if (!dragging || !startWorld) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const nextLatLng = worldPxToLatLng(startWorld.x - dx, startWorld.y - dy, geoCenterState.zoom);
+        geoCenterState.lat = nextLatLng.lat;
+        geoCenterState.lng = nextLatLng.lng;
+        syncGeoMapViewport();
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        if (mapContainer.style) mapContainer.style.cursor = 'grab';
+      });
+
+      window.addEventListener('resize', () => {
+        syncGeoMapViewport();
+      });
+    }
+  }
+
+  function syncGeoMapViewport() {
+    const mapContainer = document.getElementById('geo-google-map');
+    const tilesLayer = document.getElementById('geo-map-tiles');
+    const pinsLayer = document.getElementById('geo-map-pins');
+    const offlineFallback = document.getElementById('geo-offline-fallback');
+    const attrEl = document.getElementById('geo-map-attribution');
+
+    const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    if (isOffline || !mapContainer || !tilesLayer || !pinsLayer) {
+      if (offlineFallback) offlineFallback.classList.remove('hidden');
+      return;
+    }
+
+    if (offlineFallback) offlineFallback.classList.add('hidden');
+    bindGeoMapInteractions(mapContainer);
+
+    const rect = typeof mapContainer.getBoundingClientRect === 'function'
+      ? mapContainer.getBoundingClientRect()
+      : { width: 880, height: 400 };
+    const viewW = Math.max(320, Math.round(rect.width) || 880);
+    const viewH = Math.max(360, Math.round(rect.height) || 400);
+
+    const z = Math.max(3, Math.min(18, Math.round(geoCenterState.zoom)));
+    const maxTileIdx = Math.pow(2, z);
+    const centerPx = latLngToWorldPx(geoCenterState.lat, geoCenterState.lng, z);
+    const topLeftX = centerPx.x - viewW / 2;
+    const topLeftY = centerPx.y - viewH / 2;
+
+    const minTx = Math.floor(topLeftX / 256);
+    const maxTx = Math.floor((topLeftX + viewW) / 256);
+    const minTy = Math.max(0, Math.floor(topLeftY / 256));
+    const maxTy = Math.min(maxTileIdx - 1, Math.floor((topLeftY + viewH) / 256));
+
+    // Dual-layer render: cepat tampil (<150ms) lewat underlay CARTO/Esri + Google Maps overlay di atasnya
+    const baseParts = [];
+    const googleParts = [];
+    for (let tx = minTx; tx <= maxTx; tx++) {
+      const wrappedTx = ((tx % maxTileIdx) + maxTileIdx) % maxTileIdx;
+      for (let ty = minTy; ty <= maxTy; ty++) {
+        const left = Math.round(tx * 256 - topLeftX);
+        const top = Math.round(ty * 256 - topLeftY);
+        const fastBaseSrc = buildFallbackTileUrl(wrappedTx, ty, z, geoActiveLayerKey);
+        const osmBackupSrc = buildTertiaryTileUrl(wrappedTx, ty, z);
+        const googleSrc = buildGoogleTileUrl(wrappedTx, ty, z, geoActiveLayerKey);
+        const posStyle = `position:absolute;left:${left}px;top:${top}px;width:256px;height:256px;max-width:none;margin:0;padding:0;border:0;user-select:none;`;
+        baseParts.push(
+          `<img class="geo-base-tile" src="${fastBaseSrc}" referrerpolicy="no-referrer" alt="" draggable="false" data-backup="${osmBackupSrc}" onerror="if(!this.dataset.retried){this.dataset.retried='1';this.src=this.dataset.backup;}else{this.style.display='none';}" style="${posStyle}z-index:0;" />`
+        );
+        googleParts.push(
+          `<img class="geo-google-tile" src="${googleSrc}" referrerpolicy="no-referrer" alt="" draggable="false" onload="this.style.opacity='1';" onerror="this.style.display='none';" style="${posStyle}z-index:1;opacity:0;transition:opacity 180ms ease;" />`
+        );
+      }
+    }
+    tilesLayer.innerHTML = baseParts.join('') + googleParts.join('');
+
+    if (attrEl) {
+      attrEl.textContent = geoActiveLayerKey === 'hybrid'
+        ? 'Citra Satelit Google Maps | SIAP APII'
+        : 'Data Peta Google Maps | SIAP APII';
+    }
+
+    const active = getActiveTenant();
+    const tenants = getAllActiveTenants();
+    const pinHtmlParts = tenants.map(t => {
+      const c = resolveTenantCoordinates(t);
+      const p = latLngToWorldPx(c.lat, c.lng, z);
+      const px = Math.round(p.x - topLeftX);
+      const py = Math.round(p.y - topLeftY);
+      const isSel = t.code === active.code;
+      const pinBg = isSel ? '#b45309' : '#003527';
+      const ringClr = isSel ? '#fde68a' : '#6ee7b7';
+      const zIdx = isSel ? 5 : 3;
+      const mapsUrl = buildGoogleMapsPinUrl(t);
+      const infoCard = isSel
+        ? `<div style="margin-top:6px;min-width:210px;max-width:260px;background:rgba(255,255,255,0.97);border:1px solid #cbd5e1;border-radius:10px;padding:8px 10px;box-shadow:0 8px 20px rgba(0,0,0,0.22);text-align:left;">
+             <div style="font-size:10px;font-weight:800;color:#064e3b;text-transform:uppercase;">${escapeHtml(t.level || 'WILAYAH')}</div>
+             <div style="font-size:12px;font-weight:800;color:#0f172a;margin:2px 0;">${escapeHtml(t.name)}</div>
+             <div style="font-size:10px;color:#475569;line-height:1.35;margin-bottom:6px;">${escapeHtml(t.address || t.city || '')}</div>
+             <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;padding:3px 7px;border-radius:6px;text-decoration:none;">Rute Google Maps</a>
+           </div>`
+        : '';
+
+      return `<div style="position:absolute;left:${px}px;top:${py}px;transform:translate(-50%,-100%);z-index:${zIdx};display:flex;flex-direction:column;align-items:center;">
+        <button type="button" onclick="PublicApp.switchTenantManually('${escapeHtml(t.slug)}')" title="${escapeHtml(t.name)}" style="display:flex;align-items:center;gap:5px;background:none;border:none;padding:0;cursor:pointer;">
+          <span style="width:26px;height:26px;border-radius:9999px 9999px 9999px 0;transform:rotate(-45deg);background:${pinBg};border:2.5px solid #ffffff;box-shadow:0 3px 10px rgba(0,0,0,0.4);display:inline-flex;align-items:center;justify-content:center;">
+            <span style="width:9px;height:9px;border-radius:9999px;background:${ringClr};transform:rotate(45deg);display:block;"></span>
+          </span>
+          <span style="background:${pinBg};color:#ffffff;font-family:Inter,sans-serif;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap;border:1px solid ${ringClr};box-shadow:0 2px 6px rgba(0,0,0,0.35);">${escapeHtml(t.name)}</span>
+        </button>
+        ${infoCard}
+      </div>`;
+    });
+    pinsLayer.innerHTML = pinHtmlParts.join('');
+  }
+
+  function setGeoMapLayer(layerKey) {
+    geoActiveLayerKey = layerKey === 'hybrid' ? 'hybrid' : 'roadmap';
+    updateGeoLayerButtons();
+    syncGeoMapViewport();
+  }
+
+  function zoomGeoMap(delta) {
+    geoCenterState.zoom = Math.max(4, Math.min(18, geoCenterState.zoom + Number(delta || 0)));
+    syncGeoMapViewport();
+  }
+
+  function fitAllGeoMarkers() {
+    const tenants = getAllActiveTenants();
+    if (tenants.length === 0) return;
+    const coords = tenants.map(resolveTenantCoordinates);
+    const avgLat = coords.reduce((s, c) => s + c.lat, 0) / coords.length;
+    const avgLng = coords.reduce((s, c) => s + c.lng, 0) / coords.length;
+    geoCenterState = {
+      lat: avgLat,
+      lng: avgLng,
+      zoom: tenants.length <= 2 ? 11 : 5
+    };
+    syncGeoMapViewport();
+  }
+
+  function renderGeoDakwah() {
+    const db = getSharedDb();
+    const tenants = getAllActiveTenants();
+    const active = getActiveTenant();
+    const activeCoords = resolveTenantCoordinates(active);
+    const activeMapsUrl = buildGoogleMapsPinUrl(active);
+    geoCenterState = { lat: activeCoords.lat, lng: activeCoords.lng, zoom: activeCoords.zoom };
+
+    const summaryEl = document.getElementById('geo-active-summary');
+    if (summaryEl) {
+      summaryEl.textContent = `Navigasi Wilayah Operasional (${tenants.length} Wilayah Aktif):`;
+    }
+
+    const activeLabelEl = document.getElementById('geo-active-label');
+    if (activeLabelEl) {
+      activeLabelEl.textContent = `${active.name} - ${active.city || 'Indonesia'}`;
+    }
+    const activeAddrEl = document.getElementById('geo-active-address');
+    if (activeAddrEl) {
+      activeAddrEl.textContent = active.address || 'Sekretariat Yayasan Apologet Islam Indonesia';
+    }
+    const gmapsLinkEl = document.getElementById('geo-google-maps-link');
+    if (gmapsLinkEl) gmapsLinkEl.href = activeMapsUrl;
+
+    const navEl = document.getElementById('geo-nav-buttons');
+    if (navEl) {
+      navEl.innerHTML = tenants.map(t => {
+        const isCurrent = t.code === active.code;
+        const btnClass = isCurrent
+          ? 'bg-amber-700 text-white border border-amber-400'
+          : 'bg-emerald-800 hover:bg-emerald-700 text-white border border-emerald-700';
+        return `<button type="button" onclick="PublicApp.switchTenantManually('${escapeHtml(t.slug)}')" class="min-h-[36px] px-3 py-1 rounded-lg text-xs font-bold transition-colors ${btnClass}">${escapeHtml(t.name)}</button>`;
+      }).join('');
+    }
+
+    // Real counts from sharedDb (R-17 compliant)
+    const wilayahCount = tenants.length;
+    const anggotaCount = (db.anggota || []).length;
+    const muallafCount = (db.muallaf || []).length;
+    const agendaCount = (db.agenda || []).length;
+
+    const elW = document.getElementById('geo-stat-wilayah');
+    const elA = document.getElementById('geo-stat-anggota');
+    const elM = document.getElementById('geo-stat-muallaf');
+    const elG = document.getElementById('geo-stat-agenda');
+
+    if (elW) elW.textContent = `${wilayahCount} Wilayah Aktif`;
+    if (elA) elA.textContent = `${anggotaCount} Anggota Tercatat`;
+    if (elM) elM.textContent = `${muallafCount} Muallaf Binaan`;
+    if (elG) elG.textContent = `${agendaCount} Agenda Aktif`;
+
+    const offlineCoords = document.getElementById('geo-offline-coords');
+    const offlineGmapsLink = document.getElementById('geo-offline-gmaps-link');
+    if (offlineCoords) {
+      offlineCoords.textContent = `${active.name}: ${active.address} (Titik Koordinat: ${activeCoords.lat.toFixed(4)}, ${activeCoords.lng.toFixed(4)}).`;
+    }
+    if (offlineGmapsLink) {
+      offlineGmapsLink.href = activeMapsUrl;
+    }
+
+    updateGeoLayerButtons();
+    syncGeoMapViewport();
+  }
+
+  function resolveCrowdfundingCause() {
+    const db = getSharedDb();
+    const t = getActiveTenant();
+    const causes = db.causes || [];
+
+    let cause = causes.find(c => c.tenantId === t.code);
+    let isFallback = false;
+    if (!cause && t.code !== 'DPP_PUSAT') {
+      cause = causes.find(c => c.tenantId === 'DPP_PUSAT');
+      isFallback = Boolean(cause);
+    }
+    if (!cause) {
+      cause = t.crowdfunding || CONFIG.TENANTS[0].crowdfunding;
+    }
+    return { cause, isFallback };
+  }
+
+  function renderCrowdfunding() {
+    const { cause, isFallback } = resolveCrowdfundingCause();
+    if (!cause) return;
+
+    const elTitle = document.getElementById('crowdfund-title');
+    const elCurr = document.getElementById('crowdfund-current');
+    const elTgt = document.getElementById('crowdfund-target');
+    const elBar = document.getElementById('crowdfund-progress-bar');
+    const elPct = document.getElementById('crowdfund-pct');
+    const elDonors = document.getElementById('crowdfund-donors');
+    const elFallback = document.getElementById('crowdfund-fallback-badge');
+
+    const current = Number(cause.current) || 0;
+    const target = Math.max(1, Number(cause.target) || 1);
+    const pct = Math.min(100, Math.round((current / target) * 100));
+
+    if (elTitle) elTitle.textContent = cause.title;
+    if (elCurr) elCurr.textContent = 'Rp ' + current.toLocaleString('id-ID');
+    if (elTgt) elTgt.textContent = 'Rp ' + target.toLocaleString('id-ID');
+    if (elDonors) elDonors.textContent = (Number(cause.donorsCount) || 0).toLocaleString('id-ID');
+    if (elBar) elBar.style.width = pct + '%';
+    if (elPct) elPct.textContent = pct + '%';
+    if (elFallback) elFallback.classList.toggle('hidden', !isFallback);
+  }
+
+  function resolveBankInfo() {
+    const t = getActiveTenant();
+    if (t.bank && t.bank.accountNo) {
+      return { bank: t.bank, isFallback: false };
+    }
+    const pusat = CONFIG.TENANTS[0];
+    return {
+      bank: pusat.bank,
+      isFallback: t.code !== 'DPP_PUSAT'
+    };
+  }
+
+  function renderInfaqView() {
+    const db = getSharedDb();
+    const t = getActiveTenant();
+    const { bank, isFallback } = resolveBankInfo();
+
+    const elFallback = document.getElementById('infaq-fallback-badge');
+    if (elFallback) elFallback.classList.toggle('hidden', !isFallback);
+
+    if (bank) {
+      const elBankTitle = document.getElementById('infaq-bank-name-title');
+      const elBankNo = document.getElementById('infaq-bank-no');
+      const elBankName = document.getElementById('infaq-bank-name');
+      const elQrisLabel = document.getElementById('infaq-qris-label');
+
+      if (elBankTitle) elBankTitle.textContent = (bank.name || 'Bank Syariah Indonesia (BSI)').toUpperCase();
+      if (elBankNo) elBankNo.textContent = bank.accountNo;
+      if (elBankName) elBankName.textContent = bank.accountName;
+      if (elQrisLabel) elQrisLabel.textContent = bank.qrisText || ('QRIS ' + t.name.toUpperCase());
+    }
+
+    // Live 4-Kantong Balance Summary
+    const summaryEl = document.getElementById('infaq-kas-summary');
+    if (summaryEl && db.kas && db.kas.balances) {
+      const bal = db.kas.balances[t.code] || db.kas.balances.DPP_PUSAT || {
+        INFAQ_DAKWAH: 0, ZAKAT: 0, WAKAF: 0, AMIL_OPERASIONAL: 0
+      };
+      const wallets = [
+        { key: 'INFAQ_DAKWAH', label: 'Infaq Dakwah', note: 'Kajian & Safari' },
+        { key: 'ZAKAT', label: 'Zakat 8 Ashnaf', note: 'Muallaf & Mustahik' },
+        { key: 'WAKAF', label: 'Wakaf Produktif', note: 'Aset & Studio' },
+        { key: 'AMIL_OPERASIONAL', label: 'Amil Operasional', note: 'Sekretariat' }
+      ];
+      summaryEl.innerHTML = wallets.map(w => `
+        <div class="p-3.5 rounded-xl bg-surface-container-lowest border border-surface-container-high flex flex-col gap-1">
+          <span class="text-[11px] font-bold uppercase text-secondary">${escapeHtml(w.label)}</span>
+          <span class="font-headline font-extrabold text-base sm:text-lg text-primary tabular-nums">Rp ${(Number(bal[w.key]) || 0).toLocaleString('id-ID')}</span>
+          <span class="text-[11px] text-on-surface-variant">${escapeHtml(w.note)}</span>
+        </div>
+      `).join('');
+    }
+
+    // Update SVG QRIS preview
+    const qrWrap = document.getElementById('infaq-qris-svg-container');
+    if (qrWrap) {
+      const kantong = document.getElementById('infaq-kantong-select')?.value || 'INFAQ_DAKWAH';
+      const amt = Number(document.getElementById('infaq-custom-input')?.value) || 100000;
+      qrWrap.innerHTML = generateQrSvg(`APII|${t.code}|${kantong}|${amt}`, 210);
+    }
+  }
+
+  function resolveWartaForTenant() {
+    const db = getSharedDb();
+    const t = getActiveTenant();
+    const allCms = (db.cms || []).filter(c => (c.status || 'PUBLISHED') === 'PUBLISHED');
+    let list = allCms.filter(c => c.tenantId === t.code);
+    let isFallback = false;
+
+    if (list.length === 0 && t.code !== 'DPP_PUSAT') {
+      list = allCms.filter(c => c.tenantId === 'DPP_PUSAT');
+      isFallback = list.length > 0;
+    }
+    return { list, isFallback };
+  }
+
+  function resolveAgendaForTenant() {
+    const db = getSharedDb();
+    const t = getActiveTenant();
+    const allAgenda = db.agenda || [];
+    let list = allAgenda.filter(a => a.tenantId === t.code);
+    let isFallback = false;
+
+    if (list.length === 0 && t.code !== 'DPP_PUSAT') {
+      list = allAgenda.filter(a => a.tenantId === 'DPP_PUSAT');
+      isFallback = list.length > 0;
+    }
+    return { list, isFallback };
+  }
+
+  function renderWartaCardHtml(w, idx) {
+    return `
+      <article class="p-5 rounded-xl bg-surface-container-lowest border border-surface-container-high shadow-sm flex flex-col justify-between gap-3">
+        <div>
+          <span class="text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-900">${escapeHtml(w.kategori || 'Warta')}</span>
+          <h3 class="font-headline font-bold text-base sm:text-lg text-primary mt-2 leading-snug">${escapeHtml(w.judul)}</h3>
+          <p class="text-xs text-on-surface-variant leading-relaxed mt-1.5">${escapeHtml(w.ringkasan)}</p>
+        </div>
+        <div class="pt-3 border-t border-surface-container flex items-center justify-between gap-2 text-xs text-on-surface-variant">
+          <span class="tabular-nums">${escapeHtml(w.tanggal)} | ${escapeHtml(w.penulis || 'Sekretariat APII')}</span>
+          <button type="button" onclick="PublicApp.openWartaModal(${idx})" class="min-h-[36px] px-3 py-1 rounded-lg bg-surface-container hover:bg-primary-fixed text-primary font-bold text-xs transition-colors shrink-0">
+            Baca Selengkapnya
+          </button>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderAgendaCardHtml(ag) {
+    return `
+      <div class="p-4 sm:p-5 rounded-xl bg-surface-container-lowest border border-surface-container-high shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+        <div class="flex items-start gap-3.5">
+          <div class="w-12 h-12 rounded-lg bg-primary-fixed text-primary flex flex-col items-center justify-center font-bold shrink-0 tabular-nums">
+            <span class="text-[10px] leading-tight uppercase">${escapeHtml(ag.month)}</span>
+            <span class="text-lg leading-tight">${escapeHtml(ag.day)}</span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 uppercase">${escapeHtml(ag.category)}</span>
+            <h3 class="font-headline font-bold text-sm sm:text-base text-primary mt-1">${escapeHtml(ag.title)}</h3>
+            <p class="text-on-surface-variant mt-0.5">Narasumber: ${escapeHtml(ag.speaker)} | Lokasi: ${escapeHtml(ag.location)}</p>
+          </div>
+        </div>
+        <button type="button" onclick="PublicApp.registerAgendaAttendance(this, '${escapeHtml(ag.title)}')" class="min-h-[44px] px-4 py-2 rounded-lg bg-primary text-white font-bold text-xs hover:bg-primary-container shrink-0 transition-colors">
+          Daftar Hadir
+        </button>
+      </div>
+    `;
+  }
+
+  function renderRegionalWartaAndAgenda() {
+    const wartaRes = resolveWartaForTenant();
+    currentModalWarta = wartaRes.list;
+
+    const wartaFallbackBadge = document.getElementById('warta-fallback-badge');
+    const wartaViewFallback = document.getElementById('warta-view-fallback-badge');
+    if (wartaFallbackBadge) wartaFallbackBadge.classList.toggle('hidden', !wartaRes.isFallback);
+    if (wartaViewFallback) wartaViewFallback.classList.toggle('hidden', !wartaRes.isFallback);
+
+    const wartaEmptyHtml = '<div class="col-span-full p-6 rounded-xl bg-surface-container-lowest border border-surface-container-high text-center text-xs text-on-surface-variant">Belum ada warta yang diterbitkan.</div>';
+
+    const wartaHome = document.getElementById('warta-cards-container');
+    if (wartaHome) {
+      wartaHome.innerHTML = wartaRes.list.length > 0
+        ? wartaRes.list.slice(0, 4).map((w, idx) => renderWartaCardHtml(w, idx)).join('')
+        : wartaEmptyHtml;
+    }
+
+    const wartaFull = document.getElementById('warta-full-list');
+    if (wartaFull) {
+      wartaFull.innerHTML = wartaRes.list.length > 0
+        ? wartaRes.list.map((w, idx) => renderWartaCardHtml(w, idx)).join('')
+        : wartaEmptyHtml;
+    }
+
+    const agendaRes = resolveAgendaForTenant();
+    const agendaFallbackBadge = document.getElementById('agenda-fallback-badge');
+    const agendaViewFallback = document.getElementById('agenda-view-fallback-badge');
+    if (agendaFallbackBadge) agendaFallbackBadge.classList.toggle('hidden', !agendaRes.isFallback);
+    if (agendaViewFallback) agendaViewFallback.classList.toggle('hidden', !agendaRes.isFallback);
+
+    const agendaEmptyHtml = '<div class="p-6 rounded-xl bg-surface-container-lowest border border-surface-container-high text-center text-xs text-on-surface-variant">Belum ada agenda kajian terjadwal.</div>';
+
+    const agendaHome = document.getElementById('agenda-cards-container');
+    if (agendaHome) {
+      agendaHome.innerHTML = agendaRes.list.length > 0
+        ? agendaRes.list.slice(0, 3).map(renderAgendaCardHtml).join('')
+        : agendaEmptyHtml;
+    }
+
+    const agendaFull = document.getElementById('agenda-full-list');
+    if (agendaFull) {
+      agendaFull.innerHTML = agendaRes.list.length > 0
+        ? agendaRes.list.map(renderAgendaCardHtml).join('')
+        : agendaEmptyHtml;
+    }
+  }
+
+  function openWartaModal(index) {
+    const item = currentModalWarta[index];
+    if (!item) return;
+
+    const modal = document.getElementById('modal-warta-reader');
+    const elTag = document.getElementById('warta-reader-tag');
+    const elTitle = document.getElementById('warta-reader-title');
+    const elMeta = document.getElementById('warta-reader-meta');
+    const elBody = document.getElementById('warta-reader-body');
+
+    if (elTag) elTag.textContent = item.kategori || 'WARTA APII';
+    if (elTitle) elTitle.textContent = item.judul || '';
+    if (elMeta) elMeta.textContent = `${item.tanggal || ''} | Ditulis oleh ${item.penulis || 'Sekretariat APII'}`;
+    if (elBody) {
+      const fullText = item.konten || item.ringkasan || '';
+      elBody.innerHTML = `<p class="font-semibold text-primary">${escapeHtml(item.ringkasan || '')}</p><p>${escapeHtml(fullText)}</p>`;
+    }
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  function registerAgendaAttendance(btnEl, title) {
+    if (btnEl) {
+      btnEl.textContent = 'Terdaftar';
+      btnEl.classList.remove('bg-primary', 'hover:bg-primary-container');
+      btnEl.classList.add('bg-secondary', 'cursor-default');
+      btnEl.disabled = true;
+    }
+    showToast(`Kehadiran Anda untuk "${title}" tercatat di pengingat peramban.`);
+  }
+
+  // =========================================================================
+  // 6. HASH ROUTER & ?token= DEEP LINK PARSING
+  // =========================================================================
+  function setupHashRouter() {
+    window.addEventListener('hashchange', handleRoute);
+    handleRoute();
+  }
+
+  function handleRoute() {
+    const rawHash = window.location.hash || '#/';
+    const hashParts = rawHash.split('?');
+    const route = hashParts[0] || '#/';
+    const hashQuery = hashParts.length > 1 ? new URLSearchParams(hashParts[1]) : new URLSearchParams('');
+    const searchQuery = new URLSearchParams(window.location.search);
+
+    document.querySelectorAll('.route-view').forEach(v => v.classList.add('hidden'));
+
+    let targetViewId = 'view-beranda';
+    if (route === '#/daftar') targetViewId = 'view-daftar';
+    else if (route === '#/infaq') targetViewId = 'view-infaq';
+    else if (route === '#/warta') targetViewId = 'view-warta';
+    else if (route === '#/agenda') targetViewId = 'view-agenda';
+    else if (route === '#/verifikasi') targetViewId = 'view-verifikasi';
+    else if (route === '#/konsultasi') targetViewId = 'view-konsultasi';
+    else if (route === '#/advokasi') targetViewId = 'view-advokasi';
+
+    const targetEl = document.getElementById(targetViewId);
+    if (targetEl) targetEl.classList.remove('hidden');
+
+    if (targetViewId === 'view-beranda') {
+      syncGeoMapViewport();
+    }
+
+    // Active nav highlight
+    document.querySelectorAll('.public-nav-link').forEach(link => {
+      const r = link.getAttribute('data-route');
+      if (r === route) {
+        link.classList.add('bg-primary-fixed/50', 'text-primary');
+      } else {
+        link.classList.remove('bg-primary-fixed/50', 'text-primary');
+      }
+    });
+
+    // Deep-link token handling on #/verifikasi?token=...
+    const deepToken = hashQuery.get('token') || searchQuery.get('token');
+    const deepHash = hashQuery.get('hash') || searchQuery.get('hash');
+    if (route === '#/verifikasi' && deepToken) {
+      autoDispatchVerificationToken(deepToken, deepHash);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  // =========================================================================
+  // 7. UU PDP KTP WATERMARKING & <= 250 KB ITERATIVE WEBP COMPRESSOR
+  // =========================================================================
+  function setupKtpWatermarker() {
+    const fileInput = document.getElementById('ktp-file-input');
+    if (!fileInput) return;
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          applyWatermarkToKtp(img);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function canvasToBlobAsync(canvas, mime, quality) {
+    return new Promise((resolve) => {
+      if (typeof canvas.toBlob === 'function') {
+        canvas.toBlob((blob) => resolve(blob), mime, quality);
+      } else {
+        resolve(null);
+      }
+    });
+  }
+
+  async function applyWatermarkToKtp(img) {
+    const MAX_BYTES = 250 * 1024; // PRD 3.2.1: <= 250 KB
+    let width = img.width;
+    let height = img.height;
+    const MAX_WIDTH = 1200;
+
+    if (width > MAX_WIDTH) {
+      height = Math.round((height * MAX_WIDTH) / width);
+      width = MAX_WIDTH;
+    }
+
+    const today = formatTanggal();
+    const watermarkText = `VERIFIKASI KTA YAYASAN APII - DILARANG MENYALAHGUNAKAN - TANGGAL: ${today}`;
+
+    function drawWatermarkedCanvas(w, h) {
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 53, 39, 0.25)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(w, h);
+      ctx.moveTo(w, 0);
+      ctx.lineTo(0, h);
+      ctx.stroke();
+
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate(-28 * Math.PI / 180);
+      ctx.font = `bold ${Math.max(14, Math.round(w / 32))}px sans-serif`;
+      ctx.fillStyle = 'rgba(0, 53, 39, 0.42)';
+      ctx.textAlign = 'center';
+
+      const lineSpacing = Math.max(40, Math.round(h / 6));
+      for (let offset = -h; offset <= h; offset += lineSpacing) {
+        ctx.fillText(watermarkText, 0, offset);
+      }
+      ctx.restore();
+      return c;
+    }
+
+    let finalBlob = null;
+    let finalDataUrl = null;
+    const qualities = [0.82, 0.70, 0.58, 0.45, 0.34, 0.24];
+
+    for (let scalePass = 0; scalePass < 4; scalePass++) {
+      const c = drawWatermarkedCanvas(width, height);
+      for (const q of qualities) {
+        const blob = await canvasToBlobAsync(c, 'image/webp', q);
+        if (blob) {
+          finalBlob = blob;
+          finalDataUrl = c.toDataURL('image/webp', q);
+          if (blob.size <= MAX_BYTES) break;
+        }
+      }
+      if (finalBlob && finalBlob.size <= MAX_BYTES) break;
+      width = Math.max(320, Math.round(width * 0.75));
+      height = Math.max(200, Math.round(height * 0.75));
+    }
+
+    watermarkedKtpBlob = finalBlob;
+    watermarkedKtpDataUrl = finalDataUrl;
+
+    const previewContainer = document.getElementById('ktp-watermark-container');
+    const previewImg = document.getElementById('ktp-watermark-preview');
+    const sizeSpan = document.getElementById('ktp-watermark-size');
+
+    if (previewContainer && previewImg && finalDataUrl) {
+      previewImg.src = finalDataUrl;
+      if (sizeSpan && finalBlob) {
+        sizeSpan.textContent = `Ukuran Terkompresi: ${(finalBlob.size / 1024).toFixed(1)} KB (WebP <= 250 KB)`;
+      }
+      previewContainer.classList.remove('hidden');
+    }
+
+    showToast('KTP berhasil diproteksi watermark UU PDP!');
+  }
+
+  function submitRegistration(event) {
+    event.preventDefault();
+    const nama = document.getElementById('reg-nama')?.value.trim();
+    const nik = document.getElementById('reg-nik')?.value.trim();
+    const phone = document.getElementById('reg-phone')?.value.trim();
+    const email = document.getElementById('reg-email')?.value.trim() || '';
+    const wilayah = document.getElementById('reg-wilayah')?.value || 'DPP_PUSAT';
+    const kota = document.getElementById('reg-kota')?.value.trim();
+    const minat = document.getElementById('reg-divisi-minat')?.value || 'dakwah';
+
+    if (!nama || !nik || !phone || !kota) {
+      showToast('Harap lengkapi nama, NIK, nomor WhatsApp, dan kota domisili.', 'error');
+      return;
+    }
+
+    if (!/^\d{16}$/.test(nik)) {
+      showToast('NIK harus berupa 16 digit angka sesuai KTP.', 'error');
+      return;
+    }
+
+    const now = new Date();
+    const expiryDate = new Date(now.getFullYear() + 5, now.getMonth(), now.getDate());
+    const tglTerbit = formatTanggal(now);
+    const tglKedaluwarsa = formatTanggal(expiryDate);
+
+    const sharedDb = getSharedDb();
+    const newId = 'REG-' + Date.now().toString(36).toUpperCase();
+    const maskedNik = maskNik(nik);
+    const wilayahObj = (sharedDb.wilayah || []).find(w => w.code === wilayah);
+    const wilayahLabel = wilayahObj ? wilayahObj.name : wilayah;
+
+    const newPendaftar = {
+      id: 'MBR-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
+      tenantId: wilayah,
+      nia: 'MENUNGGU_PENGESAHAN',
+      namaLengkap: nama,
+      nik: maskedNik,
+      kota: kota,
+      wilayah: wilayahLabel,
+      email: email,
+      divisiMinat: minat,
+      tingkatLisensi: 1,
+      keahlian: minat.toUpperCase(),
+      status: 'MENUNGGU_VERIFIKASI',
+      tglTerbit: tglTerbit,
+      tglKedaluwarsa: tglKedaluwarsa,
+      telepon: phone,
+      fotoUrl: createMonogramAvatar(nama, minat),
+      ktpWatermarkUrl: watermarkedKtpDataUrl || '#',
+      verifiedSekretarisAt: null,
+      approvedKetuaAt: null,
+      kodeEtikVersi: 'APII-ETIK-2026-V1'
+    };
+
+    sharedDb.anggota.unshift(newPendaftar);
+    saveSharedDb(sharedDb);
+    renderGeoDakwah();
+
+    if (window.ApiClient && typeof window.ApiClient.request === 'function' && window.CONFIG && CONFIG.API_URL) {
+      window.ApiClient.request('registerMember', {
+        wilayah_id: wilayah,
+        nama_lengkap: nama,
+        nik: maskedNik,
+        kota: kota,
+        telepon: phone,
+        email: email,
+        divisi_minat: minat
+      }).catch(() => {});
+    }
+
+    const elNama = document.getElementById('success-reg-nama');
+    const elKota = document.getElementById('success-reg-kota');
+    const elWil = document.getElementById('success-reg-wilayah');
+    const elRegId = document.getElementById('success-reg-id');
+    const modal = document.getElementById('modal-reg-success');
+
+    if (elNama) elNama.textContent = nama;
+    if (elKota) elKota.textContent = kota;
+    if (elWil) elWil.textContent = wilayahLabel;
+    if (elRegId) elRegId.textContent = newId;
+    if (modal) modal.classList.remove('hidden');
+
+    event.target.reset();
+    document.getElementById('ktp-watermark-container')?.classList.add('hidden');
+    watermarkedKtpBlob = null;
+    watermarkedKtpDataUrl = null;
+  }
+
+  // =========================================================================
+  // 8. INFAQ 4-KANTONG SYARIAH, QRIS CONFIRMATION MODAL & CROWDFUNDING SYNC
+  // =========================================================================
+  const KANTONG_META = {
+    INFAQ_DAKWAH: {
+      label: 'Infaq Dakwah & Safari Wilayah',
+      desc: 'Akad Infaq Dakwah: untuk kajian, safari dakwah, literasi, dan pembinaan umat.'
+    },
+    ZAKAT: {
+      label: 'Zakat Maal / Fitrah (8 Ashnaf)',
+      desc: 'Akad Zakat: disalurkan khusus untuk 8 ashnaf mustahik termasuk pembinaan muallaf dan fisabilillah.'
+    },
+    WAKAF: {
+      label: 'Wakaf Produktif & Aset Dakwah',
+      desc: 'Akad Wakaf: dijaga pokok asetnya untuk studio dakwah, maktabah, dan infrastruktur jangka panjang.'
+    },
+    AMIL_OPERASIONAL: {
+      label: 'Amil & Operasional Sekretariat',
+      desc: 'Akad Amil/Operasional: mendukung tata kelola administrasi, server sistem, dan koordinasi dakwah.'
+    }
+  };
+
+  function setupInfaqCalculator() {
+    const customInput = document.getElementById('infaq-custom-input');
+    const kantongSelect = document.getElementById('infaq-kantong-select');
+    const kantongDesc = document.getElementById('infaq-kantong-desc');
+
+    document.querySelectorAll('.infaq-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const amt = btn.getAttribute('data-amount');
+        if (customInput) customInput.value = amt;
+        document.querySelectorAll('.infaq-preset-btn').forEach(b => b.classList.remove('bg-primary-fixed', 'border-primary'));
+        btn.classList.add('bg-primary-fixed', 'border-primary');
+        renderInfaqView();
+      });
+    });
+
+    if (customInput) {
+      customInput.addEventListener('input', () => renderInfaqView());
+    }
+
+    if (kantongSelect) {
+      kantongSelect.addEventListener('change', () => {
+        const meta = KANTONG_META[kantongSelect.value] || KANTONG_META.INFAQ_DAKWAH;
+        if (kantongDesc) kantongDesc.textContent = meta.desc;
+        renderInfaqView();
+      });
+    }
+
+    document.getElementById('btn-copy-rekening')?.addEventListener('click', () => {
+      const noRek = document.getElementById('infaq-bank-no')?.textContent || '777-888-999-1';
+      copyText(noRek.replace(/-/g, ''), 'Nomor rekening BSI berhasil disalin.');
+    });
+  }
+
+  function openQrisConfirmModal() {
+    const nominalPokok = Number(document.getElementById('infaq-custom-input')?.value) || 0;
+    if (nominalPokok < 10000) {
+      showToast('Nominal infaq minimal Rp 10.000.', 'error');
+      return;
+    }
+
+    const kantong = document.getElementById('infaq-kantong-select')?.value || 'INFAQ_DAKWAH';
+    const donorName = document.getElementById('infaq-donor-name')?.value.trim() || 'Hamba Allah';
+    const donorPhone = document.getElementById('infaq-donor-phone')?.value.trim() || '-';
+    const t = getActiveTenant();
+    const { bank } = resolveBankInfo();
+
+    const kodeUnik = Math.floor(100 + Math.random() * 899);
+    const totalNominal = nominalPokok + kodeUnik;
+    const invId = `INV-APII-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.floor(10000 + Math.random() * 89999)}`;
+
+    currentQrisDraft = {
+      invId,
+      tenantId: t.code,
+      tenantName: t.name,
+      kantong,
+      donorName,
+      donorPhone,
+      nominalPokok,
+      kodeUnik,
+      totalNominal
+    };
+
+    const kantongLabel = (KANTONG_META[kantong] || KANTONG_META.INFAQ_DAKWAH).label;
+
+    document.getElementById('qris-kantong-label').textContent = kantongLabel.toUpperCase();
+    document.getElementById('qris-donor-info').textContent = `${donorName} (${t.name})`;
+    document.getElementById('qris-inv-id').textContent = invId;
+    document.getElementById('qris-nominal-pokok').textContent = 'Rp ' + nominalPokok.toLocaleString('id-ID');
+    document.getElementById('qris-kode-unik').textContent = '+Rp ' + kodeUnik;
+    document.getElementById('qris-nominal-total').textContent = 'Rp ' + totalNominal.toLocaleString('id-ID');
+
+    document.getElementById('qris-modal-merchant').textContent = (bank?.accountName || 'YAYASAN APOLOGET ISLAM INDONESIA').toUpperCase();
+    document.getElementById('qris-modal-svg').innerHTML = generateQrSvg(`${invId}|${t.code}|${kantong}|${totalNominal}`, 200);
+    document.getElementById('qris-modal-bank-no').textContent = bank?.accountNo || '777-888-999-1';
+    document.getElementById('qris-modal-bank-name').textContent = 'a.n ' + (bank?.accountName || 'Yayasan Apologet Islam Indonesia');
+
+    const resBox = document.getElementById('qris-confirm-result');
+    if (resBox) {
+      resBox.classList.add('hidden');
+      resBox.innerHTML = '';
+    }
+    const payBtn = document.getElementById('btn-confirm-qris-paid');
+    if (payBtn) {
+      payBtn.disabled = false;
+      payBtn.classList.remove('hidden');
+    }
+
+    document.getElementById('btn-copy-qris-inv').onclick = () => copyText(invId, 'ID Tagihan berhasil disalin.');
+    document.getElementById('btn-copy-qris-amount').onclick = () => copyText(String(totalNominal), `Nominal tepat Rp ${totalNominal.toLocaleString('id-ID')} disalin.`);
+    document.getElementById('btn-copy-qris-bank').onclick = () => copyText((bank?.accountNo || '7778889991').replace(/-/g, ''), 'No Rekening berhasil disalin.');
+
+    switchQrisTab('qris');
+    document.getElementById('modal-qris-confirm')?.classList.remove('hidden');
+  }
+
+  function switchQrisTab(tab) {
+    const qrisBtn = document.getElementById('qris-tab-qris');
+    const bankBtn = document.getElementById('qris-tab-bank');
+    const qrisPanel = document.getElementById('qris-panel-qris');
+    const bankPanel = document.getElementById('qris-panel-bank');
+
+    if (tab === 'qris') {
+      qrisBtn?.classList.add('bg-white', 'text-primary', 'shadow-sm', 'font-bold');
+      qrisBtn?.classList.remove('text-on-surface-variant');
+      bankBtn?.classList.remove('bg-white', 'text-primary', 'shadow-sm', 'font-bold');
+      bankBtn?.classList.add('text-on-surface-variant');
+      qrisPanel?.classList.remove('hidden');
+      qrisPanel?.classList.add('flex');
+      bankPanel?.classList.add('hidden');
+      bankPanel?.classList.remove('flex');
+    } else {
+      bankBtn?.classList.add('bg-white', 'text-primary', 'shadow-sm', 'font-bold');
+      bankBtn?.classList.remove('text-on-surface-variant');
+      qrisBtn?.classList.remove('bg-white', 'text-primary', 'shadow-sm', 'font-bold');
+      qrisBtn?.classList.add('text-on-surface-variant');
+      bankPanel?.classList.remove('hidden');
+      bankPanel?.classList.add('flex');
+      qrisPanel?.classList.add('hidden');
+      qrisPanel?.classList.remove('flex');
+    }
+  }
+
+  function confirmQrisDonation() {
+    if (!currentQrisDraft) return;
+    const db = getSharedDb();
+    const now = new Date();
+    const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const nextSeq = String((db.kas.transactions || []).filter(tx => tx.tipe === 'MASUK').length + 1).padStart(3, '0');
+    const noVoucher = `BKM-${ym}-${nextSeq}`;
+    const noKwitansi = `KWT-${noVoucher}`;
+    const tenantId = currentQrisDraft.tenantId || 'DPP_PUSAT';
+
+    const newTrx = {
+      id: 'TRX-' + Date.now().toString(36).toUpperCase(),
+      tenantId: tenantId,
+      tanggal: formatTanggal(now),
+      tipe: 'MASUK',
+      kantongSyariah: currentQrisDraft.kantong,
+      kategori: (KANTONG_META[currentQrisDraft.kantong] || KANTONG_META.INFAQ_DAKWAH).label,
+      nominal: currentQrisDraft.totalNominal,
+      noVoucher: noVoucher,
+      noKwitansi: noKwitansi,
+      keterangan: `Donasi Publik QRIS (${currentQrisDraft.invId}) a.n. ${currentQrisDraft.donorName}`,
+      pihakTerkait: `${currentQrisDraft.donorName}${currentQrisDraft.donorPhone !== '-' ? ' (' + currentQrisDraft.donorPhone + ')' : ''}`,
+      metode: 'QRIS_ONLINE',
+      statusApproval: 'APPROVED',
+      verifiedBendaharaBy: 'Sistem Gateway QRIS APII',
+      approvedKetuaBy: 'Terverifikasi Otomatis',
+      buktiUrl: '#'
+    };
+
+    db.kas.transactions.unshift(newTrx);
+    if (!db.kas.balances[tenantId]) {
+      db.kas.balances[tenantId] = { AMIL_OPERASIONAL: 0, ZAKAT: 0, INFAQ_DAKWAH: 0, WAKAF: 0 };
+    }
+    db.kas.balances[tenantId][currentQrisDraft.kantong] = (Number(db.kas.balances[tenantId][currentQrisDraft.kantong]) || 0) + currentQrisDraft.totalNominal;
+
+    // Live sync crowdfunding cause
+    if (Array.isArray(db.causes) && db.causes.length > 0) {
+      let cause = db.causes.find(c => c.tenantId === tenantId) || db.causes.find(c => c.tenantId === 'DPP_PUSAT');
+      if (cause) {
+        cause.current = (Number(cause.current) || 0) + currentQrisDraft.totalNominal;
+        cause.donorsCount = (Number(cause.donorsCount) || 0) + 1;
+      }
+    }
+
+    saveSharedDb(db);
+    renderCrowdfunding();
+    renderInfaqView();
+
+    const resBox = document.getElementById('qris-confirm-result');
+    const payBtn = document.getElementById('btn-confirm-qris-paid');
+    if (payBtn) payBtn.classList.add('hidden');
+    if (resBox) {
+      resBox.classList.remove('hidden');
+      resBox.innerHTML = `
+        <div class="flex flex-col gap-1.5">
+          <span class="font-bold text-emerald-900 flex items-center gap-1">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">verified</span>
+            <span>Donasi Tercatat di Buku Kas Syar'i</span>
+          </span>
+          <p>Kwitansi Resmi: <strong class="font-mono text-primary tabular-nums">${escapeHtml(noKwitansi)}</strong> (${escapeHtml(noVoucher)})</p>
+          <p>Nominal: <strong class="tabular-nums">Rp ${currentQrisDraft.totalNominal.toLocaleString('id-ID')}</strong> masuk ke kantong <strong>${escapeHtml(currentQrisDraft.kantong)}</strong>.</p>
+          <a href="#/verifikasi?token=${encodeURIComponent(noKwitansi)}" onclick="PublicApp.closeAllModals()" class="mt-1 inline-flex items-center gap-1 font-bold text-primary underline">
+            Verifikasi Kwitansi di Verification Hub
+          </a>
+        </div>
+      `;
+    }
+
+    showToast(`Alhamdulillah, donasi tercatat dengan kwitansi ${noKwitansi}.`);
+  }
+
+  // =========================================================================
+  // 9. UNIFIED VERIFICATION HUB (STRICT INTEGRITY + ?token= + TAMPER ALERT)
+  // =========================================================================
+  function isCanonicalUnmodifiedSeedSurat(surat) {
+    const seed = CANONICAL_SEED_SURAT[surat.id];
+    if (!seed) return false;
+    return surat.nomorSurat === seed.nomorSurat &&
+      surat.perihal === seed.perihal &&
+      surat.isiSurat === seed.isiSurat &&
+      (surat.hashSha256 === seed.legacyHash || surat.hashSha256 === sha256Hex(seed.nomorSurat + seed.perihal + seed.isiSurat));
+  }
+
+  function verifySuratByInput(rawVal, suppliedHashParam = null) {
+    const val = String(rawVal || '').trim();
+    const res = document.getElementById('verif-surat-result');
+    if (!val || !res) return;
+
+    let searchToken = val;
+    let suppliedHash = suppliedHashParam ? String(suppliedHashParam).trim() : null;
+    if (val.includes('|')) {
+      const parts = val.split('|');
+      searchToken = parts[0].trim();
+      suppliedHash = (parts[1] || '').trim();
+    }
+
+    const db = getSharedDb();
+    let match = null;
+    if (db && db.surat) {
+      match = db.surat.find(s =>
+        (s.nomorSurat && s.nomorSurat.toLowerCase() === searchToken.toLowerCase()) ||
+        (s.hashSha256 && s.hashSha256.toLowerCase() === searchToken.toLowerCase())
+      );
+    }
+
+    res.classList.remove('hidden');
+    if (!match) {
+      const looksLikeHash = /^[a-f0-9]{64}$/i.test(searchToken);
+      res.innerHTML = looksLikeHash
+        ? `<div class="p-4 rounded-xl bg-red-50 border border-red-300 text-red-900 text-xs flex flex-col gap-1">
+             <strong class="text-sm text-red-900">PERINGATAN: DOKUMEN TIDAK VALID / TELAH DIMANIPULASI!</strong>
+             <span>Hash SHA-256 tidak cocok dengan arsip dokumen resmi APII yang disahkan.</span>
+           </div>`
+        : `<div class="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-900 text-xs">
+             <strong>TIDAK DITEMUKAN:</strong> Naskah surat atau kode hash tidak terdaftar dalam arsip resmi Yayasan APII.
+           </div>`;
+      return;
+    }
+
+    // Strict status check: must be APPROVED or PUBLISHED
+    if (match.status !== 'APPROVED' && match.status !== 'PUBLISHED') {
+      res.innerHTML = `
+        <div class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs flex flex-col gap-1">
+          <strong class="text-sm text-amber-900">DOKUMEN BELUM DISAHKAN (STATUS: ${escapeHtml(match.status)})</strong>
+          <p>Nomor Surat: <strong class="tabular-nums">${escapeHtml(match.nomorSurat)}</strong></p>
+          <p>Dokumen ini masih berstatus draf/pengajuan atau ditolak dan belum memiliki keabsahan hukum dari Ketua.</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Strict SHA-256 integrity verification & Tamper Alert
+    const expectedHash = sha256Hex(match.nomorSurat + (match.perihal || '') + (match.isiSurat || ''));
+    const pipeHash = sha256Hex(match.nomorSurat + '|' + (match.perihal || '') + '|' + (match.isiSurat || ''));
+    const storedHash = String(match.hashSha256 || '').trim().toLowerCase();
+    const hasValidHex = /^[a-f0-9]{64}$/.test(storedHash);
+
+    const contentHashValid =
+      storedHash === expectedHash ||
+      storedHash === pipeHash ||
+      isCanonicalUnmodifiedSeedSurat(match);
+
+    const suppliedHashMismatch = Boolean(suppliedHash && suppliedHash.toLowerCase() !== storedHash);
+
+    if (match.tampered === true || !hasValidHex || !contentHashValid || suppliedHashMismatch) {
+      res.innerHTML = `
+        <div class="p-4 rounded-xl bg-red-50 border-2 border-red-400 text-red-950 flex flex-col gap-1.5 text-xs">
+          <span class="font-extrabold text-sm text-red-900 flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">gpp_bad</span>
+            <span>PERINGATAN: DOKUMEN TIDAK VALID / TELAH DIMANIPULASI!</span>
+          </span>
+          <p>Integritas hash SHA-256 naskah <strong>${escapeHtml(match.nomorSurat)}</strong> tidak sesuai dengan catatan otentikasi resmi APII.</p>
+          <p class="font-mono text-[11px] text-red-800 break-all tabular-nums">Hash Tercatat: ${escapeHtml(match.hashSha256 || 'KOSONG')}</p>
+        </div>
+      `;
+      return;
+    }
+
+    res.innerHTML = `
+      <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 flex flex-col gap-1 text-xs">
+        <span class="font-bold text-emerald-900 flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]" aria-hidden="true">verified</span>
+          <span>DOKUMEN RESMI 100% ASLI &amp; TERVERIFIKASI</span>
+        </span>
+        <p class="font-bold text-sm text-primary mt-1 tabular-nums">${escapeHtml(match.nomorSurat)}</p>
+        <p><strong>Perihal:</strong> ${escapeHtml(match.perihal)}</p>
+        <p><strong>Tujuan:</strong> ${escapeHtml(match.tujuan)}</p>
+        <p><strong>Penandatangan:</strong> ${escapeHtml(match.signedBy || 'Pimpinan APII')}</p>
+        <p class="font-mono text-[11px] text-on-surface-variant break-all mt-1 tabular-nums">Hash SHA-256: ${escapeHtml(match.hashSha256)}</p>
+      </div>
+    `;
+  }
+
+  function verifyKtaByInput(rawVal) {
+    const val = String(rawVal || '').trim();
+    const res = document.getElementById('verif-kta-result');
+    if (!val || !res) return;
+
+    const db = getSharedDb();
+    const match = (db.anggota || []).find(a => a.nia && a.nia.toLowerCase() === val.toLowerCase());
+
+    res.classList.remove('hidden');
+    if (!match) {
+      res.innerHTML = `
+        <div class="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-900 text-xs">
+          <strong>TIDAK DITEMUKAN:</strong> Nomor NIA tidak terdaftar di database keanggotaan resmi APII.
+        </div>
+      `;
+      return;
+    }
+
+    if (match.status !== 'APPROVED') {
+      res.innerHTML = `
+        <div class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs flex flex-col gap-1">
+          <strong class="text-sm text-amber-900">KTA BELUM DISAHKAN / TIDAK AKTIF (${escapeHtml(match.status)})</strong>
+          <p><strong>Nama:</strong> ${escapeHtml(match.namaLengkap)}</p>
+          <p><strong>NIA:</strong> <span class="tabular-nums">${escapeHtml(match.nia)}</span></p>
+        </div>
+      `;
+      return;
+    }
+
+    // Expiry check
+    const expDate = match.tglKedaluwarsa ? parseDate(match.tglKedaluwarsa) : null;
+    const isExpired = expDate && !isNaN(expDate.getTime()) && expDate.getTime() < new Date().setHours(0, 0, 0, 0);
+    if (isExpired) {
+      res.innerHTML = `
+        <div class="p-4 rounded-xl bg-red-50 border border-red-300 text-red-950 text-xs flex flex-col gap-1">
+          <strong class="text-sm text-red-900">KTA KEDALUWARSA (EXPIRED)</strong>
+          <p><strong>Nama:</strong> ${escapeHtml(match.namaLengkap)}</p>
+          <p><strong>Masa Berlaku Berakhir:</strong> <span class="tabular-nums">${escapeHtml(match.tglKedaluwarsa)}</span></p>
+        </div>
+      `;
+      return;
+    }
+
+    res.innerHTML = `
+      <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 flex flex-col gap-1 text-xs">
+        <span class="font-bold text-emerald-900 flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]" aria-hidden="true">verified</span>
+          <span>KTA RESMI TERDAFTAR (AKTIF)</span>
+        </span>
+        <p class="font-bold text-sm text-primary mt-1">${escapeHtml(match.namaLengkap)}</p>
+        <p><strong>NIA:</strong> <span class="tabular-nums">${escapeHtml(match.nia)}</span></p>
+        <p><strong>NIK (UU PDP):</strong> <span class="font-mono tabular-nums">${escapeHtml(maskNik(match.nik))}</span></p>
+        <p><strong>Wilayah:</strong> ${escapeHtml(match.wilayah)}${match.kota ? ' (' + escapeHtml(match.kota) + ')' : ''}</p>
+        <p><strong>Lisensi Da'i:</strong> Tingkat ${escapeHtml(match.tingkatLisensi || 1)}</p>
+        <p><strong>Masa Berlaku:</strong> s/d <span class="tabular-nums">${escapeHtml(match.tglKedaluwarsa)}</span></p>
+      </div>
+    `;
+  }
+
+  function verifyKwitansiByInput(rawVal) {
+    const val = String(rawVal || '').trim();
+    const res = document.getElementById('verif-kwitansi-result');
+    if (!val || !res) return;
+
+    const db = getSharedDb();
+    let match = null;
+    if (db && db.kas && db.kas.transactions) {
+      match = db.kas.transactions.find(t =>
+        (t.noVoucher && t.noVoucher.toLowerCase() === val.toLowerCase()) ||
+        (t.noKwitansi && t.noKwitansi.toLowerCase() === val.toLowerCase())
+      );
+    }
+
+    res.classList.remove('hidden');
+    if (!match) {
+      res.innerHTML = `
+        <div class="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-900 text-xs">
+          <strong>TIDAK DITEMUKAN:</strong> Nomor kwitansi/voucher kas tidak ditemukan dalam buku kas umum resmi.
+        </div>
+      `;
+      return;
+    }
+
+    if (match.statusApproval !== 'APPROVED') {
+      res.innerHTML = `
+        <div class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs flex flex-col gap-1">
+          <strong class="text-sm text-amber-900">BUKTI KAS BELUM DISAHKAN (STATUS: ${escapeHtml(match.statusApproval)})</strong>
+          <p><strong>Voucher:</strong> <span class="tabular-nums">${escapeHtml(match.noVoucher)}</span></p>
+          <p>Transaksi ini belum memperoleh otorisasi akhir Ketua dan belum menjadi kwitansi sah.</p>
+        </div>
+      `;
+      return;
+    }
+
+    res.innerHTML = `
+      <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 flex flex-col gap-1 text-xs">
+        <span class="font-bold text-emerald-900 flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]" aria-hidden="true">verified</span>
+          <span>BUKTI KAS RESMI TERVERIFIKASI</span>
+        </span>
+        <p class="font-bold text-sm text-primary mt-1 tabular-nums">${escapeHtml(match.noKwitansi || match.noVoucher)}</p>
+        <p><strong>Nominal:</strong> <span class="tabular-nums">Rp ${Number(match.nominal || 0).toLocaleString('id-ID')}</span></p>
+        <p><strong>Uraian:</strong> ${escapeHtml(match.keterangan)}</p>
+        <p><strong>Kantong Kas:</strong> ${escapeHtml(match.kantongSyariah)}</p>
+        <p><strong>Status:</strong> ${escapeHtml(match.statusApproval)}</p>
+      </div>
+    `;
+  }
+
+  function verifySyahadatByInput(rawVal) {
+    const val = String(rawVal || '').trim();
+    const res = document.getElementById('verif-syahadat-result');
+    if (!val || !res) return;
+
+    const db = getSharedDb();
+    const match = (db.muallaf || []).find(m => m.regNo && m.regNo.toLowerCase() === val.toLowerCase());
+
+    res.classList.remove('hidden');
+    if (match) {
+      res.innerHTML = `
+        <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 flex flex-col gap-1 text-xs">
+          <span class="font-bold text-emerald-900 flex items-center gap-1">
+            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">verified</span>
+            <span>PIAGAM IKRAR SYAHADAT RESMI TERCATAT</span>
+          </span>
+          <p class="font-bold text-sm text-primary mt-1 tabular-nums">${escapeHtml(match.regNo)}</p>
+          <p><strong>Nama Hijrah:</strong> ${escapeHtml(match.namaHijrah)}</p>
+          <p><strong>Tanggal Ikrar:</strong> <span class="tabular-nums">${escapeHtml(match.tglSyahadat)}</span></p>
+          <p><strong>Pembimbing:</strong> ${escapeHtml(match.pembimbing)}</p>
+          <p><strong>Divisi:</strong> Divisi Dakwah &amp; Pembinaan Muallaf Yayasan APII</p>
+        </div>
+      `;
+    } else {
+      res.innerHTML = `
+        <div class="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-900 text-xs">
+          <strong>TIDAK DITEMUKAN:</strong> Nomor registrasi piagam syahadat tidak ditemukan.
+        </div>
+      `;
+    }
+  }
+
+  function autoDispatchVerificationToken(token, suppliedHash = null) {
+    const t = String(token || '').trim();
+    if (!t) return;
+    const upper = t.toUpperCase();
+
+    let targetInputId = 'input-verif-surat';
+    let targetCardId = 'verif-card-surat';
+    let verifyFn = (v) => verifySuratByInput(v, suppliedHash);
+
+    if (upper.startsWith('APII-SYH-') || upper.startsWith('MLF-')) {
+      targetInputId = 'input-verif-syahadat';
+      targetCardId = 'verif-card-syahadat';
+      verifyFn = verifySyahadatByInput;
+    } else if (upper.startsWith('APII-')) {
+      targetInputId = 'input-verif-kta';
+      targetCardId = 'verif-card-kta';
+      verifyFn = verifyKtaByInput;
+    } else if (upper.startsWith('KWT-') || upper.startsWith('BKM-') || upper.startsWith('BKK-') || upper.startsWith('DRAFT-KEU-')) {
+      targetInputId = 'input-verif-kwitansi';
+      targetCardId = 'verif-card-kwitansi';
+      verifyFn = verifyKwitansiByInput;
+    } else if (/\/(SM|SK|UND|SE|ST|SR)-/i.test(t) || /^[a-f0-9]{64}$/i.test(t) || t.includes('|')) {
+      targetInputId = 'input-verif-surat';
+      targetCardId = 'verif-card-surat';
+      verifyFn = (v) => verifySuratByInput(v, suppliedHash);
+    } else {
+      // Check sharedDb datasets for unknown prefixes
+      const db = getSharedDb();
+      if ((db.anggota || []).some(a => a.nia && a.nia.toLowerCase() === t.toLowerCase())) {
+        targetInputId = 'input-verif-kta';
+        targetCardId = 'verif-card-kta';
+        verifyFn = verifyKtaByInput;
+      } else if ((db.kas?.transactions || []).some(tx => (tx.noKwitansi || '').toLowerCase() === t.toLowerCase() || (tx.noVoucher || '').toLowerCase() === t.toLowerCase())) {
+        targetInputId = 'input-verif-kwitansi';
+        targetCardId = 'verif-card-kwitansi';
+        verifyFn = verifyKwitansiByInput;
+      } else if ((db.muallaf || []).some(m => (m.regNo || '').toLowerCase() === t.toLowerCase())) {
+        targetInputId = 'input-verif-syahadat';
+        targetCardId = 'verif-card-syahadat';
+        verifyFn = verifySyahadatByInput;
+      }
+    }
+
+    const inputEl = document.getElementById(targetInputId);
+    const cardEl = document.getElementById(targetCardId);
+    if (inputEl) inputEl.value = t;
+    verifyFn(t);
+
+    if (cardEl) {
+      cardEl.classList.add('ring-2', 'ring-primary');
+      setTimeout(() => cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    }
+  }
+
+  function setupVerificationHub() {
+    document.getElementById('btn-cek-surat')?.addEventListener('click', () => {
+      verifySuratByInput(document.getElementById('input-verif-surat')?.value);
+    });
+    document.getElementById('btn-cek-kta')?.addEventListener('click', () => {
+      verifyKtaByInput(document.getElementById('input-verif-kta')?.value);
+    });
+    document.getElementById('btn-cek-kwitansi')?.addEventListener('click', () => {
+      verifyKwitansiByInput(document.getElementById('input-verif-kwitansi')?.value);
+    });
+    document.getElementById('btn-cek-syahadat')?.addEventListener('click', () => {
+      verifySyahadatByInput(document.getElementById('input-verif-syahadat')?.value);
+    });
+  }
+
+  // =========================================================================
+  // 10. KONSULTASI AQIDAH RAHASIA & ADVOKASI LBH (ZERO ALERT RECEIPT MODAL)
+  // =========================================================================
+  function showTicketReceiptModal({ badge, title, subtitle, ticketNo, token, extraInfo, isEmergency }) {
+    const modal = document.getElementById('modal-ticket-receipt');
+    if (!modal) return;
+
+    const iconWrap = document.getElementById('receipt-icon-wrap');
+    const iconEl = document.getElementById('receipt-icon');
+    const badgeEl = document.getElementById('receipt-badge');
+    const titleEl = document.getElementById('receipt-title');
+    const subtitleEl = document.getElementById('receipt-subtitle');
+    const ticketEl = document.getElementById('receipt-ticket-no');
+    const tokenWrap = document.getElementById('receipt-token-wrap');
+    const tokenEl = document.getElementById('receipt-token');
+    const extraEl = document.getElementById('receipt-extra-info');
+
+    if (iconWrap) {
+      iconWrap.className = isEmergency
+        ? 'w-11 h-11 rounded-lg bg-red-100 text-red-800 flex items-center justify-center shrink-0'
+        : 'w-11 h-11 rounded-lg bg-emerald-100 text-primary flex items-center justify-center shrink-0';
+    }
+    if (iconEl) iconEl.textContent = isEmergency ? 'emergency' : 'confirmation_number';
+    if (badgeEl) {
+      badgeEl.className = isEmergency
+        ? 'text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-red-100 text-red-900'
+        : 'text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-primary-fixed text-on-primary-fixed-variant';
+      badgeEl.textContent = badge;
+    }
+    if (titleEl) titleEl.textContent = title;
+    if (subtitleEl) subtitleEl.textContent = subtitle;
+    if (ticketEl) ticketEl.textContent = ticketNo;
+    if (extraEl) extraEl.textContent = extraInfo || '';
+
+    document.getElementById('btn-copy-ticket').onclick = () => copyText(ticketNo, `Nomor tiket ${ticketNo} disalin.`);
+
+    if (token) {
+      tokenWrap?.classList.remove('hidden');
+      if (tokenEl) tokenEl.textContent = token;
+      document.getElementById('btn-copy-token').onclick = () => copyText(token, 'Token rahasia berhasil disalin.');
+    } else {
+      tokenWrap?.classList.add('hidden');
+    }
+
+    modal.classList.remove('hidden');
+    document.getElementById('btn-copy-ticket')?.focus();
+  }
+
+  function submitConsultation() {
+    const topik = document.getElementById('konsul-topik')?.value;
+    const pertanyaan = document.getElementById('konsul-pertanyaan')?.value.trim();
+
+    if (!pertanyaan || pertanyaan.length < 10) {
+      showToast('Harap tuliskan pertanyaan konsultasi minimal 10 karakter.', 'error');
+      return;
+    }
+
+    const sharedDb = getSharedDb();
+    const newSeq = (Math.floor(100 + Math.random() * 900)).toString();
+    const ticketNo = `TKT-AQD-202611-${newSeq}`;
+    const token = 'tok_' + Math.random().toString(36).substring(2, 12);
+    const tokenHash = hashConsultToken(token);
+
+    sharedDb.consultations.unshift({
+      id: 'CSL-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
+      tenantId: getActiveTenant().code,
+      tokenHash: tokenHash,
+      tiketNo: ticketNo,
+      topik: topik,
+      pertanyaan: pertanyaan,
+      jawaban: '',
+      status: 'MENUNGGU_JAWABAN',
+      createdAt: formatWaktu(),
+      answeredAt: null,
+      curatedBy: null
+    });
+    saveSharedDb(sharedDb);
+
+    if (window.ApiClient && typeof window.ApiClient.request === 'function' && window.CONFIG && CONFIG.API_URL) {
+      window.ApiClient.request('submitConsultation', { topik, pertanyaan }).catch(() => {});
+    }
+
+    document.getElementById('konsul-pertanyaan').value = '';
+    const checkNo = document.getElementById('check-ticket-no');
+    const checkTok = document.getElementById('check-ticket-token');
+    if (checkNo) checkNo.value = ticketNo;
+    if (checkTok) checkTok.value = token;
+
+    showTicketReceiptModal({
+      badge: 'KONSULTASI RAHASIA DITERBITKAN',
+      title: 'Tiket Konsultasi Aqidah Tersimpan',
+      subtitle: 'Simpan Nomor Tiket dan Token Rahasia berikut. Token disimpan dalam bentuk hash SHA-256 sehingga hanya Anda yang dapat membuka jawaban Dewan Pakar.',
+      ticketNo: ticketNo,
+      token: token,
+      extraInfo: 'Gunakan kotak "Cek Status & Jawaban Tiket Rahasia" di halaman ini untuk membaca jawaban.',
+      isEmergency: false
+    });
+
+    showToast(`Tiket ${ticketNo} diterbitkan.`);
+  }
+
+  function checkConsultationAnswer() {
+    const ticketNo = document.getElementById('check-ticket-no')?.value.trim();
+    const token = document.getElementById('check-ticket-token')?.value.trim();
+    const res = document.getElementById('check-ticket-result');
+    if (!ticketNo || !token || !res) {
+      showToast('Harap masukkan nomor tiket dan token rahasia.', 'error');
+      return;
+    }
+
+    const sharedDb = getSharedDb();
+    const inputHash = hashConsultToken(token);
+    const match = (sharedDb.consultations || []).find(c =>
+      c.tiketNo &&
+      c.tiketNo.toLowerCase() === ticketNo.toLowerCase() &&
+      (c.tokenHash === inputHash || c.tokenHash === token)
+    );
+
+    res.classList.remove('hidden');
+    if (match) {
+      res.innerHTML = `
+        <div class="flex flex-col gap-2">
+          <span class="font-bold text-primary block tabular-nums">${escapeHtml(match.tiketNo)} | ${escapeHtml(match.topik)}</span>
+          <p class="text-on-surface bg-white p-2.5 rounded-lg border border-surface-container">"${escapeHtml(match.pertanyaan)}"</p>
+          <div class="p-3 rounded-lg ${match.jawaban ? 'bg-emerald-50 border border-emerald-300 text-emerald-950' : 'bg-amber-50 border border-amber-300 text-amber-950'}">
+            <span class="font-bold block">${match.jawaban ? 'Jawaban Dewan Pakar / Divisi Litbang APII:' : 'Status: Pertanyaan Sedang Ditelaah'}</span>
+            <p class="mt-1 leading-relaxed">${escapeHtml(match.jawaban || 'Asatidz kami sedang menyusun rujukan dalil Al-Quran dan hadits shahih untuk menjawab pertanyaan Anda.')}</p>
+          </div>
+        </div>
+      `;
+    } else {
+      res.innerHTML = `<span class="text-red-800 font-bold">Tiket atau token rahasia tidak cocok. Silakan periksa kembali catatan Anda.</span>`;
+    }
+  }
+
+  function submitAdvokasiCrisis() {
+    const namaDai = document.getElementById('adv-nama-dai')?.value.trim();
+    const kontak = document.getElementById('adv-kontak')?.value.trim();
+    const lokasi = document.getElementById('adv-lokasi')?.value.trim();
+    const urgensi = document.getElementById('adv-urgensi')?.value || 'KILAT_DARURAT';
+    const kronologi = document.getElementById('adv-kronologi')?.value.trim();
+
+    if (!namaDai || !kontak || !kronologi) {
+      showToast('Harap lengkapi nama, kontak WhatsApp, dan kronologi kejadian.', 'error');
+      return;
+    }
+
+    const sharedDb = getSharedDb();
+    const newSeq = (Math.floor(100 + Math.random() * 900)).toString();
+    const tiketNo = `TIKET-LBH-202611-${newSeq}`;
+
+    sharedDb.advokasi.unshift({
+      id: 'ADV-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
+      tenantId: getActiveTenant().code,
+      tiketNo: tiketNo,
+      namaDai: namaDai,
+      kontak: kontak,
+      lokasi: lokasi || 'Wilayah Dakwah APII',
+      kronologi: kronologi,
+      urgensi: urgensi,
+      buktiUrl: '#',
+      status: 'MENUNGGU_TELAAH',
+      catatanLbh: 'Laporan krisis masuk via Portal Publik. Menunggu penerbitan surat tugas advokat.',
+      updatedAt: formatWaktu()
+    });
+    saveSharedDb(sharedDb);
+
+    if (window.ApiClient && typeof window.ApiClient.request === 'function' && window.CONFIG && CONFIG.API_URL) {
+      window.ApiClient.request('submitAdvokasiIntake', {
+        wilayah_id: getActiveTenant().code,
+        nama_dai: namaDai,
+        kontak: kontak,
+        lokasi: lokasi,
+        urgensi: urgensi,
+        kronologi: kronologi
+      }).catch(() => {});
+    }
+
+    document.getElementById('adv-nama-dai').value = '';
+    document.getElementById('adv-kontak').value = '';
+    document.getElementById('adv-lokasi').value = '';
+    document.getElementById('adv-kronologi').value = '';
+
+    showTicketReceiptModal({
+      badge: `SIAGA LBH APII (${urgensi})`,
+      title: 'Laporan Krisis Hukum Diterima',
+      subtitle: `Laporan darurat atas nama ${namaDai} telah tercatat dan diteruskan ke Divisi Hukum & Advokasi LBH APII.`,
+      ticketNo: tiketNo,
+      token: null,
+      extraInfo: `Tim Advokat LBH APII segera menghubungi nomor WhatsApp ${kontak} untuk koordinasi pendampingan hukum.`,
+      isEmergency: true
+    });
+
+    showToast(`Tiket Darurat ${tiketNo} diterima LBH APII.`);
+  }
+
+  // =========================================================================
+  // 11. DPW NOT FOUND MODAL, CLIPBOARD & TOAST
+  // =========================================================================
+  function showDpwNotFoundModal(slug) {
+    const modal = document.getElementById('modal-dpw-not-found');
+    const nameEl = document.getElementById('dpw-not-found-name');
+    const listEl = document.getElementById('dpw-active-list');
+    const actionsEl = document.getElementById('dpw-modal-actions');
+
+    if (nameEl) nameEl.textContent = `"${String(slug || '').toUpperCase()}"`;
+
+    const activeTenants = getAllActiveTenants();
+    if (listEl) {
+      listEl.innerHTML = activeTenants.map(t => `
+        <div class="flex items-center gap-2 text-primary font-bold">
+          <span class="material-symbols-outlined text-[16px]" aria-hidden="true">check_circle</span>
+          <span>Wilayah Aktif: ${escapeHtml(t.name)} (?dpw=${escapeHtml(t.slug)})</span>
+        </div>
+      `).join('');
+    }
+    if (actionsEl) {
+      actionsEl.innerHTML = activeTenants.map(t => `
+        <button type="button" onclick="PublicApp.switchTenantManually('${escapeHtml(t.slug)}'); PublicApp.closeAllModals();"
+          class="w-full min-h-[44px] py-2.5 rounded-lg ${t.code === 'DPP_PUSAT' ? 'bg-primary hover:bg-primary-container' : 'bg-secondary hover:bg-emerald-800'} text-white font-bold text-xs shadow-sm">
+          Buka Portal ${escapeHtml(t.name)}
+        </button>
+      `).join('');
+    }
+
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  function showWilayahUnderPreparation(namaWilayah) {
+    showToast(`Posko ${namaWilayah} sedang dalam tahap persiapan konsolidasi kepengurusan daerah & penerbitan SK Mandat DPP.`, 'info');
+  }
+
+  function copyText(text, successMsg) {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(successMsg || 'Berhasil disalin.');
+      }).catch(() => {
+        fallbackCopy(text, successMsg);
+      });
+    } else {
+      fallbackCopy(text, successMsg);
+    }
+  }
+
+  function fallbackCopy(text, successMsg) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast(successMsg || 'Berhasil disalin.');
+    } catch (e) {
+      showToast('Silakan salin kode secara manual.', 'warning');
+    }
+  }
+
+  function showToast(message, type = 'success') {
+    const toast = document.getElementById('public-toast');
+    if (!toast) return;
+
+    let bgClass = 'bg-primary-container';
+    if (type === 'error') bgClass = 'bg-red-800';
+    else if (type === 'warning') bgClass = 'bg-amber-800';
+    else if (type === 'info') bgClass = 'bg-emerald-900 border border-emerald-500';
+
+    toast.textContent = message;
+    toast.className = `fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-50 px-4 py-3 rounded-xl shadow-xl text-white text-xs sm:text-sm font-medium flex items-center gap-2 transition-all transform duration-300 ${bgClass}`;
+    toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+    setTimeout(() => {
+      toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+    }, 4500);
+  }
+
+  return {
+    init,
+    getSharedDb,
+    sha256Hex,
+    hashConsultToken,
+    maskNik,
+    createMonogramAvatar,
+    showToast,
+    showWilayahUnderPreparation,
+    showDpwNotFoundModal,
+    switchTenantManually,
+    setGeoMapLayer,
+    zoomGeoMap,
+    fitAllGeoMarkers,
+    submitRegistration,
+    openWartaModal,
+    registerAgendaAttendance,
+    openQrisConfirmModal,
+    switchQrisTab,
+    confirmQrisDonation,
+    submitConsultation,
+    checkConsultationAnswer,
+    submitAdvokasiCrisis,
+    closeAllModals
+  };
 })();
+
+if (typeof window !== 'undefined') {
+  window.PublicApp = PublicApp;
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    PublicApp.init();
+  } else {
+    document.addEventListener('DOMContentLoaded', () => {
+      PublicApp.init();
+    });
+  }
+}

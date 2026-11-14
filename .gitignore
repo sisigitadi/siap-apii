@@ -1,71 +1,40 @@
 # Dependencies
 node_modules/
 
-# Build
-dist/
-*.tsbuildinfo
-
-# Environment (jangan pernah commit kredensial)
+# Environment & Secrets
 .env
 .env.*
 !.env.example
-
-# Kunci RS256 (lihat DESIGN.md §11.4)
 keys/
 
-# Coverage & cache
+# Coverage & Cache
 coverage/
 .eslintcache
 
-# Prisma lokal (seeds besar / data debug)
-*.db
-*.db-journal
-
-# Infrastruktur dev (docker volumes)
-.postgres-data/
-.redis-data/
-.minio-data/
-supabase/
-
-# Bukti unggahan runtime (ditulis oleh uploader service & pengujian)
-storage/
-
-# Log runtime dev (backend & frontend watcher, firewall WSL, capture terminal)
-.backend-dev.log
-.frontend-dev.log
-backend-dev-out.txt
-backend-dev-err.txt
-frontend-dev-out.txt
-frontend-dev-err.txt
-gitout.txt
-scripts/.wsl-firewall.log
-scripts/art-raw.txt
-
-# Laporan hasil `npm run sprint1:verify` (ditulis ulang setiap run)
-sprint1-report.txt
-
-# Mockup desain sumber Stitch (23 MB, bukan bagian kode — lihat README §Struktur Folder)
-Dokumen Sumber/
-
-# OS / editor
-.DS_Store
-Thumbs.db
-desktop.ini
+# IDE & Editor Sync (Apps Script local typings)
+.gas-sync/
+jsconfig.json
 .idea/
 .vscode/*
 !.vscode/settings.json
 
-# Hasil build & preview sementara
-artifacts/
+# OS & Google Drive Desktop Artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+*.gdoc
+*.gsheet
+*.gslides
+
+# Generated PDF Export (Markdown & HTML sources tracked instead)
+PANDUAN EKSEKUTIF & PENJELASAN SISTEM SIAP APII.pdf
+
+# Mockup desain sumber Stitch (bukan bagian runtime produksi)
+public/*/
+portal/*/
+
+# Logs & Scratch
 *.log
-backend-dev-err.txt
-backend-dev-out.txt
-.commit-msg.txt
-badges.txt
-c.txt
-fetsc2.txt
-flp.txt
-flp2.txt
-jestpp.txt
-tsc3.txt
 scratch/
+artifacts/
+

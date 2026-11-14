@@ -1,0 +1,23 @@
+{
+  "name": "SIAP APII Enterprise - Portal Pengurus",
+  "short_name": "SIAP APII",
+  "description": "Sistem Informasi & Administrasi Terpadu Yayasan Apologet Islam Indonesia",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#064E3B",
+  "icons": [
+    {
+      "src": "./logo_apii.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./logo_apii.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

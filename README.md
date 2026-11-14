@@ -1,135 +1,230 @@
-# Yayasan APII DPW Jabodetabek — SIAP APII (v2.0.0 Enterprise)
-
-**Sistem Informasi & Administrasi Terpadu Yayasan APII (Apologet Islam Indonesia)**  
-Dewan Pimpinan Wilayah (DPW) Jabodetabek (Jakarta, Bogor, Depok, Tangerang, Bekasi)
-
-Sistem administrasi yayasan modern nir-server (*serverless enterprise*) yang dibangun di atas **Google Apps Script** (backend API & state machine), **Google Sheets** (database ACID berelasi), **Google Drive** (penyimpanan dokumen & berkas terenkripsi), dan **HTML5 + Vanilla JavaScript (SWR Caching) + Tailwind CSS** (frontend antarmuka pengguna). Bebas biaya sewa server VM, stabil, aman, dan siap pakai.
-
-> **Filosofi Sistem:** _"Amanah, Transparan, Cepat, dan Akuntabel."_ Menghubungkan seluruh tata kelola persuratan, buku kas keuangan, program kerja divisi, dan penerimaan anggota baru dalam satu ekosistem terpadu.
+# SIAP APII Enterprise (v3.0.0)
+### Sistem Informasi & Administrasi Terpadu Yayasan Apologet Islam Indonesia
+**SK Kemenkumham RI No. AHU-0014970.AH.01.04.Tahun 2023**
 
 ---
 
-## 🧱 Tumpukan Teknologi (Technology Stack)
+## 🌟 Tentang SIAP APII Enterprise
 
-| Lapisan | Teknologi | Peran & Keterangan |
-| :--- | :--- | :--- |
-| **Backend API** | **Google Apps Script** (`doGet` / `doPost`) | RESTful JSON API, RBAC 8 peran, state machine, generator PDF Docs |
-| **Database ACID** | **Google Sheets** | Sheet: `Users`, `Sessions`, `Surat`, `Keuangan`, `Divisi`, `AuditLogs`, `Pendaftar`, `Settings`, `Accounts` |
-| **Penyimpanan Dokumen** | **Google Drive** | Arsip PDF surat resmi, kwitansi kas, berkas foto KTP & pas foto |
-| **Mesin Render PDF** | **Google Docs Template API** | Kop yayasan, logo resmi, nomor surat otomatis, dan stempel basah |
-| **Portal Pengurus (SPA)** | Vanilla JS + SWR Cache + Tailwind CDN | Domain **`siapii.sigitadi.id`** (Akses eksklusif 8 peran pengurus) |
-| **Portal Publik** | Vanilla JS + Canvas Watermark + Tailwind CDN | Domain **`apii.sigitadi.id`** (Pendaftaran anggota & profil yayasan) |
-| **Otentikasi & Keamanan** | Password Hashing SHA-256 + Sesi Token UUID | Masa berlaku sesi 7 hari, proteksi XSS/CSRF, sanitasi payload |
-| **Kepatuhan Privasi** | **UU PDP No. 27/2022** + Canvas Watermarking | Watermark otomatis sisi klien sebelum berkas KTP dikirim ke server |
+**SIAP APII Enterprise** adalah sistem tata kelola kelembagaan, persuratan dinas digital, transparansi keuangan syariah, dan pembinaan anggota berskala nasional yang dikembangkan khusus untuk **Yayasan Apologet Islam Indonesia (APII)**.
+
+Sistem dirancang dengan arsitektur **Serverless Zero-Cloud-Cost** memanfaatkan ekosistem Google Workspace (Google Apps Script, Google Sheets 28 Tabel ACID, dan Google Drive Vault) yang dipadukan dengan **Dwi-Portal Responsive** (Portal Publik Adaptif dan Portal Pengurus Private SPA 10-Workspace).
 
 ---
 
-## ✨ Fitur-Fitur Unggulan
+## 🏛️ Legalitas & Standar Entitas
 
-### 1. Portal Pengurus (`siapii.sigitadi.id`)
-- **Navigasi Super Cepat (0ms Latency)**: Didukung mesin *Stale-While-Revalidate (SWR)* dan *Route Prefetching* di `portal/auth.js`.
-- **Kotak Aksi Terpadu (*Action Inbox*)**: Dashboard pimpinan dengan rangkuman aksi mendesak (surat menunggu persetujuan, voucher kas verifikasi, dan usulan divisi).
-- **Modul Persuratan Resmi**:
-  - Penomoran otomatis dinamis (misal: `042/SK-DPW-APII/III/2026`).
-  - Pratinjau Kertas Virtual A4 dengan stempel basah transparan (*mix-blend-mode*) dan watermark status.
-  - Cetak ramah printer (`@media print`) dan unduh PDF resmi.
-- **Modul Keuangan Kas Dual-Approval**:
-  - Pencatatan voucher masuk/keluar oleh Bendahara.
-  - Verifikasi ganda: Tahap 1 oleh Bendahara $\to$ Tahap 2 oleh Ketua DPW.
-  - Cetak kwitansi kas otomatis terbilang Rupiah dan integrasi bukti bayar Google Drive.
-- **Siklus Hidup Usulan Divisi (5-Tahap)**:
-  - `DRAFT` $\to$ `AJUKAN` $\to$ `DISETUJUI` $\to$ `PELAKSANAAN` $\to$ `LPJ_SELESAI`.
-  - Formulir penyerahan LPJ akuntabel dengan tautan laporan Google Drive dan realisasi anggaran akhir.
-- **Manajemen Pendaftar Anggota Baru**:
-  - Meninjau berkas pendaftar masuk dari portal publik.
-  - Pratinjau KTP ber-watermark dan foto selfie pemohon.
-  - Verifikasi berkas oleh Sekretaris $\to$ Pengesahan resmi anggota oleh Ketua DPW.
-- **Pengaturan & Master Data Terpadu (Superadmin & Ketua)**:
-  - Master rekening bank kas yayasan (CRUD & toggle publik).
-  - Master format penomoran dan jenis surat baru (`NOTULEN`, `RAPAT`, `BA`, dll).
-  - Upload gambar KOP surat resmi dengan pratinjau Canvas.
-  - **Manajemen Penyimpanan Google Drive Terpadu (4 Kotak Aksi)**: Buat folder baru instan di Drive dengan subfolder resmi, gunakan custom ID folder, pindahkan folder aktif ke induk, dan tombol reset satu-klik ke default organisasi.
-  - **Modul Redaksi Konten Portal (Mini-CMS Pengurus)**: Sub-tab ke-7 di menu Pengaturan untuk mengelola teks Hero, Sambutan & Visi-Misi, Warta Maklumat Resmi, Agenda Kegiatan DPW, FAQ Akordeon, dan Media Sosial secara mandiri.
-- **Jejak Audit Permanen (WORM — Anti-Hapus)**:
-  - Seluruh mutasi data dan aktivitas tercatat permanen di `Sheet_AuditLogs` tanpa tombol hapus.
-
-### 2. Portal Publik (`apii.sigitadi.id`)
-- **Penyajian Konten Dinamis Terpadu (Single Page Landing)**:
-  - **Hero & Tagline Berdasarkan Momen**: Menampilkan headline, deskripsi, dan tombol aksi yang disinkronkan langsung dari panel redaksi.
-  - **Seksi Profil Lembaga & Sambutan Pimpinan**: Sambutan resmi Ketua DPW APII Jabodetabek dan komitmen visi-misi keumatan.
-  - **Seksi Warta Maklumat & Agenda Acara**: Tab switcher interaktif menyajikan instruksi/maklumat resmi pimpinan dan kalender kegiatan/kajian DPW mendatang lengkap dengan link registrasi dan unduh lampiran.
-  - **Akordeon Tanya Jawab (FAQ)**: Jawaban interaktif atas pertanyaan calon anggota dan masyarakat umum.
-  - **Kontak & Media Sosial Resmi**: Alamat, email, jam layanan, WhatsApp helpdesk, dan tautan kanal YouTube/Instagram/WA Channel.
-- **Formulir Pendaftaran Calon Anggota Baru**:
-  - Entri biodata terstruktur: Nama KTP, NIK 16 digit, TTL, Gender, WhatsApp (+62), Email, Profesi, Domisili Jabodetabek, dan Minat 7 Divisi Kerja.
-- **Watermark KTP Otomatis Sisi Klien (HTML5 Canvas)**:
-  - Mencegah penyalahgunaan identitas dengan cap pengaman diagonal (*"ARSIP PENDAFTARAN APII DPW JABODETABEK - [TANGGAL]"*).
-- **Tanda Terima Pendaftaran Digital (Receipt Modal)**:
-  - Kode registrasi unik `REG-YYYY-XXXX`, masking NIK terproteksi, dan tombol konfirmasi instan ke WhatsApp Sekretariat.
-- **Privasi & Keamanan Maksimal**:
-  - Sesuai amanat UU PDP No. 27/2022, data e-KTA tidak dipublikasikan ke publik.
-  - Tautan portal pengurus disembunyikan sepenuhnya dari pandangan publik.
-  - Formulir verifikasi dokumen internal dinonaktifkan dari akses publik.
+* **Nama Entitas:** Yayasan Apologet Islam Indonesia (APII)
+* **Nomor SK Kemenkumham RI:** `AHU-0014970.AH.01.04.Tahun 2023`
+* **Domain Dasar:**
+  * DPP Nasional: `apologetislamindonesia.or.id`
+  * DPW Wilayah: `{wilayah}.apologetislamindonesia.or.id` (contoh: `jabodetabek.apologetislamindonesia.or.id`)
+* **Pengembang Resmi:** Sigit Adi Irianto (Freelance Software Engineer) | [WhatsApp](https://wa.me/6281358575678) | [sigitadi.id](https://sigitadi.id)
 
 ---
 
-## 👥 8 Peran Resmi Pengurus Yayasan (RBAC Matrix)
+## 📐 Arsitektur Sistem
 
-| Username | Peran (*Role*) | Hak Akses Utama |
-| :--- | :--- | :--- |
-| `superadmin` | **SUPERADMIN** | Akses penuh sistem, manajemen akun pengurus, master data, konfigurasi |
-| `ketua` | **KETUA** | Pengesahan akhir surat, persetujuan voucher kas, persetujuan usulan program, pengesahan anggota |
-| `sekretaris` | **SEKRETARIS** | Konseptor surat, penomoran dinamis, verifikasi tahap 1 berkas pendaftar anggota baru |
-| `bendahara` | **BENDAHARA** | Pembukuan voucher kas, verifikasi kas tahap 1, cetak kwitansi, laporan saldo buku kas |
-| `pembina` | **PEMBINA** | Read-Only: Pemantauan kinerja persuratan, buku kas keuangan, program divisi, jejak audit |
-| `pengawas` | **PENGAWAS** | Read-Only: Pengawasan kepatuhan hukum, mutasi kas, dan rekam jejak audit sistem |
-| `khumas` | **KETUA_DIVISI** | Pengusul program kerja divisi, eksekusi kegiatan, dan penyerahan LPJ akuntabel |
-| `ahumas` | **ANGGOTA_DIVISI** | Pelaksana program kerja divisi, asistensi penyusunan usulan program & LPJ |
-
-> *Catatan:* Seluruh akun pengurus bawaan menggunakan password awal: `apii2026`. Harap ubah password saat pertama kali masuk melalui menu Profil Saya.
-
----
-
-## 🚀 Prosedur Deployment & Pembaruan
-
-### 1. Kompilasi Backend Google Apps Script
-Jalankan script bundler PowerShell dari root direktori proyek:
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build-apps-script.ps1
 ```
-Hasil kompilasi siap-tempel akan diperbarui di folder `apps-script/`:
-- `apps-script/Backend.gs`
-- `apps-script/AsetLogo.gs`
-- `apps-script/AsetStempel.gs`
-
-### 2. Unggah ke Google Apps Script Editor
-1. Buka [script.google.com](https://script.google.com) pada project yayasan Anda.
-2. Salin isi masing-masing file dari folder `apps-script/` ke file script di editor Apps Script.
-3. Simpan (Ctrl + S).
-4. Klik **Deploy** $\to$ **Manage deployments** $\to$ Pilih versi **New version** $\to$ **Deploy**.
-5. Pastikan URL endpoint Web App sinkron pada `portal/config.js` dan `public/config.js`.
-
-### 3. Deployment Frontend (Hosting Mandiri / Apache / cPanel)
-Unggah berkas statis ke server web Anda dengan konfigurasi `.htaccess` yang telah disediakan:
-- Berkas `public/` diunggah ke *root document* situs publik (`https://apii.sigitadi.id`)
-- Berkas `portal/` diunggah ke sub-direktori atau subdomain portal pengurus (`https://siapii.sigitadi.id`)
-- Konfigurasi SPA rewrite dan security headers sudah terpasang otomatis via berkas `.htaccess`.
++-----------------------------------------------------------------------------------+
+|                            WILDCARD DNS CLOUDFLARE                                |
+|  *.apologetislamindonesia.or.id  /  apologetislamindonesia.or.id                 |
++-----------------------------------------------------------------------------------+
+                                   |
+         +-------------------------+-------------------------+
+         |                                                   |
+         v                                                   v
++----------------------------------+   +--------------------------------------------+
+|     ZONA 1: PORTAL PUBLIK        |   |       ZONA 2: PORTAL PENGURUS SPA          |
+|         (Directory: /public)     |   |          (Directory: /portal)              |
+|                                  |   |                                            |
+|  - Subdomain Sniffer (DPP / DPW) |   |  - Topbar Multi-Tenant Switcher            |
+|  - Pendaftaran Anggota 100% Free |   |  - 10 Workspaces Operasional Pimpinan      |
+|  - KTP Watermarker UU PDP <200KB |   |  - Live Virtual A4 Composer & Stamp Blend  |
+|  - Transparansi Infaq & QRIS     |   |  - Pembukuan Kas Dual-Approval & 4 Dompet  |
+|  - Warta, Maklumat & Agenda      |   |  - Kwitansi Proporsional Dual-Slip 30%:70% |
+|  - Unified Public Verif Hub      |   |  - KTA Digital CR80 ISO/IEC 7810 Canvas    |
+|  - Konsultasi Kristologi Anonim  |   |  - Smart WhatsApp Handover Relay           |
++----------------------------------+   +--------------------------------------------+
+         |                                                   |
+         +-------------------------+-------------------------+
+                                   | (CORS text/plain JSON POST)
+                                   v
++-----------------------------------------------------------------------------------+
+|               BACKEND: GOOGLE APPS SCRIPT MODULAR / BUNDLED                       |
+|   (apps-script/*.gs  -->  Compiled via Node.js to: build/dist_Code.gs)             |
+|                                                                                   |
+|  - Mutex LockService (Anti Race-Condition)                                        |
+|  - 28 Google Sheets ACID Tables & Relational Lookups                              |
+|  - Auth UUID Session 7-Hari & 8-Role RBAC                                         |
+|  - Sharia Guard (Kas Zakat Khusus 8 Ashnaf; Anti Salah Salur)                     |
+|  - Hijri Calendar Ummul Qura & Indonesian Terbilang Engine                        |
+|  - 17 Modul Inovasi Dakwah Terintegrasi                                           |
+|  - Google Drive Vault 3-Tier Security Hierarchy                                   |
++-----------------------------------------------------------------------------------+
+```
 
 ---
 
-## 📚 Indeks Dokumentasi
+## 📂 Struktur Direktori Proyek
 
-- **[CHANGELOG.md](./CHANGELOG.md)** — Catatan riwayat versi, fitur baru, dan perubahan sistem
-- **[docs/REDAKSI_KONTEN.md](./docs/REDAKSI_KONTEN.md)** — Spesifikasi teknis redaksi konten dinamis portal publik (Mini-CMS)
-- **[docs/VERSION_CONTROL.md](./docs/VERSION_CONTROL.md)** — Standar Git workflow, branching, dan deployment pipeline
-- **[docs/deploy.md](./docs/deploy.md)** — Panduan deployment produksi, konfigurasi DNS CNAME, dan checklist rilis
-- **[docs/DESIGN.md](./docs/DESIGN.md)** — Dokumen arsitektur teknis, relasi spreadsheet, dan diagram alur
-- **[docs/PRD.md](./docs/PRD.md)** — Product Requirements Document (kebutuhan bisnis dan fungsi)
-- **[docs/rbac-matrix.md](./docs/rbac-matrix.md)** — Matriks kewenangan RBAC 8 peran pengurus
+```
+Development Website DPP APII/
+├── apps-script/                        # 17 Berkas Modul Backend Google Apps Script
+│   ├── Database.gs                     # 28 Skema Tabel, Mutex Lock & Safe Query Engine
+│   ├── Auth.gs                         # SHA-256 Hashing, 7-Day UUID Session & 8 Roles
+│   ├── HijriEngine.gs                  # Kalkulator Ummul Qura / Kemenag
+│   ├── TemplateSuratDocs.gs            # Layout A4, KOP DPP/DPW & Stempel Multiply
+│   ├── Surat.gs                        # Alur Persuratan Keluar & Penomoran Otomatis
+│   ├── SuratMasuk.gs                   # Buku Agenda Digital Surat Masuk
+│   ├── Disposisi.gs                    # Multi-Divisi Disposisi & Instruksi Ketua
+│   ├── ShariaGuard.gs                  # Validasi Syariah 8 Ashnaf Kas Zakat
+│   ├── KwitansiEngine.gs               # Kwitansi Dual-Slip & Mesin Terbilang Rupiah
+│   ├── Keuangan.gs                     # 4 Dompet Syariah & Dual-Approval Kas
+│   ├── Divisi.gs                       # Manajemen Proker 7 Divisi (ART Ps 16) & LPJ
+│   ├── Keanggotaan.gs                  # Pendaftaran Gratis, KTA 5-Tahun & NIA Urut
+│   ├── InovasiDakwah.gs                # 17 Modul Inovasi (LBH, Muallaf, Maktabah, dll)
+│   ├── NotificationDispatcher.gs       # Smart WhatsApp Relay (wa.me E.164)
+│   ├── DriveVault.gs                   # Manajemen Berkas Arsip 3-Tier
+│   ├── Setup.gs                        # Idempotent Database Initialization & Seeding
+│   └── Code.gs                         # Central HTTP Router (doGet & doPost)
+├── build/
+│   └── dist_Code.gs                    # Single-file Bundle siap salin ke Google Apps Script (114.87 KB)
+├── portal/                             # ZONA 2: Portal Pengurus Private SPA
+│   ├── config.js                       # Pengaturan Endpoint API & Auto-Demo Mode
+│   ├── auth.js                         # State Sesi UUID, Akun Demo & Switcher Pengurus
+│   ├── state.js                        # SWR In-Memory Caching & Local Mock Engine
+│   ├── app.js                          # Controller 10 Workspace, Live A4 & CR80 Canvas
+│   ├── index.html                      # Single-File SPA Shell Lengkap
+│   ├── manifest.json                   # Web App Manifest PWA Pengurus
+│   └── sw.js                           # Service Worker Offline Caching
+├── public/                             # ZONA 1: Portal Publik Adaptif
+│   ├── config.js                       # Pengaturan Publik, Rekening BSI & Crowdfunding
+│   ├── app.js                          # Subdomain Sniffer, Hash Router, KTP Watermarker
+│   ├── index.html                      # Landing Page Publik Adaptif & Verification Hub
+│   ├── manifest.json                   # Web App Manifest PWA Publik
+│   └── sw.js                           # Service Worker Offline Caching
+├── scripts/
+│   ├── build-apps-script.mjs           # Node.js Syntax Gate & Single-file Bundler
+│   ├── generate-diagrams.mjs           # Image Exporter 7 Diagram Alur SIAP APII
+│   └── generate-html.mjs               # Kompiler Dokumen Panduan Eksekutif Base64
+├── assets/diagrams/                    # 7 Diagram Arsitektur Format PNG & JPG
+├── prd.md                              # Blueprint Teknis Lengkap 28 Tabel & 10 Workspace
+├── revisi.md                           # Laporan Audit & Verifikasi Pre-Eksekusi 7 Lapisan
+├── PANDUAN_EKSEKUTIF_DAN_FITUR_SIAP_APII.md   # Dokumen Presentasi Klien
+└── README.md                           # Dokumentasi Panduan Utama (Berkas ini)
+```
 
 ---
 
-## 📄 Lisensi & Hak Cipta
+## 🚀 Panduan Instalasi & Deployment
 
-Hak Cipta © 2026 **Yayasan APII DPW Jabodetabek**. Seluruh hak dilindungi undang-undang.
-Sistem ini dikembangkan khusus untuk operasional resmi organisasi APII.
+### 1. Backend Google Apps Script
+
+1. Buka [script.google.com](https://script.google.com) dan buat proyek baru (beri nama `SIAP APII Backend Enterprise`).
+2. Terdapat 2 opsi penyalinan:
+   * **Opsi A (Single-file - Rekomendasi):** Buka berkas `build/dist_Code.gs`, salin seluruh isinya (2.968 baris), dan tempel ke editor Google Apps Script menggantikan berkas `Code.gs`.
+   * **Opsi B (Modular via Clasp CLI):** Pasang Google Clasp (`npm i -g @google/clasp`), inisialisasi `.clasp.json`, lalu jalankan `clasp push` dari direktori `apps-script/`.
+3. Jalankan fungsi **`setup()`** dari menu editor Apps Script:
+   * Fungsi ini bersifat **idempotent** (aman dijalankan berulang kali).
+   * Otomatis membuat Google Spreadsheet 28 lembar ACID dengan kunci mutex.
+   * Mengkonfigurasi keamanan `ScriptProperties` (`SESSION_SALT`, `EMERGENCY_RESET_KEY`).
+   * Menghasilkan akun default **Superadmin**:
+     * Username: `admin`
+     * Password: `APII@Admin2026`
+   * Menghasilkan akun BPH percontohan (Ketua Umum, Sekretaris Umum, Bendahara Umum, Ketua DPW Jabodetabek).
+4. Klik **Deploy** $\to$ **New Deployment**:
+   * Pilih tipe: **Web App**.
+   * Description: `SIAP APII v3.0.0 Production`.
+   * Execute as: **Me (akun Google Anda)**.
+   * Who has access: **Anyone** (wajib Anyone agar frontend dapat mengakses via CORS).
+5. Salin URL Web App yang dihasilkan (format: `https://script.google.com/macros/s/.../exec`).
+6. Tempelkan URL tersebut ke:
+   * `portal/config.js` $\to$ ubah `API_URL: 'https://script.google.com/macros/s/.../exec'`
+   * `public/config.js` $\to$ ubah `API_URL: 'https://script.google.com/macros/s/.../exec'`
+
+---
+
+### 2. Frontend (Portal Publik & Portal Pengurus)
+
+Dapat di-hosting pada layanan statis gratis apa pun:
+* **Cloudflare Pages / Netlify / Vercel / GitHub Pages**:
+  * Direktori root publik: arahkan ke `public/` (atau gunakan subfolder `portal/` dan `public/`).
+* **Pengujian Lokal Langsung:**
+  * Buka langsung berkas `public/index.html` dan `portal/index.html` pada peramban peramban (Chrome, Edge, Firefox, Safari).
+  * Sistem telah dilengkapi fitur **Auto-Demo Mock Mode**:
+    * Jika `API_URL` masih kosong atau peramban dalam keadaan offline, sistem otomatis mengaktifkan mesin mock lokal berbasis `localStorage` dengan data lengkap 10 workspace sehingga seluruh tombol, form, modal, live A4, dan cetak KTA dapat diuji seketika tanpa hambatan (*zero dead buttons*).
+
+---
+
+## 🔑 Fitur Utama & Keunggulan
+
+### 1. Naskah Surat Keluar (Live Virtual A4 Composer)
+* Tampilan visual presisi kertas **A4 ($210 \times 297\text{ mm}$)** dengan KOP resmi dinamis (DPP Pusat / DPW Wilayah), basmalah kaligrafi Arab, dan penomoran otomatis berurutan (`005/SM-DPP-APII/XI/2026`).
+* Otorisasi pengesahan berstempel basah digital dengan teknologi CSS blend mode `multiply`.
+* Terintegrasi cetak langsung atau simpan sebagai PDF beresolusi tinggi via fitur cetak browser.
+* Dilengkapi kode verifikasi hash integrity SHA-256 dan footer rujukan ke portal publik.
+
+### 2. Pembukuan Kas 4 Dompet Syariah & Dual-Approval
+* **Pemisahan 4 Dompet:**
+  1. *Kas Operasional Dakwah:* Biaya rutin, ATK, server, listrik, sekretariat.
+  2. *Kas Zakat (Ashnaf Guard):* Khusus 8 Ashnaf syar'i (Fisabilillah, Fakir, Miskin, Muallaf, dll).
+  3. *Kas Infaq & Shadaqah:* Kegiatan dakwah umum, seminar kristologi komparatif.
+  4. *Kas Wakaf Produktif:* Pembebasan lahan, pembangunan studio dakwah dan markaz abadi.
+* **Dual-Approval:** Setiap pengeluaran kas (BKK) wajib mendapatkan persetujuan Ketua sebelum dapat dicairkan oleh Bendahara.
+* **Kwitansi Dual-Slip (Proporsional $30\% : 70\%$):**
+  * Slip 1 ($30\%$): Arsip Bendahara Yayasan.
+  * Slip 2 ($70\%$): Bukti Sah Pembayar / Muzakki.
+  * Dilengkapi konversi angka ke terbilang otomatis Bahasa Indonesia (*e.g.* Rp 15.000.000 $\to$ *"Lima Belas Juta Rupiah"*).
+
+### 3. Keanggotaan & KTA Digital CR80 (ISO/IEC 7810 ID-1)
+* Pendaftaran anggota **100% Gratis** tanpa pungutan biaya atau iuran apa pun.
+* Masa berlaku KTA dikunci **5 tahun penuh** sejak tanggal pengesahan.
+* Renderer Canvas presisi kartu fisik ($1012 \times 638\text{ px}$ @ 300 DPI) lengkap dengan ornamen emas Islami, foto resmi, chip EMV, QR validasi, dan nomor NIA unik.
+* Tombol unduh langsung gambar KTA berkualitas tinggi dalam format PNG.
+
+### 4. Proteksi KTP Kepatuhan UU PDP No. 27/2022
+* Saat calon anggota mengunggah foto KTP pada Portal Publik, foto diproses langsung di peramban pengguna (*client-side HTML5 Canvas*).
+* Otomatis dibubuhi stempel watermark diagonal berulang:
+  `"HANYA UNTUK PENDAFTARAN ANGGOTA YAYASAN APOLOGET ISLAM INDONESIA • [WAKTU/TANGGAL] • UU PDP NO. 27/2022"`
+* Otomatis dikompresi ke format WebP di bawah **200 KB**, mencegah penyalahgunaan data pribadi oleh pihak yang tidak bertanggung jawab.
+
+### 5. Smart WhatsApp Handover Relay
+* Notifikasi pendaftaran anggota diarahkan melalui tautan pre-filled WhatsApp resmi (`wa.me` standar E.164) **khusus antar-pengurus internal** (Pemohon $\to$ Sekretaris $\to$ Ketua $\to$ Sekretaris).
+* **Prinsip Privasi Ketat:** Sistem tidak pernah mengirim pesan WhatsApp spam ke nomor pelamar umum.
+
+### 6. Unified Public Verification Hub
+* Menyediakan pusat pemeriksaan keabsahan satu pintu bagi masyarakat umum:
+  * **Cek Surat Dinas:** Berdasarkan nomor naskah surat atau hash SHA-256.
+  * **Cek KTA Digital:** Berdasarkan Nomor Induk Anggota (NIA) atau NIK terdaftar.
+  * **Cek Kwitansi Kas:** Berdasarkan nomor bukti kas masuk (BKM) atau kas keluar (BKK).
+* Mengeluarkan lencana verifikasi berstempel legalitas SK Kemenkumham RI.
+
+---
+
+## 🛠️ Perintah Uji Coba & Build
+
+```bash
+# Validasi sintaks seluruh berkas JavaScript frontend
+node -c portal/config.js portal/auth.js portal/state.js portal/app.js
+node -c public/config.js public/app.js
+
+# Re-build dan validasi bundle Google Apps Script (menghasilkan build/dist_Code.gs)
+node scripts/build-apps-script.mjs
+
+# Re-generate gambar diagram arsitektur ke folder assets/diagrams/
+node scripts/generate-diagrams.mjs
+```
+
+---
+
+## 📞 Dukungan Teknis & Konsultasi
+
+Untuk pertanyaan implementasi, integrasi domain kustom, atau kustomisasi fitur lebih lanjut:
+
+**Sigit Adi Irianto**
+* **Jabatan:** Freelance Software Engineer & Lead Architect
+* **WhatsApp:** [+62 813-5857-5678](https://wa.me/6281358575678)
+* **Website Portofolio:** [sigitadi.id](https://sigitadi.id)
+* **Organisasi Klien:** Yayasan Apologet Islam Indonesia (APII)
+

@@ -1,652 +1,441 @@
-﻿/****************************************************************************
- * Database.gs - dibangkitkan otomatis; JANGAN diedit manual.
- * Sumber: gas/Database.gs (scripts/build-apps-script.ps1)
- *****************************************************************************/
 /**
- * ============================================================================
- * Database.gs — Wrapper Tunggal Akses Google Sheets
- * ============================================================================
- * Satu-satunya file yang menyentuh SpreadsheetApp. Modul domain (Surat/
- * Keuangan/Divisi/Auth) HANYA memanggil API di sini, tidak pernah Sheet
- * langsung. Inilah yang membuat backend data bisa diganti tanpa sentuh domain.
- *
- * Konvensi: baris 1 = header (nama kolom). Baris 2+ = data.
- * ==========================================================================*/
+ * SIAP APII v3.0.0 Enterprise - Database.gs
+ * ACID Wrapper 28 Tabel Google Sheets dengan Atomic Mutex Lock & Index-Based Column Mapping
+ * 
+ * Pengembang: Sigit Adi Irianto (https://sigitadi.id | 0813-5857-5678)
+ * Hak Cipta: Yayasan Apologet Islam Indonesia (APII) - SK Kemenkumham: AHU-0014970.AH.01.04.Tahun 2023
+ */
 
-// Nama tab (sheet) di spreadsheet database.
-var TABS = {
-  USERS: 'Sheet_Users',
-  SESSIONS: 'Sheet_Sessions',
-  SURAT: 'Sheet_Surat',
-  KEUANGAN: 'Sheet_Keuangan',
-  DIVISI: 'Sheet_Divisi',
-  AUDIT: 'Sheet_AuditLogs',
-  SEQUENCES: 'Sheet_Sequences',
-  PENDAFTAR: 'Sheet_Pendaftar',
-  ACCOUNTS: 'Sheet_Accounts',
-  SETTINGS: 'Sheet_Settings',
-  EDITORIAL_HISTORY: 'Sheet_EditorialHistory',
-  // Pelacakan pengunjung portal publik (device/OS/lokasi/waktu).
-  VISITORS: 'Sheet_Visitors',
-  // Master template surat hasil unggah PDF (overlay PDF asli, multi-template).
-  TEMPLATES: 'Sheet_Templates'
+// Konstanta Pemetaan Kolom Berbasis Indeks Integer (Index-Based Column Mapping)
+// Mencegah kerapuhan referensi string header (Standar Rekayasa RetroBOT v3.0)
+
+var COL_WILAYAH = { ID: 0, NAMA: 1, KODE: 2, SLUG: 3, ALAMAT: 4, IS_ACTIVE: 5 };
+var COL_USERS = { USER_ID: 0, WILAYAH_ID: 1, USERNAME: 2, FULLNAME: 3, EMAIL: 4, PHONE: 5, PASSWORD_HASH: 6, ROLE: 7, PERMISSIONS: 8, IS_ACTIVE: 9, CREATED_AT: 10, DIVISI: 11 };
+var COL_SESSIONS = { TOKEN: 0, USER_ID: 1, USERNAME: 2, ROLE: 3, WILAYAH_ID: 4, EXPIRES_AT: 5, DIVISI: 6, FULLNAME: 7, DEVICE: 8, IP_ADDRESS: 9, LOGIN_AT: 10 };
+var COL_SETTINGS = { KEY: 0, VALUE: 1, WILAYAH_ID: 2, UPDATED_BY: 3, UPDATED_AT: 4 };
+var COL_SETTINGS_AUDIT = { ID: 0, KEY: 1, OLD_VALUE: 2, NEW_VALUE: 3, CHANGED_BY: 4, TIMESTAMP: 5 };
+var COL_SEQUENCES = { TENANT_ID: 0, COUNTER_TYPE: 1, CURRENT_VAL: 2, LAST_UPDATED: 3 };
+var COL_AUDIT_LOGS = { ID: 0, TIMESTAMP: 1, USER_ID: 2, WILAYAH_ID: 3, ACTION: 4, ENTITY: 5, RECORD_ID: 6, DETAILS_JSON: 7, IP_ADDRESS: 8 };
+
+var COL_SURAT_KELUAR = { ID: 0, WILAYAH_ID: 1, NOMOR_SURAT: 2, TIPE: 3, PERIHAL: 4, TUJUAN: 5, TANGGAL: 6, TANGGAL_HIJRIAH: 7, KONTEN_JSON: 8, STATUS: 9, SIGNED_BY: 10, HASH_SHA256: 11, PDF_DRIVE_URL: 12, CREATED_BY: 13, CREATED_AT: 14, CATATAN_REVISI: 15 };
+var COL_SURAT_MASUK = { ID: 0, WILAYAH_ID: 1, NO_AGENDA: 2, ASAL_SURAT: 3, NO_SURAT_ASLI: 4, TGL_SURAT: 5, TGL_TERIMA: 6, PERIHAL: 7, RINGKASAN: 8, PDF_FILE_URL: 9, STATUS_DISPOSISI: 10, CREATED_AT: 11 };
+var COL_DISPOSISI = { ID: 0, WILAYAH_ID: 1, SURAT_MASUK_ID: 2, DRAF_REKOMENDASI_SEKRETARIS: 3, INSTRUKSI_KETUA: 4, TUJUAN_DIVISI_PEJABAT: 5, TINGKAT_URGENSI: 6, BATAS_WAKTU: 7, CATATAN_TAMBAHAN: 8, PARAF_KETUA: 9, STATUS: 10, LAPORAN_TINDAK_LANJUT: 11, UPDATED_AT: 12, LAPORAN_PER_DIVISI: 13 };
+var COL_TEMPLATES = { ID: 0, WILAYAH_ID: 1, KODE_TEMPLATE: 2, JUDUL: 3, STRUKTUR_JSON: 4, IS_DEFAULT: 5 };
+
+var COL_KEUANGAN = { ID: 0, WILAYAH_ID: 1, NO_VOUCHER: 2, TIPE: 3, KANTONG_SYARIAH: 4, KATEGORI: 5, NOMINAL: 6, TANGGAL: 7, KETERANGAN: 8, BUKTI_URL: 9, STATUS_APPROVAL: 10, VERIFIED_BENDAHARA_BY: 11, APPROVED_KETUA_BY: 12, NO_KWITANSI: 13, CREATED_AT: 14 };
+var COL_ACCOUNTS = { ID: 0, WILAYAH_ID: 1, NAMA_AKUN: 2, NO_REKENING: 3, ATAS_NAMA: 4, TIPE_AKUN: 5, IS_ACTIVE: 6 };
+var COL_KAS_SIMULATOR = { ID: 0, WILAYAH_ID: 1, NAMA_SIMULASI: 2, SCENARIO_JSON: 3, CREATED_BY: 4, CREATED_AT: 5 };
+var COL_CAUSES = { ID: 0, WILAYAH_ID: 1, JUDUL_PROGRAM: 2, DIVISI_KODE: 3, TARGET_NOMINAL: 4, TERKUMPUL_NOMINAL: 5, DESKRIPSI: 6, BANNER_URL: 7, STATUS: 8, EXPIRES_AT: 9 };
+
+var COL_DIVISI = { ID: 0, WILAYAH_ID: 1, DIVISI_KODE: 2, NAMA_PROGRAM: 3, LATAR_BELAKANG: 4, TARGET_SASARAN: 5, RAB_NOMINAL: 6, TGL_PELAKSANAAN: 7, STATUS: 8, CATATAN_KETUA: 9, LPJ_DRIVE_URL: 10, REALISASI_DANA: 11, CREATED_BY: 12, UPDATED_AT: 13, KANTONG_SYARIAH: 14 };
+var COL_PENDAFTAR = { ID: 0, WILAYAH_ID: 1, NIK: 2, NAMA: 3, TEMPAT_LAHIR: 4, TGL_LAHIR: 5, GENDER: 6, ALAMAT: 7, NO_WA: 8, EMAIL: 9, DIVISI_MINAT: 10, KTP_WATERMARK_URL: 11, PASFOTO_URL: 12, STATUS: 13, VERIFIED_SEKRETARIS_AT: 14, APPROVED_KETUA_AT: 15, NIA_ASSIGNED: 16 };
+var COL_KTA_NASIONAL = { NIA: 0, WILAYAH_ID: 1, PENDAFTAR_ID: 2, NAMA_LENGKAP: 3, TINGKAT_LISENSI: 4, TGL_TERBIT: 5, TGL_KEDALUWARSA: 6, KODE_ETIK_VERSI: 7, KTA_DRIVE_URL: 8, QR_VERIFY_URL: 9, IS_ACTIVE: 10 };
+var COL_ATTENDANCE = { ID: 0, WILAYAH_ID: 1, EVENT_NAMA: 2, TANGGAL: 3, NIA: 4, NAMA_ANGGOTA: 5, SCAN_TIMESTAMP: 6, VERIFIED_BY: 7 };
+
+var COL_EDITORIAL_HISTORY = { ID: 0, WILAYAH_ID: 1, KATEGORI: 2, JUDUL: 3, KONTEN: 4, AUTHOR: 5, UPDATED_AT: 6 };
+var COL_VISITORS = { ID: 0, WILAYAH_ID: 1, TIMESTAMP: 2, IP_HASH: 3, USER_AGENT: 4, PAGE_VIEWED: 5 };
+
+var COL_ADVOKASI = { ID: 0, WILAYAH_ID: 1, TIKET_NO: 2, NAMA_DAI: 3, KONTAK: 4, LOKASI: 5, KRONOLOGI: 6, URGENSI: 7, BUKTI_URL: 8, STATUS: 9, CATATAN_LBH: 10, UPDATED_AT: 11 };
+var COL_MUALLAF = { ID: 0, WILAYAH_ID: 1, REG_NO: 2, NAMA_ASLI: 3, NAMA_HIJRAH: 4, TGL_SYAHADAT: 5, PEMBIMBING: 6, SERTIFIKAT_URL: 7, STATUS_ZAKAT: 8, CREATED_AT: 9 };
+var COL_ASSETS = { ID: 0, WILAYAH_ID: 1, KODE_ASET: 2, NAMA_BARANG: 3, KATEGORI: 4, KONDISI: 5, LOKASI_SIMPAN: 6, QR_URL: 7, CREATED_AT: 8 };
+var COL_ASSET_LOANS = { ID: 0, WILAYAH_ID: 1, ASET_ID: 2, DIVISI_PEMINJAM: 3, PENANGGUNG_JAWAB: 4, TGL_PINJAM: 5, TGL_KEMBALI_RENCANA: 6, TGL_KEMBALI_AKTUAL: 7, STATUS: 8 };
+var COL_CONSULTATIONS = { ID: 0, TOKEN_HASH: 1, TIKET_NO: 2, TOPIK: 3, PERTANYAAN: 4, JAWABAN: 5, STATUS: 6, CREATED_AT: 7, ANSWERED_AT: 8 };
+var COL_KNOWLEDGE_BASE = { ID: 0, KATEGORI: 1, TOPIK: 2, DALIL_TEXT: 3, SUMBER_REFERENSI: 4, KATA_KUNCI: 5, CURATED_BY: 6, UPDATED_AT: 7 };
+var COL_MEETINGS = { ID: 0, WILAYAH_ID: 1, JUDUL_RAPAT: 2, TANGGAL: 3, NOTULEN_TEXT: 4, ACTION_ITEMS_JSON: 5, DOKUMENTASI_URL: 6, PARAF_PIMPINAN: 7, CREATED_BY: 8 };
+var COL_TABAYYUN = { ID: 0, WILAYAH_ID: 1, JUDUL: 2, KATEGORI_ISU: 3, KLARIFIKASI: 4, SUMBER_RUJUKAN: 5, STATUS: 6, AUTHOR: 7, CREATED_AT: 8, UPDATED_AT: 9 };
+
+// Definisi Skema Tabel Google Sheets
+var TABLES_SCHEMA = {
+  Sheet_Wilayah: ['id', 'nama', 'kode', 'slug', 'alamat', 'is_active'],
+  Sheet_Users: ['user_id', 'wilayah_id', 'username', 'fullname', 'email', 'phone', 'password_hash', 'role', 'permissions', 'is_active', 'created_at', 'divisi'],
+  Sheet_Sessions: ['token', 'user_id', 'username', 'role', 'wilayah_id', 'expires_at', 'divisi', 'fullname', 'device', 'ip_address', 'login_at'],
+  Sheet_Settings: ['key', 'value', 'wilayah_id', 'updated_by', 'updated_at'],
+  Sheet_Settings_Audit: ['id', 'key', 'old_value', 'new_value', 'changed_by', 'timestamp'],
+  Sheet_Sequences: ['tenant_id', 'counter_type', 'current_val', 'last_updated'],
+  Sheet_AuditLogs: ['id', 'timestamp', 'user_id', 'wilayah_id', 'action', 'entity', 'record_id', 'details_json', 'ip_address'],
+  Sheet_Surat: ['id', 'wilayah_id', 'nomor_surat', 'tipe', 'perihal', 'tujuan', 'tanggal', 'tanggal_hijriah', 'konten_json', 'status', 'signed_by', 'hash_sha256', 'pdf_drive_url', 'created_by', 'created_at', 'catatan_revisi'],
+  Sheet_Surat_Masuk: ['id', 'wilayah_id', 'no_agenda', 'asal_surat', 'no_surat_asli', 'tgl_surat', 'tgl_terima', 'perihal', 'ringkasan', 'pdf_file_url', 'status_disposisi', 'created_at'],
+  Sheet_Disposisi: ['id', 'wilayah_id', 'surat_masuk_id', 'draf_rekomendasi_sekretaris', 'instruksi_ketua', 'tujuan_divisi_pejabat', 'tingkat_urgensi', 'batas_waktu', 'catatan_tambahan', 'paraf_ketua', 'status', 'laporan_tindak_lanjut', 'updated_at', 'laporan_per_divisi'],
+  Sheet_Templates: ['id', 'wilayah_id', 'kode_template', 'judul', 'struktur_json', 'is_default'],
+  Sheet_Keuangan: ['id', 'wilayah_id', 'no_voucher', 'tipe', 'kantong_syariah', 'kategori', 'nominal', 'tanggal', 'keterangan', 'bukti_url', 'status_approval', 'verified_bendahara_by', 'approved_ketua_by', 'no_kwitansi', 'created_at'],
+  Sheet_Accounts: ['id', 'wilayah_id', 'nama_akun', 'no_rekening', 'atas_nama', 'tipe_akun', 'is_active'],
+  Sheet_Kas_Simulator: ['id', 'wilayah_id', 'nama_simulasi', 'scenario_json', 'created_by', 'created_at'],
+  Sheet_Causes: ['id', 'wilayah_id', 'judul_program', 'divisi_kode', 'target_nominal', 'terkumpul_nominal', 'deskripsi', 'banner_url', 'status', 'expires_at'],
+  Sheet_Divisi: ['id', 'wilayah_id', 'divisi_kode', 'nama_program', 'latar_belakang', 'target_sasaran', 'rab_nominal', 'tgl_pelaksanaan', 'status', 'catatan_ketua', 'lpj_drive_url', 'realisasi_dana', 'created_by', 'updated_at', 'kantong_syariah'],
+  Sheet_Pendaftar: ['id', 'wilayah_id', 'nik', 'nama', 'tempat_lahir', 'tgl_lahir', 'gender', 'alamat', 'no_wa', 'email', 'divisi_minat', 'ktp_watermark_url', 'pasfoto_url', 'status', 'verified_sekretaris_at', 'approved_ketua_at', 'nia_assigned'],
+  Sheet_KTA_Nasional: ['nia', 'wilayah_id', 'pendaftar_id', 'nama_lengkap', 'tingkat_lisensi', 'tgl_terbit', 'tgl_kedaluwarsa', 'kode_etik_versi', 'kta_drive_url', 'qr_verify_url', 'is_active'],
+  Sheet_Attendance: ['id', 'wilayah_id', 'event_nama', 'tanggal', 'nia', 'nama_anggota', 'scan_timestamp', 'verified_by'],
+  Sheet_EditorialHistory: ['id', 'wilayah_id', 'kategori', 'judul', 'konten', 'author', 'updated_at'],
+  Sheet_Visitors: ['id', 'wilayah_id', 'timestamp', 'ip_hash', 'user_agent', 'page_viewed'],
+  Sheet_Advokasi: ['id', 'wilayah_id', 'tiket_no', 'nama_dai', 'kontak', 'lokasi', 'kronologi', 'urgensi', 'bukti_url', 'status', 'catatan_lbh', 'updated_at'],
+  Sheet_Muallaf: ['id', 'wilayah_id', 'reg_no', 'nama_asli', 'nama_hijrah', 'tgl_syahadat', 'pembimbing', 'sertifikat_url', 'status_zakat', 'created_at'],
+  Sheet_Assets: ['id', 'wilayah_id', 'kode_aset', 'nama_barang', 'kategori', 'kondisi', 'lokasi_simpan', 'qr_url', 'created_at'],
+  Sheet_Asset_Loans: ['id', 'wilayah_id', 'aset_id', 'divisi_peminjam', 'penanggung_jawab', 'tgl_pinjam', 'tgl_kembali_rencana', 'tgl_kembali_aktual', 'status'],
+  Sheet_Consultations: ['id', 'token_hash', 'tiket_no', 'topik', 'pertanyaan', 'jawaban', 'status', 'created_at', 'answered_at'],
+  Sheet_Knowledge_Base: ['id', 'kategori', 'topik', 'dalil_text', 'sumber_referensi', 'kata_kunci', 'curated_by', 'updated_at'],
+  Sheet_Meetings: ['id', 'wilayah_id', 'judul_rapat', 'tanggal', 'notulen_text', 'action_items_json', 'dokumentasi_url', 'paraf_pimpinan', 'created_by'],
+  Sheet_Tabayyun: ['id', 'wilayah_id', 'judul', 'kategori_isu', 'klarifikasi', 'sumber_rujukan', 'status', 'author', 'created_at', 'updated_at']
 };
 
-// Definisi header tiap tab (dipakai initSchema & insert).
-var SCHEMA = {};
-// permissions: daftar aksi yang diizinkan untuk user ini (JSON array / '*' / '' = warisi peran).
-// Lihat PERMISSIONS & roleDefaultPermissions_ di Code.gs (RBAC per-aksi).
-// is_demo: 'TRUE' untuk akun demo read-only (lihat DEMO_ALLOWED_ACTIONS di Code.gs).
-SCHEMA[TABS.USERS] = ['id', 'username', 'password_hash', 'full_name', 'email', 'role',
-  'division', 'is_active', 'can_manage_users', 'is_demo', 'permissions', 'created_at', 'updated_at'];
-SCHEMA[TABS.SESSIONS] = ['token', 'user_id', 'username', 'role', 'division',
-  'created_at', 'expired_at'];  SCHEMA[TABS.SURAT] = ['id', 'letter_number', 'title', 'letter_type', 'content', 'status', 'tanggal_surat', 'created_by', 'created_by_name', 'created_at', 'submitted_at', 'published_at', 'approved_by', 'rejection_notes', 'sha256_hash', 'pdf_url', 'qr_verify_url', 'attachment_url', 'template_id', 'image_url', 'show_image_on_public'];
-SCHEMA[TABS.KEUANGAN] = ['id', 'voucher_number', 'type', 'account', 'amount', 'category',
-  'description', 'transaction_date', 'status', 'verified_by_bendahara',
-  'verified_by_bendahara_at', 'verified_by_ketum', 'verified_by_ketum_at',
-  'rejection_notes', 'created_by', 'created_at', 'receipt_url'];
-SCHEMA[TABS.DIVISI] = ['id', 'tracking_id', 'division', 'program_title', 'description',
-  'budget_estimate', 'target_audience', 'execution_date', 'status', 'submitted_by',
-  'submitted_by_name', 'submitted_at', 'reviewed_by', 'reviewed_at', 'approval_notes',
-  'created_at', 'started_at', 'lpj_url', 'lpj_notes', 'realisasi_anggaran', 'lpj_submitted_at'];
-SCHEMA[TABS.AUDIT] = ['id', 'timestamp', 'actor', 'action', 'module', 'detail', 'ip_client', 'status'];
-SCHEMA[TABS.SEQUENCES] = ['key', 'value'];
-SCHEMA[TABS.PENDAFTAR] = ['id', 'reg_number', 'full_name', 'nik', 'birth_place', 'birth_date',
-  'gender', 'job', 'phone', 'email', 'address', 'division_interest', 'ktp_drive_url',
-  'selfie_drive_url', 'status', 'verified_by_sekretaris', 'verified_by_sekretaris_at',
-  'approved_by_ketum', 'approved_by_ketum_at', 'rejection_notes', 'created_at'];  SCHEMA[TABS.ACCOUNTS] = ['id', 'code', 'name', 'bank_name', 'account_number', 'holder_name', 'category', 'is_active', 'show_on_public', 'qris_image_url', 'show_qris_on_public', 'created_at', 'updated_at'];
-SCHEMA[TABS.SETTINGS] = ['key', 'value', 'description', 'updated_by', 'updated_at'];
-// Arsip versi konten redaksi (tabel BARU, terpisah dari Sheet_Settings agar
-// payload getSettings tetap ringan). Satu baris = satu versi konten.
-SCHEMA[TABS.EDITORIAL_HISTORY] = ['id', 'saved_at', 'saved_by', 'action', 'label', 'content'];
-
-// Kunjungan pengunjung portal publik. visitor_id dibuat di sisi klien
-// (localStorage) lalu dikirim ulang setiap kunjungan -> baris di-update.
-SCHEMA[TABS.VISITORS] = ['id', 'visitor_id', 'ip', 'user_agent', 'device', 'os', 'browser',
-  'country', 'city', 'region', 'latitude', 'longitude', 'timezone', 'referrer',
-  'first_page', 'last_page', 'first_seen', 'last_seen', 'visit_count', 'is_unique'];
-
-// Master template surat: PDF asli (kop lembaga) disimpan di Drive subfolder
-// 'Template_Surat'; 'fields' = JSON array posisi overlay tiap placeholder.
-SCHEMA[TABS.TEMPLATES] = ['id', 'name', 'description', 'drive_file_id', 'pdf_url',
-  'fields', 'is_default', 'is_active', 'page_count', 'created_by', 'created_at', 'updated_at'];
-
 /**
- * Inisialisasi semua tab + header. Idempoten.
- * Dipanggil oleh setup(). Bisa juga dijalankan manual untuk membuat tab baru.
+ * Mendapatkan objek Spreadsheet aktif dengan proteksi
  */
-function initSchema() {
-  var ss = getSpreadsheet_();
-  for (var tab in SCHEMA) {
-    var sheet = ss.getSheetByName(tab);
-    if (!sheet) {
-      sheet = ss.insertSheet(tab);
-    }
-    // Tulis header hanya bila baris 1 kosong (jangan timpa data existing).
-    if (sheet.getLastRow() === 0) {
-      sheet.getRange(1, 1, 1, SCHEMA[tab].length).setValues([SCHEMA[tab]]);
-      sheet.setFrozenRows(1);
-      sheet.getRange(1, 1, 1, SCHEMA[tab].length)
-        .setFontWeight('bold')
-        .setBackground('#E6F4EC');
-    } else {
-      // Auto-migrate: tambahkan kolom baru jika belum ada di header baris 1
-      var lastCol = sheet.getLastColumn();
-      var currentHeaders = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
-      SCHEMA[tab].forEach(function(col) {
-        if (currentHeaders.indexOf(col) === -1) {
-          lastCol++;
-          sheet.getRange(1, lastCol).setValue(col).setFontWeight('bold').setBackground('#E6F4EC');
-        }
-      });
-    }
+function getDbSpreadsheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) {
+    throw new Error('Spreadsheet aktif tidak ditemukan. Pastikan skrip terikat pada Google Sheets APII.');
   }
-
-  // Sheet_Users: luruskan letak kolom + pulihkan data salah letak akibat
-  // migrasi header versi lama (lihat luruskanKolomPengguna_). Idempoten.
-  luruskanKolomPengguna_();
-
-  // Seed default master rekening jika kosong
-  seedDefaultAccounts_();
-
-  // Seed default pengaturan sistem jika kosong
-  seedDefaultSettings_();
-
-  return true;
+  return ss;
 }
 
 /**
- * luruskanKolomPengguna_: migrasi SEKALI untuk Sheet_Users produksi lama.
- *
- * Penyebab: komit 39eae63 menyisipkan kolom `is_demo` & `permissions` di
- * TENGAH SCHEMA USERS, padahal initSchema() menambahkan kolom baru di AKHIR
- * (bukan menyisip di tengah). insert()/updateRow() versi lalu memetakan nama
- * kolom lewat INDEKS SCHEMA, bukan header fisik. Di sheet produksi yang
- * header fisiknya (...created_at, updated_at, is_demo, permissions) nilai
- * tulisannya bergeser:
- *   - update baris lama: JSON `permissions` -> kolom fisik `updated_at`,
- *     stempel `updated_at` -> kolom fisik `permissions`;
- *   - insert baris baru: keempat kolom belakang saling bertukar tempat.
- * Saat dibaca kembali, `permissions` terlihat berisi stempel waktu sehingga
- * JSON.parse gagal dan izin per-aksi jatuh ke bawaan peran. Itulah sebabnya
- * menyimpan Izin Aksi di portal selalu kembali seperti semula setelah
- * halaman direfresh (bug 2026-10-10).
- *
- * Fungsi ini (a) menulis ulang sheet dengan urutan SCHEMA yang benar, dan
- * (b) memulihkan data salah letak berdasarkan tipe nilai (lihat
- * pulihkanBarisPengguna_). Idempoten: bila urutan sudah sama tidak ada
- * yang disentuh.
- * @return {boolean} true bila sheet diubah
+ * Mendapatkan Sheet berdasarkan nama tabel
  */
-function luruskanKolomPengguna_() {
-  var sheet = getSheetSafe_(TABS.USERS);
-  if (!sheet) return false;
-  var fisik = readSheetHeaders_(sheet);
-  var schema = SCHEMA[TABS.USERS];
-  var perlu = fisik.length !== schema.length ||
-    schema.some(function (h, i) { return fisik[i] !== h; });
-  if (!perlu) return false;
-
-  var lastRow = sheet.getLastRow();
-  var baris = [];
-  if (lastRow >= 2) {
-    var rows = sheet.getRange(2, 1, lastRow - 1, fisik.length).getValues();
-    baris = rows.map(function (r) {
-      var olehHeader = {};
-      fisik.forEach(function (h, i) { olehHeader[h] = r[i]; });
-      return schema.map(function (h) {
-        var v = pulihkanBarisPengguna_(olehHeader, h);
-        return (v === undefined || v === null) ? '' : v;
-      });
-    });
-  }
-  // Lebar dulu, baru blok: menulis satu-satu ke kolom baru di header pasti
-  // melebar (sel tunggal), sedangkan getRange multi-sel melebihi lebar sheet
-  // bisa ditolak. Setelah header komplet, lebar sheet = schema.length.
-  for (var ci = fisik.length; ci < schema.length; ci++) {
-    sheet.getRange(1, ci + 1).setValue(schema[ci]);
-  }
-
-  // Tulis ulang header + data dengan lebar & urutan SCHEMA.
-  var blok = [schema].concat(baris);
-  sheet.getRange(1, 1, blok.length, schema.length).setValues(blok);
-  sheet.getRange(1, 1, 1, schema.length)
-    .setFontWeight('bold').setBackground('#E6F4EC');
-  Logger.log('Sheet_Users diluruskan: ' + fisik.length + ' -> ' + schema.length +
-    ' kolom, ' + baris.length + ' baris diperbaiki.');
-  return true;
-}
-
-/**
- * Ambil nilai SCHEMA-kolom `kolom` untuk satu baris, dengan pemulihan data
- * yang salah letak akibat bug urutan header (lihat luruskanKolomPengguna_).
- *
- * Keempat kolom yang tertukar (is_demo, permissions, created_at, updated_at)
- * dibedakan berdasarkan TIPE nilainya — ini membedakan dua kerusakan berbeda:
- *   (a) baris lama yang di-UPDATE: physical updated_at ← JSON izin,
- *       physical permissions ← stempel waktu;
- *   (b) baris baru di-INSERT: physical created_at ← token boolean,
- *       physical updated_at ← JSON izin, physical is_demo ← created_at,
- *       physical permissions ← updated_at.
- * @param {object} olehHeader nilai baris dengan key = header fisik sheet
- * @param {string} kolom nama kolom SCHEMA
- * @return {*} nilai yang benar untuk kolom ini
- */
-function pulihkanBarisPengguna_(olehHeader, kolom) {
-  if (kolom !== 'is_demo' && kolom !== 'permissions' &&
-      kolom !== 'created_at' && kolom !== 'updated_at') {
-    return olehHeader[kolom]; // kolom 1-9 tidak pernah berpindah letak
-  }
-
-  var fisik = {};
-  ['is_demo', 'permissions', 'created_at', 'updated_at'].forEach(function (k) {
-    fisik[k] = String(olehHeader[k] === undefined || olehHeader[k] === null ? '' : olehHeader[k]).trim();
-  });
-
-  // Prioritas slot fisik yang diperiksa tiap kolom target: slot sendiri dulu,
-  // lalu slot tempat nilai ini berakhir jika baris tertukar letak.
-  var urut = {
-    is_demo: ['is_demo', 'created_at', 'updated_at', 'permissions'],
-    permissions: ['permissions', 'updated_at', 'created_at', 'is_demo'],
-    created_at: ['created_at', 'is_demo', 'permissions', 'updated_at'],
-    updated_at: ['updated_at', 'permissions', 'is_demo', 'created_at']
-  };
-  var cocok = {
-    is_demo: apaTokenBoolean_,
-    permissions: apaDaftarIzin_,
-    created_at: apaStempelWaktu_,
-    updated_at: apaStempelWaktu_
-  };
-
-  for (var i = 0; i < urut[kolom].length; i++) {
-    var nilai = fisik[urut[kolom][i]];
-    if (cocok[kolom](nilai)) {
-      // updated_at tak boleh diambil dari created_at kecuali tidak ada alternatif:
-      // diakhiri di sini karena loop berhenti saat ketemu.
-      return nilai;
-    }
-  }
-
-  // updated_at hilang semua: pakai created_at (bisa '') lalu stempel sekarang.
-  if (kolom === 'updated_at') {
-    return fisik.created_at || new Date().toISOString();
-  }
-  return '';
-}
-
-/** Apakah string ini token boolean (is_demo)? */
-function apaTokenBoolean_(s) {
-  return /^(TRUE|FALSE|true|false)$/.test(s);
-}
-
-/** Apakah string ini stempel waktu ISO 8601 (created_at / updated_at)? */
-function apaStempelWaktu_(s) {
-  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s);
-}
-
-/**
- * Apakah string ini daftar izin yang sah: '*', kosong BUKAN (korban
- * pemulihan), atau JSON array berisi string aksi?
- * @param {string} s
- * @return {boolean}
- */
-function apaDaftarIzin_(s) {
-  if (s === '*') return true;
-  if (s.charAt(0) !== '[') return false;
-  try {
-    var uji = JSON.parse(s);
-    return Array.isArray(uji) &&
-      uji.every(function (a) { return typeof a === 'string'; });
-  } catch (e) {
-    return false; // JSON rusak -> bukan daftar izin, mungkin stempel waktu salah letak
-  }
-}
-
-/** Seed rekening kas bawaan jika Sheet_Accounts kosong (dikosongkan agar pengurus menginput rekening riil via portal). */
-function seedDefaultAccounts_() {
-  // Tidak mengisi dummy rekening secara otomatis. Rekening dikelola penuh oleh pengurus via portal master rekening.
-}
-
-/** Seed pengaturan bawaan jika Sheet_Settings kosong. */
-function seedDefaultSettings_() {
-  try {
-    var settings = readAll(TABS.SETTINGS);
-    var now = new Date().toISOString();
-    var setIfMissing = function (key, val, desc) {
-      var exist = settings.some(function (s) { return s.key === key; });
-      if (!exist) {
-        insert(TABS.SETTINGS, {
-          key: key, value: typeof val === 'object' ? JSON.stringify(val) : String(val),
-          description: desc, updated_by: 'system', updated_at: now
-        });
-      }
-    };
-
-    setIfMissing('letter_numbering', {
-      pattern: '{urut}/{kode}/{org}/{bulanRomawi}/{tahun}',
-      org_code: 'DPW-APII',
-      digits: 3,
-      reset_cycle: 'yearly'
-    }, 'Format penomoran surat resmi');
-
-    setIfMissing('letter_types', [
-      { code: 'SK', label: 'Surat Keputusan', prefix: 'SK', active: true },
-      { code: 'UNDANGAN', label: 'Surat Undangan', prefix: 'UND', active: true },
-      { code: 'PENGANTAR', label: 'Surat Pengantar', prefix: 'PENG', active: true },
-      { code: 'KETERANGAN', label: 'Surat Keterangan', prefix: 'KET', active: true },
-      { code: 'TUGAS', label: 'Surat Tugas', prefix: 'TUG', active: true },
-      { code: 'REKOMENDASI', label: 'Surat Rekomendasi', prefix: 'REK', active: true },
-      { code: 'EDARAN', label: 'Surat Edaran', prefix: 'EDR', active: true },
-      { code: 'NOTULEN', label: 'Notulen Rapat', prefix: 'NOT', active: true },
-      { code: 'RAPAT', label: 'Hasil Rapat / Risalah Rapat', prefix: 'RAPAT', active: true },
-      { code: 'BA', label: 'Berita Acara', prefix: 'BA', active: true }
-    ], 'Daftar jenis naskah dan surat resmi');
-
-    setIfMissing('letter_kop', {
-      mode: 'text',
-      custom_kop_image: '',
-      custom_footer_image: '',
-      footer_mode: 'text',
-      footer_text: 'Yayasan Apologet Islam Indonesia (APII) • Dewan Pimpinan Wilayah Jabodetabek',
-      stempel_image: '',
-      ttd_ketua_image: '',
-      ttd_sekretaris_image: '',
-      stempel_scale: 95,
-      stempel_overlap: 30,
-      org_name: 'DEWAN PIMPINAN WILAYAH APOLOGET ISLAM INDONESIA (APII) JABODETABEK',
-      address: 'DKI Jakarta & Sekitarnya, Indonesia',
-      phone: '0812-8888-2026',
-      email: 'sekretariat@apii.sigitadi.id',
-      website: 'https://apii.sigitadi.id'
-    }, 'Pengaturan KOP surat, stempel, dan tanda tangan digital');
-
-    setIfMissing('finance_config', {
-      voucher_pattern: '{urut}/KEU-APII/JABO/{bulanRomawi}/{tahun}',
-      income_categories: ['Infaq & Sedekah', 'Zakat Maal', 'Wakaf Tunai', 'Donasi Dakwah Operasional', 'Usaha Mandiri', 'Lain-lain'],
-      expense_categories: ['Program Dakwah & Kajian', 'Bantuan Sosial & Santunan', 'Kesekretariatan & ATK', 'Advokasi Hukum & Keumatan', 'Media IT & Publikasi', 'Operasional & Utilitas Kantor', 'Lain-lain']
-    }, 'Pengaturan operasional dan kategori kas keuangan');
-
-    setIfMissing('public_config', {
-      show_verification: true,
-      show_finance: true,
-      show_programs: true,
-      show_accounts: true,
-      show_registration: true,
-      announcement_banner_active: true,
-      announcement_banner: 'Selamat datang di Portal Resmi Yayasan APII DPW Jabodetabek.'
-    }, 'Pengaturan visibilitas portal publik');
-
-    setIfMissing('drive_storage', {
-      custom_folder_id: '',
-      folder_name: 'APII Jabo - PDF Surat Resmi'
-    }, 'Pengaturan penyimpanan Google Drive');
-
-    setIfMissing('registration_config', {
-      status: 'BUKA',
-      is_open: true,
-      quota_limit: 0,
-      closed_title: 'Pendaftaran Anggota Sementara Ditutup',
-      closed_message: 'Pendaftaran gelombang saat ini telah ditutup atau sedang dalam proses seleksi berkas. Pantau pengumuman resmi berkala dari sekretariat yayasan.',
-      instructions: 'Silakan isi formulir pendaftaran anggota Yayasan APII DPW Jabodetabek dengan data yang valid sesuai identitas KTP resmi.',
-      require_ktp: true,
-      require_selfie: true,
-      max_file_size_mb: 3,
-      reg_prefix: 'REG',
-      reg_digits: 4,
-      // 7 divisi sesuai AD/ART Pasal 16 (harus sama dengan DIVISIONS di Code.gs).
-      open_divisions: Object.keys(DIVISIONS),
-      contact_wa: '081288882026',
-      wa_template: 'Halo Sekretariat APII DPW Jabodetabek, saya telah mendaftar anggota baru dengan No. Registrasi: {reg_number} a.n {full_name}. Mohon verifikasi berkas saya.',
-      notify_email: 'sekretariat@apii.sigitadi.id',
-      notify_pendaftar_email: true,
-      agreement_text: 'Saya menyatakan bahwa data yang saya berikan adalah benar dan sah. Saya bersedia menaati AD/ART, kode etik, dan peraturan Yayasan APII DPW Jabodetabek.'
-    }, 'Pengaturan pendaftaran anggota dan rekrutmen');
-
-    setIfMissing('editorial_content', defaultEditorialContent_(),
-      'Konten redaksi dinamis portal publik (hero, profil, maklumat, agenda, kontak, FAQ)');
-  } catch (e) {
-    Logger.log('Gagal seed settings: ' + e);
-  }
-}
-
-/** Buka spreadsheet database (ID dari KONFIG; bisa juga via Script Properties). */
-function getSpreadsheet_() {
-  var id = PropertiesService.getScriptProperties().getProperty('DB_SPREADSHEET_ID') ||
-           KONFIG.DB_SPREADSHEET_ID;
-  if (!id) throw new Error('DB_SPREADSHEET_ID belum diset (isi di 00-Konfig.gs).');
-  return SpreadsheetApp.openById(id);
-}
-
-/**
- * Ambil tab sheet secara aman. Jika tab belum ada di spreadsheet dan terdaftar di SCHEMA,
- * sheet akan dibuat secara otomatis beserta header lengkapnya.
- * @param {string} tab nama tab
- * @return {GoogleAppsScript.Spreadsheet.Sheet|null}
- */
-function getSheetSafe_(tab) {
-  var ss = getSpreadsheet_();
-  var sheet = ss.getSheetByName(tab);
-  if (!sheet && SCHEMA && SCHEMA[tab]) {
-    try {
-      sheet = ss.insertSheet(tab);
-      sheet.getRange(1, 1, 1, SCHEMA[tab].length).setValues([SCHEMA[tab]]);
-      sheet.setFrozenRows(1);
-      sheet.getRange(1, 1, 1, SCHEMA[tab].length)
-        .setFontWeight('bold')
-        .setBackground('#E6F4EC');
-    } catch (e) {
-      Logger.log('Gagal auto-create sheet ' + tab + ': ' + e);
-      sheet = ss.getSheetByName(tab);
-    }
+function getTableSheet_(tableName) {
+  var ss = getDbSpreadsheet_();
+  var sheet = ss.getSheetByName(tableName);
+  if (!sheet) {
+    throw new Error('Tabel "' + tableName + '" tidak ditemukan. Jalankan setup() terlebih dahulu.');
   }
   return sheet;
 }
 
 /**
- * Baca seluruh baris tab sebagai array objek (dengan field header).
- * @param {string} tab nama tab
- * @return {Array<object>} [{ field: value, _row: <nomor baris> }]
+ * Operasi Pencarian Data dengan Filter Obyek (Read)
+ * Mengembalikan array of array row values (raw data stabil tanpa pergeseran timezone)
  */
-function readAll(tab) {
-  var sheet = getSheetSafe_(tab);
-  if (!sheet) return [];
+function dbFind(tableName, filterObj, limit) {
+  var sheet = getTableSheet_(tableName);
   var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return []; // hanya header / kosong
-  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
-  var out = [];
-  for (var i = 0; i < rows.length; i++) {
-    var obj = { _row: i + 2 }; // baris 2 adalah data pertama
-    for (var c = 0; c < headers.length; c++) {
-      var key = headers[c];
-      if (!key) continue;
-      var val = rows[i][c];
-      if (val === null || val === undefined) {
-        val = '';
-      } else if (typeof val === 'boolean') {
-        val = val ? 'TRUE' : 'FALSE';
-      }
-      obj[key] = val;
-    }
-    out.push(obj);
-  }
-  return out;
-}
+  var lastCol = sheet.getLastColumn();
+  if (lastRow <= 1) return [];
 
-/**
- * Cari baris pertama yang cocok semua filter.
- * Menggunakan TextFinder jalur cepat jika filter berupa single-field lookup,
- * dengan fallback aman ke pemindaian array rows.
- * @param {string} tab
- * @param {object} filter { field: value } (string compare case-sensitive)
- * @return {object|null} objek baris atau null
- */
-function findOne(tab, filter) {
-  if (!filter || typeof filter !== 'object') return null;
+  // Gunakan getDisplayValues untuk stabilitas data tanggal dan format angka
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+  var schema = TABLES_SCHEMA[tableName] || [];
 
-  // Jalur Cepat (Fast Path): Jika filter tepat 1 key dan TextFinder didukung
-  var keys = Object.keys(filter);
-  if (keys.length === 1) {
-    var k = keys[0];
-    var val = filter[k];
-    if (val !== undefined && val !== null) {
-      try {
-        var sheet = getSheetSafe_(tab);
-        if (sheet && sheet.getLastRow() >= 2) {
-          var headers = readSheetHeaders_(sheet);
-          var colIdx = headers.indexOf(k);
-          if (colIdx !== -1) {
-            var lastRow = sheet.getLastRow();
-            var colRange = sheet.getRange(2, colIdx + 1, lastRow - 1, 1);
-            if (typeof colRange.createTextFinder === 'function') {
-              var match = colRange.createTextFinder(String(val)).matchEntireCell(true).findNext();
-              if (match) {
-                var rowNum = match.getRow();
-                var rowValues = sheet.getRange(rowNum, 1, 1, headers.length).getValues()[0];
-                var obj = { _row: rowNum };
-                for (var c = 0; c < headers.length; c++) {
-                  var hk = headers[c];
-                  if (!hk) continue;
-                  var v = rowValues[c];
-                  if (v === null || v === undefined) v = '';
-                  else if (typeof v === 'boolean') v = v ? 'TRUE' : 'FALSE';
-                  obj[hk] = v;
-                }
-                if (matchFilter_(obj, filter)) return obj;
-              }
-              // Catatan: Jika TextFinder tidak menemukan kecocokan (mis. delay indeks sel,
-              // perbedaan format angka/string, atau sel baru), JANGAN 'return null'.
-              // Biarkan eksekusi mengalir ke pemindaian standar readAll() sebagai fallback aman.
-            }
+  var results = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var match = true;
+
+    if (filterObj) {
+      for (var key in filterObj) {
+        var colIdx = schema.indexOf(key);
+        if (colIdx !== -1) {
+          if (String(row[colIdx]) !== String(filterObj[key])) {
+            match = false;
+            break;
           }
         }
-      } catch (eFast) {
-        // Fallback ke pemindaian standar
+      }
+    }
+
+    if (match) {
+      results.push(row);
+      if (limit && results.length >= limit) break;
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Pencarian Satu Baris Data (Find One)
+ */
+function dbFindOne(tableName, filterObj) {
+  var res = dbFind(tableName, filterObj, 1);
+  return res.length > 0 ? res[0] : null;
+}
+
+var __SCRIPT_LOCK_DEPTH = 0;
+
+/**
+ * Eksekusi Transaksi Atomik Re-Entrant Menggunakan ScriptLock
+ * Aman dipanggil bersarang (nested) tanpa menyebabkan deadlock pada eksekutor yang sama.
+ */
+function withScriptLock_(fn, timeoutMs) {
+  var isOuter = __SCRIPT_LOCK_DEPTH === 0;
+  var lock = isOuter ? LockService.getScriptLock() : null;
+  if (isOuter) {
+    lock.waitLock(timeoutMs || 10000);
+  }
+  __SCRIPT_LOCK_DEPTH++;
+  try {
+    return fn();
+  } finally {
+    __SCRIPT_LOCK_DEPTH--;
+    if (isOuter && lock) {
+      try {
+        lock.releaseLock();
+      } catch (e) {
+        Logger.log('withScriptLock_ release warning: ' + e.message);
       }
     }
   }
+}
 
-  var rows = readAll(tab);
-  for (var i = 0; i < rows.length; i++) {
-    if (matchFilter_(rows[i], filter)) return rows[i];
+/**
+ * Helper Kanonik Hash SHA-256 ke Hex String 64 Karakter Lowercase
+ */
+function sha256Hex_(input) {
+  var rawBytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(input === undefined || input === null ? '' : input), Utilities.Charset.UTF_8);
+  var hexStr = '';
+  for (var i = 0; i < rawBytes.length; i++) {
+    var byteVal = (rawBytes[i] < 0 ? rawBytes[i] + 256 : rawBytes[i]).toString(16);
+    hexStr += (byteVal.length === 1 ? '0' : '') + byteVal;
   }
-  return null;
+  return hexStr;
 }
 
-/** Cari semua baris yang cocok filter. */
-function findMany(tab, filter) {
-  return readAll(tab).filter(function (r) { return matchFilter_(r, filter); });
+/**
+ * Operasi Penyisipan Baris Baru (Insert) dengan Atomic Mutex Lock
+ */
+function dbInsert(tableName, rowArray) {
+  return withScriptLock_(function() {
+    try {
+      var sheet = getTableSheet_(tableName);
+      sheet.appendRow(rowArray);
+      SpreadsheetApp.flush(); // Penulisan mutlak sebelum melepaskan lock
+      return true;
+    } catch (err) {
+      Logger.log('dbInsert Error [' + tableName + ']: ' + err.message);
+      throw err;
+    }
+  }, 10000);
 }
 
-function matchFilter_(row, filter) {
-  for (var k in filter) {
-    var want = filter[k];
-    var have = row[k];
-    if (typeof want === 'boolean' || typeof have === 'boolean') {
-      var bWant = want === true || String(want).toUpperCase() === 'TRUE';
-      var bHave = have === true || String(have).toUpperCase() === 'TRUE';
-      if (bWant !== bHave) return false;
-    } else if (typeof want === 'string' || typeof have === 'string' || typeof want === 'number' || typeof have === 'number') {
-      if (String(have === null || have === undefined ? '' : have).trim() !== String(want === null || want === undefined ? '' : want).trim()) return false;
-    } else if (have !== want) {
+/**
+ * Operasi Pembaruan Baris (Update Row)
+ * Mendukung 4 argumen: (tableName, keyColIndex, keyValue, updatedColMap)
+ * maupun 3 argumen: (tableName, filterObj, updatedColMap)
+ */
+function dbUpdate(tableName, keyColOrFilter, keyValOrMap, maybeUpdatedMap) {
+  var isFilterMode = (typeof keyColOrFilter === 'object' && keyColOrFilter !== null);
+  var filterObj = isFilterMode ? keyColOrFilter : null;
+  var keyColIndex = isFilterMode ? -1 : keyColOrFilter;
+  var keyValue = isFilterMode ? null : keyValOrMap;
+  var updatedColMap = isFilterMode ? keyValOrMap : maybeUpdatedMap;
+
+  if (!updatedColMap || typeof updatedColMap !== 'object') {
+    return false;
+  }
+
+  return withScriptLock_(function() {
+    try {
+      var sheet = getTableSheet_(tableName);
+      var lastRow = sheet.getLastRow();
+      var lastCol = sheet.getLastColumn();
+      if (lastRow <= 1 || lastCol <= 0) return false;
+
+      var schema = TABLES_SCHEMA[tableName] || [];
+      if (!isFilterMode && typeof keyColIndex === 'string') {
+        var resolvedKeyIdx = (!isNaN(Number(keyColIndex)) && String(Number(keyColIndex)) === String(keyColIndex).trim())
+          ? Number(keyColIndex)
+          : schema.indexOf(keyColIndex);
+        keyColIndex = resolvedKeyIdx;
+      }
+
+      var range = sheet.getRange(2, 1, lastRow - 1, lastCol);
+      var values = range.getValues();
+      var updated = false;
+
+      for (var i = 0; i < values.length; i++) {
+        var isMatch = false;
+        if (isFilterMode) {
+          isMatch = true;
+          var hasFilterKey = false;
+          for (var fKey in filterObj) {
+            hasFilterKey = true;
+            var fColIdx = (!isNaN(Number(fKey)) && String(Number(fKey)) === String(fKey).trim())
+              ? Number(fKey)
+              : schema.indexOf(fKey);
+            if (fColIdx === -1 || fColIdx >= values[i].length || String(values[i][fColIdx]) !== String(filterObj[fKey])) {
+              isMatch = false;
+              break;
+            }
+          }
+          if (!hasFilterKey) isMatch = false;
+        } else {
+          isMatch = (keyColIndex >= 0 && keyColIndex < values[i].length && String(values[i][keyColIndex]) === String(keyValue));
+        }
+
+        if (isMatch) {
+          for (var colKey in updatedColMap) {
+            var trimmedKey = String(colKey).trim();
+            var isNumKey = trimmedKey !== '' && !isNaN(Number(colKey)) && String(Number(colKey)) === trimmedKey;
+            var targetColIdx = isNumKey ? Number(colKey) : schema.indexOf(colKey);
+            if (targetColIdx !== -1 && (targetColIdx < lastCol || targetColIdx < schema.length)) {
+              while (values[i].length <= targetColIdx) {
+                values[i].push('');
+              }
+              values[i][targetColIdx] = updatedColMap[colKey];
+            }
+          }
+          sheet.getRange(i + 2, 1, 1, values[i].length).setValues([values[i]]);
+          updated = true;
+          break;
+        }
+      }
+
+      if (updated) {
+        SpreadsheetApp.flush();
+      }
+      return updated;
+    } catch (err) {
+      Logger.log('dbUpdate Error [' + tableName + ']: ' + err.message);
+      throw err;
+    }
+  }, 10000);
+}
+
+/**
+ * Operasi Penghapusan Baris (Delete Row)
+ * Mendukung 3 argumen: (tableName, keyColIndex, keyValue)
+ * maupun 2 argumen: (tableName, filterObj)
+ */
+function dbDelete(tableName, keyColOrFilter, keyValue) {
+  var isFilterMode = (typeof keyColOrFilter === 'object' && keyColOrFilter !== null);
+  var filterObj = isFilterMode ? keyColOrFilter : null;
+  var keyColIndex = isFilterMode ? -1 : keyColOrFilter;
+
+  return withScriptLock_(function() {
+    try {
+      var sheet = getTableSheet_(tableName);
+      var lastRow = sheet.getLastRow();
+      var lastCol = sheet.getLastColumn();
+      if (lastRow <= 1 || lastCol <= 0) return false;
+
+      var schema = TABLES_SCHEMA[tableName] || [];
+      if (!isFilterMode && typeof keyColIndex === 'string') {
+        keyColIndex = (!isNaN(Number(keyColIndex)) && String(Number(keyColIndex)) === String(keyColIndex).trim())
+          ? Number(keyColIndex)
+          : schema.indexOf(keyColIndex);
+      }
+
+      var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+      var deletedCount = 0;
+
+      for (var i = values.length - 1; i >= 0; i--) {
+        var isMatch = false;
+        if (isFilterMode) {
+          isMatch = true;
+          var hasFilterKey = false;
+          for (var fKey in filterObj) {
+            hasFilterKey = true;
+            var fColIdx = (!isNaN(Number(fKey)) && String(Number(fKey)) === String(fKey).trim())
+              ? Number(fKey)
+              : schema.indexOf(fKey);
+            if (fColIdx === -1 || fColIdx >= values[i].length || String(values[i][fColIdx]) !== String(filterObj[fKey])) {
+              isMatch = false;
+              break;
+            }
+          }
+          if (!hasFilterKey) isMatch = false;
+        } else {
+          isMatch = (keyColIndex >= 0 && keyColIndex < values[i].length && String(values[i][keyColIndex]) === String(keyValue));
+        }
+
+        if (isMatch) {
+          sheet.deleteRow(i + 2);
+          deletedCount++;
+        }
+      }
+
+      if (deletedCount > 0) {
+        SpreadsheetApp.flush();
+        return true;
+      }
       return false;
+    } catch (err) {
+      Logger.log('dbDelete Error [' + tableName + ']: ' + err.message);
+      throw err;
     }
-  }
-  return true;
+  }, 10000);
 }
 
 /**
- * Baca header fisik baris 1 (sumber kebenaran LETAK kolom di sheet sungguhan).
- *
- * SCHEMA adalah daftar kolom yang *diharapkan*, tetapi sheet produksi bisa
- * berbeda urutan/jumlahnya: initSchema() menambahkan kolom baru di AKHIR
- * (bukan menyisip di tengah). Itu sebabnya pemetaan nama->posisi kolom wajib
- * membaca header fisik; memakai indeks SCHEMA menulis ke kolom yang salah
- * (lihat bug izin aksi yang tak bertahan, 2026-10-10).
- * @param {object} sheet
- * @return {Array<string>}
+ * Generator Nomor Urut Sekuensial Atomic (Counter Anti-Loncat & Anti-Ganda)
+ * Format counter_type: SURAT, BKM, BKK, AGENDA, NIA
  */
-function readSheetHeaders_(sheet) {
-  var lastCol = sheet.getLastColumn();
-  if (lastCol < 1) return [];
-  return sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) {
-    return String(h === null || h === undefined ? '' : h).trim();
-  });
-}
+function getNextSequence(tenantId, counterType) {
+  return withScriptLock_(function() {
+    try {
+      var sheet = getTableSheet_('Sheet_Sequences');
+      var lastRow = sheet.getLastRow();
+      var nowFormatted = Utilities.formatDate(new Date(), 'Asia/Jakarta', 'dd-MM-yyyy HH:mm:ss');
+      var currentNum = 1;
 
-/**
- * Pastikan setiap field yang akan ditulis punya kolom fisik. initSchema()
- * hanya menambahkan kolom SCHEMA yang belum ada, jadi kolom baru yang
- * dikenal SCHEMA tapi belum ada di sheet dibuatkan di sini juga (sekali
- * saja) agar insert/updateRow tidak pernah memutuskan field.
- * @param {object} sheet
- * @param {string} tab
- * @param {Array<string>} headers header fisik saat ini (berubah jika diperluas)
- * @param {object} values field yang akan ditulis
- * @return {Array<string>} header setelah kolom baru ditambahkan
- */
-function pastikanKolom_(sheet, tab, headers, values) {
-  for (var k in values) {
-    if (SCHEMA[tab].indexOf(k) !== -1 && headers.indexOf(k) === -1) {
-      headers.push(k);
-      sheet.getRange(1, headers.length).setValue(k)
-        .setFontWeight('bold').setBackground('#E6F4EC');
+      if (lastRow > 1) {
+        var data = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+        var foundRowIdx = -1;
+
+        for (var i = 0; i < data.length; i++) {
+          if (String(data[i][COL_SEQUENCES.TENANT_ID]) === String(tenantId) &&
+              String(data[i][COL_SEQUENCES.COUNTER_TYPE]) === String(counterType)) {
+            currentNum = Number(data[i][COL_SEQUENCES.CURRENT_VAL]) + 1;
+            foundRowIdx = i + 2;
+            break;
+          }
+        }
+
+        if (foundRowIdx !== -1) {
+          sheet.getRange(foundRowIdx, 3, 1, 2).setValues([[currentNum, nowFormatted]]);
+        } else {
+          sheet.appendRow([tenantId, counterType, currentNum, nowFormatted]);
+        }
+      } else {
+        sheet.appendRow([tenantId, counterType, currentNum, nowFormatted]);
+      }
+
+      SpreadsheetApp.flush();
+      return currentNum;
+    } catch (err) {
+      Logger.log('getNextSequence Error: ' + err.message);
+      throw err;
     }
-  }
-  return headers;
+  }, 10000);
 }
 
 /**
- * Tambahkan satu baris. Hanya field yang ada di SCHEMA[tab] yang ditulis
- * (field tidak dikenal diabaikan agar header tetap rapi).
- * @param {string} tab
- * @param {object} values { field: value }
- * @return {object} nilai yang ditulis + _row
+ * Pencatatan Log Audit Permanen WORM (Write-Once-Read-Many)
  */
-function insert(tab, values) {
-  var sheet = getSheetSafe_(tab);
-  if (!sheet) throw new Error('Tab tidak ditemukan: ' + tab);
-  // Pemetaan nama->posisi memakai header FISIK sheet, bukan indeks SCHEMA:
-  // urutan fisik bisa beda (lihat catatan readSheetHeaders_ di atas).
-  var headers = pastikanKolom_(sheet, tab, readSheetHeaders_(sheet), values);
-  var row = headers.map(function (h) {
-    var v = values[h];
-    return (v === undefined || v === null) ? '' : v;
-  });
-  sheet.appendRow(row);
-  try { SpreadsheetApp.flush(); } catch (_) {}
-  var obj = { _row: sheet.getLastRow() };
-  headers.forEach(function (h, i) { obj[h] = row[i]; });
-  return obj;
-}
-
-/**
- * Perbarui satu baris berdasarkan _row (dari hasil readAll/findOne/findMany).
- * Hanya field di SCHEMA[tab] yang diperbarui.
- * @param {string} tab
- * @param {number} rowNum nomor baris (obj._row)
- * @param {object} values { field: value } field yang ingin diubah
- */
-function updateRow(tab, rowNum, values) {
-  var sheet = getSheetSafe_(tab);
-  if (!sheet) throw new Error('Tab tidak ditemukan: ' + tab);
-  var headers = pastikanKolom_(sheet, tab, readSheetHeaders_(sheet), values);
-  var range = sheet.getRange(rowNum, 1, 1, headers.length);
-  var currentValues = range.getValues()[0];
-  // header fisik bisa lebih pendek dari jumlah kolom yang akan ditulis.
-  while (currentValues.length < headers.length) currentValues.push('');
-  var hasChange = false;
-  headers.forEach(function (h, idx) {
-    if (values[h] !== undefined && values[h] !== null) {
-      currentValues[idx] = values[h];
-      hasChange = true;
-    }
-  });
-  if (!hasChange) return false;
-  range.setValues([currentValues]);
-  try { SpreadsheetApp.flush(); } catch (_) {}
-  return true;
-}
-
-/**
- * Hapus satu baris (berdasarkan _row).
- * PERINGATAN: TABS.AUDIT bersifat WORM (Write Once, Read Many) permanen dan dilarang dihapus.
- */
-function deleteRow(tab, rowNum) {
-  if (tab === TABS.AUDIT) {
-    throw new Error('AKSES DITOLAK: Jejak audit sistem bersifat permanen dan tidak dapat dihapus.');
-  }
-  var sheet = getSheetSafe_(tab);
-  if (!sheet) return false;
-  sheet.deleteRow(rowNum);
-  try { SpreadsheetApp.flush(); } catch (_) {}
-  return true;
-}
-
-/**
- * Ambil & increment nomor urut berikutnya (aman konkuren via LockService).
- * @param {string} key mis. 'SURAT:SK:2026' atau 'KEU:2026'
- * @return {number} nilai counter setelah increment
- */
-function nextSequence(key) {
-  var lock = LockService.getScriptLock();
+function logAudit(userId, wilayahId, action, entity, recordId, detailsObj, ipAddress) {
   try {
-    lock.waitLock(10000); // tunggu maks 10 detik
+    var nowStr = Utilities.formatDate(new Date(), 'Asia/Jakarta', 'dd-MM-yyyy HH:mm:ss');
+    var detailsJson = detailsObj ? JSON.stringify(detailsObj) : '{}';
+    var logId = 'LOG-' + Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 1000);
+
+    dbInsert('Sheet_AuditLogs', [
+      logId,
+      nowStr,
+      userId || 'ANONYMOUS',
+      wilayahId || 'DPP_PUSAT',
+      action,
+      entity,
+      recordId || '',
+      detailsJson,
+      ipAddress || ''
+    ]);
   } catch (e) {
-    throw new Error('Sistem sibuk, coba beberapa saat lagi.');
-  }
-  try {
-    var row = findOne(TABS.SEQUENCES, { key: key });
-    var next = 1;
-    if (row) {
-      next = (parseInt(row.value, 10) || 0) + 1;
-      updateRow(TABS.SEQUENCES, row._row, { value: next });
-    } else {
-      insert(TABS.SEQUENCES, { key: key, value: 1 });
-    }
-    return next;
-  } finally {
-    lock.releaseLock();
+    Logger.log('Gagal mencatat audit log: ' + e.message);
   }
 }
 
+
+/**
+ * Helper Parsing Tanggal Mendukung format dd-MM-yyyy maupun yyyy-MM-dd
+ */
+function parseDateString_(str) {
+  if (!str) return new Date();
+  if (str instanceof Date) return str;
+  var s = String(str).trim();
+  var m = s.match(/^(\d{2})-(\d{2})-(\d{4})(.*)$/);
+  if (m) {
+    return new Date(m[3] + '-' + m[2] + '-' + m[1] + (m[4] ? m[4].replace(' ', 'T') : 'T00:00:00') + '+07:00');
+  }
+  if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(s)) {
+    return new Date(s);
+  }
+  return new Date((s.indexOf(' ') !== -1 ? s.replace(' ', 'T') : (s.indexOf('T') !== -1 ? s : s + 'T00:00:00')) + '+07:00');
+}
