@@ -892,44 +892,48 @@ const App = (() => {
     let headerKopHtml = '';
     if (logoLayout === 'center') {
       headerKopHtml = `
-        <div class="flex flex-col items-center text-center pb-2">
-          <img src="${logoUrl}" alt="Logo APII" style="width: ${logoSize}px; height: ${logoSize}px;" class="object-contain mb-2"/>
-          <h3 id="a4-kop-title" class="font-extrabold text-base tracking-wide uppercase leading-tight">${kopBaris2}</h3>
-          <h2 class="font-extrabold text-xl tracking-tight text-emerald-950 uppercase leading-tight">${kopBaris1}</h2>
-          <p class="text-[10px] font-bold mt-0.5">${kopBaris3}</p>
-          <p id="a4-kop-address" class="text-[9px] text-gray-700 leading-tight mt-1">${kopAlamat}</p>
-          <p id="a4-kop-contact" class="text-[9px] text-gray-700 leading-tight">Telp/WA: ${kopTelepon} | Email: ${kopEmail}${kopWebsite}</p>
-        </div>
-      `;
-    } else if (logoLayout === 'dual') {
-      headerKopHtml = `
-        <div class="flex items-center gap-4 pb-2">
-          <div class="bg-white p-1 rounded-lg shrink-0">
-            <img src="${logoUrl}" alt="Logo Kiri" style="width: ${logoSize}px; height: ${logoSize}px;" class="object-contain"/>
+        <div class="a4-kop-row flex flex-col items-center text-center pb-2">
+          <div class="a4-kop-logo mb-2 shrink-0">
+            <img src="${logoUrl}" alt="Logo APII" style="width: ${logoSize}px; height: ${logoSize}px;" class="object-contain"/>
           </div>
-          <div class="flex-1 text-center">
-            <h3 id="a4-kop-title" class="font-extrabold text-base tracking-wide uppercase leading-tight">${kopBaris2}</h3>
-            <h2 class="font-extrabold text-xl tracking-tight text-emerald-950 uppercase leading-tight">${kopBaris1}</h2>
+          <div class="a4-kop-text w-full">
+            <h3 id="a4-kop-title" class="a4-kop-title-dept font-extrabold text-base tracking-wide uppercase leading-tight">${kopBaris2}</h3>
+            <h2 class="a4-kop-title-org font-extrabold text-xl tracking-tight text-emerald-950 uppercase leading-tight">${kopBaris1}</h2>
             <p class="text-[10px] font-bold mt-0.5">${kopBaris3}</p>
             <p id="a4-kop-address" class="text-[9px] text-gray-700 leading-tight mt-1">${kopAlamat}</p>
             <p id="a4-kop-contact" class="text-[9px] text-gray-700 leading-tight">Telp/WA: ${kopTelepon} | Email: ${kopEmail}${kopWebsite}</p>
           </div>
-          <div class="bg-white p-1 rounded-lg shrink-0">
+        </div>
+      `;
+    } else if (logoLayout === 'dual') {
+      headerKopHtml = `
+        <div class="a4-kop-row a4-kop-dual flex items-center gap-4 pb-2">
+          <div class="a4-kop-logo a4-kop-logo-left bg-white p-1 rounded-lg shrink-0">
+            <img src="${logoUrl}" alt="Logo Kiri" style="width: ${logoSize}px; height: ${logoSize}px;" class="object-contain"/>
+          </div>
+          <div class="a4-kop-text flex-1 text-center">
+            <h3 id="a4-kop-title" class="a4-kop-title-dept font-extrabold text-base tracking-wide uppercase leading-tight">${kopBaris2}</h3>
+            <h2 class="a4-kop-title-org font-extrabold text-xl tracking-tight text-emerald-950 uppercase leading-tight">${kopBaris1}</h2>
+            <p class="text-[10px] font-bold mt-0.5">${kopBaris3}</p>
+            <p id="a4-kop-address" class="text-[9px] text-gray-700 leading-tight mt-1">${kopAlamat}</p>
+            <p id="a4-kop-contact" class="text-[9px] text-gray-700 leading-tight">Telp/WA: ${kopTelepon} | Email: ${kopEmail}${kopWebsite}</p>
+          </div>
+          <div class="a4-kop-logo a4-kop-logo-right bg-white p-1 rounded-lg shrink-0">
             <img src="${logoSecondaryUrl}" alt="Logo Kanan" style="width: ${logoSize}px; height: ${logoSize}px;" class="object-contain"/>
           </div>
         </div>
       `;
     } else if (logoLayout === 'right') {
       headerKopHtml = `
-        <div class="flex items-center gap-4 pb-2">
-          <div class="flex-1 text-center">
-            <h3 id="a4-kop-title" class="font-extrabold text-base tracking-wide uppercase leading-tight">${kopBaris2}</h3>
-            <h2 class="font-extrabold text-xl tracking-tight text-emerald-950 uppercase leading-tight">${kopBaris1}</h2>
+        <div class="a4-kop-row flex items-center gap-4 pb-2">
+          <div class="a4-kop-text flex-1 text-center">
+            <h3 id="a4-kop-title" class="a4-kop-title-dept font-extrabold text-base tracking-wide uppercase leading-tight">${kopBaris2}</h3>
+            <h2 class="a4-kop-title-org font-extrabold text-xl tracking-tight text-emerald-950 uppercase leading-tight">${kopBaris1}</h2>
             <p class="text-[10px] font-bold mt-0.5">${kopBaris3}</p>
             <p id="a4-kop-address" class="text-[9px] text-gray-700 leading-tight mt-1">${kopAlamat}</p>
             <p id="a4-kop-contact" class="text-[9px] text-gray-700 leading-tight">Telp/WA: ${kopTelepon} | Email: ${kopEmail}${kopWebsite}</p>
           </div>
-          <div class="bg-white p-1 rounded-lg shrink-0">
+          <div class="a4-kop-logo bg-white p-1 rounded-lg shrink-0">
             <img src="${logoUrl}" alt="Logo APII" style="width: ${logoSize}px; height: ${logoSize}px;" class="object-contain"/>
           </div>
         </div>
@@ -937,13 +941,13 @@ const App = (() => {
     } else {
       // Default 'left'
       headerKopHtml = `
-        <div class="flex items-center gap-4 pb-2">
-          <div class="bg-white p-1 rounded-lg shrink-0">
+        <div class="a4-kop-row flex items-center gap-4 pb-2">
+          <div class="a4-kop-logo bg-white p-1 rounded-lg shrink-0">
             <img src="${logoUrl}" alt="Logo APII" style="width: ${logoSize}px; height: ${logoSize}px;" class="object-contain"/>
           </div>
-          <div class="flex-1 text-center">
-            <h3 id="a4-kop-title" class="font-extrabold text-base tracking-wide uppercase leading-tight">${kopBaris2}</h3>
-            <h2 class="font-extrabold text-xl tracking-tight text-emerald-950 uppercase leading-tight">${kopBaris1}</h2>
+          <div class="a4-kop-text flex-1 text-center">
+            <h3 id="a4-kop-title" class="a4-kop-title-dept font-extrabold text-base tracking-wide uppercase leading-tight">${kopBaris2}</h3>
+            <h2 class="a4-kop-title-org font-extrabold text-xl tracking-tight text-emerald-950 uppercase leading-tight">${kopBaris1}</h2>
             <p class="text-[10px] font-bold mt-0.5">${kopBaris3}</p>
             <p id="a4-kop-address" class="text-[9px] text-gray-700 leading-tight mt-1">${kopAlamat}</p>
             <p id="a4-kop-contact" class="text-[9px] text-gray-700 leading-tight">Telp/WA: ${kopTelepon} | Email: ${kopEmail}${kopWebsite}</p>
@@ -971,7 +975,7 @@ const App = (() => {
 
     // Basmalah
     const bismillahHtml = (cfg.showBismillah !== false) ? `
-      <div class="text-center font-arabic text-xl my-4 text-emerald-950 select-none">
+      <div class="a4-bismillah text-center font-arabic text-xl my-4 text-emerald-950 select-none">
         بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
       </div>
     ` : '';
@@ -998,7 +1002,7 @@ const App = (() => {
     let ttdKetuaVisual = '';
     if (cfg.ketuaTtdMode === 'upload' && cfg.ketuaTtdUrl) {
       const h = Number(cfg.ketuaTtdSize) || 64;
-      ttdKetuaVisual = `<img src="${cfg.ketuaTtdUrl}" alt="TTD Ketua" style="height: ${h}px; max-width: 170px;" class="object-contain mx-auto mix-blend-multiply select-none" />`;
+      ttdKetuaVisual = `<img src="${cfg.ketuaTtdUrl}" alt="TTD Ketua" style="height: ${h}px; max-width: 170px;" class="a4-ttd-img object-contain mx-auto mix-blend-multiply select-none" />`;
     } else if (cfg.spesimenTtdType === 'qr_tte') {
       ttdKetuaVisual = `
         <div class="flex flex-col items-center">
@@ -1019,7 +1023,7 @@ const App = (() => {
     let ttdSekVisual = '';
     if (cfg.sekretarisTtdMode === 'upload' && cfg.sekretarisTtdUrl) {
       const h = Number(cfg.sekretarisTtdSize) || 64;
-      ttdSekVisual = `<img src="${cfg.sekretarisTtdUrl}" alt="TTD Sekretaris" style="height: ${h}px; max-width: 170px;" class="object-contain mx-auto mix-blend-multiply select-none" />`;
+      ttdSekVisual = `<img src="${cfg.sekretarisTtdUrl}" alt="TTD Sekretaris" style="height: ${h}px; max-width: 170px;" class="a4-ttd-img object-contain mx-auto mix-blend-multiply select-none" />`;
     } else if (cfg.spesimenTtdType === 'qr_tte') {
       ttdSekVisual = `
         <div class="flex flex-col items-center">
@@ -1060,16 +1064,16 @@ const App = (() => {
 
       if (cfg.stempelMode === 'upload' && cfg.stempelUrl) {
         stempelHtml = `
-          <div class="absolute pointer-events-none mix-blend-multiply flex items-center justify-center select-none" style="width: ${size}px; height: ${size}px; opacity: ${opacity}; ${posStyle}">
+          <div class="a4-stempel-wrap absolute pointer-events-none mix-blend-multiply flex items-center justify-center select-none" style="--stamp-rot: ${rotasi}deg; width: ${size}px; height: ${size}px; opacity: ${opacity}; ${posStyle}">
             <img src="${cfg.stempelUrl}" alt="Stempel Basah Ormas" class="w-full h-full object-contain pointer-events-none" />
           </div>
         `;
       } else {
         stempelHtml = `
-          <div class="absolute pointer-events-none mix-blend-multiply flex items-center justify-center select-none" style="width: ${size}px; height: ${size}px; opacity: ${opacity}; ${posStyle}">
-            <div class="w-full h-full rounded-full border-4 border-dashed flex flex-col items-center justify-center p-2 text-center font-extrabold text-[9px] leading-tight" style="border-color: ${stempelColor}; color: ${stempelColor};">
+          <div class="a4-stempel-wrap absolute pointer-events-none mix-blend-multiply flex items-center justify-center select-none" style="--stamp-rot: ${rotasi}deg; width: ${size}px; height: ${size}px; opacity: ${opacity}; ${posStyle}">
+            <div class="a4-stempel-circle w-full h-full rounded-full border-4 border-dashed flex flex-col items-center justify-center p-2 text-center font-extrabold text-[9px] leading-tight" style="border-color: ${stempelColor}; color: ${stempelColor};">
               <span class="text-[8px] tracking-wider uppercase">${teksLuar}</span>
-              <div class="w-16 h-[1px] my-1" style="background-color: ${stempelColor};"></div>
+              <div class="a4-stempel-line w-16 h-[1px] my-1" style="background-color: ${stempelColor};"></div>
               <span class="text-[9px] font-black uppercase">${teksDalam}</span>
               <span class="text-[7px] mt-0.5 font-bold tracking-widest">★ DISAHKAN ★</span>
             </div>
@@ -1081,20 +1085,20 @@ const App = (() => {
     let signatureSectionHtml = '';
     if (isDual) {
       signatureSectionHtml = `
-        <div class="grid grid-cols-2 gap-4 text-xs mt-10 relative">
-          <div class="text-center">
+        <div class="a4-sign-grid grid grid-cols-2 gap-4 text-xs mt-10 relative">
+          <div class="a4-sign-card text-center">
             <p>${sekJabatan},</p>
-            <div class="h-20 flex items-center justify-center">
+            <div class="a4-sign-box h-20 flex items-center justify-center">
               ${ttdSekVisual}
             </div>
             <p class="font-bold underline">${sekNama}</p>
             <p class="text-[10px] text-gray-600">NIA: ${sekNia}</p>
           </div>
 
-          <div class="text-center relative">
+          <div class="a4-sign-card text-center relative">
             <p>${ketuaJabatan},</p>
             ${stempelHtml}
-            <div class="h-20 flex items-center justify-center">
+            <div class="a4-sign-box h-20 flex items-center justify-center">
               ${ttdKetuaVisual}
             </div>
             <p class="font-bold underline">${ketuaNama}</p>
@@ -1105,11 +1109,11 @@ const App = (() => {
     } else {
       // Single Signature
       signatureSectionHtml = `
-        <div class="flex justify-end text-xs mt-10 relative">
-          <div class="w-64 text-center relative">
+        <div class="a4-sign-single flex justify-end text-xs mt-10 relative">
+          <div class="a4-sign-card w-64 text-center relative">
             <p>${ketuaJabatan},</p>
             ${stempelHtml}
-            <div class="h-20 flex items-center justify-center">
+            <div class="a4-sign-box h-20 flex items-center justify-center">
               ${ttdKetuaVisual}
             </div>
             <p class="font-bold underline">${ketuaNama}</p>
@@ -1120,7 +1124,7 @@ const App = (() => {
     }
 
     return `
-      <div class="${fontClass} text-black relative" style="${fontSizeStyle} ${lineSpacingStyle}">
+      <div class="a4-doc-root ${fontClass} text-black relative" style="${fontSizeStyle} ${lineSpacingStyle}">
         ${watermarkHtml}
         <div class="relative z-10">
         ${headerKopHtml}
@@ -1133,7 +1137,7 @@ const App = (() => {
         </div>
 
         <!-- Nomor & Perihal Block -->
-        <table class="w-full text-xs mb-4">
+        <table class="a4-meta-table w-full text-xs mb-4">
           <tr>
             <td class="w-20 font-bold">Nomor</td>
             <td class="w-4">:</td>
@@ -1170,7 +1174,7 @@ const App = (() => {
         ${signatureSectionHtml}
 
         <!-- Security Hash Footer -->
-        <div class="mt-10 pt-3 border-t border-gray-300 flex items-center justify-between text-[9px] text-gray-500">
+        <div class="a4-footer-hash mt-10 pt-3 border-t border-gray-300 flex items-center justify-between text-[9px] text-gray-500">
           <span>Keaslian naskah dapat dicek di: <strong>siap.apologetislamindonesia.or.id/verifikasi</strong></span>
           <span id="a4-preview-hash" class="font-mono">${hash}</span>
         </div>
@@ -1493,33 +1497,36 @@ const App = (() => {
       let actionsHtml = '';
       if ((s.status === 'REJECTED' || s.status === 'DRAFT_REVISI') && canCompose) {
         actionsHtml = `
-          <button type="button" onclick="App.revisiSurat('${s.id}')" class="px-2.5 py-1.5 rounded bg-amber-700 text-white text-xs font-semibold hover:bg-amber-800">
+          <button type="button" onclick="App.revisiSurat('${s.id}')" class="whitespace-nowrap px-2.5 py-1.5 rounded bg-amber-700 text-white text-xs font-semibold hover:bg-amber-800">
             Muat ke Composer
           </button>
         `;
       } else if ((s.status === 'AJUKAN' || s.status === 'PENDING_KETUA') && Auth.hasPermission('surat:approve')) {
         actionsHtml = `
-          <div class="flex items-center justify-end gap-1.5">
-            <button type="button" onclick="App.approveSurat('${s.id}')" class="px-2.5 py-1.5 rounded bg-[#064E3B] text-white text-xs font-bold hover:bg-[#003527]">
+          <div class="flex flex-wrap items-center justify-end gap-1.5">
+            <button type="button" onclick="App.previewSuratA4('${s.id}')" class="whitespace-nowrap px-2.5 py-1.5 rounded bg-slate-200 hover:bg-slate-300 text-xs font-semibold text-slate-900">
+              Lihat A4
+            </button>
+            <button type="button" onclick="App.approveSurat('${s.id}')" class="whitespace-nowrap px-2.5 py-1.5 rounded bg-[#064E3B] text-white text-xs font-bold hover:bg-[#003527]">
               Sahkan (TTD)
             </button>
-            <button type="button" onclick="App.rejectSurat('${s.id}')" class="px-2.5 py-1.5 rounded bg-red-700 text-white text-xs font-semibold hover:bg-red-800">
+            <button type="button" onclick="App.rejectSurat('${s.id}')" class="whitespace-nowrap px-2.5 py-1.5 rounded bg-red-700 text-white text-xs font-semibold hover:bg-red-800">
               Tolak / Revisi
             </button>
           </div>
         `;
       } else if ((s.status === 'AJUKAN' || s.status === 'PENDING_KETUA') && user.role === 'sekretaris') {
         actionsHtml = `
-          <div class="flex items-center justify-end gap-1">
-            <span class="px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-semibold">Menunggu TTD Ketua</span>
-            <button type="button" onclick="App.previewSuratA4('${s.id}')" class="px-2 py-1 rounded bg-slate-200 hover:bg-slate-300 text-xs font-semibold text-slate-900">
+          <div class="flex flex-wrap items-center justify-end gap-1">
+            <span class="whitespace-nowrap px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-semibold">Menunggu TTD Ketua</span>
+            <button type="button" onclick="App.previewSuratA4('${s.id}')" class="whitespace-nowrap px-2 py-1 rounded bg-slate-200 hover:bg-slate-300 text-xs font-semibold text-slate-900">
               Lihat
             </button>
           </div>
         `;
       } else {
         actionsHtml = `
-          <button type="button" onclick="App.previewSuratA4('${s.id}')" class="px-2.5 py-1.5 rounded bg-slate-200 hover:bg-slate-300 text-xs font-semibold text-slate-900">
+          <button type="button" onclick="App.previewSuratA4('${s.id}')" class="whitespace-nowrap px-2.5 py-1.5 rounded bg-slate-200 hover:bg-slate-300 text-xs font-semibold text-slate-900">
             Lihat Naskah A4
           </button>
         `;
@@ -1531,20 +1538,51 @@ const App = (() => {
 
       rowsHtml += `
         <tr class="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-          <td class="tabular-nums px-4 py-3 font-mono font-bold text-xs text-slate-900">${s.nomorSurat}</td>
-          <td class="px-4 py-3 font-medium text-xs text-slate-900 max-w-xs">
+          <td class="whitespace-nowrap tabular-nums px-4 py-3 font-mono font-bold text-xs text-slate-900">${s.nomorSurat}</td>
+          <td class="px-4 py-3 font-medium text-xs text-slate-900 min-w-[180px] max-w-xs">
             <div class="truncate">${s.perihal}</div>
             ${revisiNoteHtml}
           </td>
-          <td class="px-4 py-3 text-xs text-slate-600">${s.tujuan}</td>
-          <td class="tabular-nums px-4 py-3 text-xs text-slate-600">${formatTanggalDisplay(s.tanggalMasehi)}</td>
-          <td class="px-4 py-3 text-center">${statusBadge}</td>
+          <td class="px-4 py-3 text-xs text-slate-600 min-w-[140px]">${s.tujuan}</td>
+          <td class="whitespace-nowrap tabular-nums px-4 py-3 text-xs text-slate-600">${formatTanggalDisplay(s.tanggalMasehi)}</td>
+          <td class="whitespace-nowrap px-4 py-3 text-center">${statusBadge}</td>
           <td class="px-4 py-3 text-right">${actionsHtml}</td>
         </tr>
       `;
     });
 
     tbody.innerHTML = rowsHtml || '<tr><td colspan="6" class="p-4 text-center text-xs text-slate-600">Belum ada naskah surat keluar pada wilayah ini.</td></tr>';
+
+    const printableSheet = document.getElementById('printable-a4-sheet');
+    if (printableSheet) {
+      if (!canCompose && visibleSurat.length > 0) {
+        const targetSurat = visibleSurat.find(s => s.status === 'AJUKAN' || s.status === 'PENDING_KETUA') || visibleSurat[0];
+        printableSheet.innerHTML = buildA4DocumentHtml(targetSurat, targetSurat.tenantId);
+      } else {
+        const selectKop = document.getElementById('composer-kop');
+        if (selectKop) {
+          selectKop.value = (user?.tenantId && user.tenantId !== 'DPP_PUSAT') ? 'DPW' : 'DPP';
+        }
+        const perihal = document.getElementById('composer-perihal')?.value || 'Surat Mandat Delegasi Dialog Teologi';
+        const tujuan = document.getElementById('composer-tujuan')?.value || 'Ust. Dani Ramadhan, M.Ag.';
+        const lampiran = document.getElementById('composer-lampiran')?.value || '1 Berkas TOR';
+        const isi = document.getElementById('composer-isi')?.value || 'Memberikan mandat penuh kepada nama tertera di atas untuk mewakili Dewan Pengurus Pusat Yayasan Apologet Islam Indonesia dalam forum Dialog Teologi dan Kristologi Komparatif Nasional 2026 di Jakarta Islamic Centre.';
+        const jenis = document.getElementById('composer-jenis')?.value || 'SM';
+        const targetTenant = (selectKop?.value === 'DPP') ? 'DPP_PUSAT' : (user?.tenantId || 'DPW_JABO');
+        const nomorGen = State.generateNextNomorSurat(jenis, targetTenant);
+        const composerNomorDisplay = document.getElementById('composer-nomor-display');
+        if (composerNomorDisplay) composerNomorDisplay.textContent = nomorGen;
+        printableSheet.innerHTML = buildA4DocumentHtml({
+          nomorSurat: nomorGen,
+          perihal,
+          tujuan,
+          lampiran,
+          isiSurat: isi,
+          tanggalHijriah: State.getHijriDate(),
+          hashSha256: State.computeSha256(nomorGen + perihal + isi)
+        }, targetTenant);
+      }
+    }
   }
 
   function approveSurat(suratId) {
@@ -6561,8 +6599,8 @@ const App = (() => {
               <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-primary/10 text-primary border border-primary/20">${activeScope}</span>
             </div>
 
-            <div class="overflow-x-auto bg-surface-container p-4 rounded-2xl flex justify-center shadow-inner">
-              <div id="settings-live-a4-preview" class="a4-sheet text-black text-xs relative shadow-lg bg-white p-6 w-full max-w-[560px]">
+            <div class="overflow-x-auto bg-surface-container p-2 sm:p-4 rounded-2xl block shadow-inner">
+              <div id="settings-live-a4-preview" class="a4-sheet mx-auto text-black text-xs relative shadow-lg bg-white p-6 w-full max-w-[560px]">
                 <!-- Populated dynamically by syncSettingsPreview() -->
               </div>
             </div>

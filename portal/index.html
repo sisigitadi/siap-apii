@@ -136,11 +136,135 @@
       position: relative;
       overflow: hidden;
     }
-    @media (max-width: 768px) {
+    @media screen and (max-width: 768px) {
       .a4-sheet {
         width: 100%;
         min-height: auto;
-        padding: 12mm 8mm;
+        padding: 18px 16px;
+        overflow: hidden;
+      }
+      .a4-sheet .a4-doc-root {
+        font-size: 12px !important;
+        line-height: 1.5 !important;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+      .a4-sheet .watermark-diagonal-line {
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        opacity: 0.55;
+      }
+    }
+    @media screen and (max-width: 639px) {
+      .a4-sheet {
+        padding: 16px 12px;
+      }
+      .a4-sheet .a4-kop-row {
+        flex-direction: column !important;
+        align-items: center !important;
+        text-align: center !important;
+        gap: 8px !important;
+      }
+      .a4-sheet .a4-kop-row.a4-kop-dual {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        justify-items: center;
+        align-items: center;
+        gap: 8px !important;
+      }
+      .a4-sheet .a4-kop-row.a4-kop-dual .a4-kop-logo-left {
+        grid-column: 1;
+        grid-row: 1;
+        justify-self: end;
+      }
+      .a4-sheet .a4-kop-row.a4-kop-dual .a4-kop-logo-right {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: start;
+      }
+      .a4-sheet .a4-kop-row.a4-kop-dual .a4-kop-text {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        width: 100%;
+      }
+      .a4-sheet .a4-kop-logo img {
+        width: 52px !important;
+        height: 52px !important;
+      }
+      .a4-sheet .a4-kop-title-dept {
+        font-size: 12px !important;
+        line-height: 1.25 !important;
+      }
+      .a4-sheet .a4-kop-title-org {
+        font-size: 14px !important;
+        line-height: 1.25 !important;
+      }
+      .a4-sheet .a4-bismillah {
+        font-size: 18px !important;
+        margin-top: 12px !important;
+        margin-bottom: 12px !important;
+      }
+      .a4-sheet .a4-meta-table td:first-child {
+        width: 64px !important;
+        white-space: nowrap;
+      }
+      .a4-sheet .a4-meta-table td:nth-child(2) {
+        width: 12px !important;
+      }
+      .a4-sheet .a4-meta-table td {
+        vertical-align: top;
+        padding-bottom: 2px;
+      }
+      .a4-sheet .a4-sign-grid {
+        grid-template-columns: 1fr !important;
+        gap: 20px !important;
+        margin-top: 24px !important;
+      }
+      .a4-sheet .a4-sign-single {
+        justify-content: center !important;
+        margin-top: 24px !important;
+      }
+      .a4-sheet .a4-sign-card {
+        width: 100% !important;
+        max-width: 260px;
+        margin: 0 auto;
+        padding: 4px 8px;
+      }
+      .a4-sheet .a4-sign-box {
+        height: 86px !important;
+      }
+      .a4-sheet .a4-ttd-img {
+        max-height: 64px !important;
+        width: auto !important;
+      }
+      .a4-sheet .a4-stempel-wrap {
+        width: 76px !important;
+        height: 76px !important;
+        left: 50% !important;
+        top: 26px !important;
+        margin-left: -86px !important;
+        transform: rotate(var(--stamp-rot, -12deg)) !important;
+        z-index: 5;
+      }
+      .a4-sheet .a4-stempel-circle {
+        padding: 4px !important;
+        border-width: 2px !important;
+        font-size: 6px !important;
+        line-height: 1.05 !important;
+      }
+      .a4-sheet .a4-stempel-circle span {
+        font-size: 6px !important;
+        letter-spacing: 0.02em !important;
+      }
+      .a4-sheet .a4-stempel-line {
+        width: 44px !important;
+        margin: 2px 0 !important;
+      }
+      .a4-sheet .a4-footer-hash {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 4px !important;
+        margin-top: 24px !important;
       }
     }
     /* Anti-Leak Watermark Styling */
@@ -611,7 +735,7 @@
           <p id="surat-workspace-subtitle" class="text-sm text-on-surface-variant">Format kertas A4, KOP resmi berstempel digital, penomoran urut otomatis, dan Auto-Hijri Kemenag RI.</p>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" id="btn-sk-generator" onclick="App.openSkGeneratorModal()" class="px-4 py-2 rounded-xl bg-amber-700 text-white font-bold text-xs hover:bg-amber-800 shadow flex items-center gap-1.5 transition-all">
+          <button type="button" id="btn-sk-generator" onclick="App.openSkGeneratorModal()" class="min-h-[44px] w-full sm:w-auto justify-center px-4 py-2.5 rounded-xl bg-amber-700 text-white font-bold text-xs hover:bg-amber-800 shadow flex items-center gap-1.5 transition-all">
             <span class="material-symbols-outlined text-[16px]">verified</span>
             <span>+ Buat SK Kepengurusan 1-Klik</span>
           </button>
@@ -626,7 +750,7 @@
       <!-- Two-Column Layout: Form Editor & Live A4 Sheet -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <!-- Editor Controls (5 cols - Khusus Sekretaris & Superadmin) -->
-        <div id="surat-composer-panel" class="lg:col-span-5 p-5 rounded-2xl bg-surface-container-lowest border border-surface-container shadow-sm flex flex-col gap-4">
+        <div id="surat-composer-panel" class="lg:col-span-5 p-4 sm:p-5 rounded-2xl bg-surface-container-lowest border border-surface-container shadow-sm flex flex-col gap-4">
           <div id="composer-role-notice" class="hidden p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs flex items-start gap-2 mb-1">
             <span class="material-symbols-outlined text-[18px] text-amber-700 shrink-0">info</span>
             <div id="composer-role-notice-text"></div>
@@ -637,12 +761,12 @@
           </h3>
 
           <!-- Auto-Generated Official Number Box (PRD Bab 2.3 & Panduan Eksekutif) -->
-          <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
-            <div>
+          <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-wrap items-center justify-between gap-2">
+            <div class="min-w-0">
               <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Nomor Surat Resmi (Otomatis)</p>
-              <p id="composer-nomor-display" class="font-mono font-bold text-sm text-emerald-950">Memuat nomor...</p>
+              <p id="composer-nomor-display" class="font-mono font-bold text-sm text-emerald-950 break-all sm:break-normal">Memuat nomor...</p>
             </div>
-            <span class="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-bold flex items-center gap-1">
+            <span class="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-bold flex items-center gap-1 shrink-0">
               <span class="material-symbols-outlined text-[12px]">lock</span>
               <span>Auto-Locked PRD</span>
             </span>
@@ -705,11 +829,11 @@
               <textarea id="composer-isi" rows="6" placeholder="Tuliskan isi surat resmi di sini..." class="w-full px-3 py-2 rounded-lg border border-surface-container-high text-sm"></textarea>
             </div>
 
-            <div class="flex items-center gap-2 pt-2">
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-2">
               <button type="button" id="btn-submit-surat" class="min-h-[44px] flex-1 py-2.5 rounded bg-[#064E3B] text-white font-bold text-sm hover:bg-[#003527] shadow-sm transition-colors">
                 Ajukan Surat Dinas
               </button>
-              <button type="button" onclick="App.printTarget('a4')" class="min-h-[44px] px-4 py-2.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-900 text-sm font-semibold transition-colors flex items-center gap-1.5">
+              <button type="button" onclick="App.printTarget('a4')" class="min-h-[44px] justify-center px-4 py-2.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-900 text-sm font-semibold transition-colors flex items-center gap-1.5">
                 <span class="material-symbols-outlined text-[18px]">print</span>
                 <span>Cetak A4</span>
               </button>
@@ -718,17 +842,18 @@
         </div>
 
         <!-- Live Virtual A4 Sheet (7 cols / 12 cols untuk Pengesahan Ketua) -->
-        <div id="surat-preview-panel" class="lg:col-span-7 overflow-x-auto bg-slate-200/80 p-4 rounded-lg flex justify-center">
+        <div id="surat-preview-panel" class="lg:col-span-7 overflow-x-auto bg-slate-200/80 p-2 sm:p-4 rounded-lg block">
           <div id="printable-a4-sheet" class="a4-sheet text-black text-sm relative">
             <div id="a4-internal-watermark" class="watermark-diagonal-overlay" data-approved="false" aria-hidden="true"></div>
+            <div class="a4-doc-root relative z-10">
             <!-- KOP Header with Official Logo -->
-            <div class="flex items-center gap-4 pb-3 border-b-2 border-black">
-              <div class="bg-white p-1 rounded-lg shrink-0">
+            <div class="a4-kop-row flex items-center gap-4 pb-3 border-b-2 border-black">
+              <div class="a4-kop-logo bg-white p-1 rounded-lg shrink-0">
                 <img src="./logo_apii.png" alt="Logo KOP" class="w-20 h-20 object-contain"/>
               </div>
-              <div class="flex-1 text-center">
-                <h3 id="a4-kop-title" class="font-extrabold text-base tracking-wide uppercase leading-tight">DEWAN PENGURUS PUSAT</h3>
-                <h2 class="font-extrabold text-xl tracking-tight text-emerald-950 uppercase leading-tight">YAYASAN APOLOGET ISLAM INDONESIA</h2>
+              <div class="a4-kop-text flex-1 text-center">
+                <h3 id="a4-kop-title" class="a4-kop-title-dept font-extrabold text-base tracking-wide uppercase leading-tight">DEWAN PENGURUS PUSAT</h3>
+                <h2 class="a4-kop-title-org font-extrabold text-xl tracking-tight text-emerald-950 uppercase leading-tight">YAYASAN APOLOGET ISLAM INDONESIA</h2>
                 <p class="text-[10px] font-bold mt-0.5">SK KEMENKUMHAM RI NO. AHU-0014970.AH.01.04.TAHUN 2023</p>
                 <p id="a4-kop-address" class="text-[9px] text-gray-700 leading-tight mt-1">Gedung Pusat Dakwah APII, Jl. Kramat Raya No. 45, Senen, Jakarta Pusat 10450</p>
                 <p id="a4-kop-contact" class="text-[9px] text-gray-700 leading-tight">Telp/WA: +62 813-5857-5678 | Email: sekretariat@apologetislamindonesia.or.id</p>
@@ -743,7 +868,7 @@
             </div>
 
             <!-- Nomor & Perihal Block -->
-            <table class="w-full text-xs mb-4">
+            <table class="a4-meta-table w-full text-xs mb-4">
               <tr>
                 <td class="w-20 font-bold">Nomor</td>
                 <td class="w-4">:</td>
@@ -769,7 +894,7 @@
             </div>
 
             <!-- Bismillah Arabic -->
-            <div class="text-center font-arabic text-xl my-4 text-emerald-950">
+            <div class="a4-bismillah text-center font-arabic text-xl my-4 text-emerald-950">
               بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
             </div>
 
@@ -780,27 +905,28 @@
             </div>
 
             <!-- Dual Signature Block -->
-            <div class="grid grid-cols-2 gap-4 text-xs mt-12 relative">
-              <div class="text-center">
+            <div class="a4-sign-grid grid grid-cols-2 gap-4 text-xs mt-12 relative">
+              <div class="a4-sign-card text-center">
                 <p>Sekretaris Umum,</p>
-                <div class="h-20 flex items-center justify-center">
+                <div class="a4-sign-box h-20 flex items-center justify-center">
                   <span class="text-[10px] text-emerald-800 font-bold italic">[Paraf Digital]</span>
                 </div>
                 <p class="font-bold underline">Ust. M. Ridwan, S.Pd.I.</p>
                 <p class="text-[10px] text-gray-600">NIA: APII-PUSAT-2026-00002</p>
               </div>
 
-              <div class="text-center relative">
+              <div class="a4-sign-card text-center relative">
                 <p>Ketua Umum,</p>
                 
                 <!-- Digital Stamp -->
-                <div class="absolute left-1/2 top-4 -translate-x-1/2 w-28 h-28 pointer-events-none mix-blend-multiply opacity-80 flex items-center justify-center">
-                  <div class="w-full h-full rounded-full border-4 border-dashed border-emerald-800 flex items-center justify-center p-2 text-center text-emerald-800 font-extrabold text-[10px] leading-tight rotate-[-12deg]">
-                    YAYASAN APOLOGET ISLAM INDONESIA<br/>★ DISAHKAN ★
+                <div class="a4-stempel-wrap absolute left-1/2 top-4 -translate-x-1/2 rotate-[-12deg] w-28 h-28 pointer-events-none mix-blend-multiply opacity-80 flex items-center justify-center" style="--stamp-rot: -12deg;">
+                  <div class="a4-stempel-circle w-full h-full rounded-full border-4 border-dashed border-emerald-800 flex flex-col items-center justify-center p-2 text-center text-emerald-800 font-extrabold text-[10px] leading-tight">
+                    <span>YAYASAN APOLOGET ISLAM INDONESIA</span>
+                    <span>★ DISAHKAN ★</span>
                   </div>
                 </div>
 
-                <div class="h-20 flex items-center justify-center">
+                <div class="a4-sign-box h-20 flex items-center justify-center">
                   <span class="text-[10px] text-emerald-800 font-bold italic">[Tanda Tangan Elektronik]</span>
                 </div>
                 <p class="font-bold underline">Ust. H. Ahmad Fauzi, Lc., M.A.</p>
@@ -809,16 +935,17 @@
             </div>
 
             <!-- Security Hash Footer -->
-            <div class="mt-12 pt-3 border-t border-gray-300 flex items-center justify-between text-[9px] text-gray-500">
+            <div class="a4-footer-hash mt-12 pt-3 border-t border-gray-300 flex items-center justify-between text-[9px] text-gray-500">
               <span>Keaslian naskah dapat dicek di: <strong>siap.apologetislamindonesia.or.id/verifikasi</strong></span>
               <span id="a4-preview-hash" class="font-mono">SHA256: e3b0c44298fc1c149a...</span>
+            </div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Outgoing Letters Roster Table -->
-      <div class="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container shadow-sm">
+      <div class="p-4 sm:p-5 rounded-2xl bg-surface-container-lowest border border-surface-container shadow-sm">
         <h3 class="font-display font-bold text-base text-primary mb-3">Daftar Arsip Naskah Keluar</h3>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-sm">
